@@ -4,6 +4,7 @@ using UnityEngine;
 public sealed class GridMap
 {
     private readonly GridBuilding[,] occupants;
+    private readonly List<GridBuilding> buildings = new List<GridBuilding>();
 
     public GridMap(int width, int height, Vector3 origin)
     {
@@ -16,6 +17,7 @@ public sealed class GridMap
     public int Width { get; }
     public int Height { get; }
     public Vector3 Origin { get; }
+    public IReadOnlyList<GridBuilding> Buildings => buildings;
 
     public bool Contains(Vector2Int cell)
     {
@@ -67,6 +69,7 @@ public sealed class GridMap
             occupants[cell.x, cell.y] = building;
         }
 
+        buildings.Add(building);
         return true;
     }
 
@@ -81,5 +84,7 @@ public sealed class GridMap
                 occupants[cell.x, cell.y] = null;
             }
         }
+
+        buildings.Remove(building);
     }
 }

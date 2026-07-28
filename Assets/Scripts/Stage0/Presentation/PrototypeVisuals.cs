@@ -132,7 +132,7 @@ using UnityEngine;
             }
         }
 
-        public static ItemInstance CreateItem(ItemData data)
+        public static GameObject CreateItemVisual(ItemData data)
         {
             GameObject visual = CreatePrimitive(
                 PrimitiveType.Sphere,
@@ -147,7 +147,7 @@ using UnityEngine;
                 Object.Destroy(collider);
             }
 
-            return new ItemInstance(data, visual);
+            return visual;
         }
 
         public static TextMesh CreateWorldLabel(

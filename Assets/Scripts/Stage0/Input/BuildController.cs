@@ -49,7 +49,7 @@ using UnityEngine;
                     building = buildingObject.AddComponent<Storage>();
                     break;
                 default:
-                    building = buildingObject.AddComponent<Belt>();
+                    building = buildingObject.AddComponent<BeltLogic>();
                     break;
             }
 
@@ -68,9 +68,9 @@ using UnityEngine;
             HandleSelection();
             UpdateHoveredCell();
 
-            if (UnityEngine.Input.GetKeyDown(KeyCode.R))
+            if (Input.GetKeyDown(KeyCode.R))
             {
-                quarterTurns = (quarterTurns + 1) % 4;
+                quarterTurns = (quarterTurns - 1) % 4;
             }
 
             UpdatePlacementPreview();
@@ -80,7 +80,7 @@ using UnityEngine;
                 return;
             }
 
-            if (UnityEngine.Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButtonDown(0))
             {
                 Debug.Log("[Stage 0] Clicked grid cell " + HoveredCell);
                 GridBuilding building = TryBuild(SelectedKind, HoveredCell, quarterTurns);
@@ -90,7 +90,7 @@ using UnityEngine;
                 }
             }
 
-            if (UnityEngine.Input.GetKeyDown(KeyCode.F))
+            if (Input.GetKeyDown(KeyCode.F))
             {
                 GridBuilding occupant = grid.GetOccupant(HoveredCell);
                 if (occupant != null)
@@ -104,10 +104,10 @@ using UnityEngine;
 
         private void HandleSelection()
         {
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Alpha1)) SelectedKind = BuildingKind.Belt;
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Alpha2)) SelectedKind = BuildingKind.Miner;
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Alpha3)) SelectedKind = BuildingKind.Furnace;
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Alpha4)) SelectedKind = BuildingKind.Storage;
+            if (Input.GetKeyDown(KeyCode.Alpha1)) SelectedKind = BuildingKind.Belt;
+            if (Input.GetKeyDown(KeyCode.Alpha2)) SelectedKind = BuildingKind.Miner;
+            if (Input.GetKeyDown(KeyCode.Alpha3)) SelectedKind = BuildingKind.Furnace;
+            if (Input.GetKeyDown(KeyCode.Alpha4)) SelectedKind = BuildingKind.Storage;
         }
 
         private void UpdateHoveredCell()
@@ -118,7 +118,7 @@ using UnityEngine;
                 return;
             }
 
-            Ray ray = inputCamera.ScreenPointToRay(UnityEngine.Input.mousePosition);
+            Ray ray = inputCamera.ScreenPointToRay(Input.mousePosition);
             Plane plane = new Plane(Vector3.up, grid.Origin);
             float distance;
             if (!plane.Raycast(ray, out distance))

@@ -9,6 +9,9 @@ using UnityEngine;
 
         private GridMap grid;
         private BuildController buildController;
+        private GameManager gameManager;
+        private BeltSimulation beltSimulation;
+        private BeltTransferVisualSystem beltTransferVisualSystem;
         private ItemData ore;
         private ItemData ingot;
         private RecipeData recipe;
@@ -24,6 +27,12 @@ using UnityEngine;
             CreateLighting();
 
             grid = new GridMap(GridWidth, GridHeight, Vector3.zero);
+            gameManager = gameObject.AddComponent<GameManager>();
+            beltSimulation = gameObject.AddComponent<BeltSimulation>();
+            beltSimulation.Initialize(gameManager, grid);
+            beltTransferVisualSystem = gameObject.AddComponent<BeltTransferVisualSystem>();
+            beltTransferVisualSystem.Initialize(beltSimulation);
+
             GameObject gridObject = new GameObject("Grid Debug View");
             gridObject.AddComponent<GridDebugView>().Build(grid);
 
@@ -42,7 +51,7 @@ using UnityEngine;
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(12f, 12f, 430f, 150f), "Factory With DOTS — Stage 0 GameObject Prototype");
+            GUI.Box(new Rect(12f, 12f, 465f, 172f), "Factory With DOTS — Stage 1 Fixed-Tick Prototype");
             GUI.Label(new Rect(28f, 42f, 400f, 22f), "WASD Move   |   Hold RMB + mouse: rotate view around Y");
             GUI.Label(new Rect(28f, 64f, 400f, 22f), "1 Belt   2 Miner   3 Furnace   4 Storage   |   R Rotate");
             GUI.Label(new Rect(28f, 86f, 400f, 22f), "Selected: " + buildController.SelectedKind +
@@ -56,6 +65,8 @@ using UnityEngine;
                     : "waiting (buffer " + demoFurnace.BufferedInputs + ")";
             GUI.Label(new Rect(28f, 108f, 400f, 22f), "Left click: build   |   F: remove building under mouse");
             GUI.Label(new Rect(28f, 130f, 400f, 22f), "Furnace: " + furnaceState + "   |   Stored: " + stored + " ingot(s)");
+            GUI.Label(new Rect(28f, 152f, 430f, 22f), "Logic: 60 Hz fixed Tick   |   Tick #" +
+                (gameManager == null ? 0 : gameManager.LogicTickCount));
         }
 
         private void CreatePrototypeData()

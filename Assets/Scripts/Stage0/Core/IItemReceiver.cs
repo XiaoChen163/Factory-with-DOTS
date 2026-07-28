@@ -2,5 +2,6 @@ using UnityEngine;
 
 public interface IItemReceiver
 {
-    bool TryAccept(ItemInstance item, Vector2Int sourceCell);
+    bool CanAccept(ItemState item, Vector2Int sourceCell);
+    void Accept(ItemState item, Vector2Int sourceCell);
 }

@@ -1,39 +1,59 @@
 using UnityEngine;
 
-    public sealed class Miner : PortBuilding
+public sealed class Miner : PortBuilding, IItemTransferSource
+{
+    private float productionTimer;
+    private ItemState pendingOutput;
+
+    public override BuildingKind Kind => BuildingKind.Miner;
+    public ItemData OutputItem { get; set; }
+    public float ProductionInterval { get; set; } = 1f;
+    public bool HasPendingOutput => pendingOutput != null;
+
+    protected override void OnInitialized()
     {
-        private float productionTimer;
+        PrototypeVisuals.CreateMachineVisual(transform, Footprint, new Color(0.24f, 0.62f, 0.95f), "M", false, true);
+    }
 
-        public override BuildingKind Kind => BuildingKind.Miner;
-        public ItemData OutputItem { get; set; }
-        public float ProductionInterval { get; set; } = 1.25f;
-
-        protected override void OnInitialized()
+    public void ProcessLogicTick(float deltaTime)
+    {
+        if (OutputItem == null || pendingOutput != null)
         {
-            PrototypeVisuals.CreateMachineVisual(transform, Footprint, new Color(0.24f, 0.62f, 0.95f), "M", false, true);
+            return;
         }
 
-        private void Update()
+        productionTimer += deltaTime;
+        if (productionTimer >= ProductionInterval)
         {
-            if (OutputItem == null)
-            {
-                return;
-            }
-
-            productionTimer += Time.deltaTime;
-            if (productionTimer < ProductionInterval)
-            {
-                return;
-            }
-
-            ItemInstance item = PrototypeVisuals.CreateItem(OutputItem);
-            if (TrySend(item))
-            {
-                productionTimer -= ProductionInterval;
-            }
-            else
-            {
-                item.DestroyVisual();
-            }
+            pendingOutput = new ItemState(OutputItem);
         }
+    }
+
+    public bool TryCreateTransferRequest(out ItemTransferRequest request)
+    {
+        if (pendingOutput == null)
+        {
+            request = null;
+            return false;
+        }
+
+        request = new ItemTransferRequest(
+            this,
+            pendingOutput,
+            AnchorCell,
+            OutputPortCell,
+            Grid.GetOccupant(OutputPortCell));
+        return true;
+    }
+
+    public void StageTransferOut(ItemState item)
+    {
+        if (!ReferenceEquals(item, pendingOutput))
+        {
+            return;
+        }
+
+        pendingOutput = null;
+        productionTimer = Mathf.Max(0f, productionTimer - ProductionInterval);
+    }
 }

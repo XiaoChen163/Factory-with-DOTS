@@ -1,11 +1,6 @@
 using System.Collections.Generic;
-using FactoryWithDots.Stage0.Core;
-using FactoryWithDots.Stage0.Data;
-using FactoryWithDots.Stage0.Presentation;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Buildings
-{
     public sealed class Storage : PortBuilding, IItemReceiver
     {
         private readonly Dictionary<ItemData, int> itemCounts = new Dictionary<ItemData, int>();
@@ -38,5 +33,4 @@ namespace FactoryWithDots.Stage0.Buildings
         {
             PrototypeVisuals.CreateMachineVisual(transform, Footprint, new Color(0.35f, 0.78f, 0.36f), "S", true, false);
         }
-    }
 }

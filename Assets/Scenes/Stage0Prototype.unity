@@ -158,7 +158,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8d7f3188792447479bdd498bf8563459, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FactoryWithDots.Stage0.Bootstrap.Stage0Prototype
+  m_EditorClassIdentifier: Assembly-CSharp::Stage0Prototype
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

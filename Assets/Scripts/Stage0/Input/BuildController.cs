@@ -1,13 +1,7 @@
 using System;
 using System.Collections.Generic;
-using FactoryWithDots.Stage0.Buildings;
-using FactoryWithDots.Stage0.Core;
-using FactoryWithDots.Stage0.Data;
-using FactoryWithDots.Stage0.Presentation;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Input
-{
     public sealed class BuildController : MonoBehaviour
     {
         private Camera inputCamera;
@@ -211,5 +205,4 @@ namespace FactoryWithDots.Stage0.Input
         {
             return kind == BuildingKind.Belt ? Vector2Int.one : new Vector2Int(2, 2);
         }
-    }
 }

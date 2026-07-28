@@ -1,7 +1,5 @@
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Input
-{
     public sealed class TopDownPlayerController : MonoBehaviour
     {
         [SerializeField, Min(0.1f)] private float moveSpeed = 7f;
@@ -43,5 +41,4 @@ namespace FactoryWithDots.Stage0.Input
             float yaw = UnityEngine.Input.GetAxis("Mouse X") * yawSensitivity * Time.deltaTime;
             transform.Rotate(Vector3.up, yaw, Space.World);
         }
-    }
 }

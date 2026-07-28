@@ -1,8 +1,5 @@
-using FactoryWithDots.Stage0.Core;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Presentation
-{
     public sealed class GridDebugView : MonoBehaviour
     {
         public void Build(GridMap grid)
@@ -66,5 +63,4 @@ namespace FactoryWithDots.Stage0.Presentation
             line.endColor = line.startColor;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
-    }
 }

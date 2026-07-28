@@ -1,10 +1,6 @@
 using System.Collections.Generic;
-using FactoryWithDots.Stage0.Core;
-using FactoryWithDots.Stage0.Presentation;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Buildings
-{
     public sealed class Belt : GridBuilding, IItemReceiver
     {
         private readonly List<ItemInstance> items = new List<ItemInstance>();
@@ -82,5 +78,4 @@ namespace FactoryWithDots.Stage0.Buildings
             Vector3 center = Grid.CellToWorld(AnchorCell);
             item.Visual.transform.position = center + direction * Mathf.Lerp(-0.38f, 0.38f, item.Progress) + Vector3.up * 0.28f;
         }
-    }
 }

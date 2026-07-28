@@ -1,13 +1,6 @@
 using System.Collections.Generic;
-using FactoryWithDots.Stage0.Buildings;
-using FactoryWithDots.Stage0.Core;
-using FactoryWithDots.Stage0.Data;
-using FactoryWithDots.Stage0.Input;
-using FactoryWithDots.Stage0.Presentation;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Bootstrap
-{
     [DefaultExecutionOrder(-1000)]
     public sealed class Stage0Prototype : MonoBehaviour
     {
@@ -137,5 +130,4 @@ namespace FactoryWithDots.Stage0.Bootstrap
                 demoBuildings.Add(building);
             }
         }
-    }
 }

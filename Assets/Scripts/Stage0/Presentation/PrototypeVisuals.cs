@@ -1,9 +1,5 @@
-using FactoryWithDots.Stage0.Core;
-using FactoryWithDots.Stage0.Data;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Presentation
-{
     public static class PrototypeVisuals
     {
         private static Material gridMaterial;
@@ -222,5 +218,4 @@ namespace FactoryWithDots.Stage0.Presentation
 
             return shader;
         }
-    }
 }

@@ -1,10 +1,5 @@
-using FactoryWithDots.Stage0.Core;
-using FactoryWithDots.Stage0.Data;
-using FactoryWithDots.Stage0.Presentation;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Buildings
-{
     public sealed class Furnace : PortBuilding, IItemReceiver
     {
         private int bufferedInputs;
@@ -86,5 +81,4 @@ namespace FactoryWithDots.Stage0.Buildings
                 item.DestroyVisual();
             }
         }
-    }
 }

@@ -1,8 +1,5 @@
-using FactoryWithDots.Stage0.Core;
 using UnityEngine;
 
-namespace FactoryWithDots.Stage0.Buildings
-{
     public abstract class PortBuilding : GridBuilding
     {
         public override Vector2Int Footprint => new Vector2Int(2, 2);
@@ -20,5 +17,4 @@ namespace FactoryWithDots.Stage0.Buildings
             IItemReceiver receiver = outputBuilding as IItemReceiver;
             return receiver != null && receiver.TryAccept(item, AnchorCell);
         }
-    }
 }

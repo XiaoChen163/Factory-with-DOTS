@@ -9,6 +9,14 @@
 关于游戏中玩家的交互及游戏的表现形式，如果用户没有明确指出，必须向用户提问，而不是自己擅自决定一个形式
 
 以下是一份完整的**渐进式五阶段实现方案**，每个阶段都包含具体的实现步骤、核心代码示例和关键注意事项。
+
+### 全阶段不变量：一格一物品
+
+- 一格传送带在任意时刻最多持有一个物品。
+- 传送带只保存 `currentItem + progress`，不使用物品 `List`、槽位数组或 `DynamicBuffer<BeltSlot>`。
+- 物品可以连续移动表现，但逻辑容量始终是每格 1 个。
+- 固定 Tick、状态快照、两阶段提交、环路原子移动和合流仲裁仍然保留，用于保证确定性。
+
 ## 阶段 0：纯 GameObject 原型（验证核心玩法）
 
 **目标**：跑通“采集 → 运输 → 生产”的最小闭环，暂不关心性能
@@ -52,24 +60,33 @@ public class RecipeData : ScriptableObject {
 
 ```csharp
 public class Belt : MonoBehaviour {
-    public List<Item> items = new List<Item>();  // 传送带上的物品
+    public Item currentItem;  // null 表示当前格为空
     public float speed = 2f;  // 格/秒
     public Vector2Int direction;  // 当前方向
     public Vector2Int nextCell;   // 下一格坐标
     
     void Update() {
-        float step = speed * Time.deltaTime;
-        for (int i = items.Count - 1; i >= 0; i--) {  // 反向遍历
-            items[i].progress += step;
-            if (items[i].progress >= 1f) {
-                // 尝试移出到下一格
-                if (TryMoveToNext(items[i])) {
-                    items.RemoveAt(i);
-                } else {
-                    items[i].progress = 1f;  // 阻塞在末端
-                }
+        if (currentItem == null) return;
+
+        currentItem.progress = Mathf.Min(
+            currentItem.progress + speed * Time.deltaTime,
+            1f
+        );
+
+        if (currentItem.progress >= 1f) {
+            if (TryMoveToNext(currentItem)) {
+                currentItem = null;
+            } else {
+                currentItem.progress = 1f;  // 下游被占用，阻塞在末端
             }
         }
+    }
+
+    public bool TryAccept(Item item) {
+        if (currentItem != null) return false;
+        currentItem = item;
+        currentItem.progress = 0f;
+        return true;
     }
 }
 ```
@@ -82,18 +99,28 @@ public class Furnace : MonoBehaviour {
     public Belt inputBelt;
     public Belt outputBelt;
     private float craftProgress;
-    private ItemData inputBuffer;
+    private Item inputBuffer;
+    private Item pendingOutput;
     
     void Update() {
-        // 从输入传送带取物品
-        if (inputBuffer == null && inputBelt.HasItem(recipe.inputItem)) {
-            inputBuffer = inputBelt.TakeItem(recipe.inputItem);
+        // 输出阻塞时保留成品，不丢失也不覆盖下游
+        if (pendingOutput != null) {
+            if (outputBelt.TryAccept(pendingOutput)) {
+                pendingOutput = null;
+            }
+            return;
         }
+
+        // 从输入传送带取出它持有的唯一物品
+        if (inputBuffer == null) {
+            inputBelt.TryTake(recipe.inputItem, out inputBuffer);
+        }
+
         // 加工
         if (inputBuffer != null) {
             craftProgress += Time.deltaTime;
             if (craftProgress >= recipe.craftTime) {
-                outputBelt.AddItem(recipe.outputItem);
+                pendingOutput = new Item(recipe.outputItem);
                 inputBuffer = null;
                 craftProgress = 0;
             }
@@ -105,55 +132,47 @@ public class Furnace : MonoBehaviour {
 ### ⚠️ 注意事项
 
 1. **不要优化**：这个阶段的目标是“能跑”，所有代码都可以是低效的。
-2. **保持简单**：传送带用 `List` 存储物品，机器用 `Update()` 轮询。
+2. **保持简单**：传送带直接保存单个 `currentItem`，机器用 `Update()` 轮询。
 3. **手动测试**：在场景中手动放置几个传送带和机器，验证物品能否流动。
 4. **里程碑**：能看到采矿机 → 传送带 → 熔炉 → 传送带 → 存储箱的完整链条。
 ---
 
 ## 阶段 1：逻辑与表现分离 + 核心时序
 
-**目标**：建立稳定的时序和双缓冲模型，消除 FPS 波动对逻辑的影响。
+**目标**：建立稳定的固定 Tick、状态快照和两阶段提交，消除 FPS 与 `Update()` 顺序对逻辑的影响。
 
 ### 实现步骤
 
 **Step 1.1：拆分逻辑与表现**
 
 ```csharp
-// BeltLogic.cs - 纯数据，挂载但不做渲染
+// BeltLogic.cs - 纯逻辑状态，不负责渲染
 public class BeltLogic : MonoBehaviour {
-    public List<SlotData> currentSlots = new List<SlotData>();
-    public List<SlotData> nextSlots = new List<SlotData>();
+    public ItemState currentItem;  // null 表示空
+    [Range(0f, 1f)]
+    public float progress;
     public float speed = 2f;
     public Vector2Int direction;
     public Vector2Int nextCell;
-    public int slotCount = 8;  // 每格传送带划分的槽位数
-    
-    void Awake() {
-        for (int i = 0; i < slotCount; i++) {
-            currentSlots.Add(null);
-            nextSlots.Add(null);
-        }
-    }
+
+    // 仅供逻辑 Tick 的两阶段提交使用，不参与序列化
+    [System.NonSerialized] public ItemState nextItem;
+    [System.NonSerialized] public float nextProgress;
 }
 
 // BeltVisual.cs - 只负责渲染
 public class BeltVisual : MonoBehaviour {
     public BeltLogic logic;
-    public GameObject itemPrefab;
-    private List<GameObject> visualItems = new List<GameObject>();
+    private GameObject itemVisual;
     
     void LateUpdate() {
-        SyncVisuals();
-    }
-    
-    void SyncVisuals() {
-        // 根据 logic.currentSlots 更新每个物品的位置
-        for (int i = 0; i < logic.currentSlots.Count; i++) {
-            if (logic.currentSlots[i] != null) {
-                // 更新或创建对应的 GameObject
-                UpdateItemVisual(i, logic.currentSlots[i]);
-            }
+        if (logic.currentItem == null) {
+            SetItemVisible(false);
+            return;
         }
+
+        SetItemVisible(true);
+        itemVisual.transform.position = GetPosition(logic.progress);
     }
 }
 ```
@@ -182,67 +201,50 @@ public class GameManager : MonoBehaviour {
 }
 ```
 
-**Step 1.3：实现双缓冲传送带逻辑**
+**Step 1.3：实现快照 + 转移请求 + 统一提交**
 
 ```csharp
-public class BeltLogic : MonoBehaviour {
-    void Start() {
-        GameManager.Instance.OnLogicTick += ProcessTick;
-    }
-    
+public class BeltSimulation : MonoBehaviour {
+    private readonly List<BeltLogic> belts = new();
+    private readonly List<TransferRequest> requests = new();
+
     void ProcessTick() {
-        // 1. 清空 nextSlots
-        for (int i = 0; i < nextSlots.Count; i++) {
-            nextSlots[i] = null;
+        // 1. 复制 current 到 next；本 Tick 内 current 保持只读
+        foreach (BeltLogic belt in belts) {
+            belt.PrepareNextState();
         }
-        
-        // 2. 基于 currentSlots 计算下一帧状态，写入 nextSlots
-        float stepPerTick = speed / 60f;  // 每 Tick 移动的槽位数
-        
-        for (int i = 0; i < currentSlots.Count; i++) {
-            SlotData item = currentSlots[i];
-            if (item == null) continue;
-            
-            item.progress += stepPerTick;
-            
-            if (item.progress >= 1f) {
-                int targetIndex = i + 1;
-                if (targetIndex < currentSlots.Count && nextSlots[targetIndex] == null) {
-                    // 可以前进
-                    item.progress -= 1f;
-                    nextSlots[targetIndex] = item;
-                } else if (targetIndex == currentSlots.Count) {
-                    // 到达末端，尝试移出到下一格
-                    if (TryMoveToNextBelt(item)) {
-                        // 物品已移出，不写入 nextSlots
-                    } else {
-                        item.progress = 1f;
-                        nextSlots[i] = item;  // 阻塞
-                    }
-                } else {
-                    // 目标被占用，阻塞
-                    item.progress = 1f;
-                    nextSlots[i] = item;
-                }
-            } else {
-                nextSlots[i] = item;  // 未走完一个槽位
+
+        // 2. 推进单个物品；到达末端时只生成请求
+        requests.Clear();
+        foreach (BeltLogic belt in belts) {
+            if (belt.currentItem == null) continue;
+
+            belt.nextProgress = Mathf.Min(
+                belt.progress + belt.speed * GameManager.Instance.tickInterval,
+                1f
+            );
+            if (belt.nextProgress >= 1f) {
+                requests.Add(new TransferRequest(belt, belt.nextCell));
             }
         }
-        
-        // 3. 交换缓冲区
-        var temp = currentSlots;
-        currentSlots = nextSlots;
-        nextSlots = temp;
+
+        // 3. 基于同一份快照统一解决空位、连续移动、环路和合流冲突
+        TransferArbiter.Resolve(requests);
+
+        // 4. 所有传送带同时提交 next 状态
+        foreach (BeltLogic belt in belts) {
+            belt.CommitNextState();
+        }
     }
 }
 ```
 
 ### ⚠️ 注意事项
 
-1. **进度累积**：`stepPerTick = speed / 60` 通常 < 1，需要用 `progress` 累加，超过 1 才真正移动。
-2. **双缓冲交换**：交换的是引用，不是拷贝数据。
-3. **渲染在 LateUpdate**：逻辑在 Tick 中更新，渲染在 `LateUpdate` 中同步，保证显示的是最新逻辑状态。
-4. **反序列化问题**：`List<SlotData>` 中的 `SlotData` 如果是自定义类，注意 Unity 序列化限制，可用 `struct`。
+1. **一格一物品**：`currentItem == null` 是唯一的空位判断，不再维护槽位集合。
+2. **不要边遍历边写下游**：否则结果会依赖 MonoBehaviour 的执行顺序。
+3. **统一提交**：本 Tick 的判断只读取 current 快照，最终一次性写回 next 状态。
+4. **渲染在 LateUpdate**：根据最新逻辑状态插值显示，不参与运输判定。
 
 ---
 
@@ -252,82 +254,80 @@ public class BeltLogic : MonoBehaviour {
 
 ### 实现步骤
 
-**Step 2.1：环形检测（并查集 / BFS）**
+**Step 2.1：环形检测（沿 Next 指针查找）**
 
 在建造传送带时检测是否形成闭环：
 
 ```csharp
 public class BeltNetworkDetector : MonoBehaviour {
-    // 使用并查集（Union-Find）检测环路
-    private Dictionary<Vector2Int, int> cellToId = new Dictionary<Vector2Int, int>();
-    private int[] parent;
-    
-    public bool DetectLoop(Vector2Int newCell, Vector2Int direction) {
-        // 1. 为每个传送带格子分配 ID
-        // 2. 将新格子与相邻格子 Union
-        // 3. 如果新格子的两个相邻格子已经在同一集合中，则形成环
-        // 4. 标记环路上的所有传送带为 IsLoop = true
-    }
-}
-```
+    public bool TryFindLoop(BeltLogic start, out List<BeltLogic> loop) {
+        var visitedAt = new Dictionary<BeltLogic, int>();
+        var path = new List<BeltLogic>();
+        BeltLogic current = start;
 
-**Step 2.2：环形传送带特殊逻辑（预留空位）**
-
-```csharp
-public class BeltLogic : MonoBehaviour {
-    public bool isLoop;
-    private bool hasReservedEmptySlot;
-    
-    void ProcessTick() {
-        if (isLoop) {
-            ProcessLoopTick();
-            return;
-        }
-        // ... 普通传送带逻辑
-    }
-    
-    void ProcessLoopTick() {
-        // 1. 确保至少有一个空槽位
-        if (!HasEmptySlot()) {
-            // 拒绝入口输入，或强制在入口处预留一个空位
-            BlockEntry();
-            return;
-        }
-        
-        // 2. 整体向前平移（循环队列思想）
-        // 找到第一个空位，将所有物品整体前移
-        int emptyIndex = FindFirstEmptySlot();
-        if (emptyIndex >= 0) {
-            // 从 emptyIndex 开始，将所有物品向前平移一格
-            for (int i = emptyIndex; i < currentSlots.Count - 1; i++) {
-                currentSlots[i] = currentSlots[i + 1];
+        while (current != null) {
+            if (visitedAt.TryGetValue(current, out int loopStart)) {
+                loop = path.GetRange(loopStart, path.Count - loopStart);
+                return true;
             }
-            currentSlots[currentSlots.Count - 1] = null;  // 末尾留空
+
+            visitedAt[current] = path.Count;
+            path.Add(current);
+            current = GetNextBelt(current.nextCell);
+        }
+
+        loop = null;
+        return false;
+    }
+}
+```
+
+**Step 2.2：环路原子移动**
+
+```csharp
+public static class LoopTransferResolver {
+    public static void Resolve(IReadOnlyList<BeltLogic> loop) {
+        // 所有判断都读取 current 快照，不能逐条传送带立即写回
+        bool everyItemIsReady = true;
+        foreach (BeltLogic belt in loop) {
+            if (belt.currentItem == null || belt.progress < 1f) {
+                everyItemIsReady = false;
+                break;
+            }
+        }
+
+        if (everyItemIsReady) {
+            // 满环也可以整体旋转：每格在同一次提交中同时腾空并接收上游物品
+            foreach (BeltLogic belt in loop) {
+                belt.AcceptFromPreviousInNextState();
+            }
         }
     }
 }
 ```
 
-**Step 2.3：合并器（Merger）轮流取用**
+满环不再要求永久预留空格。关键是仲裁器必须把完整环路视为一个原子移动组；如果逐格检查当前占用状态，满环仍会被错误判定为死锁。
+
+**Step 2.3：合流请求轮流仲裁**
 
 ```csharp
-public class Merger : MonoBehaviour {
-    public BeltLogic inputA;
-    public BeltLogic inputB;
-    public BeltLogic output;
-    private int turnCounter;
-    
-    void ProcessTick() {
-        // 轮流从两条输入带取物品
-        BeltLogic selected = (turnCounter % 2 == 0) ? inputA : inputB;
-        turnCounter++;
-        
-        SlotData item = selected.TakeLastItem();  // 从末端取
-        if (item != null && output.CanAddItem()) {
-            output.AddItem(item);
-        } else if (item != null) {
-            // 放回去
-            selected.AddItem(item);
+public class TransferArbiter {
+    private readonly Dictionary<Vector2Int, int> nextWinner = new();
+
+    void ResolveTarget(Vector2Int target, List<TransferRequest> requests) {
+        if (!TargetWillBeEmpty(target)) return;
+
+        int winnerIndex = nextWinner.GetValueOrDefault(target) % requests.Count;
+        TransferRequest winner = requests[winnerIndex];
+        AcceptInNextState(winner);
+
+        // 只有成功接收后才轮换，保证两个输入长期公平
+        nextWinner[target] = winnerIndex + 1;
+
+        foreach (TransferRequest loser in requests) {
+            if (loser != winner) {
+                KeepBlockedAtEndInNextState(loser.source);
+            }
         }
     }
 }
@@ -336,8 +336,8 @@ public class Merger : MonoBehaviour {
 ### ⚠️ 注意事项
 
 1. **环检测时机**：每次建造/拆除传送带时都需要重新检测受影响的网络。
-2. **空位数量**：环形传送带至少需要 **1 个永久空槽位**，建议保留 2 个以防边界情况。
-3. **合并器死锁**：如果两条输入带都满载且输出带阻塞，合并器应停止从任何输入带取物。
+2. **满环语义**：满环允许整体原子旋转，但满环上的外部入口必须拒绝新物品。
+3. **合流冲突**：同一 Tick 只能有一个请求赢得目标格；失败请求保持在源格末端。
 4. **性能考虑**：环形检测可以在建造时做，不需要每帧运行。
 
 ---
@@ -366,15 +366,9 @@ public struct Belt : IComponentData {
     public float Speed;
     public int2 Direction;
     public int2 NextCell;
-    public int SlotCount;
+    public Entity CurrentItem;  // Entity.Null 表示当前格为空
+    public float Progress;      // 当前物品在本格内的 0-1 进度
     public bool IsLoop;
-}
-
-// 槽位数据（使用 DynamicBuffer）
-[InternalBufferCapacity(8)]  // 每格传送带 8 个槽位
-public struct BeltSlot : IBufferElementData {
-    public Entity ItemEntity;  // 物品实体（如果有）
-    public float Progress;     // 0-1 进度
 }
 
 // 物品数据
@@ -396,7 +390,6 @@ using UnityEngine;
 public class BeltAuthoring : MonoBehaviour {
     public float speed = 2f;
     public Vector2Int direction = Vector2Int.right;
-    public int slotCount = 8;
 }
 
 // Baker - 将 GameObject 数据转换为 Entity 组件
@@ -407,15 +400,10 @@ public class BeltBaker : Baker<BeltAuthoring> {
         AddComponent(entity, new Belt {
             Speed = authoring.speed,
             Direction = new int2(authoring.direction.x, authoring.direction.y),
-            SlotCount = authoring.slotCount,
+            CurrentItem = Entity.Null,
+            Progress = 0f,
             IsLoop = false
         });
-        
-        // 初始化槽位缓冲区
-        DynamicBuffer<BeltSlot> slots = AddBuffer<BeltSlot>(entity);
-        for (int i = 0; i < authoring.slotCount; i++) {
-            slots.Add(new BeltSlot { ItemEntity = Entity.Null, Progress = 0f });
-        }
     }
 }
 ```
@@ -431,40 +419,20 @@ using Unity.Burst;
 using Unity.Collections;
 
 [BurstCompile]
-public partial struct BeltMoveJob : IJobEntity {
+public partial struct BeltProgressJob : IJobEntity {
     public float DeltaTime;
     
-    // 每个传送带实体执行一次
-    void Execute(ref Belt belt, ref DynamicBuffer<BeltSlot> slots) {
-        float stepPerTick = belt.Speed * DeltaTime;
-        
-        // 反向遍历（从后往前）
-        for (int i = slots.Length - 1; i >= 0; i--) {
-            BeltSlot slot = slots[i];
-            if (slot.ItemEntity == Entity.Null) continue;
-            
-            slot.Progress += stepPerTick;
-            
-            if (slot.Progress >= 1f) {
-                int targetIndex = i + 1;
-                if (targetIndex < slots.Length) {
-                    // 检查目标槽位是否为空
-                    if (slots[targetIndex].ItemEntity == Entity.Null) {
-                        slot.Progress -= 1f;
-                        slots[targetIndex] = slot;
-                        slots[i] = new BeltSlot { ItemEntity = Entity.Null, Progress = 0f };
-                    } else {
-                        slot.Progress = 1f;  // 阻塞
-                        slots[i] = slot;
-                    }
-                } else {
-                    // 末端：尝试移出到下游
-                    // （需要查询相邻传送带，用 BufferLookup 或 Aspect）
-                }
-            } else {
-                slots[i] = slot;
-            }
+    // 这里只推进本实体自己的单个物品，不跨实体写入
+    void Execute(ref Belt belt) {
+        if (belt.CurrentItem == Entity.Null) {
+            belt.Progress = 0f;
+            return;
         }
+
+        belt.Progress = math.min(
+            belt.Progress + belt.Speed * DeltaTime,
+            1f
+        );
     }
 }
 ```
@@ -480,7 +448,7 @@ public partial class BeltSystem : SystemBase {
         float dt = SystemAPI.Time.DeltaTime;
         
         // 调度并行 Job
-        var job = new BeltMoveJob {
+        var job = new BeltProgressJob {
             DeltaTime = dt
         };
         job.ScheduleParallel();  // 自动并行处理所有实体
@@ -493,53 +461,34 @@ public partial class BeltSystem : SystemBase {
 对于跨带转移（物品从一条传送带末端移到另一条起点），使用**两阶段提交**：
 
 ```csharp
-// 阶段1：BeltMoveJob 只处理带内移动，末端物品标记为 "待转移"
-// 阶段2：TransferSystem（单线程或使用 ECB）处理跨带转移
+// 阶段1：BeltProgressJob 只推进本格 Progress
+// 阶段2：TransferSystem 读取统一快照，收集并仲裁跨格请求
+// 阶段3：一次性提交源 Belt.CurrentItem = Entity.Null、
+//        目标 Belt.CurrentItem = item、目标 Progress = 0
 
 [UpdateAfter(typeof(BeltSystem))]
 public partial class TransferSystem : SystemBase {
-    private EntityCommandBufferSystem ecbSystem;
-    
-    protected override void OnCreate() {
-        ecbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-    }
-    
     protected override void OnUpdate() {
-        var ecb = ecbSystem.CreateCommandBuffer();
-        
-        // 查询所有传送带末端有待转移物品的实体
-        Entities
-            .WithAll<Belt, BeltSlot>()
-            .ForEach((Entity entity, ref Belt belt, in DynamicBuffer<BeltSlot> slots) => {
-                // 检查末端槽位
-                BeltSlot lastSlot = slots[slots.Length - 1];
-                if (lastSlot.ItemEntity != Entity.Null && lastSlot.Progress >= 1f) {
-                    // 查找下游传送带
-                    Entity nextBelt = FindNextBelt(belt.NextCell);
-                    if (nextBelt != Entity.Null) {
-                        // 将物品转移到下游传送带的第一个空槽
-                        // 使用 ECB 记录变更
-                        ecb.AppendToBuffer(nextBelt, new BeltSlot { 
-                            ItemEntity = lastSlot.ItemEntity, 
-                            Progress = 0f 
-                        });
-                        // 清空当前槽位
-                        // 注意：需要修改 Buffer，用 SetBuffer 或 PostProcess
-                    }
-                }
-            })
-            .Schedule();
-        
-        ecbSystem.AddJobHandleForProducer(Dependency);
+        Dependency.Complete();
+
+        var snapshot = CaptureBeltSnapshot();
+        var requests = CollectReadyTransfers(snapshot);
+
+        // 同一目标的多个请求按轮转优先级选一个；
+        // 完整环路作为一个原子移动组处理
+        var accepted = ResolveConflictsAndLoops(snapshot, requests);
+
+        ApplyAcceptedTransfers(accepted);
+        KeepRejectedSourcesBlockedAtProgressOne(requests, accepted);
     }
 }
 ```
 
 ### ⚠️ 注意事项
 
-1. **ECB 使用规范**：在 Job 中不能直接修改实体结构（创建/销毁/增删组件），必须使用 `EntityCommandBuffer` 记录操作，在主线程回放。
-2. **Burst 兼容性**：`IJobEntity` 默认支持 Burst，但需确保所有使用的类型都是 blittable（值类型）。
-3. **DynamicBuffer 访问**：在 `IJobEntity` 中读写 `DynamicBuffer` 是安全的，因为每个实体独立处理。
+1. **不需要槽位 Buffer**：一条传送带的完整运行时状态都在单个 `Belt` 组件中。
+2. **跨实体写入集中处理**：并行 Job 只更新自己的 `Progress`；跨传送带移动由后置系统统一仲裁。
+3. **ECB 使用边界**：只改已有 `Belt` 组件内容不属于结构变化；创建/销毁物品实体或增删组件时才使用 ECB。
 4. **FixedStepSimulationSystemGroup**：将系统放入此组可保证 60Hz 固定更新。
 5. **SubScene 使用**：将游戏关卡放在 SubScene 中，Unity 会在构建时自动 Baking。
 
@@ -564,7 +513,7 @@ public class BeltBaker : Baker<BeltAuthoring> {
     public override void Bake(BeltAuthoring authoring) {
         Entity entity = GetEntity(TransformUsageFlags.Dynamic);
         
-        // ... 添加 Belt 和 BeltSlot 组件 ...
+        // ... 添加单一 Belt 组件（包含 CurrentItem 与 Progress）...
         
         // 添加渲染组件
         AddComponent(entity, new URPMaterialPropertyBaseColor { 
@@ -643,7 +592,7 @@ public class BuildingInputSystem : SystemBase {
 
 ### ⚠️ 注意事项
 
-1. **渲染与逻辑分离**：逻辑数据（`BeltSlot`）和渲染数据（`RenderMesh`、`LocalTransform`）是独立的组件。
+1. **渲染与逻辑分离**：逻辑数据（`Belt.CurrentItem`、`Belt.Progress`）和渲染数据（`RenderMesh`、`LocalTransform`）相互独立。
 2. **视野优化**：只更新视野内的物品位置，视野外的只维护逻辑数据。
 3. **对象池**：物品 Entity 可以重用，避免频繁创建销毁。
 4. **ECB 系统选择**：
@@ -656,9 +605,9 @@ public class BuildingInputSystem : SystemBase {
 
 | 系统 | 阶段 0-2 (GameObject) | 阶段 3-4 (ECS/DOTS) |
 |:---|:---|:---|
-| **传送带逻辑** | `MonoBehaviour.Update()` + `List` | `IJobEntity` + `DynamicBuffer<BeltSlot>` |
+| **传送带逻辑** | 单个 `currentItem + progress` | 单个 `Belt.CurrentItem + Progress` 组件 |
 | **时序驱动** | 自定义 `GameManager.OnLogicTick` | `FixedStepSimulationSystemGroup` |
-| **物品存储** | `List<Item>` 在 MonoBehaviour 中 | `DynamicBuffer<BeltSlot>` + `Entity` 引用 |
+| **物品存储** | `ItemInstance` 单一引用 | `Entity CurrentItem`，`Entity.Null` 表示空 |
 | **建造系统** | 直接 `Instantiate` GameObject | `EntityCommandBuffer` + `Baking` |
 | **渲染** | `GameObject` + MeshRenderer | `Entities Graphics` + GPU Instancing |
 | **环形检测** | 建造时 BFS/并查集 | 建造时 BFS/并查集（不变） |

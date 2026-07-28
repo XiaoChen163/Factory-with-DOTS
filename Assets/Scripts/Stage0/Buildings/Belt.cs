@@ -1,81 +1,79 @@
-using System.Collections.Generic;
 using UnityEngine;
 
-    public sealed class Belt : GridBuilding, IItemReceiver
+public sealed class Belt : GridBuilding, IItemReceiver
+{
+    private ItemInstance currentItem;
+
+    public override BuildingKind Kind => BuildingKind.Belt;
+    public float Speed { get; set; } = 1.6f;
+    public int ItemCount => currentItem == null ? 0 : 1;
+
+    public bool TryAccept(ItemInstance item, Vector2Int sourceCell)
     {
-        private readonly List<ItemInstance> items = new List<ItemInstance>();
-
-        public override BuildingKind Kind => BuildingKind.Belt;
-        public float Speed { get; set; } = 1.6f;
-        public int ItemCount => items.Count;
-
-        public bool TryAccept(ItemInstance item, Vector2Int sourceCell)
+        if (item == null || currentItem != null)
         {
-            if (item == null || items.Count >= 1)
-            {
-                return false;
-            }
-
-            item.Progress = 0f;
-            if (item.Visual != null)
-            {
-                item.Visual.transform.SetParent(transform, true);
-            }
-
-            items.Add(item);
-            UpdateItemPosition(item);
-            return true;
+            return false;
         }
 
-        protected override void OnInitialized()
+        currentItem = item;
+        currentItem.Progress = 0f;
+        if (currentItem.Visual != null)
         {
-            PrototypeVisuals.CreateBeltVisual(transform);
+            currentItem.Visual.transform.SetParent(transform, true);
         }
 
-        protected override void OnRemoved()
-        {
-            for (int i = 0; i < items.Count; i++)
-            {
-                items[i].DestroyVisual();
-            }
+        UpdateItemPosition(currentItem);
+        return true;
+    }
 
-            items.Clear();
+    protected override void OnInitialized()
+    {
+        PrototypeVisuals.CreateBeltVisual(transform);
+    }
+
+    protected override void OnRemoved()
+    {
+        if (currentItem != null)
+        {
+            currentItem.DestroyVisual();
+            currentItem = null;
+        }
+    }
+
+    private void Update()
+    {
+        if (currentItem == null)
+        {
+            return;
         }
 
-        private void Update()
+        currentItem.Progress = Mathf.Min(currentItem.Progress + Speed * Time.deltaTime, 1f);
+        if (currentItem.Progress >= 1f && TryTransfer(currentItem))
         {
-            for (int i = items.Count - 1; i >= 0; i--)
-            {
-                ItemInstance item = items[i];
-                item.Progress = Mathf.Min(item.Progress + Speed * Time.deltaTime, 1f);
-
-                if (item.Progress >= 1f && TryTransfer(item))
-                {
-                    items.RemoveAt(i);
-                    continue;
-                }
-
-                UpdateItemPosition(item);
-            }
+            currentItem = null;
+            return;
         }
 
-        private bool TryTransfer(ItemInstance item)
+        UpdateItemPosition(currentItem);
+    }
+
+    private bool TryTransfer(ItemInstance item)
+    {
+        Vector2Int nextCell = AnchorCell + Direction;
+        GridBuilding nextBuilding = Grid.GetOccupant(nextCell);
+        IItemReceiver receiver = nextBuilding as IItemReceiver;
+        return receiver != null && receiver.TryAccept(item, AnchorCell);
+    }
+
+    private void UpdateItemPosition(ItemInstance item)
+    {
+        if (item.Visual == null)
         {
-            Vector2Int nextCell = AnchorCell + Direction;
-            GridBuilding nextBuilding = Grid.GetOccupant(nextCell);
-            IItemReceiver receiver = nextBuilding as IItemReceiver;
-            return receiver != null && receiver.TryAccept(item, AnchorCell);
+            return;
         }
 
-        private void UpdateItemPosition(ItemInstance item)
-        {
-            if (item.Visual == null)
-            {
-                return;
-            }
-
-            Vector3 direction = new Vector3(Direction.x, 0f, Direction.y);
-            Vector3 center = Grid.CellToWorld(AnchorCell);
-            item.Visual.transform.position = center + direction * Mathf.Lerp(-0.38f, 0.38f, item.Progress) + Vector3.up * 0.28f;
-        }
+        Vector3 direction = new Vector3(Direction.x, 0f, Direction.y);
+        Vector3 center = Grid.CellToWorld(AnchorCell);
+        item.Visual.transform.position = center + direction * Mathf.Lerp(-0.38f, 0.38f, item.Progress) + Vector3.up * 0.28f;
+    }
 }

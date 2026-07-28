@@ -4,8 +4,8 @@ using UnityEngine;
     [DefaultExecutionOrder(-1000)]
     public sealed class Stage0Prototype : MonoBehaviour
     {
-        private const int GridWidth = 16;
-        private const int GridHeight = 10;
+        private const int GridWidth = 32;
+        private const int GridHeight = 32;
 
         private GridMap grid;
         private BuildController buildController;

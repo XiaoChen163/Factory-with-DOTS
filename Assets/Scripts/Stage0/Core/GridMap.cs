@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public sealed class GridMap
@@ -18,6 +19,7 @@ public sealed class GridMap
     public int Height { get; }
     public Vector3 Origin { get; }
     public IReadOnlyList<GridBuilding> Buildings => buildings;
+    public event Action Changed;
 
     public bool Contains(Vector2Int cell)
     {
@@ -70,6 +72,7 @@ public sealed class GridMap
         }
 
         buildings.Add(building);
+        Changed?.Invoke();
         return true;
     }
 
@@ -86,5 +89,6 @@ public sealed class GridMap
         }
 
         buildings.Remove(building);
+        Changed?.Invoke();
     }
 }

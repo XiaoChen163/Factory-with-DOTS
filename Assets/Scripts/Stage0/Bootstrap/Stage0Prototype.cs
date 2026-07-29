@@ -40,6 +40,9 @@ using UnityEngine;
             buildController.Initialize(gameCamera, grid, ore, recipe);
 
             CreateDemoLine();
+            CreateSplitterDemo();
+            CreateMergerDemo();
+            CreateFullLoopDemo();
         }
 
         private void OnDestroy()
@@ -51,9 +54,9 @@ using UnityEngine;
 
         private void OnGUI()
         {
-            GUI.Box(new Rect(12f, 12f, 465f, 172f), "Factory With DOTS — Stage 1 Fixed-Tick Prototype");
+            GUI.Box(new Rect(12f, 12f, 560f, 238f), "Factory With DOTS — Stage 2 Loops & Junctions");
             GUI.Label(new Rect(28f, 42f, 400f, 22f), "WASD Move   |   Hold RMB + mouse: rotate view around Y");
-            GUI.Label(new Rect(28f, 64f, 400f, 22f), "1 Belt   2 Miner   3 Furnace   4 Storage   |   R Rotate");
+            GUI.Label(new Rect(28f, 64f, 480f, 22f), "1 Belt   2 Miner   3 Furnace   4 Storage   5 Merger   6 Splitter");
             GUI.Label(new Rect(28f, 86f, 400f, 22f), "Selected: " + buildController.SelectedKind +
                 (buildController.HasHoveredCell ? "   Cell: " + buildController.HoveredCell : ""));
 
@@ -63,10 +66,26 @@ using UnityEngine;
                 : demoFurnace.IsCrafting
                     ? "crafting " + Mathf.RoundToInt(demoFurnace.CraftProgress * 100f) + "%"
                     : "waiting (buffer " + demoFurnace.BufferedInputs + ")";
-            GUI.Label(new Rect(28f, 108f, 400f, 22f), "Left click: build   |   F: remove building under mouse");
+            GUI.Label(new Rect(28f, 108f, 520f, 22f),
+                buildController.SelectedKind == BuildingKind.Belt
+                    ? buildController.IsBeltPathStarted
+                        ? "Belt: click end   |   R: switch route   |   Esc: cancel"
+                        : "Belt: click start   |   R: rotate initial direction"
+                    : "Left click: build   |   R: rotate   |   F: remove under mouse");
             GUI.Label(new Rect(28f, 130f, 400f, 22f), "Furnace: " + furnaceState + "   |   Stored: " + stored + " ingot(s)");
             GUI.Label(new Rect(28f, 152f, 430f, 22f), "Logic: 60 Hz fixed Tick   |   Tick #" +
                 (gameManager == null ? 0 : gameManager.LogicTickCount));
+            GUI.Label(new Rect(28f, 174f, 480f, 22f), "Detected belt loops: " +
+                (beltSimulation == null ? 0 : beltSimulation.LoopCount) +
+                "   |   Last transfers: " +
+                (beltSimulation == null ? 0 : beltSimulation.LastAcceptedCount));
+            GUI.Label(new Rect(28f, 196f, 480f, 22f),
+                "Yellow edge = disconnected   |   Corner triangle points 45° toward exit");
+            GUI.Label(new Rect(28f, 218f, 520f, 22f), "Belt route: " +
+                buildController.BeltPathMode +
+                (buildController.IsBeltPathStarted
+                    ? "   |   Start: " + buildController.BeltPathStart
+                    : "   |   Initial: " + buildController.BeltInitialDirection));
         }
 
         private void CreatePrototypeData()
@@ -141,4 +160,79 @@ using UnityEngine;
                 demoBuildings.Add(building);
             }
         }
-}
+
+        private void CreateSplitterDemo()
+        {
+            Miner miner = buildController.TryBuild(
+                BuildingKind.Miner,
+                new Vector2Int(1, 10),
+                0) as Miner;
+            AddDemo(miner);
+            AddDemo(buildController.TryBuild(BuildingKind.Belt, new Vector2Int(3, 10), 0));
+            AddDemo(buildController.TryBuild(BuildingKind.Splitter, new Vector2Int(4, 10), 0));
+
+            AddDemo(buildController.TryBuild(BuildingKind.Belt, new Vector2Int(5, 10), 0));
+            AddDemo(buildController.TryBuild(BuildingKind.Storage, new Vector2Int(6, 10), 0));
+
+            AddDemo(buildController.TryBuild(BuildingKind.Belt, new Vector2Int(4, 11), 1));
+            AddDemo(buildController.TryBuild(BuildingKind.Storage, new Vector2Int(4, 12), 1));
+
+            AddDemo(buildController.TryBuild(BuildingKind.Belt, new Vector2Int(4, 9), 3));
+            AddDemo(buildController.TryBuild(BuildingKind.Storage, new Vector2Int(4, 8), 3));
+        }
+
+        private void CreateMergerDemo()
+        {
+            AddDemo(buildController.TryBuild(BuildingKind.Merger, new Vector2Int(10, 10), 0));
+
+            Miner westMiner = buildController.TryBuild(
+                BuildingKind.Miner,
+                new Vector2Int(8, 10),
+                0) as Miner;
+            Miner southMiner = buildController.TryBuild(
+                BuildingKind.Miner,
+                new Vector2Int(10, 8),
+                1) as Miner;
+            Miner northMiner = buildController.TryBuild(
+                BuildingKind.Miner,
+                new Vector2Int(10, 12),
+                3) as Miner;
+            AddDemo(westMiner);
+            AddDemo(southMiner);
+            AddDemo(northMiner);
+
+            AddDemo(buildController.TryBuild(BuildingKind.Belt, new Vector2Int(11, 10), 0));
+            AddDemo(buildController.TryBuild(BuildingKind.Storage, new Vector2Int(12, 10), 0));
+        }
+
+        private void CreateFullLoopDemo()
+        {
+            BeltLogic east = buildController.TryBuild(
+                BuildingKind.Belt,
+                new Vector2Int(17, 4),
+                0) as BeltLogic;
+            BeltLogic north = buildController.TryBuild(
+                BuildingKind.Belt,
+                new Vector2Int(18, 4),
+                1) as BeltLogic;
+            BeltLogic west = buildController.TryBuild(
+                BuildingKind.Belt,
+                new Vector2Int(18, 5),
+                2) as BeltLogic;
+            BeltLogic south = buildController.TryBuild(
+                BuildingKind.Belt,
+                new Vector2Int(17, 5),
+                3) as BeltLogic;
+
+            BeltLogic[] loop = { east, north, west, south };
+            for (int i = 0; i < loop.Length; i++)
+            {
+                BeltLogic belt = loop[i];
+                AddDemo(belt);
+                if (belt != null)
+                {
+                    belt.SetItemForPrototype(new ItemState(ore));
+                }
+            }
+        }
+    }

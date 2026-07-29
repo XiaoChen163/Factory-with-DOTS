@@ -57,21 +57,50 @@ using UnityEngine;
 
         public static GameObject CreatePreviewCell(Transform parent, bool isBelt)
         {
-            GameObject preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject preview = new GameObject("Placement Preview");
             preview.name = "Placement Preview";
             preview.transform.SetParent(parent, false);
-            preview.transform.localScale = isBelt
-                ? new Vector3(0.90f, 0.18f, 0.72f)
+            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Preview Body";
+            body.transform.SetParent(preview.transform, false);
+            body.transform.localScale = isBelt
+                ? new Vector3(1f, 0.18f, 1f)
                 : new Vector3(0.92f, 0.68f, 0.92f);
-            preview.GetComponent<Renderer>().sharedMaterial = CreatePreviewMaterial();
+            body.GetComponent<Renderer>().sharedMaterial = CreatePreviewMaterial();
 
-            Collider collider = preview.GetComponent<Collider>();
+            Collider collider = body.GetComponent<Collider>();
             if (collider != null)
             {
                 Object.Destroy(collider);
             }
 
+            if (isBelt)
+            {
+                GameObject arrow = CreateTriangleArrow(
+                    preview.transform,
+                    "Preview Direction Triangle",
+                    new Color(1f, 0.85f, 0.18f, 0.9f));
+                arrow.transform.localPosition = new Vector3(0f, 0.225f, 0f);
+            }
+
             return preview;
+        }
+
+        public static void SetPreviewCellBlocked(GameObject preview, bool blocked)
+        {
+            if (preview == null)
+            {
+                return;
+            }
+
+            Transform body = preview.transform.Find("Preview Body");
+            Renderer renderer = body == null ? null : body.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = blocked
+                    ? new Color(1f, 0.08f, 0.06f, 0.58f)
+                    : new Color(0.08f, 0.52f, 1f, 0.42f);
+            }
         }
 
         public static void CreateBeltVisual(Transform parent)
@@ -81,25 +110,67 @@ using UnityEngine;
                 "Belt Body",
                 parent,
                 new Vector3(0f, 0.10f, 0f),
-                new Vector3(0.92f, 0.16f, 0.72f),
+                new Vector3(1f, 0.16f, 1f),
                 new Color(0.16f, 0.18f, 0.22f));
 
-            GameObject arrow = CreatePrimitive(
-                PrimitiveType.Cube,
-                "Direction Arrow",
-                parent,
-                new Vector3(0.20f, 0.21f, 0f),
-                new Vector3(0.38f, 0.06f, 0.16f),
-                new Color(0.96f, 0.78f, 0.18f));
-            arrow.transform.localRotation = Quaternion.identity;
-
+            Color disconnectedColor = new Color(1f, 0.78f, 0.06f);
             CreatePrimitive(
                 PrimitiveType.Cube,
-                "Arrow Head",
+                "Connection Edge East",
                 parent,
-                new Vector3(0.38f, 0.21f, 0f),
-                new Vector3(0.12f, 0.07f, 0.34f),
-                new Color(0.96f, 0.78f, 0.18f));
+                new Vector3(0.475f, 0.205f, 0f),
+                new Vector3(0.05f, 0.05f, 0.90f),
+                disconnectedColor);
+            CreatePrimitive(
+                PrimitiveType.Cube,
+                "Connection Edge North",
+                parent,
+                new Vector3(0f, 0.205f, 0.475f),
+                new Vector3(0.90f, 0.05f, 0.05f),
+                disconnectedColor);
+            CreatePrimitive(
+                PrimitiveType.Cube,
+                "Connection Edge West",
+                parent,
+                new Vector3(-0.475f, 0.205f, 0f),
+                new Vector3(0.05f, 0.05f, 0.90f),
+                disconnectedColor);
+            CreatePrimitive(
+                PrimitiveType.Cube,
+                "Connection Edge South",
+                parent,
+                new Vector3(0f, 0.205f, -0.475f),
+                new Vector3(0.90f, 0.05f, 0.05f),
+                disconnectedColor);
+
+            CreateTriangleArrow(parent, "Direction Triangle", disconnectedColor);
+        }
+
+        public static void CreateJunctionVisual(
+            Transform parent,
+            string label,
+            Color color)
+        {
+            CreatePrimitive(
+                PrimitiveType.Cube,
+                "Junction Body",
+                parent,
+                new Vector3(0f, 0.30f, 0f),
+                new Vector3(1f, 0.56f, 1f),
+                color * 0.55f);
+
+            GameObject direction = CreateTriangleArrow(
+                parent,
+                "Junction Direction",
+                Color.white);
+            direction.transform.localPosition = new Vector3(0f, 0.60f, 0f);
+            CreateWorldLabel(
+                label,
+                parent,
+                new Vector3(-0.16f, 0.61f, 0.28f),
+                30,
+                Color.white,
+                0.10f);
         }
 
         public static void CreateMachineVisual(
@@ -201,6 +272,34 @@ using UnityEngine;
             Renderer renderer = instance.GetComponent<Renderer>();
             renderer.material = CreateMaterial(color);
             return instance;
+        }
+
+        private static GameObject CreateTriangleArrow(
+            Transform parent,
+            string name,
+            Color color)
+        {
+            GameObject arrow = new GameObject(name);
+            arrow.transform.SetParent(parent, false);
+            arrow.transform.localPosition = new Vector3(0f, 0.225f, 0f);
+
+            Mesh mesh = new Mesh
+            {
+                name = name + " Mesh",
+                vertices = new[]
+                {
+                    new Vector3(0.30f, 0f, 0f),
+                    new Vector3(-0.22f, 0f, -0.19f),
+                    new Vector3(-0.22f, 0f, 0.19f)
+                },
+                triangles = new[] { 0, 1, 2 }
+            };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            arrow.AddComponent<MeshFilter>().sharedMesh = mesh;
+            arrow.AddComponent<MeshRenderer>().material = CreateMaterial(color);
+            return arrow;
         }
 
         private static Shader FindCompatibleShader()

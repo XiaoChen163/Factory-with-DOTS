@@ -13,10 +13,58 @@ public sealed class BeltVisual : MonoBehaviour
     private Vector3 transferEnd;
     private float transferDuration;
     private float transferElapsed;
+    private Transform directionTriangle;
+    private GameObject eastEdge;
+    private GameObject northEdge;
+    private GameObject westEdge;
+    private GameObject southEdge;
 
     public void Initialize(BeltLogic beltLogic)
     {
         logic = beltLogic;
+        directionTriangle = transform.Find("Direction Triangle");
+        eastEdge = FindChildObject("Connection Edge East");
+        northEdge = FindChildObject("Connection Edge North");
+        westEdge = FindChildObject("Connection Edge West");
+        southEdge = FindChildObject("Connection Edge South");
+    }
+
+    public void RefreshTopology(
+        bool hasInput,
+        Vector2Int incomingTravelDirection,
+        bool hasOutput)
+    {
+        SetAllConnectionEdgesVisible(true);
+
+        if (hasInput)
+        {
+            SetWorldEdgeVisible(-incomingTravelDirection, false);
+        }
+
+        if (hasOutput)
+        {
+            SetWorldEdgeVisible(logic.Direction, false);
+        }
+
+        if (directionTriangle == null)
+        {
+            return;
+        }
+
+        Vector2Int displayDirection = logic.Direction;
+        if (hasInput && incomingTravelDirection != logic.Direction)
+        {
+            Vector2Int cornerDirection = incomingTravelDirection + logic.Direction;
+            if (cornerDirection != Vector2Int.zero)
+            {
+                displayDirection = cornerDirection;
+            }
+        }
+
+        Vector2Int localDirection =
+            GridDirection.Rotate(displayDirection, -logic.QuarterTurns);
+        float angle = -Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
+        directionTriangle.localRotation = Quaternion.Euler(0f, angle, 0f);
     }
 
     private void LateUpdate()
@@ -143,6 +191,43 @@ public sealed class BeltVisual : MonoBehaviour
         {
             Destroy(itemVisual);
             itemVisual = null;
+        }
+    }
+
+    private GameObject FindChildObject(string childName)
+    {
+        Transform child = transform.Find(childName);
+        return child == null ? null : child.gameObject;
+    }
+
+    private void SetAllConnectionEdgesVisible(bool visible)
+    {
+        if (eastEdge != null) eastEdge.SetActive(visible);
+        if (northEdge != null) northEdge.SetActive(visible);
+        if (westEdge != null) westEdge.SetActive(visible);
+        if (southEdge != null) southEdge.SetActive(visible);
+    }
+
+    private void SetWorldEdgeVisible(Vector2Int worldDirection, bool visible)
+    {
+        Vector2Int localDirection =
+            GridDirection.Rotate(worldDirection, -logic.QuarterTurns);
+
+        if (localDirection == Vector2Int.right && eastEdge != null)
+        {
+            eastEdge.SetActive(visible);
+        }
+        else if (localDirection == Vector2Int.up && northEdge != null)
+        {
+            northEdge.SetActive(visible);
+        }
+        else if (localDirection == Vector2Int.left && westEdge != null)
+        {
+            westEdge.SetActive(visible);
+        }
+        else if (localDirection == Vector2Int.down && southEdge != null)
+        {
+            southEdge.SetActive(visible);
         }
     }
 }

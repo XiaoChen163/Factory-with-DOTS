@@ -1,8 +1,15 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-public sealed class BeltLogic : GridBuilding, IItemReceiver, IItemTransferSource
+public sealed class BeltLogic : GridBuilding, ITransportNode
 {
-    [SerializeField, Min(0f)] private float speed = 2f;
+    [SerializeField, Min(0f)] private float speed = 1f;
+
+    private readonly List<TransportTopology.IncomingConnection> incomingConnections =
+        new List<TransportTopology.IncomingConnection>(2);
+
+    private GridBuilding selectedInputSource;
+    private int selectedInputOutputIndex = -1;
 
     private ItemState currentItem;
     private float progress;
@@ -23,11 +30,16 @@ public sealed class BeltLogic : GridBuilding, IItemReceiver, IItemTransferSource
     public float PreviousProgress => previousProgress;
     public Vector2Int NextCell => AnchorCell + Direction;
     public int ItemCount => currentItem == null ? 0 : 1;
+    public int OutputCount => 1;
+    public bool IsInLoop { get; internal set; }
     public BeltVisual Visual { get; private set; }
 
     public bool CanAccept(ItemState item, Vector2Int sourceCell)
     {
-        return item != null && currentItem == null;
+        return item != null &&
+               currentItem == null &&
+               TryGetIncomingConnection(out TransportTopology.IncomingConnection connection) &&
+               connection.Source.AnchorCell == sourceCell;
     }
 
     public void Accept(ItemState item, Vector2Int sourceCell)
@@ -40,12 +52,20 @@ public sealed class BeltLogic : GridBuilding, IItemReceiver, IItemTransferSource
         PrototypeVisuals.CreateBeltVisual(transform);
         Visual = gameObject.AddComponent<BeltVisual>();
         Visual.Initialize(this);
+        Grid.Changed += HandleGridChanged;
+        RefreshTopologyVisual();
     }
 
     protected override void OnRemoved()
     {
+        if (Grid != null)
+        {
+            Grid.Changed -= HandleGridChanged;
+        }
+
         currentItem = null;
         nextItem = null;
+        IsInLoop = false;
     }
 
     public void PrepareNextState()
@@ -124,5 +144,87 @@ public sealed class BeltLogic : GridBuilding, IItemReceiver, IItemTransferSource
         }
 
         return Mathf.Lerp(previousProgress, progress, interpolationAlpha);
+    }
+
+    public Vector2Int GetOutputCell(int index)
+    {
+        return NextCell;
+    }
+
+    public Vector2Int GetOutputDirection(int index)
+    {
+        return Direction;
+    }
+
+    public bool TryGetIncomingConnection(
+        out TransportTopology.IncomingConnection connection)
+    {
+        TransportTopology.FindIncoming(Grid, AnchorCell, incomingConnections);
+        if (selectedInputSource != null)
+        {
+            for (int i = 0; i < incomingConnections.Count; i++)
+            {
+                TransportTopology.IncomingConnection candidate = incomingConnections[i];
+                if (ReferenceEquals(candidate.Source, selectedInputSource) &&
+                    candidate.OutputIndex == selectedInputOutputIndex)
+                {
+                    connection = candidate;
+                    return true;
+                }
+            }
+        }
+
+        selectedInputSource = null;
+        selectedInputOutputIndex = -1;
+        if (incomingConnections.Count > 0)
+        {
+            connection = incomingConnections[0];
+            selectedInputSource = connection.Source;
+            selectedInputOutputIndex = connection.OutputIndex;
+            return true;
+        }
+
+        connection = default;
+        return false;
+    }
+
+    public bool AcceptsInputFrom(GridBuilding source)
+    {
+        return source != null &&
+               TryGetIncomingConnection(out TransportTopology.IncomingConnection connection) &&
+               ReferenceEquals(connection.Source, source);
+    }
+
+    internal void RefreshTopologyVisual()
+    {
+        if (Visual == null || Grid == null)
+        {
+            return;
+        }
+
+        bool hasInput = TryGetIncomingConnection(
+            out TransportTopology.IncomingConnection incoming);
+        GridBuilding outputTarget = Grid.GetOccupant(NextCell);
+        bool hasOutput = outputTarget is IItemReceiver &&
+                         (!(outputTarget is BeltLogic targetBelt) ||
+                          targetBelt.AcceptsInputFrom(this));
+        Visual.RefreshTopology(
+            hasInput,
+            hasInput ? incoming.TravelDirection : Direction,
+            hasOutput);
+    }
+
+    internal void SetItemForPrototype(ItemState item, float itemProgress = 0f)
+    {
+        currentItem = item;
+        progress = item == null ? 0f : Mathf.Clamp01(itemProgress);
+        previousProgress = progress;
+        nextItem = currentItem;
+        nextProgress = progress;
+    }
+
+    private void HandleGridChanged()
+    {
+        RefreshTopologyVisual();
     }
 }

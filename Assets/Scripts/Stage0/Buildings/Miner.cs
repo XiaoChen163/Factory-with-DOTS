@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public sealed class Miner : PortBuilding, IItemTransferSource
+public sealed class Miner : PortBuilding, IItemTransferSource, IGridOutputProvider
 {
     private float productionTimer;
     private ItemState pendingOutput;
@@ -9,6 +9,7 @@ public sealed class Miner : PortBuilding, IItemTransferSource
     public ItemData OutputItem { get; set; }
     public float ProductionInterval { get; set; } = 1f;
     public bool HasPendingOutput => pendingOutput != null;
+    public int OutputCount => 1;
 
     protected override void OnInitialized()
     {
@@ -55,5 +56,15 @@ public sealed class Miner : PortBuilding, IItemTransferSource
 
         pendingOutput = null;
         productionTimer = Mathf.Max(0f, productionTimer - ProductionInterval);
+    }
+
+    public Vector2Int GetOutputCell(int index)
+    {
+        return OutputPortCell;
+    }
+
+    public Vector2Int GetOutputDirection(int index)
+    {
+        return Direction;
     }
 }

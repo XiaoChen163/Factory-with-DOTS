@@ -11,57 +11,109 @@ public sealed class TransferArbiter
 
     private readonly List<ItemTransferRequest> sortedRequests = new List<ItemTransferRequest>();
     private readonly List<ItemTransferRequest> acceptedRequests = new List<ItemTransferRequest>();
+    private readonly Dictionary<GridBuilding, List<ItemTransferRequest>> requestsByTarget =
+        new Dictionary<GridBuilding, List<ItemTransferRequest>>();
     private readonly Dictionary<GridBuilding, ItemTransferRequest> candidateByTarget =
         new Dictionary<GridBuilding, ItemTransferRequest>();
-    private readonly Dictionary<BeltLogic, ItemTransferRequest> outgoingByBelt =
-        new Dictionary<BeltLogic, ItemTransferRequest>();
+    private readonly Dictionary<ITransportNode, ItemTransferRequest> outgoingByNode =
+        new Dictionary<ITransportNode, ItemTransferRequest>();
     private readonly Dictionary<ItemTransferRequest, ResolutionState> states =
         new Dictionary<ItemTransferRequest, ResolutionState>();
+    private readonly HashSet<IItemTransferSource> acceptedSources =
+        new HashSet<IItemTransferSource>();
+    private readonly HashSet<GridBuilding> reservedTargets =
+        new HashSet<GridBuilding>();
 
-    public IReadOnlyList<ItemTransferRequest> Resolve(IReadOnlyList<ItemTransferRequest> requests)
+    public IReadOnlyList<ItemTransferRequest> Resolve(
+        IReadOnlyList<ItemTransferRequest> requests,
+        IReadOnlyList<List<BeltLogic>> loops)
     {
         sortedRequests.Clear();
         acceptedRequests.Clear();
+        requestsByTarget.Clear();
         candidateByTarget.Clear();
-        outgoingByBelt.Clear();
+        outgoingByNode.Clear();
         states.Clear();
+        acceptedSources.Clear();
+        reservedTargets.Clear();
 
         for (int i = 0; i < requests.Count; i++)
         {
             ItemTransferRequest request = requests[i];
             sortedRequests.Add(request);
-            if (request.Source is BeltLogic sourceBelt)
+            if (request.Source is ITransportNode sourceNode)
             {
-                outgoingByBelt[sourceBelt] = request;
+                outgoingByNode[sourceNode] = request;
             }
         }
 
         sortedRequests.Sort(CompareRequests);
+        AcceptReadyFullLoops(loops);
 
         for (int i = 0; i < sortedRequests.Count; i++)
         {
             ItemTransferRequest request = sortedRequests[i];
             if (request.TargetBuilding == null ||
                 !(request.TargetBuilding is IItemReceiver receiver) ||
-                candidateByTarget.ContainsKey(request.TargetBuilding))
+                reservedTargets.Contains(request.TargetBuilding) ||
+                acceptedSources.Contains(request.Source))
             {
                 continue;
             }
 
-            if (!(request.TargetBuilding is BeltLogic) &&
-                !receiver.CanAccept(request.Item, request.SourceCell))
+            if (request.TargetBuilding is BeltLogic targetBelt &&
+                request.Source is GridBuilding sourceBuilding &&
+                !targetBelt.AcceptsInputFrom(sourceBuilding))
             {
                 continue;
             }
 
-            candidateByTarget.Add(request.TargetBuilding, request);
+            if (!requestsByTarget.TryGetValue(
+                    request.TargetBuilding,
+                    out List<ItemTransferRequest> targetRequests))
+            {
+                targetRequests = new List<ItemTransferRequest>(3);
+                requestsByTarget.Add(request.TargetBuilding, targetRequests);
+            }
+
+            targetRequests.Add(request);
+        }
+
+        foreach (KeyValuePair<GridBuilding, List<ItemTransferRequest>> pair in requestsByTarget)
+        {
+            List<ItemTransferRequest> targetRequests = pair.Value;
+            ItemTransferRequest candidate = pair.Key is MergerLogic merger
+                ? merger.SelectIncomingRequest(targetRequests)
+                : targetRequests[0];
+
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            IItemReceiver receiver = (IItemReceiver)pair.Key;
+            if (pair.Key is ITransportNode targetNode)
+            {
+                if (targetNode.CurrentItem == null &&
+                    !receiver.CanAccept(candidate.Item, candidate.SourceCell))
+                {
+                    continue;
+                }
+            }
+            else if (!receiver.CanAccept(candidate.Item, candidate.SourceCell))
+            {
+                continue;
+            }
+
+            candidateByTarget.Add(pair.Key, candidate);
         }
 
         foreach (ItemTransferRequest request in candidateByTarget.Values)
         {
-            if (CanAccept(request))
+            if (!acceptedSources.Contains(request.Source) && CanAccept(request))
             {
                 acceptedRequests.Add(request);
+                acceptedSources.Add(request.Source);
             }
         }
 
@@ -79,11 +131,11 @@ public sealed class TransferArbiter
         states[request] = ResolutionState.Resolving;
 
         bool accepted;
-        if (request.TargetBuilding is BeltLogic targetBelt)
+        if (request.TargetBuilding is ITransportNode targetNode)
         {
-            accepted = targetBelt.CurrentItem == null;
+            accepted = targetNode.CurrentItem == null;
             if (!accepted &&
-                outgoingByBelt.TryGetValue(targetBelt, out ItemTransferRequest outgoingRequest) &&
+                outgoingByNode.TryGetValue(targetNode, out ItemTransferRequest outgoingRequest) &&
                 outgoingRequest.TargetBuilding != null &&
                 candidateByTarget.TryGetValue(outgoingRequest.TargetBuilding, out ItemTransferRequest candidate) &&
                 ReferenceEquals(candidate, outgoingRequest))
@@ -102,6 +154,46 @@ public sealed class TransferArbiter
 
         states[request] = accepted ? ResolutionState.Accepted : ResolutionState.Rejected;
         return accepted;
+    }
+
+    private void AcceptReadyFullLoops(IReadOnlyList<List<BeltLogic>> loops)
+    {
+        if (loops == null)
+        {
+            return;
+        }
+
+        for (int loopIndex = 0; loopIndex < loops.Count; loopIndex++)
+        {
+            List<BeltLogic> loop = loops[loopIndex];
+            bool ready = loop.Count > 1;
+
+            for (int i = 0; i < loop.Count && ready; i++)
+            {
+                BeltLogic source = loop[i];
+                if (!outgoingByNode.TryGetValue(source, out ItemTransferRequest request) ||
+                    !(request.TargetBuilding is BeltLogic target) ||
+                    !target.IsInLoop ||
+                    !loop.Contains(target))
+                {
+                    ready = false;
+                }
+            }
+
+            if (!ready)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < loop.Count; i++)
+            {
+                ItemTransferRequest request = outgoingByNode[loop[i]];
+                acceptedRequests.Add(request);
+                acceptedSources.Add(request.Source);
+                reservedTargets.Add(request.TargetBuilding);
+                states[request] = ResolutionState.Accepted;
+            }
+        }
     }
 
     private static int CompareRequests(ItemTransferRequest left, ItemTransferRequest right)

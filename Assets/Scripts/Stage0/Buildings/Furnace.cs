@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public sealed class Furnace : PortBuilding, IItemReceiver, IItemTransferSource
+public sealed class Furnace : PortBuilding, IItemReceiver, IItemTransferSource, IGridOutputProvider
 {
     private int bufferedInputs;
     private int pendingOutputs;
@@ -14,6 +14,7 @@ public sealed class Furnace : PortBuilding, IItemReceiver, IItemTransferSource
     public bool IsCrafting => crafting;
     public bool HasPendingOutput => pendingOutput != null;
     public float CraftProgress => Recipe == null || !crafting ? 0f : Mathf.Clamp01(craftProgress / Recipe.CraftTime);
+    public int OutputCount => 1;
 
     public bool CanAccept(ItemState item, Vector2Int sourceCell)
     {
@@ -94,5 +95,15 @@ public sealed class Furnace : PortBuilding, IItemReceiver, IItemTransferSource
 
         pendingOutputs--;
         pendingOutput = pendingOutputs > 0 ? new ItemState(Recipe.OutputItem) : null;
+    }
+
+    public Vector2Int GetOutputCell(int index)
+    {
+        return OutputPortCell;
+    }
+
+    public Vector2Int GetOutputDirection(int index)
+    {
+        return Direction;
     }
 }

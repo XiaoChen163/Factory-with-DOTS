@@ -5,15 +5,19 @@ using UnityEngine;
 public sealed class BeltSimulation : MonoBehaviour
 {
     private readonly List<BeltLogic> belts = new List<BeltLogic>();
+    private readonly List<ITransportNode> transportNodes = new List<ITransportNode>();
     private readonly List<Miner> miners = new List<Miner>();
     private readonly List<Furnace> furnaces = new List<Furnace>();
     private readonly List<ItemTransferRequest> requests = new List<ItemTransferRequest>();
     private readonly TransferArbiter arbiter = new TransferArbiter();
+    private readonly BeltNetworkDetector networkDetector = new BeltNetworkDetector();
 
     private GameManager gameManager;
     private GridMap grid;
+    private bool topologyDirty = true;
 
     public int BeltCount => belts.Count;
+    public int LoopCount => networkDetector.Loops.Count;
     public int LastRequestCount { get; private set; }
     public int LastAcceptedCount { get; private set; }
     public event Action<IReadOnlyList<ItemTransferRequest>> TransfersCommitted;
@@ -25,12 +29,23 @@ public sealed class BeltSimulation : MonoBehaviour
             gameManager.LogicTick -= ProcessTick;
         }
 
+        if (grid != null)
+        {
+            grid.Changed -= HandleGridChanged;
+        }
+
         gameManager = tickManager;
         grid = targetGrid;
+        topologyDirty = true;
 
         if (gameManager != null)
         {
             gameManager.LogicTick += ProcessTick;
+        }
+
+        if (grid != null)
+        {
+            grid.Changed += HandleGridChanged;
         }
     }
 
@@ -39,6 +54,11 @@ public sealed class BeltSimulation : MonoBehaviour
         if (gameManager != null)
         {
             gameManager.LogicTick -= ProcessTick;
+        }
+
+        if (grid != null)
+        {
+            grid.Changed -= HandleGridChanged;
         }
     }
 
@@ -51,9 +71,15 @@ public sealed class BeltSimulation : MonoBehaviour
 
         CaptureBuildingSnapshot();
 
-        for (int i = 0; i < belts.Count; i++)
+        if (topologyDirty)
         {
-            belts[i].PrepareNextState();
+            networkDetector.Rebuild(grid);
+            topologyDirty = false;
+        }
+
+        for (int i = 0; i < transportNodes.Count; i++)
+        {
+            transportNodes[i].PrepareNextState();
         }
 
         for (int i = 0; i < miners.Count; i++)
@@ -67,11 +93,11 @@ public sealed class BeltSimulation : MonoBehaviour
         }
 
         requests.Clear();
-        for (int i = 0; i < belts.Count; i++)
+        for (int i = 0; i < transportNodes.Count; i++)
         {
-            BeltLogic belt = belts[i];
-            belt.Advance(deltaTime);
-            AddRequestFrom(belt);
+            ITransportNode node = transportNodes[i];
+            node.Advance(deltaTime);
+            AddRequestFrom(node);
         }
 
         for (int i = 0; i < miners.Count; i++)
@@ -84,7 +110,8 @@ public sealed class BeltSimulation : MonoBehaviour
             AddRequestFrom(furnaces[i]);
         }
 
-        IReadOnlyList<ItemTransferRequest> accepted = arbiter.Resolve(requests);
+        IReadOnlyList<ItemTransferRequest> accepted =
+            arbiter.Resolve(requests, networkDetector.Loops);
         LastRequestCount = requests.Count;
         LastAcceptedCount = accepted.Count;
 
@@ -99,9 +126,13 @@ public sealed class BeltSimulation : MonoBehaviour
         for (int i = 0; i < accepted.Count; i++)
         {
             ItemTransferRequest request = accepted[i];
-            if (request.TargetBuilding is BeltLogic targetBelt)
+            if (request.TargetBuilding is TransportJunctionLogic junction)
             {
-                targetBelt.StageTransferIn(request.Item);
+                junction.Accept(request.Item, request.SourceCell);
+            }
+            else if (request.TargetBuilding is ITransportNode targetNode)
+            {
+                targetNode.StageTransferIn(request.Item);
             }
             else if (request.TargetBuilding is IItemReceiver receiver)
             {
@@ -109,9 +140,9 @@ public sealed class BeltSimulation : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < belts.Count; i++)
+        for (int i = 0; i < transportNodes.Count; i++)
         {
-            belts[i].CommitNextState();
+            transportNodes[i].CommitNextState();
         }
 
         if (accepted.Count > 0)
@@ -123,6 +154,7 @@ public sealed class BeltSimulation : MonoBehaviour
     private void CaptureBuildingSnapshot()
     {
         belts.Clear();
+        transportNodes.Clear();
         miners.Clear();
         furnaces.Clear();
 
@@ -133,6 +165,11 @@ public sealed class BeltSimulation : MonoBehaviour
             if (building is BeltLogic belt)
             {
                 belts.Add(belt);
+                transportNodes.Add(belt);
+            }
+            else if (building is ITransportNode transportNode)
+            {
+                transportNodes.Add(transportNode);
             }
             else if (building is Miner miner)
             {
@@ -145,6 +182,7 @@ public sealed class BeltSimulation : MonoBehaviour
         }
 
         belts.Sort(CompareBuildings);
+        transportNodes.Sort(CompareTransportNodes);
         miners.Sort(CompareBuildings);
         furnaces.Sort(CompareBuildings);
     }
@@ -161,5 +199,15 @@ public sealed class BeltSimulation : MonoBehaviour
     {
         int x = left.AnchorCell.x.CompareTo(right.AnchorCell.x);
         return x != 0 ? x : left.AnchorCell.y.CompareTo(right.AnchorCell.y);
+    }
+
+    private static int CompareTransportNodes(ITransportNode left, ITransportNode right)
+    {
+        return CompareBuildings((GridBuilding)left, (GridBuilding)right);
+    }
+
+    private void HandleGridChanged()
+    {
+        topologyDirty = true;
     }
 }

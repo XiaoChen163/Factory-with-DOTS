@@ -355,14 +355,8 @@ public class TransferArbiter {
 
 ### 实现步骤
 
-**Step 3.1：安装 DOTS 包**
 
-在 Package Manager 中安装：
-- `Entities` (1.0.0 或更高)
-- `Entities Graphics`
-- `Unity Physics`（如需碰撞检测）
-
-**Step 3.2：定义 ECS 组件（数据层）**
+**Step 3.1：定义 ECS 组件（数据层）**
 
 ```csharp
 using Unity.Entities;
@@ -385,7 +379,7 @@ public struct Item : IComponentData {
 }
 ```
 
-**Step 3.3：实现 Baking（GameObject → Entity 转换）**
+**Step 3.2：实现 Baking（GameObject → Entity 转换）**
 
 在 SubScene 中使用 GameObject 创作，通过 Baker 转换为 Entity：
 
@@ -415,7 +409,7 @@ public class BeltBaker : Baker<BeltAuthoring> {
 }
 ```
 
-**Step 3.4：实现并行 Job（IJobEntity）**
+**Step 3.3：实现并行 Job（IJobEntity）**
 
 使用 `IJobEntity` 处理所有传送带实体：
 
@@ -444,7 +438,7 @@ public partial struct BeltProgressJob : IJobEntity {
 }
 ```
 
-**Step 3.5：创建 System 调度 Job**
+**Step 3.4：创建 System 调度 Job**
 
 ```csharp
 using Unity.Entities;
@@ -463,7 +457,7 @@ public partial class BeltSystem : SystemBase {
 }
 ```
 
-**Step 3.6：处理跨传送带物品转移（边界节点）**
+**Step 3.5：处理跨传送带物品转移（边界节点）**
 
 对于跨带转移（物品从一条传送带末端移到另一条起点），使用**两阶段提交**：
 

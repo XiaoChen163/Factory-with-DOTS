@@ -1,4 +1,4 @@
-﻿/* 
+/*
     ------------------- Code Monkey -------------------
 
     Thank you for downloading this package
@@ -13,7 +13,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using CodeMonkey.Utils;
 
 public class Testing : MonoBehaviour {
 
@@ -59,7 +58,7 @@ public class Testing : MonoBehaviour {
 
         public HeatMapVisual(Grid grid, MeshFilter meshFilter) {
             this.grid = grid;
-            
+
             mesh = new Mesh();
             meshFilter.mesh = mesh;
 

@@ -1,9 +1,6 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using CodeMonkey;
-using CodeMonkey.Utils;
-using CodeMonkey.MonoBehaviours;
 
 public class GameHandler_Setup : MonoBehaviour {
 
@@ -29,7 +26,7 @@ public class GameHandler_Setup : MonoBehaviour {
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) {
             cameraPosition += new Vector3(0, -1) * cameraSpeed * Time.deltaTime;
         }
-        
+
         if (Input.GetKeyDown(KeyCode.KeypadPlus)) {
             orthoSize -= 10f;
         }

@@ -9,15 +9,15 @@ public partial struct BeltProgressSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        state.RequireForUpdate<Belt>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        float deltaTime = SystemAPI.Time.DeltaTime;
         state.Dependency = new BeltProgressJob
         {
-            DeltaTime = SystemAPI.Time.DeltaTime
+            DeltaTime = deltaTime
         }.ScheduleParallel(state.Dependency);
     }
 
@@ -39,4 +39,5 @@ public partial struct BeltProgressSystem : ISystem
                 1f);
         }
     }
+
 }

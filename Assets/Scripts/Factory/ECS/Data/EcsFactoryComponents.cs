@@ -10,6 +10,27 @@ public struct Belt : IComponentData
     public Entity CurrentItem;
     public float Progress;
     public bool IsLoop;
+    public bool HasOutput;
+}
+
+public struct Merger : IComponentData
+{
+    public int2 Cell;
+    public int2 Direction;
+    public Entity CurrentItem;
+    public float TransferElapsed;
+    public float InputInterval;
+    public int NextInputIndex;
+}
+
+public struct Splitter : IComponentData
+{
+    public int2 Cell;
+    public int2 Direction;
+    public Entity CurrentItem;
+    public float TransferElapsed;
+    public float InputInterval;
+    public int NextOutputIndex;
 }
 
 public struct Item : IComponentData
@@ -21,6 +42,8 @@ public struct Item : IComponentData
 public struct Stage3SimulationStats : IComponentData
 {
     public int BeltCount;
+    public int MergerCount;
+    public int SplitterCount;
     public int LoopCount;
     public int ReadyRequestCount;
     public int AcceptedTransferCount;

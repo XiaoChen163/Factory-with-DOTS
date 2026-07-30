@@ -3,8 +3,15 @@ using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 
-public static class BeltTransferResolver
+public static class FactoryTransferResolver
 {
+    private enum NodeKind : byte
+    {
+        Belt,
+        Merger,
+        Splitter
+    }
+
     private enum ResolutionState : byte
     {
         Unresolved,
@@ -13,234 +20,622 @@ public static class BeltTransferResolver
         Rejected
     }
 
-    private struct Snapshot
+    private struct Node
     {
         public Entity Entity;
-        public Belt Belt;
+        public NodeKind Kind;
+        public int SourceIndex;
+        public int2 Cell;
+        public int2 Direction;
+        public Entity CurrentItem;
+        public float Progress;
+        public int Cursor;
         public int TargetIndex;
+        public int OutputIndex;
+        public int2 OutputDirection;
         public bool IsReady;
+        public float Speed;
+        public float TransferElapsed;
+        public float InputInterval;
     }
 
     public static void Resolve(
-        Entity[] entities,
+        Entity[] beltEntities,
         Belt[] belts,
-        Dictionary<int2, int> nextWinnerByTarget,
+        Entity[] mergerEntities,
+        Merger[] mergers,
+        Entity[] splitterEntities,
+        Splitter[] splitters,
+        HashSet<Entity> forwardedJunctions,
         out int loopCount,
         out int readyRequestCount,
         out int acceptedTransferCount)
     {
-        if (entities == null)
-        {
-            throw new ArgumentNullException(nameof(entities));
-        }
+        ValidateInputs(
+            beltEntities,
+            belts,
+            mergerEntities,
+            mergers,
+            splitterEntities,
+            splitters,
+            forwardedJunctions);
 
-        if (belts == null)
-        {
-            throw new ArgumentNullException(nameof(belts));
-        }
-
-        if (entities.Length != belts.Length)
-        {
-            throw new ArgumentException(
-                "Entity and Belt snapshots must have identical lengths.");
-        }
-
-        int count = belts.Length;
-        Snapshot[] snapshots = new Snapshot[count];
+        int beltCount = belts.Length;
+        int mergerCount = mergers.Length;
+        int splitterCount = splitters.Length;
+        Node[] nodes = new Node[
+            beltCount + mergerCount + splitterCount];
         Dictionary<int2, int> indexByCell =
-            new Dictionary<int2, int>(count);
+            new Dictionary<int2, int>(nodes.Length);
 
-        for (int i = 0; i < count; i++)
+        int nodeIndex = 0;
+        for (int i = 0; i < beltCount; i++, nodeIndex++)
         {
-            snapshots[i] = new Snapshot
+            Belt belt = belts[i];
+            belt.IsLoop = false;
+            belts[i] = belt;
+            nodes[nodeIndex] = new Node
             {
-                Entity = entities[i],
-                Belt = belts[i],
-                TargetIndex = -1
+                Entity = beltEntities[i],
+                Kind = NodeKind.Belt,
+                SourceIndex = i,
+                Cell = belt.Cell,
+                Direction = belt.Direction,
+                CurrentItem = belt.CurrentItem,
+                Progress = belt.Progress,
+                Speed = belt.Speed,
+                TargetIndex = -1,
+                OutputIndex = -1
             };
-            snapshots[i].Belt.IsLoop = false;
-            indexByCell[snapshots[i].Belt.Cell] = i;
+            indexByCell[belt.Cell] = nodeIndex;
         }
 
-        readyRequestCount = 0;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < mergerCount; i++, nodeIndex++)
         {
-            Snapshot snapshot = snapshots[i];
-            if (indexByCell.TryGetValue(
-                    snapshot.Belt.NextCell,
-                    out int targetIndex))
+            Merger merger = mergers[i];
+            nodes[nodeIndex] = new Node
             {
-                snapshot.TargetIndex = targetIndex;
-            }
-
-            snapshot.IsReady =
-                snapshot.TargetIndex >= 0 &&
-                snapshot.Belt.CurrentItem != Entity.Null &&
-                snapshot.Belt.Progress >= 1f;
-            if (snapshot.IsReady)
-            {
-                readyRequestCount++;
-            }
-
-            snapshots[i] = snapshot;
+                Entity = mergerEntities[i],
+                Kind = NodeKind.Merger,
+                SourceIndex = i,
+                Cell = merger.Cell,
+                Direction = merger.Direction,
+                CurrentItem = merger.CurrentItem,
+                Progress = merger.CurrentItem == Entity.Null ? 0f : 1f,
+                TransferElapsed = merger.TransferElapsed,
+                InputInterval = merger.InputInterval,
+                Cursor = WrapThree(merger.NextInputIndex),
+                TargetIndex = -1,
+                OutputIndex = -1
+            };
+            indexByCell[merger.Cell] = nodeIndex;
         }
 
-        bool[] accepted = new bool[count];
-        bool[] reservedTargets = new bool[count];
-        loopCount = AcceptReadyLoops(
-            snapshots,
-            accepted,
-            reservedTargets);
+        for (int i = 0; i < splitterCount; i++, nodeIndex++)
+        {
+            Splitter splitter = splitters[i];
+            nodes[nodeIndex] = new Node
+            {
+                Entity = splitterEntities[i],
+                Kind = NodeKind.Splitter,
+                SourceIndex = i,
+                Cell = splitter.Cell,
+                Direction = splitter.Direction,
+                CurrentItem = splitter.CurrentItem,
+                Progress = splitter.CurrentItem == Entity.Null ? 0f : 1f,
+                TransferElapsed = splitter.TransferElapsed,
+                InputInterval = splitter.InputInterval,
+                Cursor = WrapThree(splitter.NextOutputIndex),
+                TargetIndex = -1,
+                OutputIndex = -1
+            };
+            indexByCell[splitter.Cell] = nodeIndex;
+        }
 
-        int[] candidateForTarget = new int[count];
+        MarkBeltOutputs(nodes, indexByCell, belts);
+        loopCount = MarkBeltLoops(nodes, indexByCell, belts);
+        readyRequestCount = BuildOutgoingRequests(
+            nodes,
+            indexByCell,
+            forwardedJunctions);
+
+        int[] candidateForTarget = new int[nodes.Length];
         Array.Fill(candidateForTarget, -1);
-        SelectCandidates(
-            snapshots,
-            reservedTargets,
-            nextWinnerByTarget,
-            candidateForTarget);
+        SelectIncomingCandidates(nodes, candidateForTarget);
 
-        ResolutionState[] states = new ResolutionState[count];
-        for (int i = 0; i < count; i++)
+        ResolutionState[] states =
+            new ResolutionState[nodes.Length];
+        bool[] accepted = new bool[nodes.Length];
+        for (int target = 0; target < nodes.Length; target++)
         {
-            if (accepted[i])
-            {
-                states[i] = ResolutionState.Accepted;
-            }
-            else if (snapshots[i].IsReady &&
-                     candidateForTarget[snapshots[i].TargetIndex] == i)
-            {
+            int candidate = candidateForTarget[target];
+            if (candidate >= 0 &&
                 ResolveCandidate(
-                    i,
-                    snapshots,
+                    candidate,
+                    nodes,
                     candidateForTarget,
-                    states);
+                    states))
+            {
+                accepted[candidate] = true;
             }
         }
 
-        acceptedTransferCount = 0;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < states.Length; i++)
         {
             if (states[i] == ResolutionState.Accepted)
             {
                 accepted[i] = true;
             }
+        }
 
-            if (!accepted[i])
+        Commit(
+            nodes,
+            accepted,
+            belts,
+            mergers,
+            splitters,
+            forwardedJunctions,
+            out acceptedTransferCount);
+    }
+
+    private static int BuildOutgoingRequests(
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell,
+        HashSet<Entity> forwardedJunctions)
+    {
+        int readyCount = 0;
+        for (int sourceIndex = 0;
+             sourceIndex < nodes.Length;
+             sourceIndex++)
+        {
+            Node source = nodes[sourceIndex];
+            if (source.CurrentItem == Entity.Null ||
+                (source.Kind == NodeKind.Belt &&
+                 source.Progress < 1f) ||
+                (source.Kind != NodeKind.Belt &&
+                 forwardedJunctions.Contains(source.Entity)))
             {
                 continue;
             }
 
-            acceptedTransferCount++;
-            int targetIndex = snapshots[i].TargetIndex;
-            if (!reservedTargets[targetIndex])
+            if (source.Kind == NodeKind.Splitter)
             {
-                int2 targetCell = snapshots[targetIndex].Belt.Cell;
-                int candidateCount = CountCandidatesForTarget(
-                    snapshots,
-                    targetIndex,
-                    reservedTargets);
-                if (candidateCount > 0)
+                SelectSplitterOutput(
+                    sourceIndex,
+                    nodes,
+                    indexByCell);
+            }
+            else
+            {
+                TrySetOutput(
+                    sourceIndex,
+                    0,
+                    source.Direction,
+                    nodes,
+                    indexByCell);
+            }
+
+            source = nodes[sourceIndex];
+            if (source.TargetIndex < 0)
+            {
+                continue;
+            }
+
+            if (source.Kind != NodeKind.Belt)
+            {
+                float requiredInterval =
+                    GetJunctionTransferInterval(
+                        source,
+                        nodes[source.TargetIndex]);
+                if (source.TransferElapsed + math.EPSILON <
+                    requiredInterval)
                 {
-                    nextWinnerByTarget[targetCell] =
-                        nextWinnerByTarget.TryGetValue(
-                            targetCell,
-                            out int previousWinner)
-                            ? previousWinner + 1
-                            : 1;
+                    continue;
                 }
             }
+
+            source.IsReady = true;
+            nodes[sourceIndex] = source;
+            readyCount++;
         }
 
-        // Phase one clears every accepted source using the same snapshot.
-        for (int i = 0; i < count; i++)
+        return readyCount;
+    }
+
+    private static void SelectSplitterOutput(
+        int sourceIndex,
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell)
+    {
+        Node source = nodes[sourceIndex];
+        int fallbackOutput = -1;
+        int2 fallbackDirection = default;
+
+        for (int offset = 0; offset < 3; offset++)
         {
-            if (!accepted[i])
+            int outputIndex = WrapThree(source.Cursor + offset);
+            int2 outputDirection = GetSplitterOutputDirection(
+                source.Direction,
+                outputIndex);
+            int2 targetCell = source.Cell + outputDirection;
+            if (!indexByCell.TryGetValue(
+                    targetCell,
+                    out int targetIndex) ||
+                !CanAcceptInput(
+                    nodes[targetIndex],
+                    source.Cell,
+                    outputDirection))
             {
                 continue;
             }
 
-            Snapshot source = snapshots[i];
-            source.Belt.CurrentItem = Entity.Null;
-            source.Belt.Progress = 0f;
-            snapshots[i] = source;
-        }
-
-        // Phase two fills targets. This is the atomic commit boundary.
-        for (int i = 0; i < count; i++)
-        {
-            if (!accepted[i])
+            if (fallbackOutput < 0)
             {
-                continue;
+                fallbackOutput = outputIndex;
+                fallbackDirection = outputDirection;
             }
 
-            int targetIndex = snapshots[i].TargetIndex;
-            Snapshot target = snapshots[targetIndex];
-            target.Belt.CurrentItem = belts[i].CurrentItem;
-            target.Belt.Progress = 0f;
-            snapshots[targetIndex] = target;
+            if (nodes[targetIndex].CurrentItem == Entity.Null)
+            {
+                TrySetOutput(
+                    sourceIndex,
+                    outputIndex,
+                    outputDirection,
+                    nodes,
+                    indexByCell);
+                return;
+            }
         }
 
-        for (int i = 0; i < count; i++)
+        if (fallbackOutput >= 0)
         {
-            belts[i] = snapshots[i].Belt;
+            TrySetOutput(
+                sourceIndex,
+                fallbackOutput,
+                fallbackDirection,
+                nodes,
+                indexByCell);
         }
     }
 
-    private static int AcceptReadyLoops(
-        Snapshot[] snapshots,
-        bool[] accepted,
-        bool[] reservedTargets)
+    private static bool TrySetOutput(
+        int sourceIndex,
+        int outputIndex,
+        int2 outputDirection,
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell)
     {
-        int count = snapshots.Length;
-        byte[] visitState = new byte[count];
-        int[] pathIndex = new int[count];
+        Node source = nodes[sourceIndex];
+        int2 targetCell = source.Cell + outputDirection;
+        if (!indexByCell.TryGetValue(
+                targetCell,
+                out int targetIndex) ||
+            !CanAcceptInput(
+                nodes[targetIndex],
+                source.Cell,
+                outputDirection))
+        {
+            return false;
+        }
+
+        source.TargetIndex = targetIndex;
+        source.OutputIndex = outputIndex;
+        source.OutputDirection = outputDirection;
+        nodes[sourceIndex] = source;
+        return true;
+    }
+
+    private static bool CanAcceptInput(
+        Node target,
+        int2 sourceCell,
+        int2 travelDirection)
+    {
+        if (!math.all(sourceCell + travelDirection == target.Cell))
+        {
+            return false;
+        }
+
+        switch (target.Kind)
+        {
+            case NodeKind.Belt:
+                // A belt may turn after receiving an item. Its single-input
+                // topology is enforced when buildings are placed, so runtime
+                // arbitration only needs to verify cell adjacency here.
+                return true;
+            case NodeKind.Splitter:
+                return math.all(travelDirection == target.Direction);
+            case NodeKind.Merger:
+                return GetMergerInputIndex(
+                    target.Direction,
+                    travelDirection) >= 0;
+            default:
+                return false;
+        }
+    }
+
+    private static void SelectIncomingCandidates(
+        Node[] nodes,
+        int[] candidateForTarget)
+    {
+        List<int> candidates = new List<int>(3);
+        for (int targetIndex = 0;
+             targetIndex < nodes.Length;
+             targetIndex++)
+        {
+            candidates.Clear();
+            for (int sourceIndex = 0;
+                 sourceIndex < nodes.Length;
+                 sourceIndex++)
+            {
+                if (nodes[sourceIndex].IsReady &&
+                    nodes[sourceIndex].TargetIndex == targetIndex)
+                {
+                    candidates.Add(sourceIndex);
+                }
+            }
+
+            if (candidates.Count == 0)
+            {
+                continue;
+            }
+
+            if (nodes[targetIndex].Kind == NodeKind.Merger)
+            {
+                candidateForTarget[targetIndex] =
+                    SelectMergerCandidate(
+                        nodes[targetIndex],
+                        nodes,
+                        candidates);
+                continue;
+            }
+
+            candidates.Sort((left, right) =>
+                CompareNodes(nodes[left], nodes[right]));
+            candidateForTarget[targetIndex] = candidates[0];
+        }
+    }
+
+    private static int SelectMergerCandidate(
+        Node merger,
+        Node[] nodes,
+        List<int> candidates)
+    {
+        int winner = -1;
+        int winnerDistance = int.MaxValue;
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            int candidate = candidates[i];
+            int inputIndex = GetMergerInputIndex(
+                merger.Direction,
+                nodes[candidate].OutputDirection);
+            if (inputIndex < 0)
+            {
+                continue;
+            }
+
+            int distance = WrapThree(inputIndex - merger.Cursor);
+            if (distance < winnerDistance ||
+                (distance == winnerDistance &&
+                 (winner < 0 ||
+                  CompareNodes(
+                      nodes[candidate],
+                      nodes[winner]) < 0)))
+            {
+                winner = candidate;
+                winnerDistance = distance;
+            }
+        }
+
+        return winner;
+    }
+
+    private static bool ResolveCandidate(
+        int sourceIndex,
+        Node[] nodes,
+        int[] candidateForTarget,
+        ResolutionState[] states)
+    {
+        switch (states[sourceIndex])
+        {
+            case ResolutionState.Accepted:
+                return true;
+            case ResolutionState.Rejected:
+                return false;
+            case ResolutionState.Resolving:
+                return true;
+        }
+
+        states[sourceIndex] = ResolutionState.Resolving;
+        int targetIndex = nodes[sourceIndex].TargetIndex;
+        bool canMove;
+        if (targetIndex < 0)
+        {
+            canMove = false;
+        }
+        else if (nodes[targetIndex].CurrentItem == Entity.Null)
+        {
+            canMove = true;
+        }
+        else
+        {
+            int targetOutgoingTarget = nodes[targetIndex].TargetIndex;
+            canMove =
+                nodes[targetIndex].IsReady &&
+                targetOutgoingTarget >= 0 &&
+                candidateForTarget[targetOutgoingTarget] ==
+                    targetIndex &&
+                ResolveCandidate(
+                    targetIndex,
+                    nodes,
+                    candidateForTarget,
+                    states);
+        }
+
+        states[sourceIndex] = canMove
+            ? ResolutionState.Accepted
+            : ResolutionState.Rejected;
+        return canMove;
+    }
+
+    private static void Commit(
+        Node[] nodes,
+        bool[] accepted,
+        Belt[] belts,
+        Merger[] mergers,
+        Splitter[] splitters,
+        HashSet<Entity> forwardedJunctions,
+        out int acceptedTransferCount)
+    {
+        Entity[] transferredItems = new Entity[nodes.Length];
+        float[] transferredIntervals = new float[nodes.Length];
+        acceptedTransferCount = 0;
+
+        for (int sourceIndex = 0;
+             sourceIndex < nodes.Length;
+             sourceIndex++)
+        {
+            if (!accepted[sourceIndex])
+            {
+                continue;
+            }
+
+            transferredItems[sourceIndex] =
+                nodes[sourceIndex].CurrentItem;
+            transferredIntervals[sourceIndex] =
+                GetTransferInterval(
+                    nodes[sourceIndex],
+                    nodes[nodes[sourceIndex].TargetIndex]);
+            Node source = nodes[sourceIndex];
+            source.CurrentItem = Entity.Null;
+            source.Progress = 0f;
+            source.TransferElapsed = 0f;
+            source.InputInterval = 0f;
+            if (source.Kind == NodeKind.Splitter)
+            {
+                source.Cursor = WrapThree(source.OutputIndex + 1);
+            }
+            if (source.Kind != NodeKind.Belt)
+            {
+                forwardedJunctions.Add(source.Entity);
+            }
+
+            nodes[sourceIndex] = source;
+            acceptedTransferCount++;
+        }
+
+        for (int sourceIndex = 0;
+             sourceIndex < nodes.Length;
+             sourceIndex++)
+        {
+            if (!accepted[sourceIndex])
+            {
+                continue;
+            }
+
+            int targetIndex = nodes[sourceIndex].TargetIndex;
+            Node target = nodes[targetIndex];
+            target.CurrentItem = transferredItems[sourceIndex];
+            target.Progress = 0f;
+            target.TransferElapsed = 0f;
+            if (target.Kind != NodeKind.Belt)
+            {
+                target.InputInterval =
+                    transferredIntervals[sourceIndex];
+            }
+            if (target.Kind == NodeKind.Merger)
+            {
+                int inputIndex = GetMergerInputIndex(
+                    target.Direction,
+                    nodes[sourceIndex].OutputDirection);
+                target.Cursor = WrapThree(inputIndex + 1);
+            }
+
+            nodes[targetIndex] = target;
+        }
+
+        for (int i = 0; i < nodes.Length; i++)
+        {
+            Node node = nodes[i];
+            switch (node.Kind)
+            {
+                case NodeKind.Belt:
+                    Belt belt = belts[node.SourceIndex];
+                    belt.CurrentItem = node.CurrentItem;
+                    belt.Progress = node.Progress;
+                    belts[node.SourceIndex] = belt;
+                    break;
+                case NodeKind.Merger:
+                    Merger merger = mergers[node.SourceIndex];
+                    merger.CurrentItem = node.CurrentItem;
+                    merger.TransferElapsed = node.TransferElapsed;
+                    merger.InputInterval = node.InputInterval;
+                    merger.NextInputIndex = node.Cursor;
+                    mergers[node.SourceIndex] = merger;
+                    break;
+                case NodeKind.Splitter:
+                    Splitter splitter = splitters[node.SourceIndex];
+                    splitter.CurrentItem = node.CurrentItem;
+                    splitter.TransferElapsed = node.TransferElapsed;
+                    splitter.InputInterval = node.InputInterval;
+                    splitter.NextOutputIndex = node.Cursor;
+                    splitters[node.SourceIndex] = splitter;
+                    break;
+            }
+        }
+    }
+
+    private static int MarkBeltLoops(
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell,
+        Belt[] belts)
+    {
+        byte[] visitState = new byte[nodes.Length];
+        int[] pathIndex = new int[nodes.Length];
         Array.Fill(pathIndex, -1);
-        List<int> path = new List<int>(count);
+        List<int> path = new List<int>(nodes.Length);
         int loopCount = 0;
 
-        for (int start = 0; start < count; start++)
+        for (int start = 0; start < nodes.Length; start++)
         {
-            if (visitState[start] != 0)
+            if (nodes[start].Kind != NodeKind.Belt ||
+                visitState[start] != 0)
             {
                 continue;
             }
 
             path.Clear();
             int current = start;
-            while (current >= 0 && visitState[current] == 0)
+            while (current >= 0 &&
+                   nodes[current].Kind == NodeKind.Belt &&
+                   visitState[current] == 0)
             {
                 visitState[current] = 1;
                 pathIndex[current] = path.Count;
                 path.Add(current);
-                current = snapshots[current].TargetIndex;
+
+                int2 nextCell =
+                    nodes[current].Cell + nodes[current].Direction;
+                current = indexByCell.TryGetValue(
+                    nextCell,
+                    out int nextIndex)
+                    ? nextIndex
+                    : -1;
             }
 
             if (current >= 0 &&
+                nodes[current].Kind == NodeKind.Belt &&
                 visitState[current] == 1 &&
                 pathIndex[current] >= 0)
             {
-                int loopStart = pathIndex[current];
                 loopCount++;
-                bool everyItemReady = true;
-                for (int i = loopStart; i < path.Count; i++)
+                for (int i = pathIndex[current];
+                     i < path.Count;
+                     i++)
                 {
-                    int member = path[i];
-                    Snapshot loopMember = snapshots[member];
-                    loopMember.Belt.IsLoop = true;
-                    snapshots[member] = loopMember;
-                    everyItemReady &= loopMember.IsReady;
-                }
-
-                if (everyItemReady)
-                {
-                    for (int i = loopStart; i < path.Count; i++)
-                    {
-                        int source = path[i];
-                        accepted[source] = true;
-                        reservedTargets[
-                            snapshots[source].TargetIndex] = true;
-                    }
+                    Node member = nodes[path[i]];
+                    Belt belt = belts[member.SourceIndex];
+                    belt.IsLoop = true;
+                    belts[member.SourceIndex] = belt;
                 }
             }
 
@@ -254,132 +649,164 @@ public static class BeltTransferResolver
         return loopCount;
     }
 
-    private static void SelectCandidates(
-        Snapshot[] snapshots,
-        bool[] reservedTargets,
-        Dictionary<int2, int> nextWinnerByTarget,
-        int[] candidateForTarget)
+    private static void MarkBeltOutputs(
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell,
+        Belt[] belts)
     {
-        List<int> candidates = new List<int>(3);
-        for (int target = 0; target < snapshots.Length; target++)
+        for (int i = 0; i < nodes.Length; i++)
         {
-            if (reservedTargets[target])
+            Node source = nodes[i];
+            if (source.Kind != NodeKind.Belt)
             {
                 continue;
             }
 
-            candidates.Clear();
-            for (int source = 0; source < snapshots.Length; source++)
-            {
-                if (snapshots[source].IsReady &&
-                    snapshots[source].TargetIndex == target)
-                {
-                    candidates.Add(source);
-                }
-            }
+            int2 targetCell = source.Cell + source.Direction;
+            bool hasOutput =
+                indexByCell.TryGetValue(
+                    targetCell,
+                    out int targetIndex) &&
+                CanAcceptInput(
+                    nodes[targetIndex],
+                    source.Cell,
+                    source.Direction);
 
-            if (candidates.Count == 0)
-            {
-                continue;
-            }
-
-            candidates.Sort((left, right) =>
-            {
-                int x = snapshots[left].Belt.Cell.x.CompareTo(
-                    snapshots[right].Belt.Cell.x);
-                if (x != 0)
-                {
-                    return x;
-                }
-
-                int y = snapshots[left].Belt.Cell.y.CompareTo(
-                    snapshots[right].Belt.Cell.y);
-                return y != 0
-                    ? y
-                    : snapshots[left].Entity.Index.CompareTo(
-                        snapshots[right].Entity.Index);
-            });
-
-            int2 targetCell = snapshots[target].Belt.Cell;
-            int nextWinner = nextWinnerByTarget.TryGetValue(
-                targetCell,
-                out int storedWinner)
-                ? storedWinner
-                : 0;
-            candidateForTarget[target] =
-                candidates[nextWinner % candidates.Count];
+            Belt belt = belts[source.SourceIndex];
+            belt.HasOutput = hasOutput;
+            belts[source.SourceIndex] = belt;
         }
     }
 
-    private static bool ResolveCandidate(
-        int source,
-        Snapshot[] snapshots,
-        int[] candidateForTarget,
-        ResolutionState[] states)
+    private static float GetTransferInterval(
+        Node source,
+        Node target)
     {
-        switch (states[source])
-        {
-            case ResolutionState.Accepted:
-                return true;
-            case ResolutionState.Rejected:
-                return false;
-            case ResolutionState.Resolving:
-                // Re-entering a resolving node means the selected edges form
-                // an atomic cycle. The unwind marks every edge accepted.
-                return true;
-        }
-
-        states[source] = ResolutionState.Resolving;
-        int target = snapshots[source].TargetIndex;
-        bool canMove;
-        if (target < 0)
-        {
-            canMove = false;
-        }
-        else if (snapshots[target].Belt.CurrentItem == Entity.Null)
-        {
-            canMove = true;
-        }
-        else
-        {
-            int targetOutgoingTarget = snapshots[target].TargetIndex;
-            canMove =
-                snapshots[target].IsReady &&
-                targetOutgoingTarget >= 0 &&
-                candidateForTarget[targetOutgoingTarget] == target &&
-                ResolveCandidate(
-                    target,
-                    snapshots,
-                    candidateForTarget,
-                    states);
-        }
-
-        states[source] = canMove
-            ? ResolutionState.Accepted
-            : ResolutionState.Rejected;
-        return canMove;
+        return source.Kind == NodeKind.Belt
+            ? SpeedToInterval(source.Speed)
+            : GetJunctionTransferInterval(source, target);
     }
 
-    private static int CountCandidatesForTarget(
-        Snapshot[] snapshots,
-        int target,
-        bool[] reservedTargets)
+    private static float GetJunctionTransferInterval(
+        Node source,
+        Node target)
     {
-        if (reservedTargets[target])
+        float outputInterval = target.Kind == NodeKind.Belt
+            ? SpeedToInterval(target.Speed)
+            : target.InputInterval;
+        return math.max(source.InputInterval, outputInterval);
+    }
+
+    private static float SpeedToInterval(float speed)
+    {
+        return speed > math.EPSILON
+            ? 1f / speed
+            : float.PositiveInfinity;
+    }
+
+    private static int GetMergerInputIndex(
+        int2 direction,
+        int2 travelDirection)
+    {
+        if (math.all(travelDirection == direction))
         {
             return 0;
         }
 
-        int count = 0;
-        for (int source = 0; source < snapshots.Length; source++)
+        if (math.all(
+                travelDirection ==
+                RotateClockwise(direction)))
         {
-            if (snapshots[source].IsReady &&
-                snapshots[source].TargetIndex == target)
-            {
-                count++;
-            }
+            return 1;
         }
 
-        return count;
+        if (math.all(
+                travelDirection ==
+                RotateCounterClockwise(direction)))
+        {
+            return 2;
+        }
+
+        return -1;
+    }
+
+    private static int2 GetSplitterOutputDirection(
+        int2 direction,
+        int outputIndex)
+    {
+        switch (WrapThree(outputIndex))
+        {
+            case 0:
+                return direction;
+            case 1:
+                return RotateCounterClockwise(direction);
+            default:
+                return RotateClockwise(direction);
+        }
+    }
+
+    private static int2 RotateClockwise(int2 direction)
+    {
+        return new int2(direction.y, -direction.x);
+    }
+
+    private static int2 RotateCounterClockwise(int2 direction)
+    {
+        return new int2(-direction.y, direction.x);
+    }
+
+    private static int WrapThree(int value)
+    {
+        int wrapped = value % 3;
+        return wrapped < 0 ? wrapped + 3 : wrapped;
+    }
+
+    private static int CompareNodes(Node left, Node right)
+    {
+        int x = left.Cell.x.CompareTo(right.Cell.x);
+        if (x != 0)
+        {
+            return x;
+        }
+
+        int y = left.Cell.y.CompareTo(right.Cell.y);
+        return y != 0
+            ? y
+            : left.Entity.Index.CompareTo(right.Entity.Index);
+    }
+
+    private static void ValidateInputs(
+        Entity[] beltEntities,
+        Belt[] belts,
+        Entity[] mergerEntities,
+        Merger[] mergers,
+        Entity[] splitterEntities,
+        Splitter[] splitters,
+        HashSet<Entity> forwardedJunctions)
+    {
+        if (beltEntities == null ||
+            belts == null ||
+            mergerEntities == null ||
+            mergers == null ||
+            splitterEntities == null ||
+            splitters == null)
+        {
+            throw new ArgumentNullException(
+                "Transport snapshots cannot be null.");
+        }
+
+        if (forwardedJunctions == null)
+        {
+            throw new ArgumentNullException(
+                nameof(forwardedJunctions));
+        }
+
+        if (beltEntities.Length != belts.Length ||
+            mergerEntities.Length != mergers.Length ||
+            splitterEntities.Length != splitters.Length)
+        {
+            throw new ArgumentException(
+                "Entity and component snapshots must have matching lengths.");
+        }
     }
 }

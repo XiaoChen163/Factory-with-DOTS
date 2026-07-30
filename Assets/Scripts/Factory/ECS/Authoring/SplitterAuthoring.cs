@@ -1,0 +1,51 @@
+using Unity.Entities;
+using Unity.Mathematics;
+using UnityEngine;
+
+[DisallowMultipleComponent]
+public sealed class SplitterAuthoring : MonoBehaviour
+{
+    public Vector2Int direction = Vector2Int.right;
+    public GameObject initialItem;
+
+    private sealed class SplitterBaker : Baker<SplitterAuthoring>
+    {
+        public override void Bake(SplitterAuthoring authoring)
+        {
+            Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+            Vector3 position = authoring.transform.position;
+
+            AddComponent(entity, new Splitter
+            {
+                Cell = new int2(
+                    Mathf.RoundToInt(position.x),
+                    Mathf.RoundToInt(position.z)),
+                Direction = SanitizeDirection(authoring.direction),
+                CurrentItem = authoring.initialItem == null
+                    ? Entity.Null
+                    : GetEntity(
+                        authoring.initialItem,
+                        TransformUsageFlags.Dynamic),
+                TransferElapsed = 0f,
+                InputInterval = 0f,
+                NextOutputIndex = 0
+            });
+        }
+    }
+
+    private static int2 SanitizeDirection(Vector2Int direction)
+    {
+        if (Mathf.Abs(direction.x) >= Mathf.Abs(direction.y) &&
+            direction.x != 0)
+        {
+            return new int2(direction.x > 0 ? 1 : -1, 0);
+        }
+
+        if (direction.y != 0)
+        {
+            return new int2(0, direction.y > 0 ? 1 : -1);
+        }
+
+        return new int2(1, 0);
+    }
+}

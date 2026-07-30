@@ -30,7 +30,8 @@ public sealed class BeltAuthoring : MonoBehaviour
                     ? Entity.Null
                     : GetEntity(authoring.initialItem, TransformUsageFlags.Dynamic),
                 Progress = 0f,
-                IsLoop = false
+                IsLoop = false,
+                HasOutput = false
             });
         }
 

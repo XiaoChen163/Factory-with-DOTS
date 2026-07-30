@@ -29,22 +29,30 @@ public sealed class Stage3PrototypeHud : MonoBehaviour
 
     private void OnGUI()
     {
+        if (queryCreated &&
+            (entityWorld == null ||
+             !entityWorld.IsCreated ||
+             !entityManager.IsQueryValid(statsQuery)))
+        {
+            queryCreated = false;
+        }
+
         if (!queryCreated)
         {
             TryCreateQuery();
         }
 
         GUI.Box(
-            new Rect(12f, 12f, 520f, 150f),
+            new Rect(12f, 12f, 680f, 150f),
             "Factory With DOTS — Stage 3 ECS Runtime");
         GUI.Label(
-            new Rect(28f, 42f, 470f, 22f),
+            new Rect(28f, 42f, 640f, 22f),
             "Entities 1.4 + Baking/SubScene + Burst IJobEntity");
 
         if (!queryCreated || statsQuery.IsEmptyIgnoreFilter)
         {
             GUI.Label(
-                new Rect(28f, 68f, 470f, 22f),
+                new Rect(28f, 68f, 640f, 22f),
                 "Waiting for the SubScene to finish loading and baking...");
             return;
         }
@@ -52,18 +60,20 @@ public sealed class Stage3PrototypeHud : MonoBehaviour
         Stage3SimulationStats stats =
             statsQuery.GetSingleton<Stage3SimulationStats>();
         GUI.Label(
-            new Rect(28f, 68f, 470f, 22f),
+            new Rect(28f, 68f, 640f, 22f),
             "Belts: " + stats.BeltCount +
+            "   Mergers: " + stats.MergerCount +
+            "   Splitters: " + stats.SplitterCount +
             "   Loops: " + stats.LoopCount +
             "   Fixed Tick: " + stats.TickCount);
         GUI.Label(
-            new Rect(28f, 94f, 470f, 22f),
+            new Rect(28f, 94f, 640f, 22f),
             "Ready requests: " + stats.ReadyRequestCount +
             "   Accepted this tick: " +
             stats.AcceptedTransferCount);
         GUI.Label(
-            new Rect(28f, 120f, 470f, 22f),
-            "Full loops rotate atomically; blocked sources remain at progress 1.");
+            new Rect(28f, 120f, 640f, 22f),
+            "Loops are atomic; mergers and splitters advance round-robin only after success.");
     }
 
     private void TryCreateQuery()

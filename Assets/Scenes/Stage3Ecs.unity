@@ -501,7 +501,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 66c970f33385be34a9977038721ea6e1, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FactoryDots.ECS.Stage3PrototypeHud
+  m_EditorClassIdentifier: Assembly-CSharp::Stage3PrototypeHud
 --- !u!4 &2032003086
 Transform:
   m_ObjectHideFlags: 0

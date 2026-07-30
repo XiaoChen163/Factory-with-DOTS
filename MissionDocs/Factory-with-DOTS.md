@@ -499,6 +499,65 @@ public partial class TransferSystem : SystemBase {
 
 **目标**：解决纯 ECS 逻辑下的渲染和建造交互问题。
 
+### 阶段 4 架构规则：ECS 运行时 + GameObject 创作与交互
+
+阶段 4 及后续开发统一采用**混合架构**，但必须保持单一运行时状态源：
+
+> 只要建筑会生产、加工、存储、分配或转移物品，它的运行时状态就必须使用 ECS。
+
+#### 对象选型
+
+| 对象 | 实现方式 | 规则 |
+|:---|:---|:---|
+| 传送带、传送带上的物品 | ECS | 继续使用 `Belt`、`Item` 组件和固定步长系统 |
+| 矿机、熔炉、仓库 | ECS | 生产、配方、缓存和库存均由组件保存，由 System 批量更新 |
+| 合并器、分流器、机械臂 | ECS | 调度状态、轮询游标和物品转移必须进入统一 ECS 仲裁流程 |
+| 发电机、电线杆、物流网络节点 | ECS | 只要参与周期模拟或网络计算，就使用组件和 System |
+| 建筑预制体、关卡摆放 | GameObject Authoring + Baker | GameObject 仅用于编辑器创作，进入运行时前 Baking 为 Entity |
+| 建筑渲染 | 优先 Entities Graphics | 数量少且表现复杂的附属特效可以使用 GameObject，但不得保存逻辑状态 |
+| 建造输入、玩家控制、摄像机 | GameObject / MonoBehaviour | 只采集输入，通过 ECB 请求创建、删除或修改 Entity |
+| UI、菜单、教程、音效管理 | GameObject 或 UI Toolkit | 只能读取 ECS 状态或发送命令，不直接拥有工厂模拟状态 |
+| 地面、天空、纯装饰物 | GameObject | 不参与模拟的静态环境不需要迁移到 ECS |
+
+#### 强制边界
+
+1. **ECS 是唯一真相来源**：同一座建筑禁止同时维护可写的 MonoBehaviour 状态和 `IComponentData` 状态。
+2. **Authoring 不参与运行时模拟**：`MinerAuthoring`、`FurnaceAuthoring` 等组件只保存烘焙参数，逻辑写入对应 Entity 组件。
+3. **输入通过命令进入 ECS**：建造、拆除、旋转和配方切换由输入层生成请求，通过 ECB 在明确的同步点提交。
+4. **表现层只读逻辑状态**：GameObject 特效、UI 和音效可以读取 Entity 状态，但不能反向直接修改组件；修改必须发送命令。
+5. **跨建筑运输统一仲裁**：矿机、熔炉、仓库、合并器和分流器不得绕过 `TransferSystem` 直接写入相邻建筑。
+6. **结构变化使用 ECB**：创建/销毁 Entity、增加/删除组件使用 ECB；普通数值更新直接写组件。
+7. **高频批量逻辑进入 Job**：数量可能增长到数百或数千的建筑逻辑应使用 Burst Job；少量输入和边界仲裁可保留在主线程 System。
+8. **旧 GameObject 逻辑只作为迁移参考**：阶段 0-2 的 `Miner`、`Furnace`、`Storage`、`MergerLogic`、`SplitterLogic` 不再作为阶段 4 正式运行时实现。
+
+#### 推荐数据流
+
+```text
+GameObject / UI 输入
+        ↓ 创建建造、拆除、设置请求
+EntityCommandBuffer
+        ↓ 在固定同步点回放
+ECS 建筑、生产与物流系统
+        ↓ 只读运行时结果
+Entities Graphics / GameObject 表现 / UI / 音效
+```
+
+#### 后续迁移顺序
+
+1. 先为矿机、熔炉、仓库、合并器和分流器定义纯数据 ECS 组件。
+2. 使用 Authoring + Baker 将现有场景配置转换为 Entity。
+3. 将生产、加工、库存和调度逻辑迁移到固定步长 System。
+4. 接入统一跨建筑转移仲裁，验证阻塞、连续移动和轮询公平性。
+5. 最后替换旧 GameObject 运行时脚本，只保留创作、输入和表现职责。
+
+#### 其他需求
+
+对于ECS重构后的系统，应和stage0中的行为以及外观保持相同，包括：
+- 玩家控制器
+- 网格建造系统（网格建造系统的debug显示进行修改，只显示玩家周围一定距离的网格，网格上的数字不用再显示）
+- 传送带/矿机/熔炉/储存箱/分流器/合并器 这些建筑都使用Prefab存储，并且能够支持自定义网格体
+- 
+
 ### 实现步骤
 
 **Step 4.1：传送带渲染（Entities Graphics）**
@@ -599,6 +658,175 @@ public class BuildingInputSystem : SystemBase {
 4. **ECB 系统选择**：
    - `BeginSimulationEntityCommandBufferSystem`：在帧开始时回放
    - `EndSimulationEntityCommandBufferSystem`：在帧结束时回放
+
+
+**Step 4.4：Prefab替换直接在代码中生成**
+
+> GameObject Prefab 负责建筑创作，Baker 转成 Entity Prefab，运行时通过 ECB 实例化。
+
+#### 推荐结构
+
+```text
+Assets/Prefabs/Buildings/
+├── Belt.prefab
+├── Miner.prefab
+├── Furnace.prefab
+├── Storage.prefab
+├── Merger.prefab
+└── Splitter.prefab
+```
+
+每个 Prefab 可以直接配置：
+
+- Mesh、材质和子物体
+- 建筑占地尺寸
+- 网格对齐锚点
+- 输入、输出端口
+- Authoring 参数
+- 碰撞体和选择范围
+- 特效挂点
+
+#### Prefab 注册表
+
+用一个 Authoring 资产引用所有 GameObject Prefab，并在 Baking 时保存对应 Entity Prefab：
+
+```csharp
+public class BuildingPrefabCatalogAuthoring : MonoBehaviour
+{
+    public GameObject minerPrefab;
+    public GameObject furnacePrefab;
+    public GameObject storagePrefab;
+}
+
+public struct BuildingPrefabCatalog : IComponentData
+{
+    public Entity Miner;
+    public Entity Furnace;
+    public Entity Storage;
+}
+
+public class BuildingPrefabCatalogBaker
+    : Baker<BuildingPrefabCatalogAuthoring>
+{
+    public override void Bake(BuildingPrefabCatalogAuthoring authoring)
+    {
+        Entity entity = GetEntity(TransformUsageFlags.None);
+
+        AddComponent(entity, new BuildingPrefabCatalog
+        {
+            Miner = GetEntity(
+                authoring.minerPrefab,
+                TransformUsageFlags.Dynamic),
+            Furnace = GetEntity(
+                authoring.furnacePrefab,
+                TransformUsageFlags.Dynamic),
+            Storage = GetEntity(
+                authoring.storagePrefab,
+                TransformUsageFlags.Dynamic)
+        });
+    }
+}
+```
+
+这些引用会在 Baking 后指向带有 `Prefab` 组件的 Entity。
+
+#### 运行时生成
+
+```csharp
+Entity building = ecb.Instantiate(catalog.Furnace);
+
+ecb.SetComponent(building, new GridPosition
+{
+    Value = targetCell
+});
+
+ecb.SetComponent(building, new LocalTransform
+{
+    Position = GridToWorld(targetCell),
+    Rotation = quaternion.RotateY(rotation),
+    Scale = 1f
+});
+```
+
+当前 Entities 1.4 的 `EntityCommandBuffer.Instantiate(Entity)` API可直接完成此操作。
+
+#### 网格对齐建议
+
+逻辑位置始终使用整数格坐标，不要用浮点世界坐标作为建筑定位依据：
+
+```csharp
+public struct GridPosition : IComponentData
+{
+    public int2 Value;
+}
+
+public struct BuildingFootprint : IComponentData
+{
+    public int2 Size;
+    public int2 Pivot;
+}
+```
+
+对于非矩形建筑，可以使用：
+
+```csharp
+public struct OccupiedCellOffset : IBufferElementData
+{
+    public int2 Value;
+}
+```
+
+生成建筑时：
+
+1. 旋转占格偏移。
+2. 检查每个目标格是否为空。
+3. 实例化 Entity Prefab。
+4. 写入 `GridPosition` 和旋转。
+5. 更新网格占用表。
+
+#### 材质和网格定制
+
+建议优先采用以下顺序：
+
+- 建筑外形完全不同：建立不同 Prefab。
+- 同一建筑不同等级：建立 Prefab Variant 或等级配置。
+- 只改变颜色：使用 `URPMaterialPropertyBaseColor` 等每实例材质属性。
+- 运行时更换 Mesh/Material：使用 `MaterialMeshInfo` 和预先烘焙的 `RenderMeshArray`。
+- 不要为每座建筑复制一份独立 Material，否则会破坏批处理。
+
+建筑的逻辑组件与渲染组件仍然分离：
+
+```text
+Furnace、GridPosition、BuildingFootprint
+            ↓ 逻辑
+
+LocalTransform、MaterialMeshInfo、颜色属性
+            ↓ 表现
+```
+
+#### 子物体处理
+
+带有多个视觉子物体的 GameObject Prefab 会烘焙成 Entity 层级，实例化根 Entity Prefab 时可以一并复制关联实体。
+
+但输入、输出端口更推荐烘焙成根实体上的 Buffer：
+
+```csharp
+public struct BuildingPort : IBufferElementData
+{
+    public int2 CellOffset;
+    public int2 Direction;
+    public byte PortType;
+}
+```
+
+这样运输系统不必遍历视觉子实体。
+
+#### 两个重要限制
+
+- 不要在存档中直接保存 Prefab 的 `Entity` 值。`Entity` 只在当前 World 有效；存档应保存稳定的 `BuildingTypeId`，加载后通过 Prefab 注册表重新映射。
+- GameObject Prefab 中的 Authoring 只负责配置和 Baking，运行时建筑状态仍由 ECS 组件唯一保存。
+
+因此，下一步很适合先建立统一的 `BuildingPrefabCatalog`、`GridPosition`、`BuildingFootprint` 和 `BuildingPort`，再为矿机、熔炉、仓库等制作正式建筑 Prefab。
 
 ---
 

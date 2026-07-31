@@ -56,26 +56,44 @@ public struct GridBuildResult : IBufferElementData
     public GridBuildFailureReason FailureReason;
 }
 
-public struct MinerState : IComponentData
+public enum ItemProcessStatus : byte
 {
-    public Entity OutputItemType;
-    public Entity PendingOutput;
-    public float ProductionInterval;
-    public float ProductionElapsed;
+    Idle,
+    Processing,
+    Completed,
+    OutputBlocked
 }
 
-public struct FurnaceState : IComponentData
+// Immutable recipe data. Keep it separate from ItemProcessState so the
+// fixed-step progress job only writes the small, hot runtime component.
+[InternalBufferCapacity(4)]
+public struct ItemProcessRecipe : IBufferElementData
 {
     public Entity InputItemType;
     public Entity OutputItemType;
-    public Entity PendingOutput;
     public int RequiredInputCount;
     public int OutputCount;
-    public int BufferedInputs;
+    public int DurationTicks;
+}
+
+[InternalBufferCapacity(4)]
+public struct ItemProcessInput : IBufferElementData
+{
+    public Entity ItemType;
+    public int Count;
+}
+
+public struct ItemProcessState : IComponentData
+{
+    // The transport stage owns this entity reference. The processing stage
+    // only publishes PendingOutputCount and never performs structural changes.
+    public Entity PendingOutput;
     public int PendingOutputCount;
-    public float CraftTime;
-    public float CraftProgress;
-    public byte IsCrafting;
+    public int ElapsedTicks;
+    public int DurationTicks;
+    public int SelectedRecipeIndex;
+    public int ActiveRecipeIndex;
+    public ItemProcessStatus Status;
 }
 
 public struct StorageState : IComponentData

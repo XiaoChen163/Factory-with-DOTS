@@ -840,17 +840,11 @@ public partial class GridBuildCommandSystem : SystemBase
                 EntityManager.GetComponentData<Splitter>(building)
                     .CurrentItem;
         }
-        else if (EntityManager.HasComponent<MinerState>(building))
-        {
-            item =
-                EntityManager.GetComponentData<MinerState>(building)
-                    .PendingOutput;
-        }
-        else if (EntityManager.HasComponent<FurnaceState>(building))
+        else if (EntityManager.HasComponent<ItemProcessState>(building))
         {
             item =
                 EntityManager
-                    .GetComponentData<FurnaceState>(building)
+                    .GetComponentData<ItemProcessState>(building)
                     .PendingOutput;
         }
 

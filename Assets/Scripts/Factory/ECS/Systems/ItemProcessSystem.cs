@@ -11,7 +11,6 @@ public static class ItemProcessUtility
         ref ItemProcessState process)
     {
         if (process.Status != ItemProcessStatus.Idle ||
-            process.PendingOutput != Entity.Null ||
             process.PendingOutputCount > 0 ||
             recipe.OutputItemType == Entity.Null ||
             recipe.OutputCount <= 0 ||
@@ -120,8 +119,7 @@ public static class ItemProcessUtility
         process.PendingOutputCount = math.max(
             0,
             process.PendingOutputCount - transferredCount);
-        if (process.PendingOutputCount > 0 ||
-            process.PendingOutput != Entity.Null)
+        if (process.PendingOutputCount > 0)
         {
             return;
         }

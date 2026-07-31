@@ -106,11 +106,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FurnaceAuthoring
   direction: {x: 1, y: 0}
-  inputItemType: {fileID: 0}
-  outputItemType: {fileID: 0}
+  inputItemType: {fileID: 310000, guid: 5a90f4c74158444387c8565ba74df7a0, type: 3}
+  outputItemType: {fileID: 320000, guid: b376ecfb68ed49ed9ba60a41b5ecf210, type: 3}
   requiredInputCount: 2
   outputCount: 1
   craftTime: 2
+  additionalRecipes: []
+  initialRecipeIndex: 0
+  inputCapacity: 6
 --- !u!1 &130100
 GameObject:
   m_ObjectHideFlags: 0

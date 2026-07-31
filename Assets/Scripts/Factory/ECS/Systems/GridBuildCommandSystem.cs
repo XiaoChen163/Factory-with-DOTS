@@ -840,14 +840,6 @@ public partial class GridBuildCommandSystem : SystemBase
                 EntityManager.GetComponentData<Splitter>(building)
                     .CurrentItem;
         }
-        else if (EntityManager.HasComponent<ItemProcessState>(building))
-        {
-            item =
-                EntityManager
-                    .GetComponentData<ItemProcessState>(building)
-                    .PendingOutput;
-        }
-
         if (item != Entity.Null && EntityManager.Exists(item))
         {
             ecb.DestroyEntity(item);

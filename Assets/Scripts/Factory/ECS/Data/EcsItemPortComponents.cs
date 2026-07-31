@@ -1,0 +1,87 @@
+using Unity.Entities;
+
+public enum ItemPortFilterMode : byte
+{
+    ExactItemType,
+    Any
+}
+
+public struct ItemInputPortSnapshot
+{
+    public Entity AcceptedItemType;
+    public int FreeCapacity;
+    public ulong AppliedTransferCount;
+    public byte PortIndex;
+    public byte Enabled;
+    public ItemPortFilterMode FilterMode;
+}
+
+public struct ItemOutputPortSnapshot
+{
+    public Entity ItemType;
+    public int AvailableCount;
+    public ulong AppliedTransferCount;
+    public byte PortIndex;
+    public byte Enabled;
+}
+
+[InternalBufferCapacity(2)]
+public struct ItemInputPortCurrent : IBufferElementData
+{
+    public ItemInputPortSnapshot Value;
+}
+
+[InternalBufferCapacity(2)]
+public struct ItemInputPortNext : IBufferElementData
+{
+    public ItemInputPortSnapshot Value;
+}
+
+[InternalBufferCapacity(2)]
+public struct ItemOutputPortCurrent : IBufferElementData
+{
+    public ItemOutputPortSnapshot Value;
+}
+
+[InternalBufferCapacity(2)]
+public struct ItemOutputPortNext : IBufferElementData
+{
+    public ItemOutputPortSnapshot Value;
+}
+
+public enum ItemTransferReceiptKind : byte
+{
+    InputAccepted,
+    OutputTransferred
+}
+
+public struct ItemTransferReceipt
+{
+    public Entity ItemType;
+    public int Count;
+    public byte PortIndex;
+    public ItemTransferReceiptKind Kind;
+}
+
+[InternalBufferCapacity(4)]
+public struct ItemTransferReceiptCurrent : IBufferElementData
+{
+    public ItemTransferReceipt Value;
+}
+
+[InternalBufferCapacity(4)]
+public struct ItemTransferReceiptNext : IBufferElementData
+{
+    public ItemTransferReceipt Value;
+}
+
+public struct ItemProcessCapacity : IComponentData
+{
+    public int InputCapacity;
+}
+
+public struct ItemPrefabEntry : IBufferElementData
+{
+    public Entity ItemType;
+    public Entity Prefab;
+}

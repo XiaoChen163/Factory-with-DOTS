@@ -85,9 +85,7 @@ public struct ItemProcessInput : IBufferElementData
 
 public struct ItemProcessState : IComponentData
 {
-    // The transport stage owns this entity reference. The processing stage
-    // only publishes PendingOutputCount and never performs structural changes.
-    public Entity PendingOutput;
+    // Output remains logical until the transfer middleware accepts it.
     public int PendingOutputCount;
     public int ElapsedTicks;
     public int DurationTicks;
@@ -99,6 +97,7 @@ public struct ItemProcessState : IComponentData
 public struct StorageState : IComponentData
 {
     public int TotalStored;
+    public int Capacity;
 }
 
 [InternalBufferCapacity(4)]

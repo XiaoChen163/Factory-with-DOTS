@@ -3,7 +3,13 @@ guid: 3c33d690277c43a59a4ea3c97ae99db4
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - beltPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
+  - minerPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
+  - furnacePrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
+  - storagePrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
+  - mergerPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
+  - splitterPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData:

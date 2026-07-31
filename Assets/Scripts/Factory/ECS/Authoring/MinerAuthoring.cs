@@ -52,9 +52,18 @@ public sealed class MinerAuthoring : MonoBehaviour
             }
 
             AddBuffer<ItemProcessInput>(entity);
+            AddComponent(entity, new ItemProcessCapacity
+            {
+                InputCapacity = 0
+            });
+            AddBuffer<ItemInputPortCurrent>(entity);
+            AddBuffer<ItemInputPortNext>(entity);
+            AddBuffer<ItemOutputPortCurrent>(entity);
+            AddBuffer<ItemOutputPortNext>(entity);
+            AddBuffer<ItemTransferReceiptCurrent>(entity);
+            AddBuffer<ItemTransferReceiptNext>(entity);
             AddComponent(entity, new ItemProcessState
             {
-                PendingOutput = Entity.Null,
                 PendingOutputCount = 0,
                 ElapsedTicks = 0,
                 DurationTicks = 0,

@@ -23,6 +23,7 @@ public sealed class FurnaceAuthoring : MonoBehaviour
     [Min(0.01f)] public float craftTime = 2f;
     public FurnaceRecipeAuthoring[] additionalRecipes;
     [Min(0)] public int initialRecipeIndex;
+    [Min(1)] public int inputCapacity = 6;
 
     private sealed class FurnaceBaker : Baker<FurnaceAuthoring>
     {
@@ -64,9 +65,18 @@ public sealed class FurnaceAuthoring : MonoBehaviour
             }
 
             AddBuffer<ItemProcessInput>(entity);
+            AddComponent(entity, new ItemProcessCapacity
+            {
+                InputCapacity = Mathf.Max(1, authoring.inputCapacity)
+            });
+            AddBuffer<ItemInputPortCurrent>(entity);
+            AddBuffer<ItemInputPortNext>(entity);
+            AddBuffer<ItemOutputPortCurrent>(entity);
+            AddBuffer<ItemOutputPortNext>(entity);
+            AddBuffer<ItemTransferReceiptCurrent>(entity);
+            AddBuffer<ItemTransferReceiptNext>(entity);
             AddComponent(entity, new ItemProcessState
             {
-                PendingOutput = Entity.Null,
                 PendingOutputCount = 0,
                 ElapsedTicks = 0,
                 DurationTicks = 0,

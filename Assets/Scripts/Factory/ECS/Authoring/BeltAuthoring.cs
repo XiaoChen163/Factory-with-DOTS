@@ -8,6 +8,11 @@ public sealed class BeltAuthoring : MonoBehaviour
     [Min(0f)] public float speed = 1f;
     public Vector2Int direction = Vector2Int.right;
     public GameObject initialItem;
+    public GameObject eastEdge;
+    public GameObject northEdge;
+    public GameObject westEdge;
+    public GameObject southEdge;
+    public GameObject directionTriangle;
 
     private sealed class BeltBaker : Baker<BeltAuthoring>
     {
@@ -15,17 +20,20 @@ public sealed class BeltAuthoring : MonoBehaviour
         {
             Entity entity = GetEntity(TransformUsageFlags.Dynamic);
             Vector3 position = authoring.transform.position;
-            int2 cell = new int2(
-                Mathf.RoundToInt(position.x),
-                Mathf.RoundToInt(position.z));
-            int2 direction = SanitizeDirection(authoring.direction);
+            TransportGridBakeResult gridData =
+                TransportGridBakingUtility.AddGridData(
+                    this,
+                    entity,
+                    BuildingKind.Belt,
+                    position,
+                    authoring.direction);
 
             AddComponent(entity, new Belt
             {
                 Speed = Mathf.Max(0f, authoring.speed),
-                Cell = cell,
-                Direction = direction,
-                NextCell = cell + direction,
+                Cell = gridData.Cell,
+                Direction = gridData.Direction,
+                NextCell = gridData.Cell + gridData.Direction,
                 CurrentItem = authoring.initialItem == null
                     ? Entity.Null
                     : GetEntity(authoring.initialItem, TransformUsageFlags.Dynamic),
@@ -33,22 +41,32 @@ public sealed class BeltAuthoring : MonoBehaviour
                 IsLoop = false,
                 HasOutput = false
             });
-        }
 
-        private static int2 SanitizeDirection(Vector2Int direction)
-        {
-            if (Mathf.Abs(direction.x) >= Mathf.Abs(direction.y) &&
-                direction.x != 0)
+            if (authoring.eastEdge != null &&
+                authoring.northEdge != null &&
+                authoring.westEdge != null &&
+                authoring.southEdge != null &&
+                authoring.directionTriangle != null)
             {
-                return new int2(direction.x > 0 ? 1 : -1, 0);
+                AddComponent(entity, new BeltVisualParts
+                {
+                    EastEdge = GetEntity(
+                        authoring.eastEdge,
+                        TransformUsageFlags.Renderable),
+                    NorthEdge = GetEntity(
+                        authoring.northEdge,
+                        TransformUsageFlags.Renderable),
+                    WestEdge = GetEntity(
+                        authoring.westEdge,
+                        TransformUsageFlags.Renderable),
+                    SouthEdge = GetEntity(
+                        authoring.southEdge,
+                        TransformUsageFlags.Renderable),
+                    DirectionTriangle = GetEntity(
+                        authoring.directionTriangle,
+                        TransformUsageFlags.Renderable)
+                });
             }
-
-            if (direction.y != 0)
-            {
-                return new int2(0, direction.y > 0 ? 1 : -1);
-            }
-
-            return new int2(1, 0);
         }
     }
 }

@@ -14,13 +14,18 @@ public sealed class MergerAuthoring : MonoBehaviour
         {
             Entity entity = GetEntity(TransformUsageFlags.Dynamic);
             Vector3 position = authoring.transform.position;
+            TransportGridBakeResult gridData =
+                TransportGridBakingUtility.AddGridData(
+                    this,
+                    entity,
+                    BuildingKind.Merger,
+                    position,
+                    authoring.direction);
 
             AddComponent(entity, new Merger
             {
-                Cell = new int2(
-                    Mathf.RoundToInt(position.x),
-                    Mathf.RoundToInt(position.z)),
-                Direction = SanitizeDirection(authoring.direction),
+                Cell = gridData.Cell,
+                Direction = gridData.Direction,
                 CurrentItem = authoring.initialItem == null
                     ? Entity.Null
                     : GetEntity(
@@ -31,21 +36,5 @@ public sealed class MergerAuthoring : MonoBehaviour
                 NextInputIndex = 0
             });
         }
-    }
-
-    private static int2 SanitizeDirection(Vector2Int direction)
-    {
-        if (Mathf.Abs(direction.x) >= Mathf.Abs(direction.y) &&
-            direction.x != 0)
-        {
-            return new int2(direction.x > 0 ? 1 : -1, 0);
-        }
-
-        if (direction.y != 0)
-        {
-            return new int2(0, direction.y > 0 ? 1 : -1);
-        }
-
-        return new int2(1, 0);
     }
 }

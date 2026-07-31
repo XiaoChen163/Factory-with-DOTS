@@ -68,9 +68,9 @@ public partial struct BeltItemPositionSystem : ISystem
             }
 
             float3 targetPosition = new float3(
-                belt.Cell.x,
+                belt.Cell.x + 0.5f,
                 0.535f,
-                belt.Cell.y);
+                belt.Cell.y + 0.5f);
             float visualSpeed = math.max(
                 MinimumVisualSpeed,
                 belt.Speed * TransferSpeedMultiplier);
@@ -98,7 +98,10 @@ public partial struct BeltItemPositionSystem : ISystem
         {
             MoveItemTowards(
                 merger.CurrentItem,
-                new float3(merger.Cell.x, 0.535f, merger.Cell.y),
+                new float3(
+                    merger.Cell.x + 0.5f,
+                    0.535f,
+                    merger.Cell.y + 0.5f),
                 GetJunctionVisualSpeed(merger.InputInterval) *
                 DeltaTime,
                 ItemLookup,
@@ -121,7 +124,10 @@ public partial struct BeltItemPositionSystem : ISystem
         {
             MoveItemTowards(
                 splitter.CurrentItem,
-                new float3(splitter.Cell.x, 0.535f, splitter.Cell.y),
+                new float3(
+                    splitter.Cell.x + 0.5f,
+                    0.535f,
+                    splitter.Cell.y + 0.5f),
                 GetJunctionVisualSpeed(splitter.InputInterval) *
                 DeltaTime,
                 ItemLookup,

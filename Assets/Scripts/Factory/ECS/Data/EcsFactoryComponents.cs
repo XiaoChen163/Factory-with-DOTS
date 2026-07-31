@@ -13,6 +13,15 @@ public struct Belt : IComponentData
     public bool HasOutput;
 }
 
+public struct BeltVisualParts : IComponentData
+{
+    public Entity EastEdge;
+    public Entity NorthEdge;
+    public Entity WestEdge;
+    public Entity SouthEdge;
+    public Entity DirectionTriangle;
+}
+
 public struct Merger : IComponentData
 {
     public int2 Cell;

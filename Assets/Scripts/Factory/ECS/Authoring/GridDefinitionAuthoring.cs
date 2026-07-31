@@ -1,0 +1,46 @@
+using Unity.Entities;
+using Unity.Mathematics;
+using UnityEngine;
+
+[DisallowMultipleComponent]
+public sealed class GridDefinitionAuthoring : MonoBehaviour
+{
+    [SerializeField] private Vector2Int size = new Vector2Int(32, 32);
+    [SerializeField] private Vector3 origin = Vector3.zero;
+
+    private void OnValidate()
+    {
+        size.x = Mathf.Max(1, size.x);
+        size.y = Mathf.Max(1, size.y);
+
+        // Integer X/Z origins keep the runtime grid on Unity's editor grid
+        // lines when one grid cell is exactly one Unity unit.
+        origin.x = Mathf.Round(origin.x);
+        origin.z = Mathf.Round(origin.z);
+    }
+
+    private sealed class GridDefinitionBaker
+        : Baker<GridDefinitionAuthoring>
+    {
+        public override void Bake(GridDefinitionAuthoring authoring)
+        {
+            Entity entity = GetEntity(TransformUsageFlags.None);
+            Vector3 configuredOrigin = authoring.origin;
+
+            AddComponent(entity, new GridDefinition
+            {
+                Size = new int2(
+                    Mathf.Max(1, authoring.size.x),
+                    Mathf.Max(1, authoring.size.y)),
+                Origin = new float3(
+                    Mathf.Round(configuredOrigin.x),
+                    configuredOrigin.y,
+                    Mathf.Round(configuredOrigin.z)),
+                CellSize = EcsGridUtility.DefaultCellSize,
+                Revision = 1
+            });
+            AddBuffer<GridBuildCommand>(entity);
+            AddBuffer<GridBuildResult>(entity);
+        }
+    }
+}

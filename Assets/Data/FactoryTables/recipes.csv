@@ -1,0 +1,3 @@
+id,key,machine_type,duration_seconds
+1,mine_iron,Miner,1
+2,smelt_iron,Furnace,2

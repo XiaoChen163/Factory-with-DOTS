@@ -8,7 +8,7 @@ public enum ItemPortFilterMode : byte
 
 public struct ItemInputPortSnapshot
 {
-    public Entity AcceptedItemType;
+    public ItemId AcceptedItemType;
     public int FreeCapacity;
     public ulong AppliedTransferCount;
     public byte PortIndex;
@@ -18,7 +18,7 @@ public struct ItemInputPortSnapshot
 
 public struct ItemOutputPortSnapshot
 {
-    public Entity ItemType;
+    public ItemId ItemType;
     public int AvailableCount;
     public ulong AppliedTransferCount;
     public byte PortIndex;
@@ -57,7 +57,7 @@ public enum ItemTransferReceiptKind : byte
 
 public struct ItemTransferReceipt
 {
-    public Entity ItemType;
+    public ItemId ItemType;
     public int Count;
     public byte PortIndex;
     public ItemTransferReceiptKind Kind;
@@ -82,6 +82,6 @@ public struct ItemProcessCapacity : IComponentData
 
 public struct ItemPrefabEntry : IBufferElementData
 {
-    public Entity ItemType;
+    public ItemId ItemType;
     public Entity Prefab;
 }

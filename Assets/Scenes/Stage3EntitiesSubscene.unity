@@ -178,17 +178,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c33d690277c43a59a4ea3c97ae99db4, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::BuildingPrefabCatalogAuthoring
+  database: {fileID: 11400000, guid: b1b2c3d4e5f6478899aabbccddeeff01, type: 2}
   beltPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
   minerPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
   furnacePrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
   storagePrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
   mergerPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
   splitterPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
-  itemPrefabs:
-  - itemType: {fileID: 310000, guid: 5a90f4c74158444387c8565ba74df7a0, type: 3}
-    itemPrefab: {fileID: 210000, guid: c21f07a46487418a8bcd9bac9777ec26, type: 3}
-  - itemType: {fileID: 320000, guid: b376ecfb68ed49ed9ba60a41b5ecf210, type: 3}
-    itemPrefab: {fileID: 220000, guid: d42df505a758468db0c476485424dffd, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

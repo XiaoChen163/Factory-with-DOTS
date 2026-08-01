@@ -104,9 +104,6 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::MinerAuthoring
   direction: {x: 1, y: 0}
-  outputItemType: {fileID: 310000, guid: 5a90f4c74158444387c8565ba74df7a0, type: 3}
-  productionInterval: 1
-  additionalRecipes: []
   initialRecipeIndex: 0
 --- !u!1 &120100
 GameObject:

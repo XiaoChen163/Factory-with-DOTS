@@ -6,24 +6,28 @@ public static class ItemProcessUtility
 {
     public static bool TryStart(
         int recipeIndex,
-        in ItemProcessRecipe recipe,
+        in FactoryRecipeBlob recipe,
+        in FactoryRecipeIngredientBlob inputIngredient,
+        in FactoryRecipeIngredientBlob outputIngredient,
         DynamicBuffer<ItemProcessInput> inputs,
         ref ItemProcessState process)
     {
         if (process.Status != ItemProcessStatus.Idle ||
             process.PendingOutputCount > 0 ||
-            recipe.OutputItemType == Entity.Null ||
-            recipe.OutputCount <= 0 ||
+            !outputIngredient.ItemId.IsValid ||
+            outputIngredient.Count <= 0 ||
             recipe.DurationTicks <= 0)
         {
             return false;
         }
 
-        int requiredInputs = math.max(0, recipe.RequiredInputCount);
+        int requiredInputs = recipe.InputCount == 0
+            ? 0
+            : math.max(0, inputIngredient.Count);
         int inputIndex = -1;
         if (requiredInputs > 0)
         {
-            if (recipe.InputItemType == Entity.Null)
+            if (!inputIngredient.ItemId.IsValid)
             {
                 return false;
             }
@@ -31,7 +35,7 @@ public static class ItemProcessUtility
             for (int i = 0; i < inputs.Length; i++)
             {
                 ItemProcessInput input = inputs[i];
-                if (input.ItemType == recipe.InputItemType &&
+                if (input.ItemType == inputIngredient.ItemId &&
                     input.Count >= requiredInputs)
                 {
                     inputIndex = i;
@@ -93,7 +97,7 @@ public static class ItemProcessUtility
     }
 
     public static bool PublishCompletedOutput(
-        in ItemProcessRecipe recipe,
+        in FactoryRecipeIngredientBlob outputIngredient,
         ref ItemProcessState process)
     {
         if (process.Status != ItemProcessStatus.Completed)
@@ -101,7 +105,7 @@ public static class ItemProcessUtility
             return false;
         }
 
-        process.PendingOutputCount = math.max(1, recipe.OutputCount);
+        process.PendingOutputCount = math.max(1, outputIngredient.Count);
         process.Status = ItemProcessStatus.OutputBlocked;
         return true;
     }
@@ -153,33 +157,53 @@ public partial struct ItemProcessSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<ItemProcessState>();
+        state.RequireForUpdate<FactoryDatabase>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        state.Dependency = new ItemProcessJob()
+        state.Dependency = new ItemProcessJob
+        {
+            Database = SystemAPI.GetSingleton<FactoryDatabase>().Value
+        }
             .ScheduleParallel(state.Dependency);
     }
 
     [BurstCompile]
     private partial struct ItemProcessJob : IJobEntity
     {
+        public BlobAssetReference<FactoryDatabaseBlob> Database;
+
         private void Execute(
-            in DynamicBuffer<ItemProcessRecipe> recipes,
+            in ItemProcessor processor,
             DynamicBuffer<ItemProcessInput> inputs,
             ref ItemProcessState process)
         {
+            ref FactoryDatabaseBlob database = ref Database.Value;
+            FactoryRecipeRangeBlob range =
+                FactoryDatabaseUtility.GetRecipeRange(
+                    ref database,
+                    processor.MachineType);
             int selectedRecipeIndex = process.SelectedRecipeIndex;
             if (process.Status == ItemProcessStatus.Idle &&
                 selectedRecipeIndex >= 0 &&
-                selectedRecipeIndex < recipes.Length)
+                selectedRecipeIndex < range.Count)
             {
-                ItemProcessRecipe selectedRecipe =
-                    recipes[selectedRecipeIndex];
+                int databaseRecipeIndex = range.Start + selectedRecipeIndex;
+                FactoryRecipeBlob selectedRecipe =
+                    database.Recipes[databaseRecipeIndex];
+                FactoryRecipeIngredientBlob input =
+                    selectedRecipe.InputCount == 0
+                        ? default
+                        : database.Inputs[selectedRecipe.InputStart];
+                FactoryRecipeIngredientBlob output =
+                    database.Outputs[selectedRecipe.OutputStart];
                 ItemProcessUtility.TryStart(
-                    selectedRecipeIndex,
+                    databaseRecipeIndex,
                     selectedRecipe,
+                    input,
+                    output,
                     inputs,
                     ref process);
             }
@@ -189,12 +213,14 @@ public partial struct ItemProcessSystem : ISystem
             int activeRecipeIndex = process.ActiveRecipeIndex;
             if (process.Status == ItemProcessStatus.Completed &&
                 activeRecipeIndex >= 0 &&
-                activeRecipeIndex < recipes.Length)
+                activeRecipeIndex < database.Recipes.Length)
             {
-                ItemProcessRecipe activeRecipe =
-                    recipes[activeRecipeIndex];
+                FactoryRecipeBlob activeRecipe =
+                    database.Recipes[activeRecipeIndex];
+                FactoryRecipeIngredientBlob output =
+                    database.Outputs[activeRecipe.OutputStart];
                 ItemProcessUtility.PublishCompletedOutput(
-                    activeRecipe,
+                    output,
                     ref process);
             }
         }

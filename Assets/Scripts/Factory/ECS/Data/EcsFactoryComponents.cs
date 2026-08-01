@@ -44,7 +44,7 @@ public struct Splitter : IComponentData
 
 public struct Item : IComponentData
 {
-    public Entity ItemType;
+    public ItemId ItemType;
     public float3 Position;
 }
 

@@ -272,7 +272,7 @@ public partial class BeltTransferSystem : SystemBase
                     continue;
                 }
 
-                Entity itemType =
+                ItemId itemType =
                     EntityManager.GetComponentData<Item>(itemEntity).ItemType;
                 if (port.FilterMode == ItemPortFilterMode.ExactItemType &&
                     port.AcceptedItemType != itemType)
@@ -317,7 +317,7 @@ public partial class BeltTransferSystem : SystemBase
         ref EntityCommandBuffer ecb,
         ref int requestCount)
     {
-        Dictionary<Entity, Entity> prefabsByType = BuildItemPrefabIndex();
+        Dictionary<ItemId, Entity> prefabsByType = BuildItemPrefabIndex();
         using NativeArray<Entity> snapshot =
             outputPortQuery.ToEntityArray(Allocator.Temp);
         Entity[] owners = snapshot.ToArray();
@@ -340,7 +340,7 @@ public partial class BeltTransferSystem : SystemBase
             for (int i = 0; i < ports.Length; i++)
             {
                 ItemOutputPortSnapshot port = ports[i].Value;
-                if (port.Enabled == 0 || port.ItemType == Entity.Null)
+                if (port.Enabled == 0 || !port.ItemType.IsValid)
                 {
                     continue;
                 }
@@ -407,7 +407,7 @@ public partial class BeltTransferSystem : SystemBase
                     targetCell.x + 0.5f,
                     0.535f,
                     targetCell.y + 0.5f);
-                ecb.SetComponent(item, new Item
+                ecb.AddComponent(item, new Item
                 {
                     ItemType = port.ItemType,
                     Position = position
@@ -469,28 +469,25 @@ public partial class BeltTransferSystem : SystemBase
     }
 
     private bool TryGetItemPrefab(
-        Entity itemType,
-        Dictionary<Entity, Entity> prefabsByType,
+        ItemId itemType,
+        Dictionary<ItemId, Entity> prefabsByType,
         out Entity prefab)
     {
         if (prefabsByType.TryGetValue(itemType, out prefab) &&
             prefab != Entity.Null && EntityManager.Exists(prefab) &&
-            EntityManager.HasComponent<Item>(prefab))
+            EntityManager.HasComponent<Prefab>(prefab))
         {
             return true;
         }
 
-        prefab = itemType;
-        return prefab != Entity.Null &&
-               EntityManager.Exists(prefab) &&
-               EntityManager.HasComponent<Prefab>(prefab) &&
-               EntityManager.HasComponent<Item>(prefab);
+        prefab = Entity.Null;
+        return false;
     }
 
-    private Dictionary<Entity, Entity> BuildItemPrefabIndex()
+    private Dictionary<ItemId, Entity> BuildItemPrefabIndex()
     {
-        Dictionary<Entity, Entity> result =
-            new Dictionary<Entity, Entity>();
+        Dictionary<ItemId, Entity> result =
+            new Dictionary<ItemId, Entity>();
         if (itemCatalogQuery.CalculateEntityCount() != 1)
         {
             return result;
@@ -502,7 +499,7 @@ public partial class BeltTransferSystem : SystemBase
         for (int i = 0; i < entries.Length; i++)
         {
             ItemPrefabEntry entry = entries[i];
-            if (entry.ItemType != Entity.Null && entry.Prefab != Entity.Null)
+            if (entry.ItemType.IsValid && entry.Prefab != Entity.Null)
             {
                 result[entry.ItemType] = entry.Prefab;
             }

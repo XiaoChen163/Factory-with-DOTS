@@ -64,22 +64,10 @@ public enum ItemProcessStatus : byte
     OutputBlocked
 }
 
-// Immutable recipe data. Keep it separate from ItemProcessState so the
-// fixed-step progress job only writes the small, hot runtime component.
-[InternalBufferCapacity(4)]
-public struct ItemProcessRecipe : IBufferElementData
-{
-    public Entity InputItemType;
-    public Entity OutputItemType;
-    public int RequiredInputCount;
-    public int OutputCount;
-    public int DurationTicks;
-}
-
 [InternalBufferCapacity(4)]
 public struct ItemProcessInput : IBufferElementData
 {
-    public Entity ItemType;
+    public ItemId ItemType;
     public int Count;
 }
 
@@ -103,7 +91,7 @@ public struct StorageState : IComponentData
 [InternalBufferCapacity(4)]
 public struct StoredItemCount : IBufferElementData
 {
-    public Entity ItemType;
+    public ItemId ItemType;
     public int Count;
 }
 

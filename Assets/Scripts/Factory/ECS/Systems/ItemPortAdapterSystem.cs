@@ -1,4 +1,5 @@
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -12,12 +13,16 @@ public partial struct ItemPortAdapterSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<ItemTransferReceiptCurrent>();
+        state.RequireForUpdate<FactoryDatabase>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        state.Dependency = new ProcessorPortAdapterJob()
+        state.Dependency = new ProcessorPortAdapterJob
+        {
+            Database = SystemAPI.GetSingleton<FactoryDatabase>().Value
+        }
             .ScheduleParallel(state.Dependency);
         state.Dependency = new StoragePortAdapterJob()
             .ScheduleParallel(state.Dependency);
@@ -26,10 +31,12 @@ public partial struct ItemPortAdapterSystem : ISystem
     [BurstCompile]
     private partial struct ProcessorPortAdapterJob : IJobEntity
     {
+        [ReadOnly] public BlobAssetReference<FactoryDatabaseBlob> Database;
+
         private void Execute(
             ref ItemProcessState process,
+            in ItemProcessor processor,
             in ItemProcessCapacity capacity,
-            in DynamicBuffer<ItemProcessRecipe> recipes,
             DynamicBuffer<ItemProcessInput> inputs,
             in DynamicBuffer<BuildingPort> buildingPorts,
             in DynamicBuffer<ItemInputPortCurrent> inputCurrent,
@@ -38,6 +45,7 @@ public partial struct ItemPortAdapterSystem : ISystem
             DynamicBuffer<ItemOutputPortNext> outputNext,
             in DynamicBuffer<ItemTransferReceiptCurrent> receipts)
         {
+            ref FactoryDatabaseBlob database = ref Database.Value;
             ApplyProcessorReceipts(receipts, inputs, ref process);
 
             inputNext.Clear();
@@ -50,7 +58,8 @@ public partial struct ItemPortAdapterSystem : ISystem
                     PublishProcessorInput(
                         port.Index,
                         capacity.InputCapacity,
-                        recipes,
+                        ref database,
+                        processor.MachineType,
                         inputs,
                         process,
                         inputCurrent,
@@ -61,7 +70,7 @@ public partial struct ItemPortAdapterSystem : ISystem
                 {
                     PublishProcessorOutput(
                         port.Index,
-                        recipes,
+                        ref database,
                         process,
                         outputCurrent,
                         receipts,
@@ -117,7 +126,7 @@ public partial struct ItemPortAdapterSystem : ISystem
                 {
                     Value = new ItemInputPortSnapshot
                     {
-                        AcceptedItemType = Entity.Null,
+                        AcceptedItemType = ItemId.Invalid,
                         FreeCapacity = math.max(
                             0,
                             storage.Capacity - storage.TotalStored),
@@ -160,18 +169,29 @@ public partial struct ItemPortAdapterSystem : ISystem
     private static void PublishProcessorInput(
         byte portIndex,
         int capacity,
-        in DynamicBuffer<ItemProcessRecipe> recipes,
+        ref FactoryDatabaseBlob database,
+        BuildingKind machineType,
         in DynamicBuffer<ItemProcessInput> inputs,
         in ItemProcessState process,
         in DynamicBuffer<ItemInputPortCurrent> current,
         in DynamicBuffer<ItemTransferReceiptCurrent> receipts,
         DynamicBuffer<ItemInputPortNext> next)
     {
-        Entity acceptedItemType = Entity.Null;
+        ItemId acceptedItemType = ItemId.Invalid;
+        FactoryRecipeRangeBlob range =
+            FactoryDatabaseUtility.GetRecipeRange(
+                ref database,
+                machineType);
         int selected = process.SelectedRecipeIndex;
-        if (selected >= 0 && selected < recipes.Length)
+        if (selected >= 0 && selected < range.Count)
         {
-            acceptedItemType = recipes[selected].InputItemType;
+            FactoryRecipeBlob recipe =
+                database.Recipes[range.Start + selected];
+            if (recipe.InputCount > 0)
+            {
+                acceptedItemType =
+                    database.Inputs[recipe.InputStart].ItemId;
+            }
         }
 
         int bufferedCount = 0;
@@ -193,7 +213,7 @@ public partial struct ItemPortAdapterSystem : ISystem
                 FreeCapacity = math.max(0, capacity - bufferedCount),
                 AppliedTransferCount = applied,
                 PortIndex = portIndex,
-                Enabled = acceptedItemType == Entity.Null
+                Enabled = !acceptedItemType.IsValid
                     ? (byte)0
                     : (byte)1,
                 FilterMode = ItemPortFilterMode.ExactItemType
@@ -203,17 +223,21 @@ public partial struct ItemPortAdapterSystem : ISystem
 
     private static void PublishProcessorOutput(
         byte portIndex,
-        in DynamicBuffer<ItemProcessRecipe> recipes,
+        ref FactoryDatabaseBlob database,
         in ItemProcessState process,
         in DynamicBuffer<ItemOutputPortCurrent> current,
         in DynamicBuffer<ItemTransferReceiptCurrent> receipts,
         DynamicBuffer<ItemOutputPortNext> next)
     {
-        Entity itemType = Entity.Null;
+        ItemId itemType = ItemId.Invalid;
         int active = process.ActiveRecipeIndex;
-        if (active >= 0 && active < recipes.Length)
+        if (active >= 0 && active < database.Recipes.Length)
         {
-            itemType = recipes[active].OutputItemType;
+            FactoryRecipeBlob recipe = database.Recipes[active];
+            if (recipe.OutputCount > 0)
+            {
+                itemType = database.Outputs[recipe.OutputStart].ItemId;
+            }
         }
 
         ulong applied = GetOutputAppliedCount(current, portIndex) +
@@ -230,7 +254,7 @@ public partial struct ItemPortAdapterSystem : ISystem
                 AppliedTransferCount = applied,
                 PortIndex = portIndex,
                 Enabled = process.Status == ItemProcessStatus.OutputBlocked &&
-                          itemType != Entity.Null &&
+                          itemType.IsValid &&
                           process.PendingOutputCount > 0
                     ? (byte)1
                     : (byte)0
@@ -288,7 +312,7 @@ public partial struct ItemPortAdapterSystem : ISystem
 
     private static void AddProcessInput(
         DynamicBuffer<ItemProcessInput> inputs,
-        Entity itemType,
+        ItemId itemType,
         int count)
     {
         for (int i = 0; i < inputs.Length; i++)
@@ -313,7 +337,7 @@ public partial struct ItemPortAdapterSystem : ISystem
 
     private static void AddStoredItem(
         DynamicBuffer<StoredItemCount> items,
-        Entity itemType,
+        ItemId itemType,
         int count)
     {
         for (int i = 0; i < items.Length; i++)

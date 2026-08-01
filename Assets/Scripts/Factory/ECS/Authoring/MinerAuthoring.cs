@@ -1,21 +1,10 @@
-using System;
 using Unity.Entities;
 using UnityEngine;
-
-[Serializable]
-public struct MinerRecipeAuthoring
-{
-    public GameObject outputItemType;
-    [Min(0.01f)] public float productionInterval;
-}
 
 [DisallowMultipleComponent]
 public sealed class MinerAuthoring : MonoBehaviour
 {
     public Vector2Int direction = Vector2Int.right;
-    public GameObject outputItemType;
-    [Min(0.01f)] public float productionInterval = 1f;
-    public MinerRecipeAuthoring[] additionalRecipes;
     [Min(0)] public int initialRecipeIndex;
 
     private sealed class MinerBaker : Baker<MinerAuthoring>
@@ -30,27 +19,10 @@ public sealed class MinerAuthoring : MonoBehaviour
                 authoring.transform.position,
                 authoring.direction);
 
-            DynamicBuffer<ItemProcessRecipe> recipes =
-                AddBuffer<ItemProcessRecipe>(entity);
-            AddRecipe(
-                recipes,
-                authoring.outputItemType,
-                authoring.productionInterval);
-            if (authoring.additionalRecipes != null)
+            AddComponent(entity, new ItemProcessor
             {
-                for (int i = 0;
-                     i < authoring.additionalRecipes.Length;
-                     i++)
-                {
-                    MinerRecipeAuthoring recipe =
-                        authoring.additionalRecipes[i];
-                    AddRecipe(
-                        recipes,
-                        recipe.outputItemType,
-                        recipe.productionInterval);
-                }
-            }
-
+                MachineType = BuildingKind.Miner
+            });
             AddBuffer<ItemProcessInput>(entity);
             AddComponent(entity, new ItemProcessCapacity
             {
@@ -67,33 +39,13 @@ public sealed class MinerAuthoring : MonoBehaviour
                 PendingOutputCount = 0,
                 ElapsedTicks = 0,
                 DurationTicks = 0,
-                SelectedRecipeIndex = Mathf.Clamp(
-                    authoring.initialRecipeIndex,
+                SelectedRecipeIndex = Mathf.Max(
                     0,
-                    recipes.Length - 1),
+                    authoring.initialRecipeIndex),
                 ActiveRecipeIndex = -1,
                 Status = ItemProcessStatus.Idle
             });
         }
 
-        private void AddRecipe(
-            DynamicBuffer<ItemProcessRecipe> recipes,
-            GameObject itemType,
-            float productionInterval)
-        {
-            recipes.Add(new ItemProcessRecipe
-            {
-                InputItemType = Entity.Null,
-                OutputItemType = itemType == null
-                    ? Entity.Null
-                    : GetEntity(
-                        itemType,
-                        TransformUsageFlags.None),
-                RequiredInputCount = 0,
-                OutputCount = 1,
-                DurationTicks = FactorySimulationTime.SecondsToTicks(
-                    productionInterval)
-            });
-        }
     }
 }

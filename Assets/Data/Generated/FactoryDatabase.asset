@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6478899aabbccddeeff01, type: 3}
+  m_Name: FactoryDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::FactoryDatabaseAsset
+  version: 1
+  items:
+  - id: 1
+    key: iron_ore
+    nameKey: item.iron_ore
+    maxStack: 64
+    category: 1
+    prefabKey: iron_ore
+    prefab: {fileID: 210000, guid: c21f07a46487418a8bcd9bac9777ec26, type: 3}
+  - id: 2
+    key: iron_ingot
+    nameKey: item.iron_ingot
+    maxStack: 64
+    category: 2
+    prefabKey: iron_ingot
+    prefab: {fileID: 220000, guid: d42df505a758468db0c476485424dffd, type: 3}
+  recipes:
+  - id: 1
+    key: mine_iron
+    machineType: 2
+    durationSeconds: 1
+    inputs: []
+    outputs:
+    - itemId: 1
+      count: 1
+  - id: 2
+    key: smelt_iron
+    machineType: 3
+    durationSeconds: 2
+    inputs:
+    - itemId: 1
+      count: 2
+    outputs:
+    - itemId: 2
+      count: 1

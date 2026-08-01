@@ -1,0 +1,3 @@
+id,key,name_key,max_stack,category,prefab_key
+1,iron_ore,item.iron_ore,64,Ore,iron_ore
+2,iron_ingot,item.iron_ingot,64,Ingot,iron_ingot

@@ -9,6 +9,8 @@ public struct BuildingPrefabCatalog : IComponentData
     public Entity Storage;
     public Entity Merger;
     public Entity Splitter;
+    public Entity InputPortVisual;
+    public Entity OutputPortVisual;
 }
 
 public enum GridBuildCommandType : byte

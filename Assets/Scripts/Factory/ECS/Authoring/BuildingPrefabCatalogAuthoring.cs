@@ -11,6 +11,8 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
     public GameObject storagePrefab;
     public GameObject mergerPrefab;
     public GameObject splitterPrefab;
+    public GameObject inputPortVisualPrefab;
+    public GameObject outputPortVisualPrefab;
 
     private sealed class BuildingPrefabCatalogBaker
         : Baker<BuildingPrefabCatalogAuthoring>
@@ -24,8 +26,18 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                 Debug.LogError("Factory database asset is missing.", authoring);
                 return;
             }
+            if (authoring.inputPortVisualPrefab == null ||
+                authoring.outputPortVisualPrefab == null)
+            {
+                Debug.LogError(
+                    "Input and output port visual prefabs are required.",
+                    authoring);
+                return;
+            }
 
             DependsOn(authoring.database);
+            DependsOn(authoring.inputPortVisualPrefab);
+            DependsOn(authoring.outputPortVisualPrefab);
             if (!ValidateItemPrefabBindings(authoring))
             {
                 return;
@@ -51,7 +63,11 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                 Furnace = GetPrefabEntity(authoring.furnacePrefab),
                 Storage = GetPrefabEntity(authoring.storagePrefab),
                 Merger = GetPrefabEntity(authoring.mergerPrefab),
-                Splitter = GetPrefabEntity(authoring.splitterPrefab)
+                Splitter = GetPrefabEntity(authoring.splitterPrefab),
+                InputPortVisual = GetPrefabEntity(
+                    authoring.inputPortVisualPrefab),
+                OutputPortVisual = GetPrefabEntity(
+                    authoring.outputPortVisualPrefab)
             });
 
             DynamicBuffer<ItemPrefabEntry> itemPrefabs =

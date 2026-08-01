@@ -288,6 +288,7 @@ public partial class GridBuildCommandSystem : SystemBase
             prefab,
             candidate.Placement,
             grid,
+            catalog,
             ref ecb);
         failureReason = GridBuildFailureReason.None;
         return true;
@@ -369,6 +370,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 beltPrefab,
                 staged[i].Placement,
                 grid,
+                catalog,
                 ref ecb);
         }
 
@@ -743,6 +745,7 @@ public partial class GridBuildCommandSystem : SystemBase
         Entity prefab,
         GridPlacement placement,
         in GridDefinition grid,
+        in BuildingPrefabCatalog catalog,
         ref EntityCommandBuffer ecb)
     {
         Entity instance = ecb.Instantiate(prefab);
@@ -815,6 +818,89 @@ public partial class GridBuildCommandSystem : SystemBase
             EcsGridUtility.RotationFromQuarterTurns(
                 placement.QuarterTurns);
         ecb.SetComponent(instance, transform);
+        InstantiatePortVisuals(
+            instance,
+            prefab,
+            placement,
+            grid,
+            catalog,
+            ref ecb);
+    }
+
+    private void InstantiatePortVisuals(
+        Entity owner,
+        Entity buildingPrefab,
+        in GridPlacement placement,
+        in GridDefinition grid,
+        in BuildingPrefabCatalog catalog,
+        ref EntityCommandBuffer ecb)
+    {
+        if (!UsesPortVisuals(placement.Kind) ||
+            !EntityManager.HasBuffer<LinkedEntityGroup>(buildingPrefab))
+        {
+            return;
+        }
+
+        DynamicBuffer<BuildingPort> ports =
+            EntityManager.GetBuffer<BuildingPort>(buildingPrefab, true);
+        float cellSize = math.max(math.EPSILON, grid.CellSize);
+        for (int i = 0; i < ports.Length; i++)
+        {
+            BuildingPort port = ports[i];
+            Entity visualPrefab = port.Type == BuildingPortType.Input
+                ? catalog.InputPortVisual
+                : catalog.OutputPortVisual;
+            if (visualPrefab == Entity.Null ||
+                !EntityManager.Exists(visualPrefab) ||
+                !EntityManager.HasComponent<Prefab>(visualPrefab) ||
+                !EntityManager.HasComponent<LocalTransform>(visualPrefab))
+            {
+                continue;
+            }
+
+            int2 portCell = placement.AnchorCell +
+                EcsGridUtility.Rotate(
+                    port.CellOffset,
+                    placement.QuarterTurns);
+            int2 direction = EcsGridUtility.Rotate(
+                port.Direction,
+                placement.QuarterTurns);
+            float3 position = EcsGridUtility.CellToWorldCenter(
+                portCell,
+                grid.Origin.y + 0.375f * cellSize,
+                grid);
+            float boundaryDirection =
+                port.Type == BuildingPortType.Input ? 0.5f : -0.5f;
+            position.x += direction.x * boundaryDirection * cellSize;
+            position.z += direction.y * boundaryDirection * cellSize;
+
+            Entity visual = ecb.Instantiate(visualPrefab);
+            LocalTransform visualTransform =
+                EntityManager.GetComponentData<LocalTransform>(visualPrefab);
+            visualTransform.Position = position;
+            visualTransform.Rotation =
+                EcsGridUtility.RotationFromQuarterTurns(
+                    EcsGridUtility.QuarterTurnsFromDirection(direction));
+            visualTransform.Scale *= cellSize;
+            ecb.SetComponent(visual, visualTransform);
+            ecb.AddComponent(visual, new BuildingPortVisual
+            {
+                Owner = owner,
+                Type = port.Type,
+                PortIndex = port.Index
+            });
+            ecb.AppendToBuffer(owner, new LinkedEntityGroup
+            {
+                Value = visual
+            });
+        }
+    }
+
+    private static bool UsesPortVisuals(BuildingKind kind)
+    {
+        return kind == BuildingKind.Miner ||
+               kind == BuildingKind.Furnace ||
+               kind == BuildingKind.Storage;
     }
 
     private void DestroyOwnedItem(

@@ -39,6 +39,13 @@ public struct BuildingPort : IBufferElementData
     public byte Index;
 }
 
+public struct BuildingPortVisual : IComponentData
+{
+    public Entity Owner;
+    public BuildingPortType Type;
+    public byte PortIndex;
+}
+
 public static class EcsGridUtility
 {
     public const float DefaultCellSize = 1f;

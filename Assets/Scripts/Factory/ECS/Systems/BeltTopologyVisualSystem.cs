@@ -8,14 +8,6 @@ using Unity.Transforms;
 [UpdateBefore(typeof(GridBuildCommandSystem))]
 public partial class BeltTopologyVisualSystem : SystemBase
 {
-    private static readonly int2[] CardinalDirections =
-    {
-        new int2(1, 0),
-        new int2(0, 1),
-        new int2(-1, 0),
-        new int2(0, -1)
-    };
-
     private EntityQuery beltQuery;
     private uint lastGridRevision = uint.MaxValue;
 
@@ -83,6 +75,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
 
         bool hasInput = TryFindIncomingDirection(
             belt.Cell,
+            belt.Direction,
             occupancySystem,
             out int2 incomingDirection);
         if (hasInput)
@@ -126,56 +119,86 @@ public partial class BeltTopologyVisualSystem : SystemBase
 
     private bool TryFindIncomingDirection(
         int2 targetCell,
+        int2 targetDirection,
         GridOccupancyIndexSystem occupancySystem,
         out int2 incomingDirection)
     {
-        for (int i = 0; i < CardinalDirections.Length; i++)
+        if (HasIncomingFromDirection(
+                targetCell,
+                targetDirection,
+                occupancySystem))
         {
-            int2 travelDirection = CardinalDirections[i];
-            int2 sourceCell = targetCell - travelDirection;
-            if (!occupancySystem.TryGetOccupant(
-                    sourceCell,
-                    out Entity source) ||
-                !EntityManager.HasComponent<GridPlacement>(source) ||
-                !EntityManager.HasBuffer<BuildingPort>(source))
+            incomingDirection = targetDirection;
+            return true;
+        }
+
+        int2 right =
+            new int2(targetDirection.y, -targetDirection.x);
+        if (HasIncomingFromDirection(
+                targetCell,
+                right,
+                occupancySystem))
+        {
+            incomingDirection = right;
+            return true;
+        }
+
+        int2 left = -right;
+        if (HasIncomingFromDirection(
+                targetCell,
+                left,
+                occupancySystem))
+        {
+            incomingDirection = left;
+            return true;
+        }
+
+        incomingDirection = int2.zero;
+        return false;
+    }
+
+    private bool HasIncomingFromDirection(
+        int2 targetCell,
+        int2 travelDirection,
+        GridOccupancyIndexSystem occupancySystem)
+    {
+        int2 sourceCell = targetCell - travelDirection;
+        if (!occupancySystem.TryGetOccupant(
+                sourceCell,
+                out Entity source) ||
+            !EntityManager.HasComponent<GridPlacement>(source) ||
+            !EntityManager.HasBuffer<BuildingPort>(source))
+        {
+            return false;
+        }
+
+        GridPlacement sourcePlacement =
+            EntityManager.GetComponentData<GridPlacement>(source);
+        DynamicBuffer<BuildingPort> sourcePorts =
+            EntityManager.GetBuffer<BuildingPort>(source, true);
+        for (int i = 0; i < sourcePorts.Length; i++)
+        {
+            BuildingPort port = sourcePorts[i];
+            if (port.Type != BuildingPortType.Output)
             {
                 continue;
             }
 
-            GridPlacement sourcePlacement =
-                EntityManager.GetComponentData<GridPlacement>(source);
-            DynamicBuffer<BuildingPort> sourcePorts =
-                EntityManager.GetBuffer<BuildingPort>(
-                    source,
-                    true);
-            for (int portIndex = 0;
-                 portIndex < sourcePorts.Length;
-                 portIndex++)
-            {
-                BuildingPort port = sourcePorts[portIndex];
-                if (port.Type != BuildingPortType.Output)
-                {
-                    continue;
-                }
-
-                int2 outputCell =
-                    sourcePlacement.AnchorCell +
-                    EcsGridUtility.Rotate(
-                        port.CellOffset,
-                        sourcePlacement.QuarterTurns);
-                int2 outputDirection = EcsGridUtility.Rotate(
-                    port.Direction,
+            int2 outputCell =
+                sourcePlacement.AnchorCell +
+                EcsGridUtility.Rotate(
+                    port.CellOffset,
                     sourcePlacement.QuarterTurns);
-                if (math.all(outputCell == targetCell) &&
-                    math.all(outputDirection == travelDirection))
-                {
-                    incomingDirection = travelDirection;
-                    return true;
-                }
+            int2 outputDirection = EcsGridUtility.Rotate(
+                port.Direction,
+                sourcePlacement.QuarterTurns);
+            if (math.all(outputCell == targetCell) &&
+                math.all(outputDirection == travelDirection))
+            {
+                return true;
             }
         }
 
-        incomingDirection = int2.zero;
         return false;
     }
 
@@ -191,6 +214,19 @@ public partial class BeltTopologyVisualSystem : SystemBase
             !EntityManager.HasBuffer<BuildingPort>(target))
         {
             return false;
+        }
+
+        if (EntityManager.HasComponent<Belt>(target))
+        {
+            Belt targetBelt =
+                EntityManager.GetComponentData<Belt>(target);
+            return TryFindIncomingDirection(
+                       targetBelt.Cell,
+                       targetBelt.Direction,
+                       occupancySystem,
+                       out int2 selectedInputDirection) &&
+                   math.all(
+                       selectedInputDirection == belt.Direction);
         }
 
         GridPlacement targetPlacement =

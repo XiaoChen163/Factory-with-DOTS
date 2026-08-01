@@ -264,7 +264,9 @@ public static class FactoryTransferResolver
                 !CanAcceptInput(
                     nodes[targetIndex],
                     source.Cell,
-                    outputDirection))
+                    outputDirection,
+                    nodes,
+                    indexByCell))
             {
                 continue;
             }
@@ -313,7 +315,9 @@ public static class FactoryTransferResolver
             !CanAcceptInput(
                 nodes[targetIndex],
                 source.Cell,
-                outputDirection))
+                outputDirection,
+                nodes,
+                indexByCell))
         {
             return false;
         }
@@ -328,7 +332,9 @@ public static class FactoryTransferResolver
     private static bool CanAcceptInput(
         Node target,
         int2 sourceCell,
-        int2 travelDirection)
+        int2 travelDirection,
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell)
     {
         if (!math.all(sourceCell + travelDirection == target.Cell))
         {
@@ -338,10 +344,11 @@ public static class FactoryTransferResolver
         switch (target.Kind)
         {
             case NodeKind.Belt:
-                // A belt may turn after receiving an item. Its single-input
-                // topology is enforced when buildings are placed, so runtime
-                // arbitration only needs to verify cell adjacency here.
-                return true;
+                return IsSelectedBeltInput(
+                    target,
+                    travelDirection,
+                    nodes,
+                    indexByCell);
             case NodeKind.Splitter:
                 return math.all(travelDirection == target.Direction);
             case NodeKind.Merger:
@@ -351,6 +358,77 @@ public static class FactoryTransferResolver
             default:
                 return false;
         }
+    }
+
+    private static bool IsSelectedBeltInput(
+        Node target,
+        int2 travelDirection,
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell)
+    {
+        // The output face is never an input. Of the remaining three faces,
+        // keep one stable connection by preferring straight, then right, then
+        // left. This prevents a later side belt from replacing an existing
+        // straight connection merely because its entity sorts first.
+        int2 straight = target.Direction;
+        if (HasOutputToward(
+                target.Cell,
+                straight,
+                nodes,
+                indexByCell))
+        {
+            return math.all(travelDirection == straight);
+        }
+
+        int2 right = new int2(straight.y, -straight.x);
+        if (HasOutputToward(
+                target.Cell,
+                right,
+                nodes,
+                indexByCell))
+        {
+            return math.all(travelDirection == right);
+        }
+
+        int2 left = -right;
+        return HasOutputToward(
+                   target.Cell,
+                   left,
+                   nodes,
+                   indexByCell) &&
+               math.all(travelDirection == left);
+    }
+
+    private static bool HasOutputToward(
+        int2 targetCell,
+        int2 travelDirection,
+        Node[] nodes,
+        Dictionary<int2, int> indexByCell)
+    {
+        int2 sourceCell = targetCell - travelDirection;
+        if (!indexByCell.TryGetValue(sourceCell, out int sourceIndex))
+        {
+            return false;
+        }
+
+        Node source = nodes[sourceIndex];
+        if (source.Kind == NodeKind.Splitter)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                if (math.all(
+                        GetSplitterOutputDirection(
+                            source.Direction,
+                            i) == travelDirection))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return math.all(source.Direction == travelDirection);
     }
 
     private static void SelectIncomingCandidates(
@@ -618,8 +696,14 @@ public static class FactoryTransferResolver
                 current = indexByCell.TryGetValue(
                     nextCell,
                     out int nextIndex)
-                    ? nextIndex
-                    : -1;
+                    && CanAcceptInput(
+                        nodes[nextIndex],
+                        nodes[current].Cell,
+                        nodes[current].Direction,
+                        nodes,
+                        indexByCell)
+                        ? nextIndex
+                        : -1;
             }
 
             if (current >= 0 &&
@@ -670,7 +754,9 @@ public static class FactoryTransferResolver
                 CanAcceptInput(
                     nodes[targetIndex],
                     source.Cell,
-                    source.Direction);
+                    source.Direction,
+                    nodes,
+                    indexByCell);
 
             Belt belt = belts[source.SourceIndex];
             belt.HasOutput = hasOutput;

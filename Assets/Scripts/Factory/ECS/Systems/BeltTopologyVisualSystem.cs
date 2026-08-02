@@ -16,7 +16,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
         beltQuery = GetEntityQuery(
             ComponentType.ReadOnly<Belt>(),
             ComponentType.ReadOnly<GridPlacement>(),
-            ComponentType.ReadOnly<BeltVisualParts>());
+            ComponentType.ReadOnly<BuildingVisualReference>());
         RequireForUpdate<GridDefinition>();
     }
 
@@ -40,25 +40,31 @@ public partial class BeltTopologyVisualSystem : SystemBase
         }
 
         Dependency.Complete();
-        using Unity.Collections.NativeArray<Entity> entities =
-            beltQuery.ToEntityArray(
-                Unity.Collections.Allocator.Temp);
         using Unity.Collections.NativeArray<Belt> belts =
             beltQuery.ToComponentDataArray<Belt>(
                 Unity.Collections.Allocator.Temp);
         using Unity.Collections.NativeArray<GridPlacement> placements =
             beltQuery.ToComponentDataArray<GridPlacement>(
                 Unity.Collections.Allocator.Temp);
-        using Unity.Collections.NativeArray<BeltVisualParts> visuals =
-            beltQuery.ToComponentDataArray<BeltVisualParts>(
+        using Unity.Collections.NativeArray<BuildingVisualReference> visuals =
+            beltQuery.ToComponentDataArray<BuildingVisualReference>(
                 Unity.Collections.Allocator.Temp);
 
-        for (int i = 0; i < entities.Length; i++)
+        for (int i = 0; i < belts.Length; i++)
         {
+            Entity visualEntity = visuals[i].Value;
+            if (visualEntity == Entity.Null ||
+                !EntityManager.Exists(visualEntity) ||
+                !EntityManager.HasComponent<BeltVisualParts>(visualEntity))
+            {
+                continue;
+            }
+
             RefreshBeltVisual(
                 belts[i],
                 placements[i],
-                visuals[i],
+                EntityManager.GetComponentData<BeltVisualParts>(
+                    visualEntity),
                 occupancySystem);
         }
 

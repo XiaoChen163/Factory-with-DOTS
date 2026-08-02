@@ -35,7 +35,7 @@ public partial struct BeltProgressSystem : ISystem
             }
 
             belt.Progress = math.min(
-                belt.Progress + belt.Speed * DeltaTime,
+                belt.Progress + belt.CellsPerSecond * DeltaTime,
                 1f);
         }
     }

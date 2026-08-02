@@ -28,22 +28,245 @@ MonoBehaviour:
     category: 2
     prefabKey: iron_ingot
     prefab: {fileID: 220000, guid: d42df505a758468db0c476485424dffd, type: 3}
+  machineTypes:
+  - id: 1
+    key: mining
+  - id: 2
+    key: smelting
+  buildings:
+  - id: 1
+    key: belt
+    nameKey: building.belt
+    behavior: 1
+    kind: 1
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: belt_ports
+    footprintWidth: 1
+    footprintHeight: 1
+    inputCapacity: 0
+    storageCapacity: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: 1}
+    - type: 0
+      index: 2
+      cellOffset: {x: 1, y: 0}
+      direction: {x: -1, y: 0}
+    - type: 0
+      index: 3
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: -1}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 2
+    key: furnace
+    nameKey: building.furnace
+    behavior: 2
+    kind: 3
+    machineTypeKey: smelting
+    machineTypeId: 2
+    portLayoutKey: furnace_ports
+    footprintWidth: 2
+    footprintHeight: 2
+    inputCapacity: 6
+    storageCapacity: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 0
+      cellOffset: {x: 2, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 3
+    key: merger
+    nameKey: building.merger
+    behavior: 4
+    kind: 5
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: merger_ports
+    footprintWidth: 1
+    footprintHeight: 1
+    inputCapacity: 0
+    storageCapacity: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: -1}
+    - type: 0
+      index: 2
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: 1}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 4
+    key: miner
+    nameKey: building.miner
+    behavior: 2
+    kind: 2
+    machineTypeKey: mining
+    machineTypeId: 1
+    portLayoutKey: miner_ports
+    footprintWidth: 2
+    footprintHeight: 2
+    inputCapacity: 0
+    storageCapacity: 0
+    ports:
+    - type: 1
+      index: 0
+      cellOffset: {x: 2, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 5
+    key: splitter
+    nameKey: building.splitter
+    behavior: 5
+    kind: 6
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: splitter_ports
+    footprintWidth: 1
+    footprintHeight: 1
+    inputCapacity: 0
+    storageCapacity: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 1
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: 1}
+    - type: 1
+      index: 2
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: -1}
+  - id: 6
+    key: storage
+    nameKey: building.storage
+    behavior: 3
+    kind: 4
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: storage_ports
+    footprintWidth: 2
+    footprintHeight: 2
+    inputCapacity: 0
+    storageCapacity: 100
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+  buildingLevels:
+  - id: 1
+    key: belt_mk1
+    buildingKey: belt
+    buildingId: 1
+    level: 1
+    nameKey: building.belt.mk1
+    visualPrefabKey: belt
+    visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
+    menuOrder: 100
+  - id: 2
+    key: miner_mk1
+    buildingKey: miner
+    buildingId: 4
+    level: 1
+    nameKey: building.miner.mk1
+    visualPrefabKey: miner
+    visualPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
+    menuOrder: 200
+  - id: 3
+    key: furnace_mk1
+    buildingKey: furnace
+    buildingId: 2
+    level: 1
+    nameKey: building.furnace.mk1
+    visualPrefabKey: furnace
+    visualPrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
+    menuOrder: 300
+  - id: 4
+    key: storage_mk1
+    buildingKey: storage
+    buildingId: 6
+    level: 1
+    nameKey: building.storage.mk1
+    visualPrefabKey: storage
+    visualPrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
+    menuOrder: 400
+  - id: 5
+    key: merger_mk1
+    buildingKey: merger
+    buildingId: 3
+    level: 1
+    nameKey: building.merger.mk1
+    visualPrefabKey: merger
+    visualPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
+    menuOrder: 500
+  - id: 6
+    key: splitter_mk1
+    buildingKey: splitter
+    buildingId: 5
+    level: 1
+    nameKey: building.splitter.mk1
+    visualPrefabKey: splitter
+    visualPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
+    menuOrder: 600
+  beltLevels:
+  - buildingLevelKey: belt_mk1
+    buildingLevelId: 1
+    cellsPerSecond: 1
+  processorLevels:
+  - buildingLevelKey: miner_mk1
+    buildingLevelId: 2
+    workRatePermille: 1000
+  - buildingLevelKey: furnace_mk1
+    buildingLevelId: 3
+    workRatePermille: 1000
   recipes:
   - id: 1
     key: mine_iron
-    machineType: 2
+    machineTypeKey: mining
+    machineTypeId: 1
     durationSeconds: 1
     inputs: []
     outputs:
-    - itemId: 1
+    - itemKey: iron_ore
+      itemId: 1
       count: 1
   - id: 2
     key: smelt_iron
-    machineType: 3
+    machineTypeKey: smelting
+    machineTypeId: 2
     durationSeconds: 2
     inputs:
-    - itemId: 1
+    - itemKey: iron_ore
+      itemId: 1
       count: 2
     outputs:
-    - itemId: 2
+    - itemKey: iron_ingot
+      itemId: 2
       count: 1

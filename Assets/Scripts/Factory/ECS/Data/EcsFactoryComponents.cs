@@ -3,7 +3,7 @@ using Unity.Mathematics;
 
 public struct Belt : IComponentData
 {
-    public float Speed;
+    public float CellsPerSecond;
     public int2 Cell;
     public int2 Direction;
     public int2 NextCell;

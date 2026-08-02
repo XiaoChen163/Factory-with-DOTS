@@ -170,7 +170,7 @@ public partial struct ItemPortAdapterSystem : ISystem
         byte portIndex,
         int capacity,
         ref FactoryDatabaseBlob database,
-        BuildingKind machineType,
+        MachineTypeId machineType,
         in DynamicBuffer<ItemProcessInput> inputs,
         in ItemProcessState process,
         in DynamicBuffer<ItemInputPortCurrent> current,

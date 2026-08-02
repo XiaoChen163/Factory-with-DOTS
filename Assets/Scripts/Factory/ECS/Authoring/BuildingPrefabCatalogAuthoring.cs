@@ -1,22 +1,23 @@
 using Unity.Entities;
 using UnityEngine;
+using System.Collections.Generic;
 
 [DisallowMultipleComponent]
 public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
 {
     public FactoryDatabaseAsset database;
-    public GameObject beltPrefab;
-    public GameObject minerPrefab;
-    public GameObject furnacePrefab;
-    public GameObject storagePrefab;
-    public GameObject mergerPrefab;
-    public GameObject splitterPrefab;
     public GameObject inputPortVisualPrefab;
     public GameObject outputPortVisualPrefab;
 
     private sealed class BuildingPrefabCatalogBaker
         : Baker<BuildingPrefabCatalogAuthoring>
     {
+        private const string EastEdgeName = "Connection Edge East";
+        private const string NorthEdgeName = "Connection Edge North";
+        private const string WestEdgeName = "Connection Edge West";
+        private const string SouthEdgeName = "Connection Edge South";
+        private const string DirectionTriangleName = "Direction Triangle";
+
         public override void Bake(
             BuildingPrefabCatalogAuthoring authoring)
         {
@@ -58,17 +59,44 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             });
             AddComponent(entity, new BuildingPrefabCatalog
             {
-                Belt = GetPrefabEntity(authoring.beltPrefab),
-                Miner = GetPrefabEntity(authoring.minerPrefab),
-                Furnace = GetPrefabEntity(authoring.furnacePrefab),
-                Storage = GetPrefabEntity(authoring.storagePrefab),
-                Merger = GetPrefabEntity(authoring.mergerPrefab),
-                Splitter = GetPrefabEntity(authoring.splitterPrefab),
                 InputPortVisual = GetPrefabEntity(
                     authoring.inputPortVisualPrefab),
                 OutputPortVisual = GetPrefabEntity(
                     authoring.outputPortVisualPrefab)
             });
+
+            DynamicBuffer<BuildingVisualPrefabEntry> buildingPrefabs =
+                AddBuffer<BuildingVisualPrefabEntry>(entity);
+            DynamicBuffer<BeltVisualPartsBakingData> beltVisualParts =
+                AddBuffer<BeltVisualPartsBakingData>(entity);
+            HashSet<GameObject> configuredBeltVisuals =
+                new HashSet<GameObject>();
+            for (int i = 0; i < authoring.database.buildingLevels.Length; i++)
+            {
+                FactoryBuildingLevelTableRow level =
+                    authoring.database.buildingLevels[i];
+                DependsOn(level.visualPrefab);
+                Entity visualPrefab = GetPrefabEntity(level.visualPrefab);
+                buildingPrefabs.Add(new BuildingVisualPrefabEntry
+                {
+                    BuildingLevel = new BuildingLevelId { Value = level.id },
+                    Prefab = visualPrefab
+                });
+
+                if (TryGetBuildingKind(
+                        authoring.database,
+                        level.buildingId,
+                        out BuildingKind kind) &&
+                    kind == BuildingKind.Belt &&
+                    configuredBeltVisuals.Add(level.visualPrefab))
+                {
+                    AddBeltVisualPartsMapping(
+                        level.visualPrefab,
+                        visualPrefab,
+                        beltVisualParts,
+                        authoring);
+                }
+            }
 
             DynamicBuffer<ItemPrefabEntry> itemPrefabs =
                 AddBuffer<ItemPrefabEntry>(entity);
@@ -122,6 +150,99 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             }
 
             return valid;
+        }
+
+        private void AddBeltVisualPartsMapping(
+            GameObject prefab,
+            Entity prefabEntity,
+            DynamicBuffer<BeltVisualPartsBakingData> mappings,
+            BuildingPrefabCatalogAuthoring authoring)
+        {
+            Transform eastEdge = FindRequiredChild(
+                prefab,
+                EastEdgeName,
+                authoring);
+            Transform northEdge = FindRequiredChild(
+                prefab,
+                NorthEdgeName,
+                authoring);
+            Transform westEdge = FindRequiredChild(
+                prefab,
+                WestEdgeName,
+                authoring);
+            Transform southEdge = FindRequiredChild(
+                prefab,
+                SouthEdgeName,
+                authoring);
+            Transform directionTriangle = FindRequiredChild(
+                prefab,
+                DirectionTriangleName,
+                authoring);
+            if (eastEdge == null ||
+                northEdge == null ||
+                westEdge == null ||
+                southEdge == null ||
+                directionTriangle == null)
+            {
+                return;
+            }
+
+            mappings.Add(new BeltVisualPartsBakingData
+            {
+                Prefab = prefabEntity,
+                EastEdge = GetRenderableEntity(eastEdge),
+                NorthEdge = GetRenderableEntity(northEdge),
+                WestEdge = GetRenderableEntity(westEdge),
+                SouthEdge = GetRenderableEntity(southEdge),
+                DirectionTriangle = GetRenderableEntity(directionTriangle)
+            });
+        }
+
+        private Transform FindRequiredChild(
+            GameObject prefab,
+            string childName,
+            BuildingPrefabCatalogAuthoring authoring)
+        {
+            Transform child = prefab == null
+                ? null
+                : prefab.transform.Find(childName);
+            if (child == null)
+            {
+                Debug.LogError(
+                    $"Belt visual prefab '{prefab?.name}' is missing " +
+                    $"required child '{childName}'.",
+                    authoring);
+                return null;
+            }
+
+            DependsOn(child.gameObject);
+            return child;
+        }
+
+        private Entity GetRenderableEntity(Transform transform)
+        {
+            return GetEntity(
+                transform.gameObject,
+                TransformUsageFlags.Renderable);
+        }
+
+        private static bool TryGetBuildingKind(
+            FactoryDatabaseAsset database,
+            ushort buildingId,
+            out BuildingKind kind)
+        {
+            for (int i = 0; i < database.buildings.Length; i++)
+            {
+                FactoryBuildingTableRow building = database.buildings[i];
+                if (building.id == buildingId)
+                {
+                    kind = building.kind;
+                    return true;
+                }
+            }
+
+            kind = default;
+            return false;
         }
 
         private Entity GetPrefabEntity(GameObject prefab)

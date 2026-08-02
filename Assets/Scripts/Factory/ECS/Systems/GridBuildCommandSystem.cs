@@ -48,7 +48,9 @@ public partial class GridBuildCommandSystem : SystemBase
             ComponentType.ReadWrite<GridBuildCommand>(),
             ComponentType.ReadWrite<GridBuildResult>());
         catalogQuery = GetEntityQuery(
-            ComponentType.ReadOnly<BuildingPrefabCatalog>());
+            ComponentType.ReadOnly<BuildingPrefabCatalog>(),
+            ComponentType.ReadOnly<BuildingVisualPrefabEntry>(),
+            ComponentType.ReadOnly<FactoryDatabase>());
         placementQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<OccupiedCellOffset>(),
@@ -105,6 +107,12 @@ public partial class GridBuildCommandSystem : SystemBase
                 gridEntity);
         BuildingPrefabCatalog catalog =
             catalogQuery.GetSingleton<BuildingPrefabCatalog>();
+        DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs =
+            EntityManager.GetBuffer<BuildingVisualPrefabEntry>(
+                catalogQuery.GetSingletonEntity(), true);
+        BlobAssetReference<FactoryDatabaseBlob> databaseReference =
+            catalogQuery.GetSingleton<FactoryDatabase>().Value;
+        ref FactoryDatabaseBlob database = ref databaseReference.Value;
 
         BuildSnapshot(
             occupancySystem,
@@ -151,6 +159,8 @@ public partial class GridBuildCommandSystem : SystemBase
                         command,
                         grid,
                         catalog,
+                        visualPrefabs,
+                        ref database,
                         records,
                         occupantByCell,
                         ref ecb,
@@ -160,11 +170,13 @@ public partial class GridBuildCommandSystem : SystemBase
 
                 default:
                     success = TryPlaceSingle(
-                        command.Kind,
+                        command.BuildingLevel,
                         command.StartCell,
                         command.QuarterTurns,
                         grid,
                         catalog,
+                        visualPrefabs,
+                        ref database,
                         records,
                         occupantByCell,
                         ref ecb,
@@ -179,6 +191,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 RequestId = command.RequestId,
                 Type = command.Type,
                 Kind = command.Kind,
+                BuildingLevel = command.BuildingLevel,
                 Cell = command.Type ==
                        GridBuildCommandType.PlaceBeltPath
                     ? command.EndCell
@@ -250,22 +263,25 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private bool TryPlaceSingle(
-        BuildingKind kind,
+        BuildingLevelId buildingLevelId,
         int2 anchor,
         byte quarterTurns,
         in GridDefinition grid,
         in BuildingPrefabCatalog catalog,
+        in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
+        ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
         if (!TryCreateStagedRecord(
-                kind,
+                buildingLevelId,
                 anchor,
                 quarterTurns,
-                catalog,
-                out Entity prefab,
+                ref database,
+                out FactoryBuildingLevelBlob level,
+                out FactoryBuildingBlob building,
                 out PlacementRecord candidate))
         {
             failureReason =
@@ -284,11 +300,23 @@ public partial class GridBuildCommandSystem : SystemBase
         }
 
         AddRecord(candidate, records, occupantByCell);
+        Entity visualPrefab = BuildingPrefabCatalogUtility.GetPrefab(
+            visualPrefabs,
+            buildingLevelId);
+        if (!IsValidVisualPrefab(visualPrefab))
+        {
+            RemoveRecord(candidate, records, occupantByCell);
+            failureReason = GridBuildFailureReason.MissingPrefab;
+            return false;
+        }
         Instantiate(
-            prefab,
+            visualPrefab,
+            building,
+            level,
             candidate.Placement,
             grid,
             catalog,
+            ref database,
             ref ecb);
         failureReason = GridBuildFailureReason.None;
         return true;
@@ -298,19 +326,34 @@ public partial class GridBuildCommandSystem : SystemBase
         in GridBuildCommand command,
         in GridDefinition grid,
         in BuildingPrefabCatalog catalog,
+        in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
+        ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
-        Entity beltPrefab =
-            BuildingPrefabCatalogUtility.GetPrefab(
-                catalog,
-                BuildingKind.Belt);
-        if (!IsValidBuildingPrefab(beltPrefab))
+        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                ref database,
+                command.BuildingLevel,
+                out FactoryBuildingLevelBlob beltLevel,
+                out FactoryBuildingBlob beltBuilding) ||
+            beltBuilding.Kind != BuildingKind.Belt ||
+            !FactoryDatabaseUtility.TryGetBeltLevel(
+                ref database,
+                command.BuildingLevel,
+                out _))
         {
             failureReason =
                 GridBuildFailureReason.MissingPrefab;
+            return false;
+        }
+        Entity beltPrefab = BuildingPrefabCatalogUtility.GetPrefab(
+            visualPrefabs,
+            command.BuildingLevel);
+        if (!IsValidVisualPrefab(beltPrefab))
+        {
+            failureReason = GridBuildFailureReason.MissingPrefab;
             return false;
         }
 
@@ -341,10 +384,10 @@ public partial class GridBuildCommandSystem : SystemBase
                         pathCell.Direction),
                 Kind = BuildingKind.Belt
             };
-            PlacementRecord candidate =
-                CreateRecordFromPrefab(
-                    beltPrefab,
-                    placement);
+            PlacementRecord candidate = CreateRecordFromDefinition(
+                beltBuilding,
+                placement,
+                ref database);
 
             if (!CanPlace(
                     candidate,
@@ -368,9 +411,12 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             Instantiate(
                 beltPrefab,
+                beltBuilding,
+                beltLevel,
                 staged[i].Placement,
                 grid,
                 catalog,
+                ref database,
                 ref ecb);
         }
 
@@ -658,17 +704,23 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private bool TryCreateStagedRecord(
-        BuildingKind kind,
+        BuildingLevelId levelId,
         int2 anchor,
         byte quarterTurns,
-        in BuildingPrefabCatalog catalog,
-        out Entity prefab,
+        ref FactoryDatabaseBlob database,
+        out FactoryBuildingLevelBlob level,
+        out FactoryBuildingBlob building,
         out PlacementRecord record)
     {
-        prefab = BuildingPrefabCatalogUtility.GetPrefab(
-            catalog,
-            kind);
-        if (!IsValidBuildingPrefab(prefab))
+        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                ref database,
+                levelId,
+                out level,
+                out building) ||
+            !HasRequiredLevelStats(
+                building.Kind,
+                levelId,
+                ref database))
         {
             record = null;
             return false;
@@ -678,34 +730,79 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             AnchorCell = anchor,
             QuarterTurns = (byte)(quarterTurns % 4),
-            Kind = kind
+            Kind = building.Kind
         };
-        record = CreateRecordFromPrefab(prefab, placement);
+        record = CreateRecordFromDefinition(building, placement, ref database);
         return true;
     }
 
-    private bool IsValidBuildingPrefab(Entity prefab)
+    private static bool HasRequiredLevelStats(
+        BuildingKind kind,
+        BuildingLevelId levelId,
+        ref FactoryDatabaseBlob database)
+    {
+        switch (kind)
+        {
+            case BuildingKind.Belt:
+                return FactoryDatabaseUtility.TryGetBeltLevel(
+                    ref database,
+                    levelId,
+                    out _);
+            case BuildingKind.Miner:
+            case BuildingKind.Furnace:
+                return FactoryDatabaseUtility.TryGetProcessorLevel(
+                    ref database,
+                    levelId,
+                    out _);
+            default:
+                return true;
+        }
+    }
+
+    private bool IsValidVisualPrefab(Entity prefab)
     {
         return prefab != Entity.Null &&
                EntityManager.Exists(prefab) &&
-               EntityManager.HasComponent<GridPlacement>(prefab) &&
-               EntityManager.HasBuffer<OccupiedCellOffset>(prefab) &&
-               EntityManager.HasBuffer<BuildingPort>(prefab);
+               EntityManager.HasComponent<Prefab>(prefab) &&
+               EntityManager.HasComponent<LocalTransform>(prefab);
     }
 
-    private PlacementRecord CreateRecordFromPrefab(
-        Entity prefab,
-        GridPlacement placement)
+    private static PlacementRecord CreateRecordFromDefinition(
+        in FactoryBuildingBlob building,
+        in GridPlacement placement,
+        ref FactoryDatabaseBlob database)
     {
-        return CreateRecord(
-            Entity.Null,
-            placement,
-            EntityManager.GetBuffer<OccupiedCellOffset>(
-                prefab,
-                true),
-            EntityManager.GetBuffer<BuildingPort>(
-                prefab,
-                true));
+        int occupiedCount = building.FootprintWidth * building.FootprintHeight;
+        int2[] occupiedCells = new int2[occupiedCount];
+        int cursor = 0;
+        for (int y = 0; y < building.FootprintHeight; y++)
+        for (int x = 0; x < building.FootprintWidth; x++)
+        {
+            occupiedCells[cursor++] = placement.AnchorCell +
+                EcsGridUtility.Rotate(new int2(x, y), placement.QuarterTurns);
+        }
+
+        BuildingPort[] ports = new BuildingPort[building.PortCount];
+        for (int i = 0; i < building.PortCount; i++)
+        {
+            FactoryBuildingPortBlob source =
+                database.BuildingPorts[building.PortStart + i];
+            ports[i] = new BuildingPort
+            {
+                CellOffset = source.CellOffset,
+                Direction = source.Direction,
+                Type = source.Type,
+                Index = source.Index
+            };
+        }
+
+        return new PlacementRecord
+        {
+            Entity = Entity.Null,
+            Placement = placement,
+            OccupiedCells = occupiedCells,
+            Ports = ports
+        };
     }
 
     private static PlacementRecord CreateRecord(
@@ -742,107 +839,202 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private void Instantiate(
-        Entity prefab,
-        GridPlacement placement,
+        Entity visualPrefab,
+        in FactoryBuildingBlob building,
+        in FactoryBuildingLevelBlob level,
+        in GridPlacement placement,
         in GridDefinition grid,
         in BuildingPrefabCatalog catalog,
+        ref FactoryDatabaseBlob database,
         ref EntityCommandBuffer ecb)
     {
-        Entity instance = ecb.Instantiate(prefab);
-        ecb.SetComponent(instance, placement);
+        Entity instance = ecb.CreateEntity();
+        ecb.AddComponent(instance, placement);
+        ecb.AddComponent(instance, new BuildingIdentity
+        {
+            BuildingType = building.Id,
+            BuildingLevel = level.Id,
+            Level = level.Level
+        });
+        DynamicBuffer<OccupiedCellOffset> occupied =
+            ecb.AddBuffer<OccupiedCellOffset>(instance);
+        for (int y = 0; y < building.FootprintHeight; y++)
+        for (int x = 0; x < building.FootprintWidth; x++)
+            occupied.Add(new OccupiedCellOffset { Value = new int2(x, y) });
+        DynamicBuffer<BuildingPort> ports = ecb.AddBuffer<BuildingPort>(instance);
+        for (int i = 0; i < building.PortCount; i++)
+        {
+            FactoryBuildingPortBlob source =
+                database.BuildingPorts[building.PortStart + i];
+            ports.Add(new BuildingPort
+            {
+                CellOffset = source.CellOffset,
+                Direction = source.Direction,
+                Type = source.Type,
+                Index = source.Index
+            });
+        }
 
         int2 direction = EcsGridUtility.Rotate(
             new int2(1, 0),
             placement.QuarterTurns);
-        switch (placement.Kind)
-        {
-            case BuildingKind.Belt:
-                Belt belt =
-                    EntityManager.GetComponentData<Belt>(prefab);
-                belt.Cell = placement.AnchorCell;
-                belt.Direction = direction;
-                belt.NextCell = placement.AnchorCell + direction;
-                belt.CurrentItem = Entity.Null;
-                belt.Progress = 0f;
-                belt.IsLoop = false;
-                belt.HasOutput = false;
-                ecb.SetComponent(instance, belt);
-                break;
-
-            case BuildingKind.Merger:
-                Merger merger =
-                    EntityManager.GetComponentData<Merger>(prefab);
-                merger.Cell = placement.AnchorCell;
-                merger.Direction = direction;
-                merger.CurrentItem = Entity.Null;
-                merger.TransferElapsed = 0f;
-                merger.InputInterval = 0f;
-                merger.NextInputIndex = 0;
-                ecb.SetComponent(instance, merger);
-                break;
-
-            case BuildingKind.Splitter:
-                Splitter splitter =
-                    EntityManager.GetComponentData<Splitter>(
-                        prefab);
-                splitter.Cell = placement.AnchorCell;
-                splitter.Direction = direction;
-                splitter.CurrentItem = Entity.Null;
-                splitter.TransferElapsed = 0f;
-                splitter.InputInterval = 0f;
-                splitter.NextOutputIndex = 0;
-                ecb.SetComponent(instance, splitter);
-                break;
-        }
-
-        if (!EntityManager.HasComponent<LocalTransform>(prefab))
-        {
-            return;
-        }
-
-        LocalTransform transform =
-            EntityManager.GetComponentData<LocalTransform>(prefab);
         float3 center = EcsGridUtility.CellToWorldCenter(
             placement.AnchorCell,
-            transform.Position.y,
+            grid.Origin.y,
             grid);
-        float2 visualOffset =
-            EcsGridUtility.GetVisualCenterOffset(
-                placement.Kind,
-                placement.QuarterTurns) *
-            grid.CellSize;
+        float2 visualOffset = EcsGridUtility.Rotate(
+            new float2(
+                (building.FootprintWidth - 1) * 0.5f,
+                (building.FootprintHeight - 1) * 0.5f),
+            placement.QuarterTurns) * grid.CellSize;
         center.x += visualOffset.x;
         center.z += visualOffset.y;
-        transform.Position = center;
-        transform.Rotation =
-            EcsGridUtility.RotationFromQuarterTurns(
-                placement.QuarterTurns);
-        ecb.SetComponent(instance, transform);
+        ecb.AddComponent(instance, LocalTransform.FromPositionRotationScale(
+            center,
+            EcsGridUtility.RotationFromQuarterTurns(placement.QuarterTurns),
+            1f));
+        // Runtime-created transform roots are not completed by baking. ParentSystem
+        // and LocalToWorldSystem require this component to propagate the root
+        // transform to the visual prefab attached below.
+        ecb.AddComponent(instance, new LocalToWorld
+        {
+            Value = float4x4.TRS(
+                center,
+                EcsGridUtility.RotationFromQuarterTurns(
+                    placement.QuarterTurns),
+                new float3(1f))
+        });
+
+        AddLogicComponents(
+            instance,
+            building,
+            level,
+            placement,
+            direction,
+            ref database,
+            ref ecb);
+
+        DynamicBuffer<LinkedEntityGroup> linked =
+            ecb.AddBuffer<LinkedEntityGroup>(instance);
+        linked.Add(new LinkedEntityGroup { Value = instance });
+        Entity visual = ecb.Instantiate(visualPrefab);
+        ecb.AddComponent(visual, new Parent { Value = instance });
+        ecb.AddComponent(instance, new BuildingVisualReference
+        {
+            Value = visual
+        });
+        linked.Add(new LinkedEntityGroup { Value = visual });
+
         InstantiatePortVisuals(
             instance,
-            prefab,
+            ports,
             placement,
             grid,
             catalog,
             ref ecb);
     }
 
+    private static void AddLogicComponents(
+        Entity instance,
+        in FactoryBuildingBlob building,
+        in FactoryBuildingLevelBlob level,
+        in GridPlacement placement,
+        int2 direction,
+        ref FactoryDatabaseBlob database,
+        ref EntityCommandBuffer ecb)
+    {
+        switch (placement.Kind)
+        {
+            case BuildingKind.Belt:
+                FactoryDatabaseUtility.TryGetBeltLevel(
+                    ref database,
+                    level.Id,
+                    out FactoryBeltLevelBlob beltLevel);
+                ecb.AddComponent(instance, new Belt
+                {
+                    CellsPerSecond = beltLevel.CellsPerSecond,
+                    Cell = placement.AnchorCell,
+                    Direction = direction,
+                    NextCell = placement.AnchorCell + direction,
+                    CurrentItem = Entity.Null
+                });
+                break;
+            case BuildingKind.Merger:
+                ecb.AddComponent(instance, new Merger
+                {
+                    Cell = placement.AnchorCell,
+                    Direction = direction,
+                    CurrentItem = Entity.Null
+                });
+                break;
+            case BuildingKind.Splitter:
+                ecb.AddComponent(instance, new Splitter
+                {
+                    Cell = placement.AnchorCell,
+                    Direction = direction,
+                    CurrentItem = Entity.Null
+                });
+                break;
+            case BuildingKind.Miner:
+            case BuildingKind.Furnace:
+                FactoryDatabaseUtility.TryGetProcessorLevel(
+                    ref database,
+                    level.Id,
+                    out FactoryProcessorLevelBlob processorLevel);
+                ecb.AddComponent(instance, new ItemProcessor
+                {
+                    MachineType = building.MachineType,
+                    WorkRatePermille = processorLevel.WorkRatePermille
+                });
+                ecb.AddBuffer<ItemProcessInput>(instance);
+                ecb.AddComponent(instance, new ItemProcessCapacity
+                {
+                    InputCapacity = math.max(0, building.InputCapacity)
+                });
+                ecb.AddComponent(instance, new ItemProcessState
+                {
+                    ActiveRecipeIndex = -1,
+                    SelectedRecipeIndex = 0,
+                    Status = ItemProcessStatus.Idle
+                });
+                AddItemPortBuffers(instance, ref ecb);
+                break;
+            case BuildingKind.Storage:
+                ecb.AddComponent(instance, new StorageState
+                {
+                    Capacity = math.max(1, building.StorageCapacity)
+                });
+                ecb.AddBuffer<StoredItemCount>(instance);
+                AddItemPortBuffers(instance, ref ecb);
+                break;
+        }
+    }
+
+    private static void AddItemPortBuffers(
+        Entity instance,
+        ref EntityCommandBuffer ecb)
+    {
+        ecb.AddBuffer<ItemInputPortCurrent>(instance);
+        ecb.AddBuffer<ItemInputPortNext>(instance);
+        ecb.AddBuffer<ItemOutputPortCurrent>(instance);
+        ecb.AddBuffer<ItemOutputPortNext>(instance);
+        ecb.AddBuffer<ItemTransferReceiptCurrent>(instance);
+        ecb.AddBuffer<ItemTransferReceiptNext>(instance);
+    }
+
     private void InstantiatePortVisuals(
         Entity owner,
-        Entity buildingPrefab,
+        in DynamicBuffer<BuildingPort> ports,
         in GridPlacement placement,
         in GridDefinition grid,
         in BuildingPrefabCatalog catalog,
         ref EntityCommandBuffer ecb)
     {
-        if (!UsesPortVisuals(placement.Kind) ||
-            !EntityManager.HasBuffer<LinkedEntityGroup>(buildingPrefab))
+        if (!UsesPortVisuals(placement.Kind))
         {
             return;
         }
 
-        DynamicBuffer<BuildingPort> ports =
-            EntityManager.GetBuffer<BuildingPort>(buildingPrefab, true);
         float cellSize = math.max(math.EPSILON, grid.CellSize);
         for (int i = 0; i < ports.Length; i++)
         {

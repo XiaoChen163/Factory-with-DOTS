@@ -1,2 +1,2 @@
-recipe_id,item_id,count
-2,1,2
+recipe_key,item_key,count
+smelt_iron,iron_ore,2

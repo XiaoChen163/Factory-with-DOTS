@@ -6,6 +6,7 @@ public static class ItemProcessUtility
 {
     public static bool TryStart(
         int recipeIndex,
+        ushort workRatePermille,
         in FactoryRecipeBlob recipe,
         in FactoryRecipeIngredientBlob inputIngredient,
         in FactoryRecipeIngredientBlob outputIngredient,
@@ -57,7 +58,11 @@ public static class ItemProcessUtility
         }
 
         process.ElapsedTicks = 0;
-        process.DurationTicks = math.max(1, recipe.DurationTicks);
+        int workRate = math.max(1, workRatePermille);
+        long scaledDuration = (long)recipe.DurationTicks * 1000L;
+        process.DurationTicks = math.max(
+            1,
+            (int)((scaledDuration + workRate - 1L) / workRate));
         process.ActiveRecipeIndex = recipeIndex;
         process.Status = ItemProcessStatus.Processing;
         return true;
@@ -201,6 +206,7 @@ public partial struct ItemProcessSystem : ISystem
                     database.Outputs[selectedRecipe.OutputStart];
                 ItemProcessUtility.TryStart(
                     databaseRecipeIndex,
+                    processor.WorkRatePermille,
                     selectedRecipe,
                     input,
                     output,

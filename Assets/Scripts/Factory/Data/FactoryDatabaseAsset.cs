@@ -9,6 +9,15 @@ public enum FactoryItemCategory : byte
     Component
 }
 
+public enum FactoryBuildingBehavior : byte
+{
+    Belt = 1,
+    Processor = 2,
+    Storage = 3,
+    Merger = 4,
+    Splitter = 5
+}
+
 [Serializable]
 public struct FactoryItemTableRow
 {
@@ -24,6 +33,7 @@ public struct FactoryItemTableRow
 [Serializable]
 public struct FactoryRecipeIngredientTableRow
 {
+    public string itemKey;
     public ushort itemId;
     public int count;
 }
@@ -33,10 +43,75 @@ public struct FactoryRecipeTableRow
 {
     public ushort id;
     public string key;
-    public BuildingKind machineType;
+    public string machineTypeKey;
+    public ushort machineTypeId;
     public float durationSeconds;
     public FactoryRecipeIngredientTableRow[] inputs;
     public FactoryRecipeIngredientTableRow[] outputs;
+}
+
+[Serializable]
+public struct FactoryMachineTypeTableRow
+{
+    public ushort id;
+    public string key;
+}
+
+[Serializable]
+public struct FactoryBuildingPortTableRow
+{
+    public BuildingPortType type;
+    public byte index;
+    public Vector2Int cellOffset;
+    public Vector2Int direction;
+}
+
+[Serializable]
+public struct FactoryBuildingTableRow
+{
+    public ushort id;
+    public string key;
+    public string nameKey;
+    public FactoryBuildingBehavior behavior;
+    public BuildingKind kind;
+    public string machineTypeKey;
+    public ushort machineTypeId;
+    public string portLayoutKey;
+    public byte footprintWidth;
+    public byte footprintHeight;
+    public int inputCapacity;
+    public int storageCapacity;
+    public FactoryBuildingPortTableRow[] ports;
+}
+
+[Serializable]
+public struct FactoryBuildingLevelTableRow
+{
+    public ushort id;
+    public string key;
+    public string buildingKey;
+    public ushort buildingId;
+    public byte level;
+    public string nameKey;
+    public string visualPrefabKey;
+    public GameObject visualPrefab;
+    public int menuOrder;
+}
+
+[Serializable]
+public struct FactoryBeltLevelTableRow
+{
+    public string buildingLevelKey;
+    public ushort buildingLevelId;
+    public float cellsPerSecond;
+}
+
+[Serializable]
+public struct FactoryProcessorLevelTableRow
+{
+    public string buildingLevelKey;
+    public ushort buildingLevelId;
+    public ushort workRatePermille;
 }
 
 // Generated cache. Edit the CSV files in Assets/Data/FactoryTables instead.
@@ -44,6 +119,16 @@ public sealed class FactoryDatabaseAsset : ScriptableObject
 {
     [Min(1)] public int version = 1;
     public FactoryItemTableRow[] items = Array.Empty<FactoryItemTableRow>();
+    public FactoryMachineTypeTableRow[] machineTypes =
+        Array.Empty<FactoryMachineTypeTableRow>();
+    public FactoryBuildingTableRow[] buildings =
+        Array.Empty<FactoryBuildingTableRow>();
+    public FactoryBuildingLevelTableRow[] buildingLevels =
+        Array.Empty<FactoryBuildingLevelTableRow>();
+    public FactoryBeltLevelTableRow[] beltLevels =
+        Array.Empty<FactoryBeltLevelTableRow>();
+    public FactoryProcessorLevelTableRow[] processorLevels =
+        Array.Empty<FactoryProcessorLevelTableRow>();
     public FactoryRecipeTableRow[] recipes =
         Array.Empty<FactoryRecipeTableRow>();
 }

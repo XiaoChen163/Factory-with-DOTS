@@ -3,14 +3,19 @@ using Unity.Mathematics;
 
 public struct BuildingPrefabCatalog : IComponentData
 {
-    public Entity Belt;
-    public Entity Miner;
-    public Entity Furnace;
-    public Entity Storage;
-    public Entity Merger;
-    public Entity Splitter;
     public Entity InputPortVisual;
     public Entity OutputPortVisual;
+}
+
+public struct BuildingVisualPrefabEntry : IBufferElementData
+{
+    public BuildingLevelId BuildingLevel;
+    public Entity Prefab;
+}
+
+public struct BuildingVisualReference : IComponentData
+{
+    public Entity Value;
 }
 
 public enum GridBuildCommandType : byte
@@ -26,6 +31,7 @@ public struct GridBuildCommand : IBufferElementData
     public uint RequestId;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
+    public BuildingLevelId BuildingLevel;
     public int2 StartCell;
     public int2 EndCell;
     public byte QuarterTurns;
@@ -52,6 +58,7 @@ public struct GridBuildResult : IBufferElementData
     public uint RequestId;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
+    public BuildingLevelId BuildingLevel;
     public int2 Cell;
     public byte Success;
     public int AffectedCount;
@@ -100,25 +107,15 @@ public struct StoredItemCount : IBufferElementData
 public static class BuildingPrefabCatalogUtility
 {
     public static Entity GetPrefab(
-        in BuildingPrefabCatalog catalog,
-        BuildingKind kind)
+        in DynamicBuffer<BuildingVisualPrefabEntry> prefabs,
+        BuildingLevelId buildingLevel)
     {
-        switch (kind)
+        for (int i = 0; i < prefabs.Length; i++)
         {
-            case BuildingKind.Belt:
-                return catalog.Belt;
-            case BuildingKind.Miner:
-                return catalog.Miner;
-            case BuildingKind.Furnace:
-                return catalog.Furnace;
-            case BuildingKind.Storage:
-                return catalog.Storage;
-            case BuildingKind.Merger:
-                return catalog.Merger;
-            case BuildingKind.Splitter:
-                return catalog.Splitter;
-            default:
-                return Entity.Null;
+            BuildingVisualPrefabEntry entry = prefabs[i];
+            if (entry.BuildingLevel == buildingLevel)
+                return entry.Prefab;
         }
+        return Entity.Null;
     }
 }

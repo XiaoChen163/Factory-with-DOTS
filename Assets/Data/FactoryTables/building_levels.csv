@@ -1,0 +1,7 @@
+key,building_key,level,name_key,visual_prefab_key,menu_order
+belt_mk1,belt,1,building.belt.mk1,belt,100
+miner_mk1,miner,1,building.miner.mk1,miner,200
+furnace_mk1,furnace,1,building.furnace.mk1,furnace,300
+storage_mk1,storage,1,building.storage.mk1,storage,400
+merger_mk1,merger,1,building.merger.mk1,merger,500
+splitter_mk1,splitter,1,building.splitter.mk1,splitter,600

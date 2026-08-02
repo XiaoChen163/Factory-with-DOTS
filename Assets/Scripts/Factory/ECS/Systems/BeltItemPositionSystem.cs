@@ -73,7 +73,7 @@ public partial struct BeltItemPositionSystem : ISystem
                 belt.Cell.y + 0.5f);
             float visualSpeed = math.max(
                 MinimumVisualSpeed,
-                belt.Speed * TransferSpeedMultiplier);
+                belt.CellsPerSecond * TransferSpeedMultiplier);
             MoveItemTowards(
                 belt.CurrentItem,
                 targetPosition,

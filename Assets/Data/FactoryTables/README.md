@@ -4,17 +4,36 @@
 `Assets/Data/Generated/FactoryDatabase.asset`。
 
 - `items.csv`：稳定 `ItemId`、显示 Key、堆叠、分类和 `prefab_key`。
-- `recipes.csv`：稳定 `RecipeId`、设备类型和生产时间。
+- `machine_types.csv`：配方要求的加工能力 key。
+- `buildings.csv`：建筑类型、能力、占地和共享端口布局。
+- `building_levels.csv`：所有建筑共有的等级身份、表现 Prefab 和菜单顺序。
+- `belt_level_stats.csv`：传送带等级的绝对空间速度（格/秒）。
+- `processor_level_stats.csv`：加工建筑等级相对于配方基础耗时的工作倍率（千分比）。
+- `building_ports.csv`：按布局 key 定义的逻辑输入/输出端口。
+- `recipes.csv`：配方 key、加工能力 key 和基础生产时间。
 - `recipe_inputs.csv`：配方输入。
 - `recipe_outputs.csv`：配方输出。
 
 保存 CSV 后，Unity 会自动重建生成资产。也可以执行菜单
 `Factory > Rebuild Static Database` 手动重建。
 
+CSV 之间使用稳定 key 关联；导入器会验证引用并在生成资产中解析为紧凑 ID。
+运行时 ID 和 Blob 数组下标不应写入长期存档，存档应保存 key。
+
 物品 Prefab 放在 `Assets/Prefabs/Items` 下，并使用与 `prefab_key`
 一致的文件名。匹配时忽略大小写、空格、下划线和连字符，例如
 `iron_ore` 可以匹配 `IronOre.prefab`。物品 Prefab 只能包含表现组件，
 不需要 `ItemAuthoring` 或其他 `MonoBehaviour`。
+
+建筑表现 Prefab 放在 `Assets/Prefabs/Buildings` 下，并通过
+`building_levels.csv` 的 `visual_prefab_key` 绑定。每个等级可以使用完全
+不同的 Mesh 和材质，但 Prefab 只能包含表现组件，不能包含建筑逻辑
+Authoring。建筑逻辑、占地和端口由 CSV 生成；同一建筑类型的所有等级
+共享 `port_layout_key`。每一条等级记录都是独立建造选项，行为专属属性
+不放在这张通用等级表中。每个传送带等级必须在 `belt_level_stats.csv`
+中恰好出现一次，每个加工建筑等级必须在 `processor_level_stats.csv`
+中恰好出现一次；其他建筑等级不得出现在这两张表中。
+`work_rate_permille` 只影响实际加工速度，不修改配方基础时间。
 
 当前生产逻辑支持每条配方零或一个输入，并且必须恰好有一个输出。
 ID `0` 保留为无效值；已经发布的 ID 不应修改或复用。

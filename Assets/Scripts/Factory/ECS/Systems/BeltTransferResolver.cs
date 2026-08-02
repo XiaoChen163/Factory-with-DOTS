@@ -34,7 +34,7 @@ public static class FactoryTransferResolver
         public int OutputIndex;
         public int2 OutputDirection;
         public bool IsReady;
-        public float Speed;
+        public float CellsPerSecond;
         public float TransferElapsed;
         public float InputInterval;
     }
@@ -83,7 +83,7 @@ public static class FactoryTransferResolver
                 Direction = belt.Direction,
                 CurrentItem = belt.CurrentItem,
                 Progress = belt.Progress,
-                Speed = belt.Speed,
+                CellsPerSecond = belt.CellsPerSecond,
                 TargetIndex = -1,
                 OutputIndex = -1
             };
@@ -769,7 +769,7 @@ public static class FactoryTransferResolver
         Node target)
     {
         return source.Kind == NodeKind.Belt
-            ? SpeedToInterval(source.Speed)
+            ? CellsPerSecondToInterval(source.CellsPerSecond)
             : GetJunctionTransferInterval(source, target);
     }
 
@@ -778,15 +778,15 @@ public static class FactoryTransferResolver
         Node target)
     {
         float outputInterval = target.Kind == NodeKind.Belt
-            ? SpeedToInterval(target.Speed)
+            ? CellsPerSecondToInterval(target.CellsPerSecond)
             : target.InputInterval;
         return math.max(source.InputInterval, outputInterval);
     }
 
-    private static float SpeedToInterval(float speed)
+    private static float CellsPerSecondToInterval(float cellsPerSecond)
     {
-        return speed > math.EPSILON
-            ? 1f / speed
+        return cellsPerSecond > math.EPSILON
+            ? 1f / cellsPerSecond
             : float.PositiveInfinity;
     }
 

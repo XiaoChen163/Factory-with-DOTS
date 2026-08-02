@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 110001}
-  - component: {fileID: 110004}
   m_Layer: 0
   m_Name: Belt
   m_TagString: Untagged
@@ -38,26 +37,6 @@ Transform:
   - {fileID: 110061}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &110004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 110000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 35bbfd81f9bb5214ca2b3c7a009d78c7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BeltAuthoring
-  speed: 1
-  direction: {x: 1, y: 0}
-  initialItem: {fileID: 0}
-  eastEdge: {fileID: 110020}
-  northEdge: {fileID: 110030}
-  westEdge: {fileID: 110040}
-  southEdge: {fileID: 110050}
-  directionTriangle: {fileID: 110060}
 --- !u!1 &110010
 GameObject:
   m_ObjectHideFlags: 0

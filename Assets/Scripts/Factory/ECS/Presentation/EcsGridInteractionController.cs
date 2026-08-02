@@ -33,6 +33,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public BuildingKind SelectedKind { get; private set; } =
         BuildingKind.Belt;
+    public BuildingLevelId SelectedBuildingLevel { get; private set; }
 
     private void Awake()
     {
@@ -42,6 +43,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private void Update()
     {
         ConsumeBuildResults();
+        EnsureSelectedBuildingLevel();
         HandleSelectionAndRotation();
         UpdatePlacementPreview();
 
@@ -85,11 +87,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private void OnGUI()
     {
         GUI.Box(
-            new Rect(12f, 170f, 780f, 140f),
+            new Rect(12f, 170f, 980f, 172f),
             "ECS Grid Build Controls");
         GUI.Label(
             new Rect(28f, 196f, 740f, 22f),
-            "1 Belt  2 Miner  3 Furnace  4 Storage  5 Merger  6 Splitter  |  R Rotate");
+            "1-9 Select build option  |  R Rotate");
         GUI.Label(
             new Rect(28f, 220f, 740f, 22f),
             "F Remove  |  Ctrl+F Remove Connected Belt Line  |  WASD Move  Space Ascend  Shift Descend");
@@ -98,7 +100,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             "Hold Right Mouse Rotate");
         GUI.Label(
             new Rect(28f, 268f, 740f, 22f),
-            "Selected: " + SelectedKind +
+            "Selected: " + GetSelectedBuildingLabel() +
             "  Direction: " +
             EcsGridUtility.Rotate(
                 new int2(1, 0),
@@ -110,25 +112,19 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                       ? "Horizontal → Vertical"
                       : "Vertical → Horizontal")
                 : string.Empty));
+        DrawBuildingLevelButtons();
     }
 
     private void HandleSelectionAndRotation()
     {
-        BuildingKind previousKind = SelectedKind;
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-            SelectedKind = BuildingKind.Belt;
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-            SelectedKind = BuildingKind.Miner;
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-            SelectedKind = BuildingKind.Furnace;
-        if (Input.GetKeyDown(KeyCode.Alpha4))
-            SelectedKind = BuildingKind.Storage;
-        if (Input.GetKeyDown(KeyCode.Alpha5))
-            SelectedKind = BuildingKind.Merger;
-        if (Input.GetKeyDown(KeyCode.Alpha6))
-            SelectedKind = BuildingKind.Splitter;
+        BuildingLevelId previousLevel = SelectedBuildingLevel;
+        for (int i = 0; i < 9; i++)
+        {
+            if (Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i)))
+                SelectBuildingMenuIndex(i);
+        }
 
-        if (SelectedKind != previousKind)
+        if (SelectedBuildingLevel != previousLevel)
         {
             beltPathStarted = false;
         }
@@ -215,7 +211,16 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return;
         }
 
-        previewCells.Add(hoveredCell);
+        if (!TryGetSelectedBuilding(out FactoryBuildingBlob building))
+        {
+            previewCells.Add(hoveredCell);
+            return;
+        }
+
+        for (int y = 0; y < building.FootprintHeight; y++)
+        for (int x = 0; x < building.FootprintWidth; x++)
+            previewCells.Add(hoveredCell + EcsGridUtility.Rotate(
+                new int2(x, y), quarterTurns));
         if (SelectedKind == BuildingKind.Belt)
         {
             previewDisplayDirections.Add(
@@ -224,26 +229,6 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     quarterTurns));
         }
 
-        if (!IsTwoByTwoBuilding(SelectedKind))
-        {
-            return;
-        }
-
-        previewCells.Add(
-            hoveredCell +
-            EcsGridUtility.Rotate(
-                new int2(0, 1),
-                quarterTurns));
-        previewCells.Add(
-            hoveredCell +
-            EcsGridUtility.Rotate(
-                new int2(1, 0),
-                quarterTurns));
-        previewCells.Add(
-            hoveredCell +
-            EcsGridUtility.Rotate(
-                new int2(1, 1),
-                quarterTurns));
     }
 
     private void AppendPreviewSegment(
@@ -578,6 +563,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     Type =
                         GridBuildCommandType.PlaceBeltPath,
                     Kind = BuildingKind.Belt,
+                    BuildingLevel = SelectedBuildingLevel,
                     StartCell = beltPathStart,
                     EndCell = cell,
                     QuarterTurns = quarterTurns,
@@ -596,6 +582,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 RequestId = nextRequestId++,
                 Type = GridBuildCommandType.Place,
                 Kind = SelectedKind,
+                BuildingLevel = SelectedBuildingLevel,
                 StartCell = cell,
                 EndCell = cell,
                 QuarterTurns = quarterTurns,
@@ -632,6 +619,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 Kind = removeBeltLine
                     ? BuildingKind.Belt
                     : SelectedKind,
+                BuildingLevel = default,
                 StartCell = cell,
                 EndCell = cell,
                 QuarterTurns = 0,
@@ -721,11 +709,102 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         return true;
     }
 
-    private static bool IsTwoByTwoBuilding(BuildingKind kind)
+    private void EnsureSelectedBuildingLevel()
     {
-        return kind == BuildingKind.Miner ||
-               kind == BuildingKind.Furnace ||
-               kind == BuildingKind.Storage;
+        if (!SelectedBuildingLevel.IsValid)
+            SelectBuildingMenuIndex(0);
+    }
+
+    private void SelectBuildingMenuIndex(int index)
+    {
+        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference))
+            return;
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        if (index < 0 || index >= database.BuildingLevelMenu.Length)
+            return;
+        BuildingLevelId id = database.BuildingLevelMenu[index];
+        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                ref database,
+                id,
+                out _,
+                out FactoryBuildingBlob building))
+            return;
+        SelectedBuildingLevel = id;
+        SelectedKind = building.Kind;
+    }
+
+    private bool TryGetSelectedBuilding(out FactoryBuildingBlob building)
+    {
+        building = default;
+        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference))
+            return false;
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        return FactoryDatabaseUtility.TryGetBuildingLevel(
+            ref database,
+            SelectedBuildingLevel,
+            out _,
+            out building);
+    }
+
+    private string GetSelectedBuildingLabel()
+    {
+        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference))
+            return "Waiting for database";
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        return FactoryDatabaseUtility.TryGetBuildingLevel(
+            ref database,
+            SelectedBuildingLevel,
+            out FactoryBuildingLevelBlob level,
+            out _)
+            ? level.Key.ToString()
+            : "None";
+    }
+
+    private void DrawBuildingLevelButtons()
+    {
+        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference))
+            return;
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        float x = 28f;
+        for (int i = 0; i < database.BuildingLevelMenu.Length; i++)
+        {
+            BuildingLevelId id = database.BuildingLevelMenu[i];
+            if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                    ref database,
+                    id,
+                    out FactoryBuildingLevelBlob level,
+                    out _))
+                continue;
+            string label = (i < 9 ? (i + 1) + " " : string.Empty) +
+                level.Key.ToString();
+            float width = math.max(92f, label.Length * 7f + 16f);
+            bool selected = id == SelectedBuildingLevel;
+            bool clicked = GUI.Toggle(
+                new Rect(x, 300f, width, 26f),
+                selected,
+                label,
+                GUI.skin.button);
+            if (clicked && !selected)
+                SelectBuildingMenuIndex(i);
+            x += width + 6f;
+        }
+    }
+
+    private static bool TryGetDatabase(
+        out BlobAssetReference<FactoryDatabaseBlob> reference)
+    {
+        reference = default;
+        World world = World.DefaultGameObjectInjectionWorld;
+        if (world == null || !world.IsCreated)
+            return false;
+        EntityManager entityManager = world.EntityManager;
+        EntityQuery query = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<FactoryDatabase>());
+        bool found = query.CalculateEntityCount() == 1;
+        if (found)
+            reference = query.GetSingleton<FactoryDatabase>().Value;
+        query.Dispose();
+        return found && reference.IsCreated;
     }
 
     private static void Enqueue(

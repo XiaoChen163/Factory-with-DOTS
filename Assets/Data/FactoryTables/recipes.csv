@@ -1,3 +1,3 @@
-id,key,machine_type,duration_seconds
-1,mine_iron,Miner,1
-2,smelt_iron,Furnace,2
+key,machine_type_key,duration_seconds
+mine_iron,mining,1
+smelt_iron,smelting,2

@@ -17,6 +17,7 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
     private const string BuildingLevelTablePath = TableDirectory + "/building_levels.csv";
     private const string BeltLevelTablePath = TableDirectory + "/belt_level_stats.csv";
     private const string ProcessorLevelTablePath = TableDirectory + "/processor_level_stats.csv";
+    private const string StorageLevelTablePath = TableDirectory + "/storage_level_stats.csv";
     private const string BuildingPortTablePath = TableDirectory + "/building_ports.csv";
     private const string RecipeTablePath = TableDirectory + "/recipes.csv";
     private const string InputTablePath = TableDirectory + "/recipe_inputs.csv";
@@ -87,6 +88,8 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
                 ReadBeltLevels(levels, levelsByKey, buildingsByKey);
             FactoryProcessorLevelTableRow[] processorLevels =
                 ReadProcessorLevels(levels, levelsByKey, buildingsByKey);
+            FactoryStorageLevelTableRow[] storageLevels =
+                ReadStorageLevels(levels, levelsByKey, buildingsByKey);
             FactoryRecipeTableRow[] recipes = ReadRecipes(machinesByKey, itemsByKey);
 
             EnsureAssetFolder(OutputDirectory);
@@ -105,6 +108,7 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             asset.buildingLevels = levels;
             asset.beltLevels = beltLevels;
             asset.processorLevels = processorLevels;
+            asset.storageLevels = storageLevels;
             asset.recipes = recipes;
             EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssets();
@@ -113,6 +117,7 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
                 $"Factory database rebuilt: {items.Length} items, " +
                 $"{buildings.Length} buildings, {levels.Length} build options, " +
                 $"{beltLevels.Length} belt levels, {processorLevels.Length} processor levels, " +
+                $"{storageLevels.Length} storage levels, " +
                 $"{recipes.Length} recipes.",
                 asset);
         }
@@ -208,8 +213,6 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
                 portLayoutKey = layoutKey,
                 footprintWidth = ParseByte(table.Get(row, "footprint_width"), "footprint width"),
                 footprintHeight = ParseByte(table.Get(row, "footprint_height"), "footprint height"),
-                inputCapacity = ParseInt(table.Get(row, "input_capacity"), "input capacity"),
-                storageCapacity = ParseInt(table.Get(row, "storage_capacity"), "storage capacity"),
                 ports = buildingPorts.ToArray()
             });
         }
@@ -416,6 +419,52 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
         return level;
     }
 
+    private static FactoryStorageLevelTableRow[] ReadStorageLevels(
+        FactoryBuildingLevelTableRow[] levels,
+        Dictionary<string, FactoryBuildingLevelTableRow> levelsByKey,
+        Dictionary<string, FactoryBuildingTableRow> buildingsByKey)
+    {
+        CsvTable table = CsvTable.Read(StorageLevelTablePath);
+        List<FactoryStorageLevelTableRow> rows =
+            new List<FactoryStorageLevelTableRow>(table.RowCount);
+        HashSet<string> configuredLevels = NewKeySet();
+        for (int row = 0; row < table.RowCount; row++)
+        {
+            string levelKey = RequiredKey(
+                table.Get(row, "building_level_key"),
+                "storage building level key");
+            if (!configuredLevels.Add(levelKey))
+                throw new InvalidDataException(
+                    $"Duplicate storage stats for building level '{levelKey}'.");
+            FactoryBuildingLevelTableRow level = ResolveLevelForBehavior(
+                levelKey,
+                FactoryBuildingBehavior.Storage,
+                "storage",
+                levelsByKey,
+                buildingsByKey);
+            int capacity = ParseInt(
+                table.Get(row, "storage_capacity"),
+                "storage capacity");
+            if (capacity <= 0)
+                throw new InvalidDataException(
+                    $"Storage level '{levelKey}' storage_capacity must be positive.");
+            rows.Add(new FactoryStorageLevelTableRow
+            {
+                buildingLevelKey = levelKey,
+                buildingLevelId = level.id,
+                capacity = capacity
+            });
+        }
+
+        ValidateRequiredLevelStats(
+            levels,
+            buildingsByKey,
+            FactoryBuildingBehavior.Storage,
+            configuredLevels,
+            "storage");
+        return rows.ToArray();
+    }
+
     private static void ValidateRequiredLevelStats(
         FactoryBuildingLevelTableRow[] levels,
         Dictionary<string, FactoryBuildingTableRow> buildingsByKey,
@@ -483,12 +532,20 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
         CsvTable table = CsvTable.Read(path);
         Dictionary<string, List<FactoryRecipeIngredientTableRow>> result =
             new Dictionary<string, List<FactoryRecipeIngredientTableRow>>(StringComparer.Ordinal);
+        HashSet<string> uniqueIngredients = NewKeySet();
         for (int row = 0; row < table.RowCount; row++)
         {
             string recipeKey = RequiredKey(table.Get(row, "recipe_key"), "ingredient recipe key");
             string itemKey = RequiredKey(table.Get(row, "item_key"), "ingredient item key");
+            if (!uniqueIngredients.Add(recipeKey + ":" + itemKey))
+                throw new InvalidDataException(
+                    $"Recipe '{recipeKey}' declares item '{itemKey}' more than once in '{path}'.");
             if (!itemsByKey.TryGetValue(itemKey, out FactoryItemTableRow item))
                 throw new InvalidDataException($"Recipe '{recipeKey}' references unknown item '{itemKey}'.");
+            int count = ParseInt(table.Get(row, "count"), "ingredient count");
+            if (count <= 0 || count > item.maxStack)
+                throw new InvalidDataException(
+                    $"Recipe '{recipeKey}' item '{itemKey}' count must be between 1 and its max stack ({item.maxStack}).");
             if (!result.TryGetValue(recipeKey, out List<FactoryRecipeIngredientTableRow> list))
             {
                 list = new List<FactoryRecipeIngredientTableRow>();
@@ -498,7 +555,7 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             {
                 itemKey = itemKey,
                 itemId = item.id,
-                count = ParseInt(table.Get(row, "count"), "ingredient count")
+                count = count
             });
         }
         return result;

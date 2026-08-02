@@ -1,2 +1,5 @@
 building_level_key,cells_per_second
 belt_mk1,1.0
+belt_mk2,2.0
+belt_mk3,4.0
+belt_mk4,8

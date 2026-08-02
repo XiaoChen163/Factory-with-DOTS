@@ -75,11 +75,6 @@ public struct ItemTransferReceiptNext : IBufferElementData
     public ItemTransferReceipt Value;
 }
 
-public struct ItemProcessCapacity : IComponentData
-{
-    public int InputCapacity;
-}
-
 public struct ItemPrefabEntry : IBufferElementData
 {
     public ItemId ItemType;

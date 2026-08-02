@@ -1,5 +1,8 @@
 key,building_key,level,name_key,visual_prefab_key,menu_order
 belt_mk1,belt,1,building.belt.mk1,belt,100
+belt_mk2,belt,2,building.belt.mk2,belt_mk2,101
+belt_mk3,belt,3,building.belt.mk3,belt_mk3,102
+belt_mk4,belt,4,building.belt.mk4,belt_mk4,103
 miner_mk1,miner,1,building.miner.mk1,miner,200
 furnace_mk1,furnace,1,building.furnace.mk1,furnace,300
 storage_mk1,storage,1,building.storage.mk1,storage,400

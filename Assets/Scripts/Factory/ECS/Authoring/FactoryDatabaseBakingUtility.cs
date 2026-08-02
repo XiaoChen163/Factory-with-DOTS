@@ -85,8 +85,6 @@ public static class FactoryDatabaseBakingUtility
                 PortCount = (ushort)rowPorts.Length,
                 FootprintWidth = row.footprintWidth,
                 FootprintHeight = row.footprintHeight,
-                InputCapacity = row.inputCapacity,
-                StorageCapacity = row.storageCapacity,
                 Key = new FixedString64Bytes(row.key),
                 NameKey = new FixedString64Bytes(row.nameKey)
             };
@@ -150,6 +148,21 @@ public static class FactoryDatabaseBakingUtility
             {
                 LevelId = levelId,
                 WorkRatePermille = row.workRatePermille
+            };
+        }
+
+        BlobBuilderArray<FactoryStorageLevelBlob> storageLevels =
+            builder.Allocate(ref root.StorageLevelsById, maxLevelId + 1);
+        foreach (FactoryStorageLevelTableRow row in source.storageLevels)
+        {
+            BuildingLevelId levelId = new BuildingLevelId
+            {
+                Value = row.buildingLevelId
+            };
+            storageLevels[row.buildingLevelId] = new FactoryStorageLevelBlob
+            {
+                LevelId = levelId,
+                Capacity = row.capacity
             };
         }
 
@@ -221,6 +234,7 @@ public static class FactoryDatabaseBakingUtility
             source.buildingLevels == null || source.buildingLevels.Length == 0 ||
             source.beltLevels == null ||
             source.processorLevels == null ||
+            source.storageLevels == null ||
             source.recipes == null || source.recipes.Length == 0)
         {
             Debug.LogError("Factory database is missing required generated rows.", context);
@@ -276,6 +290,16 @@ public static class FactoryDatabaseBakingUtility
                      processorLevel.workRatePermille > 0 &&
                      buildingsById[level.buildingId].behavior == FactoryBuildingBehavior.Processor;
         }
+        HashSet<ushort> storageLevelIds = new HashSet<ushort>();
+        foreach (FactoryStorageLevelTableRow storageLevel in source.storageLevels)
+        {
+            bool referenceValid = levelsById.TryGetValue(
+                storageLevel.buildingLevelId,
+                out FactoryBuildingLevelTableRow level);
+            valid &= referenceValid && storageLevelIds.Add(storageLevel.buildingLevelId) &&
+                     storageLevel.capacity > 0 &&
+                     buildingsById[level.buildingId].behavior == FactoryBuildingBehavior.Storage;
+        }
         foreach (FactoryBuildingLevelTableRow level in source.buildingLevels)
         {
             if (!buildingsById.TryGetValue(
@@ -287,10 +311,20 @@ public static class FactoryDatabaseBakingUtility
             }
             FactoryBuildingBehavior behavior = building.behavior;
             valid &= behavior == FactoryBuildingBehavior.Belt
-                ? beltLevelIds.Contains(level.id) && !processorLevelIds.Contains(level.id)
+                ? beltLevelIds.Contains(level.id) &&
+                  !processorLevelIds.Contains(level.id) &&
+                  !storageLevelIds.Contains(level.id)
                 : behavior == FactoryBuildingBehavior.Processor
-                    ? processorLevelIds.Contains(level.id) && !beltLevelIds.Contains(level.id)
-                    : !beltLevelIds.Contains(level.id) && !processorLevelIds.Contains(level.id);
+                    ? processorLevelIds.Contains(level.id) &&
+                      !beltLevelIds.Contains(level.id) &&
+                      !storageLevelIds.Contains(level.id)
+                    : behavior == FactoryBuildingBehavior.Storage
+                        ? storageLevelIds.Contains(level.id) &&
+                          !beltLevelIds.Contains(level.id) &&
+                          !processorLevelIds.Contains(level.id)
+                        : !beltLevelIds.Contains(level.id) &&
+                          !processorLevelIds.Contains(level.id) &&
+                          !storageLevelIds.Contains(level.id);
         }
         HashSet<ushort> recipeIds = new HashSet<ushort>();
         foreach (FactoryRecipeTableRow recipe in source.recipes)

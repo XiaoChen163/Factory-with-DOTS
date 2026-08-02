@@ -36,7 +36,6 @@ public partial struct ItemPortAdapterSystem : ISystem
         private void Execute(
             ref ItemProcessState process,
             in ItemProcessor processor,
-            in ItemProcessCapacity capacity,
             DynamicBuffer<ItemProcessInput> inputs,
             in DynamicBuffer<BuildingPort> buildingPorts,
             in DynamicBuffer<ItemInputPortCurrent> inputCurrent,
@@ -57,7 +56,6 @@ public partial struct ItemPortAdapterSystem : ISystem
                 {
                     PublishProcessorInput(
                         port.Index,
-                        capacity.InputCapacity,
                         ref database,
                         processor.MachineType,
                         inputs,
@@ -168,7 +166,6 @@ public partial struct ItemPortAdapterSystem : ISystem
 
     private static void PublishProcessorInput(
         byte portIndex,
-        int capacity,
         ref FactoryDatabaseBlob database,
         MachineTypeId machineType,
         in DynamicBuffer<ItemProcessInput> inputs,
@@ -178,6 +175,7 @@ public partial struct ItemPortAdapterSystem : ISystem
         DynamicBuffer<ItemInputPortNext> next)
     {
         ItemId acceptedItemType = ItemId.Invalid;
+        int slotCapacity = 0;
         FactoryRecipeRangeBlob range =
             FactoryDatabaseUtility.GetRecipeRange(
                 ref database,
@@ -189,15 +187,25 @@ public partial struct ItemPortAdapterSystem : ISystem
                 database.Recipes[range.Start + selected];
             if (recipe.InputCount > 0)
             {
-                acceptedItemType =
-                    database.Inputs[recipe.InputStart].ItemId;
+                FactoryRecipeIngredientBlob ingredient =
+                    database.Inputs[recipe.InputStart];
+                acceptedItemType = ingredient.ItemId;
+                if (FactoryDatabaseUtility.IsValidItem(
+                        ref database,
+                        acceptedItemType))
+                {
+                    slotCapacity = math.max(
+                        1,
+                        database.ItemsById[acceptedItemType.Value].MaxStack);
+                }
             }
         }
 
         int bufferedCount = 0;
         for (int i = 0; i < inputs.Length; i++)
         {
-            bufferedCount += math.max(0, inputs[i].Count);
+            if (inputs[i].ItemType == acceptedItemType)
+                bufferedCount += math.max(0, inputs[i].Count);
         }
 
         ulong applied = GetInputAppliedCount(current, portIndex) +
@@ -210,7 +218,7 @@ public partial struct ItemPortAdapterSystem : ISystem
             Value = new ItemInputPortSnapshot
             {
                 AcceptedItemType = acceptedItemType,
-                FreeCapacity = math.max(0, capacity - bufferedCount),
+                FreeCapacity = math.max(0, slotCapacity - bufferedCount),
                 AppliedTransferCount = applied,
                 PortIndex = portIndex,
                 Enabled = !acceptedItemType.IsValid

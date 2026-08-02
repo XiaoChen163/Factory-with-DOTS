@@ -166,8 +166,6 @@ public struct FactoryBuildingBlob
     public ushort PortCount;
     public byte FootprintWidth;
     public byte FootprintHeight;
-    public int InputCapacity;
-    public int StorageCapacity;
     public FixedString64Bytes Key;
     public FixedString64Bytes NameKey;
 }
@@ -195,6 +193,12 @@ public struct FactoryProcessorLevelBlob
     public ushort WorkRatePermille;
 }
 
+public struct FactoryStorageLevelBlob
+{
+    public BuildingLevelId LevelId;
+    public int Capacity;
+}
+
 public struct FactoryRecipeRangeBlob
 {
     public int Start;
@@ -210,6 +214,7 @@ public struct FactoryDatabaseBlob
     public BlobArray<FactoryBuildingLevelBlob> BuildingLevelsById;
     public BlobArray<FactoryBeltLevelBlob> BeltLevelsById;
     public BlobArray<FactoryProcessorLevelBlob> ProcessorLevelsById;
+    public BlobArray<FactoryStorageLevelBlob> StorageLevelsById;
     public BlobArray<BuildingLevelId> BuildingLevelMenu;
     public BlobArray<FactoryBuildingPortBlob> BuildingPorts;
     public BlobArray<FactoryRecipeBlob> Recipes;
@@ -320,5 +325,22 @@ public static class FactoryDatabaseUtility
         processorLevel = database.ProcessorLevelsById[index];
         return processorLevel.LevelId == levelId &&
                processorLevel.WorkRatePermille > 0;
+    }
+
+
+    public static bool TryGetStorageLevel(
+        ref FactoryDatabaseBlob database,
+        BuildingLevelId levelId,
+        out FactoryStorageLevelBlob storageLevel)
+    {
+        int index = levelId.Value;
+        if (!levelId.IsValid || index >= database.StorageLevelsById.Length)
+        {
+            storageLevel = default;
+            return false;
+        }
+
+        storageLevel = database.StorageLevelsById[index];
+        return storageLevel.LevelId == levelId && storageLevel.Capacity > 0;
     }
 }

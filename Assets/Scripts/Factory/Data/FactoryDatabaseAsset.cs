@@ -79,8 +79,6 @@ public struct FactoryBuildingTableRow
     public string portLayoutKey;
     public byte footprintWidth;
     public byte footprintHeight;
-    public int inputCapacity;
-    public int storageCapacity;
     public FactoryBuildingPortTableRow[] ports;
 }
 
@@ -114,6 +112,14 @@ public struct FactoryProcessorLevelTableRow
     public ushort workRatePermille;
 }
 
+[Serializable]
+public struct FactoryStorageLevelTableRow
+{
+    public string buildingLevelKey;
+    public ushort buildingLevelId;
+    public int capacity;
+}
+
 // Generated cache. Edit the CSV files in Assets/Data/FactoryTables instead.
 public sealed class FactoryDatabaseAsset : ScriptableObject
 {
@@ -129,6 +135,8 @@ public sealed class FactoryDatabaseAsset : ScriptableObject
         Array.Empty<FactoryBeltLevelTableRow>();
     public FactoryProcessorLevelTableRow[] processorLevels =
         Array.Empty<FactoryProcessorLevelTableRow>();
+    public FactoryStorageLevelTableRow[] storageLevels =
+        Array.Empty<FactoryStorageLevelTableRow>();
     public FactoryRecipeTableRow[] recipes =
         Array.Empty<FactoryRecipeTableRow>();
 }

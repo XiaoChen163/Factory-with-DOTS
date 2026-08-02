@@ -44,8 +44,6 @@ MonoBehaviour:
     portLayoutKey: belt_ports
     footprintWidth: 1
     footprintHeight: 1
-    inputCapacity: 0
-    storageCapacity: 0
     ports:
     - type: 0
       index: 0
@@ -77,8 +75,6 @@ MonoBehaviour:
     portLayoutKey: furnace_ports
     footprintWidth: 2
     footprintHeight: 2
-    inputCapacity: 6
-    storageCapacity: 0
     ports:
     - type: 0
       index: 0
@@ -98,8 +94,6 @@ MonoBehaviour:
     portLayoutKey: merger_ports
     footprintWidth: 1
     footprintHeight: 1
-    inputCapacity: 0
-    storageCapacity: 0
     ports:
     - type: 0
       index: 0
@@ -127,8 +121,6 @@ MonoBehaviour:
     portLayoutKey: miner_ports
     footprintWidth: 2
     footprintHeight: 2
-    inputCapacity: 0
-    storageCapacity: 0
     ports:
     - type: 1
       index: 0
@@ -144,8 +136,6 @@ MonoBehaviour:
     portLayoutKey: splitter_ports
     footprintWidth: 1
     footprintHeight: 1
-    inputCapacity: 0
-    storageCapacity: 0
     ports:
     - type: 0
       index: 0
@@ -173,8 +163,6 @@ MonoBehaviour:
     portLayoutKey: storage_ports
     footprintWidth: 2
     footprintHeight: 2
-    inputCapacity: 0
-    storageCapacity: 100
     ports:
     - type: 0
       index: 0
@@ -191,6 +179,33 @@ MonoBehaviour:
     visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
     menuOrder: 100
   - id: 2
+    key: belt_mk2
+    buildingKey: belt
+    buildingId: 1
+    level: 2
+    nameKey: building.belt.mk2
+    visualPrefabKey: belt_mk2
+    visualPrefab: {fileID: 194256, guid: f0bf725215764e23aeb4dfd6bf746bc7, type: 3}
+    menuOrder: 101
+  - id: 3
+    key: belt_mk3
+    buildingKey: belt
+    buildingId: 1
+    level: 3
+    nameKey: building.belt.mk3
+    visualPrefabKey: belt_mk3
+    visualPrefab: {fileID: 143296, guid: ba623fa09eba45dfbba2b343f380e337, type: 3}
+    menuOrder: 102
+  - id: 4
+    key: belt_mk4
+    buildingKey: belt
+    buildingId: 1
+    level: 4
+    nameKey: building.belt.mk4
+    visualPrefabKey: belt_mk4
+    visualPrefab: {fileID: 132144, guid: f729e0e61af447f9a16bbc93cdfaa2fc, type: 3}
+    menuOrder: 103
+  - id: 5
     key: miner_mk1
     buildingKey: miner
     buildingId: 4
@@ -199,7 +214,7 @@ MonoBehaviour:
     visualPrefabKey: miner
     visualPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
     menuOrder: 200
-  - id: 3
+  - id: 6
     key: furnace_mk1
     buildingKey: furnace
     buildingId: 2
@@ -208,7 +223,7 @@ MonoBehaviour:
     visualPrefabKey: furnace
     visualPrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
     menuOrder: 300
-  - id: 4
+  - id: 7
     key: storage_mk1
     buildingKey: storage
     buildingId: 6
@@ -217,7 +232,7 @@ MonoBehaviour:
     visualPrefabKey: storage
     visualPrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
     menuOrder: 400
-  - id: 5
+  - id: 8
     key: merger_mk1
     buildingKey: merger
     buildingId: 3
@@ -226,7 +241,7 @@ MonoBehaviour:
     visualPrefabKey: merger
     visualPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
     menuOrder: 500
-  - id: 6
+  - id: 9
     key: splitter_mk1
     buildingKey: splitter
     buildingId: 5
@@ -239,13 +254,26 @@ MonoBehaviour:
   - buildingLevelKey: belt_mk1
     buildingLevelId: 1
     cellsPerSecond: 1
+  - buildingLevelKey: belt_mk2
+    buildingLevelId: 2
+    cellsPerSecond: 2
+  - buildingLevelKey: belt_mk3
+    buildingLevelId: 3
+    cellsPerSecond: 4
+  - buildingLevelKey: belt_mk4
+    buildingLevelId: 4
+    cellsPerSecond: 8
   processorLevels:
   - buildingLevelKey: miner_mk1
-    buildingLevelId: 2
+    buildingLevelId: 5
     workRatePermille: 1000
   - buildingLevelKey: furnace_mk1
-    buildingLevelId: 3
+    buildingLevelId: 6
     workRatePermille: 1000
+  storageLevels:
+  - buildingLevelKey: storage_mk1
+    buildingLevelId: 7
+    capacity: 100
   recipes:
   - id: 1
     key: mine_iron

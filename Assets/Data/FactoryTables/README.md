@@ -9,6 +9,7 @@
 - `building_levels.csv`：所有建筑共有的等级身份、表现 Prefab 和菜单顺序。
 - `belt_level_stats.csv`：传送带等级的绝对空间速度（格/秒）。
 - `processor_level_stats.csv`：加工建筑等级相对于配方基础耗时的工作倍率（千分比）。
+- `storage_level_stats.csv`：仓库等级可存放的物品总数。
 - `building_ports.csv`：按布局 key 定义的逻辑输入/输出端口。
 - `recipes.csv`：配方 key、加工能力 key 和基础生产时间。
 - `recipe_inputs.csv`：配方输入。
@@ -32,8 +33,16 @@ Authoring。建筑逻辑、占地和端口由 CSV 生成；同一建筑类型的
 共享 `port_layout_key`。每一条等级记录都是独立建造选项，行为专属属性
 不放在这张通用等级表中。每个传送带等级必须在 `belt_level_stats.csv`
 中恰好出现一次，每个加工建筑等级必须在 `processor_level_stats.csv`
-中恰好出现一次；其他建筑等级不得出现在这两张表中。
+中恰好出现一次，每个仓库等级必须在 `storage_level_stats.csv` 中恰好
+出现一次；无关建筑等级不得出现在这些行为专属表中。
 `work_rate_permille` 只影响实际加工速度，不修改配方基础时间。
 
-当前生产逻辑支持每条配方零或一个输入，并且必须恰好有一个输出。
+加工建筑不配置固定容量。每个配方输入物品种类占用一个输入槽，输出物品
+种类占用一个输出槽，因此槽位数为输入种类数 `n` 加输出种类数 `m`；每个
+输入槽按对应物品的 `max_stack` 限制数量。仓库总容量则由
+`storage_level_stats.csv` 按建筑等级独立配置。
+
+当前生产逻辑支持每条配方零或一个输入，并且必须恰好有一个输出，所以
+Miner 实际为 `0+1` 个槽，Furnace 实际为 `1+1` 个槽。配方中单种物品的
+数量不能超过该物品的 `max_stack`。
 ID `0` 保留为无效值；已经发布的 ID 不应修改或复用。

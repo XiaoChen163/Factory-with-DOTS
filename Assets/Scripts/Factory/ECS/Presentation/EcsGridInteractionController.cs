@@ -91,7 +91,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             "ECS Grid Build Controls");
         GUI.Label(
             new Rect(28f, 196f, 740f, 22f),
-            "1-9 Select build option  |  R Rotate");
+            "1-9 Select build option  |  U Cycle Belt Level  |  R Rotate");
         GUI.Label(
             new Rect(28f, 220f, 740f, 22f),
             "F Remove  |  Ctrl+F Remove Connected Belt Line  |  WASD Move  Space Ascend  Shift Descend");
@@ -122,6 +122,12 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         {
             if (Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i)))
                 SelectBuildingMenuIndex(i);
+        }
+
+        if (SelectedKind == BuildingKind.Belt &&
+            Input.GetKeyDown(KeyCode.U))
+        {
+            CycleBuildingLevel(BuildingKind.Belt);
         }
 
         if (SelectedBuildingLevel != previousLevel)
@@ -731,6 +737,42 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return;
         SelectedBuildingLevel = id;
         SelectedKind = building.Kind;
+    }
+
+    private void CycleBuildingLevel(BuildingKind kind)
+    {
+        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference))
+            return;
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        int menuLength = database.BuildingLevelMenu.Length;
+        int currentIndex = -1;
+        for (int i = 0; i < menuLength; i++)
+        {
+            if (database.BuildingLevelMenu[i] == SelectedBuildingLevel)
+            {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        for (int offset = 1; offset <= menuLength; offset++)
+        {
+            int index = (currentIndex + offset) % menuLength;
+            BuildingLevelId id = database.BuildingLevelMenu[index];
+            if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                    ref database,
+                    id,
+                    out _,
+                    out FactoryBuildingBlob building) ||
+                building.Kind != kind)
+            {
+                continue;
+            }
+
+            SelectedBuildingLevel = id;
+            SelectedKind = building.Kind;
+            return;
+        }
     }
 
     private bool TryGetSelectedBuilding(out FactoryBuildingBlob building)

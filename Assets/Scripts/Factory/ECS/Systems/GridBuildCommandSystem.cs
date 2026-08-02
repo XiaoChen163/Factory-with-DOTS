@@ -754,6 +754,11 @@ public partial class GridBuildCommandSystem : SystemBase
                     ref database,
                     levelId,
                     out _);
+            case BuildingKind.Storage:
+                return FactoryDatabaseUtility.TryGetStorageLevel(
+                    ref database,
+                    levelId,
+                    out _);
             default:
                 return true;
         }
@@ -987,10 +992,6 @@ public partial class GridBuildCommandSystem : SystemBase
                     WorkRatePermille = processorLevel.WorkRatePermille
                 });
                 ecb.AddBuffer<ItemProcessInput>(instance);
-                ecb.AddComponent(instance, new ItemProcessCapacity
-                {
-                    InputCapacity = math.max(0, building.InputCapacity)
-                });
                 ecb.AddComponent(instance, new ItemProcessState
                 {
                     ActiveRecipeIndex = -1,
@@ -1000,9 +1001,13 @@ public partial class GridBuildCommandSystem : SystemBase
                 AddItemPortBuffers(instance, ref ecb);
                 break;
             case BuildingKind.Storage:
+                FactoryDatabaseUtility.TryGetStorageLevel(
+                    ref database,
+                    level.Id,
+                    out FactoryStorageLevelBlob storageLevel);
                 ecb.AddComponent(instance, new StorageState
                 {
-                    Capacity = math.max(1, building.StorageCapacity)
+                    Capacity = storageLevel.Capacity
                 });
                 ecb.AddBuffer<StoredItemCount>(instance);
                 AddItemPortBuffers(instance, ref ecb);

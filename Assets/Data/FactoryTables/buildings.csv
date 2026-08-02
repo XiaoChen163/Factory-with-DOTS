@@ -1,7 +1,7 @@
-key,name_key,behavior,kind,machine_type_key,port_layout_key,footprint_width,footprint_height,input_capacity,storage_capacity
-belt,building.belt,Belt,Belt,,belt_ports,1,1,0,0
-miner,building.miner,Processor,Miner,mining,miner_ports,2,2,0,0
-furnace,building.furnace,Processor,Furnace,smelting,furnace_ports,2,2,6,0
-storage,building.storage,Storage,Storage,,storage_ports,2,2,0,100
-merger,building.merger,Merger,Merger,,merger_ports,1,1,0,0
-splitter,building.splitter,Splitter,Splitter,,splitter_ports,1,1,0,0
+key,name_key,behavior,kind,machine_type_key,port_layout_key,footprint_width,footprint_height
+belt,building.belt,Belt,Belt,,belt_ports,1,1
+miner,building.miner,Processor,Miner,mining,miner_ports,2,2
+furnace,building.furnace,Processor,Furnace,smelting,furnace_ports,2,2
+storage,building.storage,Storage,Storage,,storage_ports,2,2
+merger,building.merger,Merger,Merger,,merger_ports,1,1
+splitter,building.splitter,Splitter,Splitter,,splitter_ports,1,1

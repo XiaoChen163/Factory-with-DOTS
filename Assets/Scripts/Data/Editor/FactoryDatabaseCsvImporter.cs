@@ -9,19 +9,23 @@ using UnityEngine;
 public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
 {
     private const string TableDirectory = "Assets/Data/FactoryTables";
+    private const string ItemTableDirectory = TableDirectory + "/items";
+    private const string RecipeTableDirectory = ItemTableDirectory + "/recipes";
+    private const string BuildingTableDirectory = TableDirectory + "/buildings";
+    private const string BuildingLevelTableDirectory = BuildingTableDirectory + "/levels";
     private const string ItemPrefabDirectory = "Assets/Prefabs/Items";
     private const string BuildingPrefabDirectory = "Assets/Prefabs/Buildings";
-    private const string ItemTablePath = TableDirectory + "/items.csv";
-    private const string MachineTypeTablePath = TableDirectory + "/machine_types.csv";
-    private const string BuildingTablePath = TableDirectory + "/buildings.csv";
-    private const string BuildingLevelTablePath = TableDirectory + "/building_levels.csv";
-    private const string BeltLevelTablePath = TableDirectory + "/belt_level_stats.csv";
-    private const string ProcessorLevelTablePath = TableDirectory + "/processor_level_stats.csv";
-    private const string StorageLevelTablePath = TableDirectory + "/storage_level_stats.csv";
-    private const string BuildingPortTablePath = TableDirectory + "/building_ports.csv";
-    private const string RecipeTablePath = TableDirectory + "/recipes.csv";
-    private const string InputTablePath = TableDirectory + "/recipe_inputs.csv";
-    private const string OutputTablePath = TableDirectory + "/recipe_outputs.csv";
+    private const string ItemTablePath = ItemTableDirectory + "/items.csv";
+    private const string MachineTypeTablePath = BuildingTableDirectory + "/machine_types.csv";
+    private const string BuildingTablePath = BuildingTableDirectory + "/buildings.csv";
+    private const string BuildingLevelTablePath = BuildingLevelTableDirectory + "/building_levels.csv";
+    private const string BeltLevelTablePath = BuildingLevelTableDirectory + "/belt_level_stats.csv";
+    private const string ProcessorLevelTablePath = BuildingLevelTableDirectory + "/processor_level_stats.csv";
+    private const string StorageLevelTablePath = BuildingLevelTableDirectory + "/storage_level_stats.csv";
+    private const string BuildingPortTablePath = BuildingTableDirectory + "/building_ports.csv";
+    private const string RecipeTablePath = RecipeTableDirectory + "/recipes.csv";
+    private const string InputTablePath = RecipeTableDirectory + "/recipe_inputs.csv";
+    private const string OutputTablePath = RecipeTableDirectory + "/recipe_outputs.csv";
     private const string OutputDirectory = "Assets/Data/Generated";
     public const string DatabaseAssetPath = OutputDirectory + "/FactoryDatabase.asset";
 

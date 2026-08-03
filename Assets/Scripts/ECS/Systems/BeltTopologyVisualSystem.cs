@@ -190,11 +190,9 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 continue;
             }
 
-            int2 outputCell =
-                sourcePlacement.AnchorCell +
-                EcsGridUtility.Rotate(
-                    port.CellOffset,
-                    sourcePlacement.QuarterTurns);
+            int2 outputCell = EcsGridUtility.GetBuildingCell(
+                sourcePlacement,
+                port.CellOffset);
             int2 outputDirection = EcsGridUtility.Rotate(
                 port.Direction,
                 sourcePlacement.QuarterTurns);
@@ -247,11 +245,9 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 continue;
             }
 
-            int2 sourceCell =
-                targetPlacement.AnchorCell +
-                EcsGridUtility.Rotate(
-                    port.CellOffset,
-                    targetPlacement.QuarterTurns);
+            int2 sourceCell = EcsGridUtility.GetBuildingCell(
+                targetPlacement,
+                port.CellOffset);
             int2 travelDirection = EcsGridUtility.Rotate(
                 port.Direction,
                 targetPlacement.QuarterTurns);

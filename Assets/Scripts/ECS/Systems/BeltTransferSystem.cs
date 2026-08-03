@@ -243,10 +243,9 @@ public partial class BeltTransferSystem : SystemBase
                     continue;
                 }
 
-                int2 sourceCell = placement.AnchorCell +
-                    EcsGridUtility.Rotate(
-                        geometry.CellOffset,
-                        placement.QuarterTurns);
+                int2 sourceCell = EcsGridUtility.GetBuildingCell(
+                    placement,
+                    geometry.CellOffset);
                 int2 direction = EcsGridUtility.Rotate(
                     geometry.Direction,
                     placement.QuarterTurns);
@@ -361,10 +360,9 @@ public partial class BeltTransferSystem : SystemBase
                     continue;
                 }
 
-                int2 targetCell = placement.AnchorCell +
-                    EcsGridUtility.Rotate(
-                        geometry.CellOffset,
-                        placement.QuarterTurns);
+                int2 targetCell = EcsGridUtility.GetBuildingCell(
+                    placement,
+                    geometry.CellOffset);
                 int2 direction = EcsGridUtility.Rotate(
                     geometry.Direction,
                     placement.QuarterTurns);

@@ -12,6 +12,7 @@ public struct GridDefinition : IComponentData
 public struct GridPlacement : IComponentData
 {
     public int2 AnchorCell;
+    public int2 FootprintSize;
     public byte QuarterTurns;
     public BuildingKind Kind;
 }
@@ -152,16 +153,33 @@ public static class EcsGridUtility
     }
 
     public static float2 GetVisualCenterOffset(
-        BuildingKind kind,
+        int2 footprintSize)
+    {
+        return new float2(
+            math.max(0, footprintSize.x - 1) * 0.5f,
+            math.max(0, footprintSize.y - 1) * 0.5f);
+    }
+
+    public static int2 RotateBuildingCellOffset(
+        int2 cellOffset,
+        int2 footprintSize,
         int quarterTurns)
     {
-        bool isTwoByTwo =
-            kind == BuildingKind.Miner ||
-            kind == BuildingKind.Furnace ||
-            kind == BuildingKind.Storage;
-        return isTwoByTwo
-            ? Rotate(new float2(0.5f, 0.5f), quarterTurns)
-            : float2.zero;
+        float2 center = GetVisualCenterOffset(footprintSize);
+        float2 rotated = center + Rotate(
+            new float2(cellOffset.x, cellOffset.y) - center,
+            quarterTurns);
+        return (int2)math.round(rotated);
+    }
+
+    public static int2 GetBuildingCell(
+        in GridPlacement placement,
+        int2 localCellOffset)
+    {
+        return placement.AnchorCell + RotateBuildingCellOffset(
+            localCellOffset,
+            placement.FootprintSize,
+            placement.QuarterTurns);
     }
 
     public static quaternion RotationFromQuarterTurns(int quarterTurns)

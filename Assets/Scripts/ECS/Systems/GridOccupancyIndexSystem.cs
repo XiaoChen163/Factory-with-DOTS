@@ -136,11 +136,9 @@ public partial class GridOccupancyIndexSystem : SystemBase
                  cellIndex < occupiedCells.Length;
                  cellIndex++)
             {
-                int2 cell =
-                    placement.AnchorCell +
-                    EcsGridUtility.Rotate(
-                        occupiedCells[cellIndex].Value,
-                        placement.QuarterTurns);
+                int2 cell = EcsGridUtility.GetBuildingCell(
+                    placement,
+                    occupiedCells[cellIndex].Value);
 
                 if (!EcsGridUtility.Contains(grid, cell))
                 {

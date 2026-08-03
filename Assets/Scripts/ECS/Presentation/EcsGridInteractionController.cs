@@ -11,6 +11,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         new Color(0.08f, 0.42f, 1f, 0.48f);
     private static readonly Color InvalidPreviewColor =
         new Color(1f, 0.08f, 0.08f, 0.55f);
+    private static readonly Color InputPortPreviewColor =
+        new Color(1f, 0.42f, 0.04f, 0.95f);
+    private static readonly Color OutputPortPreviewColor =
+        new Color(0.12f, 0.9f, 0.28f, 0.95f);
 
     private readonly List<int2> previewCells =
         new List<int2>(64);
@@ -20,10 +24,20 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         new List<Transform>(64);
     private readonly List<int2> previewDisplayDirections =
         new List<int2>(64);
+    private readonly List<int2> previewPortCells =
+        new List<int2>(8);
+    private readonly List<int2> previewPortDirections =
+        new List<int2>(8);
+    private readonly List<BuildingPortType> previewPortTypes =
+        new List<BuildingPortType>(8);
+    private readonly List<Transform> previewPortTriangles =
+        new List<Transform>(8);
 
     private Camera inputCamera;
     private Transform previewRoot;
     private Material previewMaterial;
+    private Material inputPortPreviewMaterial;
+    private Material outputPortPreviewMaterial;
     private Mesh previewTriangleMesh;
     private uint nextRequestId = 1;
     private byte quarterTurns;
@@ -76,6 +90,16 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         if (previewMaterial != null)
         {
             Destroy(previewMaterial);
+        }
+
+        if (inputPortPreviewMaterial != null)
+        {
+            Destroy(inputPortPreviewMaterial);
+        }
+
+        if (outputPortPreviewMaterial != null)
+        {
+            Destroy(outputPortPreviewMaterial);
         }
 
         if (previewTriangleMesh != null)
@@ -196,6 +220,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     {
         previewCells.Clear();
         previewDisplayDirections.Clear();
+        previewPortCells.Clear();
+        previewPortDirections.Clear();
+        previewPortTypes.Clear();
         if (SelectedKind == BuildingKind.Belt &&
             beltPathStarted)
         {
@@ -223,10 +250,16 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return;
         }
 
+        int2 footprintSize = new int2(
+            building.FootprintWidth,
+            building.FootprintHeight);
         for (int y = 0; y < building.FootprintHeight; y++)
         for (int x = 0; x < building.FootprintWidth; x++)
-            previewCells.Add(hoveredCell + EcsGridUtility.Rotate(
-                new int2(x, y), quarterTurns));
+            previewCells.Add(hoveredCell +
+                EcsGridUtility.RotateBuildingCellOffset(
+                    new int2(x, y),
+                    footprintSize,
+                    quarterTurns));
         if (SelectedKind == BuildingKind.Belt)
         {
             previewDisplayDirections.Add(
@@ -234,7 +267,42 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     new int2(1, 0),
                     quarterTurns));
         }
+        else
+        {
+            BuildPortPreview(
+                hoveredCell,
+                footprintSize,
+                building);
+        }
 
+    }
+
+    private void BuildPortPreview(
+        int2 anchorCell,
+        int2 footprintSize,
+        in FactoryBuildingBlob building)
+    {
+        if (!TryGetDatabase(
+                out BlobAssetReference<FactoryDatabaseBlob> reference))
+        {
+            return;
+        }
+
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        for (int i = 0; i < building.PortCount; i++)
+        {
+            FactoryBuildingPortBlob port =
+                database.BuildingPorts[building.PortStart + i];
+            previewPortCells.Add(anchorCell +
+                EcsGridUtility.RotateBuildingCellOffset(
+                    port.CellOffset,
+                    footprintSize,
+                    quarterTurns));
+            previewPortDirections.Add(EcsGridUtility.Rotate(
+                port.Direction,
+                quarterTurns));
+            previewPortTypes.Add(port.Type);
+        }
     }
 
     private void AppendPreviewSegment(
@@ -300,7 +368,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         bool canPlace)
     {
         EnsurePreviewObjects(previewCells.Count);
-        if (previewMaterial == null)
+        EnsurePreviewPortObjects(previewPortCells.Count);
+        if (previewMaterial == null ||
+            inputPortPreviewMaterial == null ||
+            outputPortPreviewMaterial == null)
         {
             HidePlacementPreview();
             return;
@@ -364,6 +435,31 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     0f);
             }
         }
+        for (int i = 0; i < previewPortTriangles.Count; i++)
+        {
+            Transform triangle = previewPortTriangles[i];
+            bool active = i < previewPortCells.Count;
+            triangle.gameObject.SetActive(active);
+            if (!active)
+            {
+                continue;
+            }
+
+            float3 center = EcsGridUtility.CellToWorldCenter(
+                previewPortCells[i],
+                grid.Origin.y + 0.115f * cellSize,
+                grid);
+            triangle.position = new Vector3(
+                center.x,
+                center.y,
+                center.z);
+            int2 direction = previewPortDirections[i];
+            float angle = -math.atan2(
+                direction.y,
+                direction.x) * math.TODEGREES;
+            triangle.rotation = Quaternion.Euler(0f, angle, 0f);
+            triangle.localScale = Vector3.one * cellSize * 1.5f;
+        }
     }
 
     private void EnsurePreviewObjects(int requiredCount)
@@ -424,6 +520,22 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             previewMaterial.EnableKeyword(
                 "_SURFACE_TYPE_TRANSPARENT");
         }
+        if (inputPortPreviewMaterial == null ||
+            outputPortPreviewMaterial == null)
+        {
+            if (inputPortPreviewMaterial == null)
+            {
+                inputPortPreviewMaterial = CreatePreviewMaterial(
+                    "ECS Input Port Preview Material",
+                    InputPortPreviewColor);
+            }
+            if (outputPortPreviewMaterial == null)
+            {
+                outputPortPreviewMaterial = CreatePreviewMaterial(
+                    "ECS Output Port Preview Material",
+                    OutputPortPreviewColor);
+            }
+        }
 
         while (previewCellObjects.Count < requiredCount)
         {
@@ -473,6 +585,96 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         }
     }
 
+    private void EnsurePreviewPortObjects(int requiredCount)
+    {
+        if (previewRoot == null)
+        {
+            EnsurePreviewObjects(0);
+        }
+
+        while (previewPortTriangles.Count < requiredCount)
+        {
+            GameObject triangle = new GameObject(
+                "Preview Building Port Triangle " +
+                previewPortTriangles.Count);
+            triangle.hideFlags = HideFlags.DontSave;
+            triangle.layer = 2;
+            triangle.transform.SetParent(previewRoot, false);
+            triangle.AddComponent<MeshFilter>().sharedMesh =
+                GetPreviewTriangleMesh();
+            MeshRenderer renderer =
+                triangle.AddComponent<MeshRenderer>();
+            BuildingPortType type =
+                previewPortTypes[previewPortTriangles.Count];
+            renderer.sharedMaterial = type == BuildingPortType.Input
+                ? inputPortPreviewMaterial
+                : outputPortPreviewMaterial;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            previewPortTriangles.Add(triangle.transform);
+        }
+
+        for (int i = 0; i < requiredCount; i++)
+        {
+            MeshRenderer renderer =
+                previewPortTriangles[i].GetComponent<MeshRenderer>();
+            renderer.sharedMaterial =
+                previewPortTypes[i] == BuildingPortType.Input
+                    ? inputPortPreviewMaterial
+                    : outputPortPreviewMaterial;
+        }
+    }
+
+    private static Material CreatePreviewMaterial(
+        string materialName,
+        Color color)
+    {
+        Shader shader = Shader.Find(
+                            "Universal Render Pipeline/Unlit") ??
+                        Shader.Find("Unlit/Color") ??
+                        Shader.Find("Sprites/Default");
+        if (shader == null)
+        {
+            return null;
+        }
+
+        Material material = new Material(shader)
+        {
+            name = materialName,
+            hideFlags = HideFlags.DontSave,
+            renderQueue = (int)RenderQueue.Transparent
+        };
+        material.SetOverrideTag("RenderType", "Transparent");
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", color);
+        }
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor("_Color", color);
+        }
+        if (material.HasProperty("_Surface"))
+        {
+            material.SetFloat("_Surface", 1f);
+        }
+        if (material.HasProperty("_SrcBlend"))
+        {
+            material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+        }
+        if (material.HasProperty("_DstBlend"))
+        {
+            material.SetFloat(
+                "_DstBlend",
+                (float)BlendMode.OneMinusSrcAlpha);
+        }
+        if (material.HasProperty("_ZWrite"))
+        {
+            material.SetFloat("_ZWrite", 0f);
+        }
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        return material;
+    }
+
     private Mesh GetPreviewTriangleMesh()
     {
         if (previewTriangleMesh != null)
@@ -502,6 +704,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         for (int i = 0; i < previewCellObjects.Count; i++)
         {
             previewCellObjects[i].SetActive(false);
+        }
+
+        for (int i = 0; i < previewPortTriangles.Count; i++)
+        {
+            previewPortTriangles[i].gameObject.SetActive(false);
         }
     }
 

@@ -379,6 +379,9 @@ public partial class GridBuildCommandSystem : SystemBase
             GridPlacement placement = new GridPlacement
             {
                 AnchorCell = pathCell.Cell,
+                FootprintSize = new int2(
+                    beltBuilding.FootprintWidth,
+                    beltBuilding.FootprintHeight),
                 QuarterTurns =
                     EcsGridUtility.QuarterTurnsFromDirection(
                         pathCell.Direction),
@@ -567,11 +570,9 @@ public partial class GridBuildCommandSystem : SystemBase
                 continue;
             }
 
-            outputCell =
-                belt.Placement.AnchorCell +
-                EcsGridUtility.Rotate(
-                    port.CellOffset,
-                    belt.Placement.QuarterTurns);
+            outputCell = EcsGridUtility.GetBuildingCell(
+                belt.Placement,
+                port.CellOffset);
             return true;
         }
 
@@ -729,6 +730,9 @@ public partial class GridBuildCommandSystem : SystemBase
         GridPlacement placement = new GridPlacement
         {
             AnchorCell = anchor,
+            FootprintSize = new int2(
+                building.FootprintWidth,
+                building.FootprintHeight),
             QuarterTurns = (byte)(quarterTurns % 4),
             Kind = building.Kind
         };
@@ -783,8 +787,9 @@ public partial class GridBuildCommandSystem : SystemBase
         for (int y = 0; y < building.FootprintHeight; y++)
         for (int x = 0; x < building.FootprintWidth; x++)
         {
-            occupiedCells[cursor++] = placement.AnchorCell +
-                EcsGridUtility.Rotate(new int2(x, y), placement.QuarterTurns);
+            occupiedCells[cursor++] = EcsGridUtility.GetBuildingCell(
+                placement,
+                new int2(x, y));
         }
 
         BuildingPort[] ports = new BuildingPort[building.PortCount];
@@ -820,11 +825,9 @@ public partial class GridBuildCommandSystem : SystemBase
             new int2[occupiedOffsets.Length];
         for (int i = 0; i < occupiedOffsets.Length; i++)
         {
-            occupiedCells[i] =
-                placement.AnchorCell +
-                EcsGridUtility.Rotate(
-                    occupiedOffsets[i].Value,
-                    placement.QuarterTurns);
+            occupiedCells[i] = EcsGridUtility.GetBuildingCell(
+                placement,
+                occupiedOffsets[i].Value);
         }
 
         BuildingPort[] portArray =
@@ -887,11 +890,8 @@ public partial class GridBuildCommandSystem : SystemBase
             placement.AnchorCell,
             grid.Origin.y,
             grid);
-        float2 visualOffset = EcsGridUtility.Rotate(
-            new float2(
-                (building.FootprintWidth - 1) * 0.5f,
-                (building.FootprintHeight - 1) * 0.5f),
-            placement.QuarterTurns) * grid.CellSize;
+        float2 visualOffset = EcsGridUtility.GetVisualCenterOffset(
+            placement.FootprintSize) * grid.CellSize;
         center.x += visualOffset.x;
         center.z += visualOffset.y;
         ecb.AddComponent(instance, LocalTransform.FromPositionRotationScale(
@@ -1055,10 +1055,9 @@ public partial class GridBuildCommandSystem : SystemBase
                 continue;
             }
 
-            int2 portCell = placement.AnchorCell +
-                EcsGridUtility.Rotate(
-                    port.CellOffset,
-                    placement.QuarterTurns);
+            int2 portCell = EcsGridUtility.GetBuildingCell(
+                placement,
+                port.CellOffset);
             int2 direction = EcsGridUtility.Rotate(
                 port.Direction,
                 placement.QuarterTurns);
@@ -1178,10 +1177,9 @@ public partial class GridBuildCommandSystem : SystemBase
             }
 
             outputs.Add((
-                record.Placement.AnchorCell +
-                EcsGridUtility.Rotate(
-                    port.CellOffset,
-                    record.Placement.QuarterTurns),
+                EcsGridUtility.GetBuildingCell(
+                    record.Placement,
+                    port.CellOffset),
                 EcsGridUtility.Rotate(
                     port.Direction,
                     record.Placement.QuarterTurns)));

@@ -353,6 +353,8 @@ public class TransferArbiter {
 
 **目标**：将运行时逻辑转为 `Entity` + `Job`，实现大规模性能提升。
 
+> 当前 Stage 3 实现的性能审计、目标架构、分阶段优化任务和验收指标，见 [ECS 性能优化策略与实施计划](ECS-Performance-Optimization-Plan.md)。优化时必须保留本节定义的固定 Tick、统一快照、两阶段提交、环路原子移动和确定性仲裁语义。
+
 ### 实现步骤
 
 

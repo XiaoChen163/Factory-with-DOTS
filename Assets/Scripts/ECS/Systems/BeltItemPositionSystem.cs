@@ -102,8 +102,7 @@ public partial struct BeltItemPositionSystem : ISystem
                     merger.Cell.x + 0.5f,
                     0.535f,
                     merger.Cell.y + 0.5f),
-                GetJunctionVisualSpeed(merger.InputInterval) *
-                DeltaTime,
+                DefaultJunctionVisualSpeed * DeltaTime,
                 ItemLookup,
                 TransformLookup);
         }
@@ -128,24 +127,10 @@ public partial struct BeltItemPositionSystem : ISystem
                     splitter.Cell.x + 0.5f,
                     0.535f,
                     splitter.Cell.y + 0.5f),
-                GetJunctionVisualSpeed(splitter.InputInterval) *
-                DeltaTime,
+                DefaultJunctionVisualSpeed * DeltaTime,
                 ItemLookup,
                 TransformLookup);
         }
-    }
-
-    private static float GetJunctionVisualSpeed(float inputInterval)
-    {
-        if (inputInterval <= math.EPSILON ||
-            !math.isfinite(inputInterval))
-        {
-            return DefaultJunctionVisualSpeed;
-        }
-
-        return math.max(
-            MinimumVisualSpeed,
-            TransferSpeedMultiplier / inputInterval);
     }
 
     private static void MoveItemTowards(

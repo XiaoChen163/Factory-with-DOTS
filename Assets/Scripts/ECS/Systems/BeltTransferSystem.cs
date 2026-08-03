@@ -57,7 +57,7 @@ public partial class BeltTransferSystem : SystemBase
         }
     }
 
-    private readonly HashSet<Entity> forwardedJunctions =
+    private readonly HashSet<Entity> processedJunctions =
         new HashSet<Entity>();
     private readonly Dictionary<PortKey, ulong> acceptedInputs =
         new Dictionary<PortKey, ulong>();
@@ -96,8 +96,6 @@ public partial class BeltTransferSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        float deltaTime = SystemAPI.Time.DeltaTime;
-
         using NativeArray<Entity> beltEntitySnapshot =
             beltQuery.ToEntityArray(Allocator.Temp);
         using NativeArray<Belt> beltComponentSnapshot =
@@ -118,21 +116,22 @@ public partial class BeltTransferSystem : SystemBase
         Entity[] splitterEntities = splitterEntitySnapshot.ToArray();
         Splitter[] splitters = splitterComponentSnapshot.ToArray();
 
-        AdvanceJunctionTimers(mergers, splitters, deltaTime);
         Dictionary<int2, TransportIndex> transportByCell =
             BuildTransportIndex(belts, mergers, splitters);
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
 
+        processedJunctions.Clear();
         int interfaceRequestCount = 0;
         int interfaceAcceptedCount = ConsumeBuildingInputs(
             transportByCell,
+            mergerEntities,
+            splitterEntities,
             belts,
             mergers,
             splitters,
             ref ecb,
             ref interfaceRequestCount);
 
-        forwardedJunctions.Clear();
         int loopCount = 0;
         int readyRequestCount = 0;
         int acceptedTransferCount = 0;
@@ -146,7 +145,7 @@ public partial class BeltTransferSystem : SystemBase
                 mergers,
                 splitterEntities,
                 splitters,
-                forwardedJunctions,
+                processedJunctions,
                 out int passLoopCount,
                 out int passReadyRequestCount,
                 out int passAcceptedTransferCount);
@@ -195,6 +194,8 @@ public partial class BeltTransferSystem : SystemBase
 
     private int ConsumeBuildingInputs(
         Dictionary<int2, TransportIndex> transportByCell,
+        Entity[] mergerEntities,
+        Entity[] splitterEntities,
         Belt[] belts,
         Merger[] mergers,
         Splitter[] splitters,
@@ -285,6 +286,16 @@ public partial class BeltTransferSystem : SystemBase
                     belts,
                     mergers,
                     splitters);
+                if (source.Kind == TransportKind.Merger)
+                {
+                    processedJunctions.Add(
+                        mergerEntities[source.Index]);
+                }
+                else if (source.Kind == TransportKind.Splitter)
+                {
+                    processedJunctions.Add(
+                        splitterEntities[source.Index]);
+                }
                 receipts.Add(new ItemTransferReceiptNext
                 {
                     Value = new ItemTransferReceipt
@@ -556,9 +567,7 @@ public partial class BeltTransferSystem : SystemBase
                 item = merger.CurrentItem;
                 outputIndex = 0;
                 return item != Entity.Null &&
-                       math.all(merger.Direction == expectedDirection) &&
-                       merger.TransferElapsed + math.EPSILON >=
-                       merger.InputInterval;
+                       math.all(merger.Direction == expectedDirection);
             case TransportKind.Splitter:
                 Splitter splitter = splitters[source.Index];
                 item = splitter.CurrentItem;
@@ -566,9 +575,7 @@ public partial class BeltTransferSystem : SystemBase
                     splitter.Direction,
                     expectedDirection);
                 return item != Entity.Null &&
-                       outputIndex >= 0 &&
-                       splitter.TransferElapsed + math.EPSILON >=
-                       splitter.InputInterval;
+                       outputIndex >= 0;
             default:
                 item = Entity.Null;
                 outputIndex = -1;
@@ -594,15 +601,11 @@ public partial class BeltTransferSystem : SystemBase
             case TransportKind.Merger:
                 Merger merger = mergers[source.Index];
                 merger.CurrentItem = Entity.Null;
-                merger.TransferElapsed = 0f;
-                merger.InputInterval = 0f;
                 mergers[source.Index] = merger;
                 break;
             case TransportKind.Splitter:
                 Splitter splitter = splitters[source.Index];
                 splitter.CurrentItem = Entity.Null;
-                splitter.TransferElapsed = 0f;
-                splitter.InputInterval = 0f;
                 splitter.NextOutputIndex =
                     WrapThree(outputIndex + 1);
                 splitters[source.Index] = splitter;
@@ -659,8 +662,6 @@ public partial class BeltTransferSystem : SystemBase
                 Merger merger = EntityManager.GetComponentData<Merger>(
                     mergerEntities[target.Index]);
                 merger.CurrentItem = item;
-                merger.TransferElapsed = 0f;
-                merger.InputInterval = 0f;
                 ecb.SetComponent(mergerEntities[target.Index], merger);
                 break;
             case TransportKind.Splitter:
@@ -668,8 +669,6 @@ public partial class BeltTransferSystem : SystemBase
                     EntityManager.GetComponentData<Splitter>(
                         splitterEntities[target.Index]);
                 splitter.CurrentItem = item;
-                splitter.TransferElapsed = 0f;
-                splitter.InputInterval = 0f;
                 ecb.SetComponent(splitterEntities[target.Index], splitter);
                 break;
         }
@@ -762,42 +761,6 @@ public partial class BeltTransferSystem : SystemBase
         for (int i = 0; i < splitterEntities.Length; i++)
         {
             EntityManager.SetComponentData(splitterEntities[i], splitters[i]);
-        }
-    }
-
-    private static void AdvanceJunctionTimers(
-        Merger[] mergers,
-        Splitter[] splitters,
-        float deltaTime)
-    {
-        for (int i = 0; i < mergers.Length; i++)
-        {
-            Merger merger = mergers[i];
-            if (merger.CurrentItem == Entity.Null)
-            {
-                merger.TransferElapsed = 0f;
-                merger.InputInterval = 0f;
-            }
-            else
-            {
-                merger.TransferElapsed += deltaTime;
-            }
-            mergers[i] = merger;
-        }
-
-        for (int i = 0; i < splitters.Length; i++)
-        {
-            Splitter splitter = splitters[i];
-            if (splitter.CurrentItem == Entity.Null)
-            {
-                splitter.TransferElapsed = 0f;
-                splitter.InputInterval = 0f;
-            }
-            else
-            {
-                splitter.TransferElapsed += deltaTime;
-            }
-            splitters[i] = splitter;
         }
     }
 

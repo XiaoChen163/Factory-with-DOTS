@@ -27,8 +27,6 @@ public struct Merger : IComponentData
     public int2 Cell;
     public int2 Direction;
     public Entity CurrentItem;
-    public float TransferElapsed;
-    public float InputInterval;
     public int NextInputIndex;
 }
 
@@ -37,8 +35,6 @@ public struct Splitter : IComponentData
     public int2 Cell;
     public int2 Direction;
     public Entity CurrentItem;
-    public float TransferElapsed;
-    public float InputInterval;
     public int NextOutputIndex;
 }
 

@@ -34,9 +34,6 @@ public static class FactoryTransferResolver
         public int OutputIndex;
         public int2 OutputDirection;
         public bool IsReady;
-        public float CellsPerSecond;
-        public float TransferElapsed;
-        public float InputInterval;
     }
 
     public static void Resolve(
@@ -46,7 +43,7 @@ public static class FactoryTransferResolver
         Merger[] mergers,
         Entity[] splitterEntities,
         Splitter[] splitters,
-        HashSet<Entity> forwardedJunctions,
+        HashSet<Entity> processedJunctions,
         out int loopCount,
         out int readyRequestCount,
         out int acceptedTransferCount)
@@ -58,7 +55,7 @@ public static class FactoryTransferResolver
             mergers,
             splitterEntities,
             splitters,
-            forwardedJunctions);
+            processedJunctions);
 
         int beltCount = belts.Length;
         int mergerCount = mergers.Length;
@@ -83,7 +80,6 @@ public static class FactoryTransferResolver
                 Direction = belt.Direction,
                 CurrentItem = belt.CurrentItem,
                 Progress = belt.Progress,
-                CellsPerSecond = belt.CellsPerSecond,
                 TargetIndex = -1,
                 OutputIndex = -1
             };
@@ -102,8 +98,6 @@ public static class FactoryTransferResolver
                 Direction = merger.Direction,
                 CurrentItem = merger.CurrentItem,
                 Progress = merger.CurrentItem == Entity.Null ? 0f : 1f,
-                TransferElapsed = merger.TransferElapsed,
-                InputInterval = merger.InputInterval,
                 Cursor = WrapThree(merger.NextInputIndex),
                 TargetIndex = -1,
                 OutputIndex = -1
@@ -123,8 +117,6 @@ public static class FactoryTransferResolver
                 Direction = splitter.Direction,
                 CurrentItem = splitter.CurrentItem,
                 Progress = splitter.CurrentItem == Entity.Null ? 0f : 1f,
-                TransferElapsed = splitter.TransferElapsed,
-                InputInterval = splitter.InputInterval,
                 Cursor = WrapThree(splitter.NextOutputIndex),
                 TargetIndex = -1,
                 OutputIndex = -1
@@ -137,7 +129,7 @@ public static class FactoryTransferResolver
         readyRequestCount = BuildOutgoingRequests(
             nodes,
             indexByCell,
-            forwardedJunctions);
+            processedJunctions);
 
         int[] candidateForTarget = new int[nodes.Length];
         Array.Fill(candidateForTarget, -1);
@@ -174,14 +166,14 @@ public static class FactoryTransferResolver
             belts,
             mergers,
             splitters,
-            forwardedJunctions,
+            processedJunctions,
             out acceptedTransferCount);
     }
 
     private static int BuildOutgoingRequests(
         Node[] nodes,
         Dictionary<int2, int> indexByCell,
-        HashSet<Entity> forwardedJunctions)
+        HashSet<Entity> processedJunctions)
     {
         int readyCount = 0;
         for (int sourceIndex = 0;
@@ -193,7 +185,7 @@ public static class FactoryTransferResolver
                 (source.Kind == NodeKind.Belt &&
                  source.Progress < 1f) ||
                 (source.Kind != NodeKind.Belt &&
-                 forwardedJunctions.Contains(source.Entity)))
+                 processedJunctions.Contains(source.Entity)))
             {
                 continue;
             }
@@ -219,19 +211,6 @@ public static class FactoryTransferResolver
             if (source.TargetIndex < 0)
             {
                 continue;
-            }
-
-            if (source.Kind != NodeKind.Belt)
-            {
-                float requiredInterval =
-                    GetJunctionTransferInterval(
-                        source,
-                        nodes[source.TargetIndex]);
-                if (source.TransferElapsed + math.EPSILON <
-                    requiredInterval)
-                {
-                    continue;
-                }
             }
 
             source.IsReady = true;
@@ -561,11 +540,10 @@ public static class FactoryTransferResolver
         Belt[] belts,
         Merger[] mergers,
         Splitter[] splitters,
-        HashSet<Entity> forwardedJunctions,
+        HashSet<Entity> processedJunctions,
         out int acceptedTransferCount)
     {
         Entity[] transferredItems = new Entity[nodes.Length];
-        float[] transferredIntervals = new float[nodes.Length];
         acceptedTransferCount = 0;
 
         for (int sourceIndex = 0;
@@ -579,22 +557,16 @@ public static class FactoryTransferResolver
 
             transferredItems[sourceIndex] =
                 nodes[sourceIndex].CurrentItem;
-            transferredIntervals[sourceIndex] =
-                GetTransferInterval(
-                    nodes[sourceIndex],
-                    nodes[nodes[sourceIndex].TargetIndex]);
             Node source = nodes[sourceIndex];
             source.CurrentItem = Entity.Null;
             source.Progress = 0f;
-            source.TransferElapsed = 0f;
-            source.InputInterval = 0f;
             if (source.Kind == NodeKind.Splitter)
             {
                 source.Cursor = WrapThree(source.OutputIndex + 1);
             }
             if (source.Kind != NodeKind.Belt)
             {
-                forwardedJunctions.Add(source.Entity);
+                processedJunctions.Add(source.Entity);
             }
 
             nodes[sourceIndex] = source;
@@ -614,11 +586,12 @@ public static class FactoryTransferResolver
             Node target = nodes[targetIndex];
             target.CurrentItem = transferredItems[sourceIndex];
             target.Progress = 0f;
-            target.TransferElapsed = 0f;
             if (target.Kind != NodeKind.Belt)
             {
-                target.InputInterval =
-                    transferredIntervals[sourceIndex];
+                // A junction that receives an item cannot forward it until
+                // the next simulation tick. This keeps junction processing
+                // to one item per tick while retaining pipelined throughput.
+                processedJunctions.Add(target.Entity);
             }
             if (target.Kind == NodeKind.Merger)
             {
@@ -645,16 +618,12 @@ public static class FactoryTransferResolver
                 case NodeKind.Merger:
                     Merger merger = mergers[node.SourceIndex];
                     merger.CurrentItem = node.CurrentItem;
-                    merger.TransferElapsed = node.TransferElapsed;
-                    merger.InputInterval = node.InputInterval;
                     merger.NextInputIndex = node.Cursor;
                     mergers[node.SourceIndex] = merger;
                     break;
                 case NodeKind.Splitter:
                     Splitter splitter = splitters[node.SourceIndex];
                     splitter.CurrentItem = node.CurrentItem;
-                    splitter.TransferElapsed = node.TransferElapsed;
-                    splitter.InputInterval = node.InputInterval;
                     splitter.NextOutputIndex = node.Cursor;
                     splitters[node.SourceIndex] = splitter;
                     break;
@@ -764,32 +733,6 @@ public static class FactoryTransferResolver
         }
     }
 
-    private static float GetTransferInterval(
-        Node source,
-        Node target)
-    {
-        return source.Kind == NodeKind.Belt
-            ? CellsPerSecondToInterval(source.CellsPerSecond)
-            : GetJunctionTransferInterval(source, target);
-    }
-
-    private static float GetJunctionTransferInterval(
-        Node source,
-        Node target)
-    {
-        float outputInterval = target.Kind == NodeKind.Belt
-            ? CellsPerSecondToInterval(target.CellsPerSecond)
-            : target.InputInterval;
-        return math.max(source.InputInterval, outputInterval);
-    }
-
-    private static float CellsPerSecondToInterval(float cellsPerSecond)
-    {
-        return cellsPerSecond > math.EPSILON
-            ? 1f / cellsPerSecond
-            : float.PositiveInfinity;
-    }
-
     private static int GetMergerInputIndex(
         int2 direction,
         int2 travelDirection)
@@ -868,7 +811,7 @@ public static class FactoryTransferResolver
         Merger[] mergers,
         Entity[] splitterEntities,
         Splitter[] splitters,
-        HashSet<Entity> forwardedJunctions)
+        HashSet<Entity> processedJunctions)
     {
         if (beltEntities == null ||
             belts == null ||
@@ -881,10 +824,10 @@ public static class FactoryTransferResolver
                 "Transport snapshots cannot be null.");
         }
 
-        if (forwardedJunctions == null)
+        if (processedJunctions == null)
         {
             throw new ArgumentNullException(
-                nameof(forwardedJunctions));
+                nameof(processedJunctions));
         }
 
         if (beltEntities.Length != belts.Length ||

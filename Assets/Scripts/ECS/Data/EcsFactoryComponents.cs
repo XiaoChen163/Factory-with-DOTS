@@ -53,4 +53,6 @@ public struct Stage3SimulationStats : IComponentData
     public int ReadyRequestCount;
     public int AcceptedTransferCount;
     public ulong TickCount;
+    public ulong TotalReadyRequestCount;
+    public ulong TotalAcceptedTransferCount;
 }

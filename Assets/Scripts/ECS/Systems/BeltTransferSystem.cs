@@ -189,6 +189,9 @@ public partial class BeltTransferSystem : SystemBase
         stats.AcceptedTransferCount =
             acceptedTransferCount + interfaceAcceptedCount;
         stats.TickCount++;
+        stats.TotalReadyRequestCount += (ulong)stats.ReadyRequestCount;
+        stats.TotalAcceptedTransferCount +=
+            (ulong)stats.AcceptedTransferCount;
         EntityManager.SetComponentData(statsEntity, stats);
     }
 

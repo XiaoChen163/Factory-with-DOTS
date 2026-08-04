@@ -242,6 +242,9 @@ public struct BeltState : IComponentData
 - BuildResult 只在收到 Revision/事件提示后读取，避免每帧轮询和创建查询。
 - 将 `Assets/Scripts/DotsTest` 放入独立 asmdef、测试 World，或对演示系统使用 `[DisableAutoCreation]`。
 
+4096 规模场景的首轮实测基线、原始数据和瓶颈结论保存在
+[`PerformanceReports/4096-baseline/SUMMARY.md`](../PerformanceReports/4096-baseline/SUMMARY.md)。
+
 ## 6. 分阶段实施计划
 
 ### Phase 0：建立基线和正确性保护
@@ -253,7 +256,7 @@ public struct BeltState : IComponentData
 - [ ] 为 Splitter 三输出 round-robin 和阻塞回退建立测试。
 - [ ] 为满环原子移动、非满环阻塞和环路外部输入建立测试。
 - [ ] 为建筑输入消费和建筑输出注入建立测试。
-- [ ] 建立 128、512、1024 节点的性能场景。
+- [ ] 建立 128、512、1024、4096 节点的性能场景（4096 压力档已落地）。
 - [ ] 在 Unity Profiler 中记录 Main Thread、Worker、GC Alloc、Job Wait、Structural Changes 和 Fixed Tick 数量。
 
 退出条件：
@@ -294,7 +297,7 @@ public struct BeltState : IComponentData
 
 退出条件：
 
-- 1024 节点下解析时间随节点数近似线性增长；
+- 4096 节点下解析时间随节点数近似线性增长；
 - 新旧 Resolver 在所有确定性测试中产生相同状态；
 - Grid 不变化时不重建 Cell Dictionary、连接或 Loop 数据。
 
@@ -357,9 +360,9 @@ public struct BeltState : IComponentData
 |:---:|:---:|:---|:---|
 | 128 | 0% | 空载、满载 | 直线 |
 | 512 | 10% | 满载 | 多合流、多分流 |
-| 1024 | 30% | 拥堵 | 分支网络 |
-| 1024 | 0% | 满载 | 单个长环 |
-| 1024 | 10% | 满载 | 多个独立环和支路 |
+| 4096 Belt | 0% | 50% 交错装载 | `64 × 64` 长蛇形、无接收端 |
+| 5165 Belt + 16 Splitter | <1% | 1024 物品满载主干 | F 型 16 分叉、每叉 256 格 |
+| 4097 Belt + 1 Storage | 0% | 满载、慢速尾端 | 4096 格四级主带接一级尾带与仓库 |
 
 同时单独测量：
 
@@ -374,7 +377,7 @@ public struct BeltState : IComponentData
 核心指标：
 
 - 稳态 Fixed Tick：`GC.Alloc = 0 B`。
-- 128 → 512 → 1024 节点的解析耗时接近线性增长。
+- 128 → 512 → 1024 → 4096 节点的解析耗时接近线性增长。
 - 60 Hz 下模拟部分建议控制在 `3～5 ms`，为渲染和交互预留预算。
 - Profiler 中不出现由 Transfer 快照导致的长时间主线程 Job 等待。
 - 除建造、SubScene 加载和池容量扩张外，稳定运输阶段不发生大规模结构变化。
@@ -419,5 +422,5 @@ Item Pool 必须区分逻辑活跃状态和渲染状态。返回池中的物品�
 - [ ] Grid 和建筑 Transform 只在状态变化时更新。
 - [ ] 物品视觉每渲染帧最多更新一次。
 - [ ] Item 创建销毁不会随稳定吞吐量持续产生结构变化。
-- [ ] 1024 节点压力场景达到目标帧预算且结果确定。
+- [ ] 4096 节点压力场景达到目标帧预算且结果确定。
 - [ ] Profiler 基线、优化后数据和测试场景一并保留。

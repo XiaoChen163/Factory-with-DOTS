@@ -131,15 +131,19 @@ duration=0.091849
 执行命令前必须关闭同一项目的 Unity Editor，否则项目锁会阻止批处理实例启动。
 
 ```powershell
+$projectPath = (Resolve-Path ".").Path
+$testResults = Join-Path $projectPath "Temp/Factory.Tests.xml"
+$testLog = Join-Path $projectPath "Temp/Factory.Tests.log"
+
 & $unityExe `
   -batchmode `
   -nographics `
-  -projectPath "D:\Qxc\unityProject\Factory-with-DOTS" `
+  -projectPath $projectPath `
   -runTests `
   -testPlatform EditMode `
   -assemblyNames Factory.Tests `
-  -testResults "D:\Qxc\unityProject\Factory-with-DOTS\Temp\Factory.Tests.xml" `
-  -logFile "D:\Qxc\unityProject\Factory-with-DOTS\Temp\Factory.Tests.log" `
+  -testResults $testResults `
+  -logFile $testLog `
   -quit
 ```
 

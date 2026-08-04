@@ -6,6 +6,22 @@ namespace Factory.Tests
 {
     public static class TransportAssertions
     {
+        public static TransportNodeSnapshot NodeAt(
+            TransportStateSnapshot snapshot,
+            Unity.Mathematics.int2 cell)
+        {
+            for (int i = 0; i < snapshot.Nodes.Length; i++)
+            {
+                if (snapshot.Nodes[i].Cell.Equals(cell))
+                {
+                    return snapshot.Nodes[i];
+                }
+            }
+
+            Assert.Fail($"No transport node exists at cell {cell}.");
+            return default;
+        }
+
         public static HashSet<Entity> CaptureItems(
             TransportStateSnapshot snapshot)
         {

@@ -296,6 +296,8 @@ public struct BeltState : IComponentData
 - 新增建筑输入、建筑输出和端口 Owner Revision 失效测试。
 - 当前机器的采集结果与原基准硬件隔离保存，不做跨硬件结论；采集说明见
   [`PerformanceReports/phase1-current-hardware/README.md`](PerformanceReports/phase1-current-hardware/README.md)。
+- i9-12900HX 基线机器上的 Phase 1 同机复测与对照分析见
+  [`PerformanceReports/phase1-local-20260805/README.md`](PerformanceReports/phase1-local-20260805/README.md)。
 
 ### Phase 2：拓扑缓存和 O(N) Resolver
 

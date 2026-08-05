@@ -11,25 +11,6 @@ using Unity.Transforms;
 [UpdateBefore(typeof(BeltItemPositionSystem))]
 public partial class BeltTransferSystem : SystemBase
 {
-    private enum TransportKind : byte
-    {
-        Belt,
-        Merger,
-        Splitter
-    }
-
-    private readonly struct TransportIndex
-    {
-        public TransportIndex(TransportKind kind, int index)
-        {
-            Kind = kind;
-            Index = index;
-        }
-
-        public TransportKind Kind { get; }
-        public int Index { get; }
-    }
-
     private readonly struct PortKey : IEquatable<PortKey>
     {
         public PortKey(Entity owner, byte portIndex)
@@ -65,11 +46,10 @@ public partial class BeltTransferSystem : SystemBase
         new Dictionary<PortKey, ulong>();
     private readonly Dictionary<ItemId, Entity> itemPrefabsByType =
         new Dictionary<ItemId, Entity>();
-    private readonly Dictionary<int2, TransportIndex> transportByCell =
-        new Dictionary<int2, TransportIndex>();
     private readonly HashSet<Entity> reservedTargets =
         new HashSet<Entity>();
 
+    private FactoryLinearTransferResolver transferResolver;
     private EntityQuery beltQuery;
     private EntityQuery mergerQuery;
     private EntityQuery splitterQuery;
@@ -84,8 +64,12 @@ public partial class BeltTransferSystem : SystemBase
     private uint cachedPortOwnerRevision;
     private bool hasCachedPortOwnerRevision;
 
+    public int TransportTopologyRebuildCount =>
+        transferResolver?.TopologyRebuildCount ?? 0;
+
     protected override void OnCreate()
     {
+        transferResolver = new FactoryLinearTransferResolver();
         beltQuery = GetEntityQuery(ComponentType.ReadWrite<Belt>());
         mergerQuery = GetEntityQuery(ComponentType.ReadWrite<Merger>());
         splitterQuery = GetEntityQuery(ComponentType.ReadWrite<Splitter>());
@@ -106,6 +90,13 @@ public partial class BeltTransferSystem : SystemBase
             ComponentType.ReadOnly<GridDefinition>());
         statsEntity = EntityManager.CreateEntity(typeof(Stage3SimulationStats));
         RequireForUpdate<Stage3SimulationStats>();
+    }
+
+    protected override void OnDestroy()
+    {
+        Dependency.Complete();
+        transferResolver?.Dispose();
+        transferResolver = null;
     }
 
     protected override void OnUpdate()
@@ -130,7 +121,19 @@ public partial class BeltTransferSystem : SystemBase
         Entity[] splitterEntities = splitterEntitySnapshot.ToArray();
         Splitter[] splitters = splitterComponentSnapshot.ToArray();
 
-        RebuildTransportIndex(belts, mergers, splitters);
+        bool forceTopologyRebuild = gridQuery.CalculateEntityCount() != 1;
+        uint gridRevision = forceTopologyRebuild
+            ? 0
+            : gridQuery.GetSingleton<GridDefinition>().Revision;
+        transferResolver.EnsureTopology(
+            gridRevision,
+            beltEntities,
+            belts,
+            mergerEntities,
+            mergers,
+            splitterEntities,
+            splitters,
+            forceTopologyRebuild);
         RefreshPortOwnerCache();
         RefreshItemPrefabIndex();
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
@@ -138,7 +141,6 @@ public partial class BeltTransferSystem : SystemBase
         processedJunctions.Clear();
         int interfaceRequestCount = 0;
         int interfaceAcceptedCount = ConsumeBuildingInputs(
-            transportByCell,
             mergerEntities,
             splitterEntities,
             belts,
@@ -147,32 +149,16 @@ public partial class BeltTransferSystem : SystemBase
             ref ecb,
             ref interfaceRequestCount);
 
-        int loopCount = 0;
-        int readyRequestCount = 0;
-        int acceptedTransferCount = 0;
-        int passLimit = mergers.Length + splitters.Length + 1;
-        for (int pass = 0; pass < passLimit; pass++)
-        {
-            FactoryTransferResolver.Resolve(
-                beltEntities,
-                belts,
-                mergerEntities,
-                mergers,
-                splitterEntities,
-                splitters,
-                processedJunctions,
-                out int passLoopCount,
-                out int passReadyRequestCount,
-                out int passAcceptedTransferCount);
-
-            loopCount = passLoopCount;
-            readyRequestCount += passReadyRequestCount;
-            acceptedTransferCount += passAcceptedTransferCount;
-            if (passAcceptedTransferCount == 0)
-            {
-                break;
-            }
-        }
+        transferResolver.Resolve(
+            beltEntities,
+            belts,
+            mergerEntities,
+            mergers,
+            splitterEntities,
+            splitters,
+            processedJunctions,
+            out int readyRequestCount,
+            out int acceptedTransferCount);
 
         WriteTransportSnapshots(
             beltEntities,
@@ -183,7 +169,6 @@ public partial class BeltTransferSystem : SystemBase
             splitters);
 
         interfaceAcceptedCount += InjectBuildingOutputs(
-            transportByCell,
             beltEntities,
             mergerEntities,
             splitterEntities,
@@ -198,7 +183,7 @@ public partial class BeltTransferSystem : SystemBase
         stats.BeltCount = belts.Length;
         stats.MergerCount = mergers.Length;
         stats.SplitterCount = splitters.Length;
-        stats.LoopCount = loopCount;
+        stats.LoopCount = transferResolver.LoopCount;
         stats.ReadyRequestCount =
             readyRequestCount + interfaceRequestCount;
         stats.AcceptedTransferCount =
@@ -211,7 +196,6 @@ public partial class BeltTransferSystem : SystemBase
     }
 
     private int ConsumeBuildingInputs(
-        Dictionary<int2, TransportIndex> transportByCell,
         Entity[] mergerEntities,
         Entity[] splitterEntities,
         Belt[] belts,
@@ -266,9 +250,9 @@ public partial class BeltTransferSystem : SystemBase
                 int2 direction = EcsGridUtility.Rotate(
                     geometry.Direction,
                     placement.QuarterTurns);
-                if (!transportByCell.TryGetValue(
+                if (!transferResolver.TryGetTransportIndex(
                         sourceCell,
-                        out TransportIndex source) ||
+                        out FactoryTransportIndex source) ||
                     !TryGetReadyItem(
                         source,
                         direction,
@@ -302,12 +286,12 @@ public partial class BeltTransferSystem : SystemBase
                     belts,
                     mergers,
                     splitters);
-                if (source.Kind == TransportKind.Merger)
+                if (source.Kind == FactoryTransportKind.Merger)
                 {
                     processedJunctions.Add(
                         mergerEntities[source.Index]);
                 }
-                else if (source.Kind == TransportKind.Splitter)
+                else if (source.Kind == FactoryTransportKind.Splitter)
                 {
                     processedJunctions.Add(
                         splitterEntities[source.Index]);
@@ -336,7 +320,6 @@ public partial class BeltTransferSystem : SystemBase
     }
 
     private int InjectBuildingOutputs(
-        Dictionary<int2, TransportIndex> transportByCell,
         Entity[] beltEntities,
         Entity[] mergerEntities,
         Entity[] splitterEntities,
@@ -390,9 +373,9 @@ public partial class BeltTransferSystem : SystemBase
                 int2 direction = EcsGridUtility.Rotate(
                     geometry.Direction,
                     placement.QuarterTurns);
-                if (!transportByCell.TryGetValue(
+                if (!transferResolver.TryGetTransportIndex(
                         targetCell,
-                        out TransportIndex target))
+                        out FactoryTransportIndex target))
                 {
                     continue;
                 }
@@ -471,18 +454,18 @@ public partial class BeltTransferSystem : SystemBase
     }
 
     private static Entity GetTransportEntity(
-        TransportIndex target,
+        FactoryTransportIndex target,
         Entity[] beltEntities,
         Entity[] mergerEntities,
         Entity[] splitterEntities)
     {
         switch (target.Kind)
         {
-            case TransportKind.Belt:
+            case FactoryTransportKind.Belt:
                 return beltEntities[target.Index];
-            case TransportKind.Merger:
+            case FactoryTransportKind.Merger:
                 return mergerEntities[target.Index];
-            case TransportKind.Splitter:
+            case FactoryTransportKind.Splitter:
                 return splitterEntities[target.Index];
             default:
                 return Entity.Null;
@@ -533,33 +516,8 @@ public partial class BeltTransferSystem : SystemBase
         }
     }
 
-    private void RebuildTransportIndex(
-        Belt[] belts,
-        Merger[] mergers,
-        Splitter[] splitters)
-    {
-        transportByCell.Clear();
-        transportByCell.EnsureCapacity(
-            belts.Length + mergers.Length + splitters.Length);
-        for (int i = 0; i < belts.Length; i++)
-        {
-            transportByCell[belts[i].Cell] =
-                new TransportIndex(TransportKind.Belt, i);
-        }
-        for (int i = 0; i < mergers.Length; i++)
-        {
-            transportByCell[mergers[i].Cell] =
-                new TransportIndex(TransportKind.Merger, i);
-        }
-        for (int i = 0; i < splitters.Length; i++)
-        {
-            transportByCell[splitters[i].Cell] =
-                new TransportIndex(TransportKind.Splitter, i);
-        }
-    }
-
     private static bool TryGetReadyItem(
-        TransportIndex source,
+        FactoryTransportIndex source,
         int2 expectedDirection,
         Belt[] belts,
         Merger[] mergers,
@@ -569,20 +527,20 @@ public partial class BeltTransferSystem : SystemBase
     {
         switch (source.Kind)
         {
-            case TransportKind.Belt:
+            case FactoryTransportKind.Belt:
                 Belt belt = belts[source.Index];
                 item = belt.CurrentItem;
                 outputIndex = 0;
                 return item != Entity.Null &&
                        belt.Progress >= 1f &&
                        math.all(belt.Direction == expectedDirection);
-            case TransportKind.Merger:
+            case FactoryTransportKind.Merger:
                 Merger merger = mergers[source.Index];
                 item = merger.CurrentItem;
                 outputIndex = 0;
                 return item != Entity.Null &&
                        math.all(merger.Direction == expectedDirection);
-            case TransportKind.Splitter:
+            case FactoryTransportKind.Splitter:
                 Splitter splitter = splitters[source.Index];
                 item = splitter.CurrentItem;
                 outputIndex = GetSplitterOutputIndex(
@@ -598,7 +556,7 @@ public partial class BeltTransferSystem : SystemBase
     }
 
     private static void ClearTransportItem(
-        TransportIndex source,
+        FactoryTransportIndex source,
         int outputIndex,
         Belt[] belts,
         Merger[] mergers,
@@ -606,18 +564,18 @@ public partial class BeltTransferSystem : SystemBase
     {
         switch (source.Kind)
         {
-            case TransportKind.Belt:
+            case FactoryTransportKind.Belt:
                 Belt belt = belts[source.Index];
                 belt.CurrentItem = Entity.Null;
                 belt.Progress = 0f;
                 belts[source.Index] = belt;
                 break;
-            case TransportKind.Merger:
+            case FactoryTransportKind.Merger:
                 Merger merger = mergers[source.Index];
                 merger.CurrentItem = Entity.Null;
                 mergers[source.Index] = merger;
                 break;
-            case TransportKind.Splitter:
+            case FactoryTransportKind.Splitter:
                 Splitter splitter = splitters[source.Index];
                 splitter.CurrentItem = Entity.Null;
                 splitter.NextOutputIndex =
@@ -628,7 +586,7 @@ public partial class BeltTransferSystem : SystemBase
     }
 
     private bool CanInjectIntoTransport(
-        TransportIndex target,
+        FactoryTransportIndex target,
         int2 direction,
         Entity[] beltEntities,
         Entity[] mergerEntities,
@@ -636,15 +594,15 @@ public partial class BeltTransferSystem : SystemBase
     {
         switch (target.Kind)
         {
-            case TransportKind.Belt:
+            case FactoryTransportKind.Belt:
                 return EntityManager.GetComponentData<Belt>(
                     beltEntities[target.Index]).CurrentItem == Entity.Null;
-            case TransportKind.Merger:
+            case FactoryTransportKind.Merger:
                 Merger merger = EntityManager.GetComponentData<Merger>(
                     mergerEntities[target.Index]);
                 return merger.CurrentItem == Entity.Null &&
                        GetMergerInputIndex(merger.Direction, direction) >= 0;
-            case TransportKind.Splitter:
+            case FactoryTransportKind.Splitter:
                 Splitter splitter =
                     EntityManager.GetComponentData<Splitter>(
                         splitterEntities[target.Index]);
@@ -656,7 +614,7 @@ public partial class BeltTransferSystem : SystemBase
     }
 
     private void SetTransportItem(
-        TransportIndex target,
+        FactoryTransportIndex target,
         Entity item,
         Entity[] beltEntities,
         Entity[] mergerEntities,
@@ -665,20 +623,20 @@ public partial class BeltTransferSystem : SystemBase
     {
         switch (target.Kind)
         {
-            case TransportKind.Belt:
+            case FactoryTransportKind.Belt:
                 Belt belt = EntityManager.GetComponentData<Belt>(
                     beltEntities[target.Index]);
                 belt.CurrentItem = item;
                 belt.Progress = 0f;
                 ecb.SetComponent(beltEntities[target.Index], belt);
                 break;
-            case TransportKind.Merger:
+            case FactoryTransportKind.Merger:
                 Merger merger = EntityManager.GetComponentData<Merger>(
                     mergerEntities[target.Index]);
                 merger.CurrentItem = item;
                 ecb.SetComponent(mergerEntities[target.Index], merger);
                 break;
-            case TransportKind.Splitter:
+            case FactoryTransportKind.Splitter:
                 Splitter splitter =
                     EntityManager.GetComponentData<Splitter>(
                         splitterEntities[target.Index]);

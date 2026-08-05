@@ -303,19 +303,36 @@ public struct BeltState : IComponentData
 
 任务：
 
-- [ ] 创建持久化 Native Transport Topology。
-- [ ] 以 Grid Revision 驱动拓扑重建。
-- [ ] 预计算每个目标的有效输入源。
-- [ ] 将候选选择改为 `O(N)`。
-- [ ] 将 Loop 检测移出每 Tick 路径。
-- [ ] 移除多轮全图 Resolve。
-- [ ] 保持旧 Resolver 作为临时对照实现，通过测试后再删除。
+- [x] 创建持久化 Native Transport Topology。
+- [x] 以 Grid Revision 驱动拓扑重建。
+- [x] 预计算每个目标的有效输入源。
+- [x] 将候选选择改为 `O(N)`。
+- [x] 将 Loop 检测移出每 Tick 路径。
+- [x] 移除多轮全图 Resolve。
+- [x] 保持旧 Resolver 作为临时对照实现，通过测试后再删除。
 
 退出条件：
 
 - 4096 节点下解析时间随节点数近似线性增长；
 - 新旧 Resolver 在所有确定性测试中产生相同状态；
 - Grid 不变化时不重建 Cell Dictionary、连接或 Loop 数据。
+
+实施记录（2026-08-05）：
+
+- 新增 `FactoryLinearTransferResolver`，使用 Persistent
+  `NativeParallelHashMap` 和 `NativeList` 缓存 Cell Index、输入、输出与环路；
+- `BeltTransferSystem` 由 `GridDefinition.Revision` 驱动缓存失效，并与建筑
+  端口共用 Native Cell Index；
+- 每个目标只检查预计算的 0～3 个输入，链路和满环改用显式栈解析；
+- 外层 `JunctionCount + 1` 次 Resolve 已移除，Splitter 回退最多执行三个
+  固定仲裁波次，因此解析工作量上界保持 `O(N)`；
+- Unity EditMode 回归与新旧 Resolver 差分测试为 `23 passed / 0 failed`；
+- 128、512、1024、4096 节点测试的候选检查次数分别为 127、511、1023、
+  4095；当前 Editor 样本耗时分别为 0.0315、0.0913、0.2554、0.7313
+  ms/Tick。详细记录见
+  [`PerformanceReports/phase2-resolver-20260805/README.md`](PerformanceReports/phase2-resolver-20260805/README.md)。
+- 三个完整性能场景已使用独立 Batch Mode 进程采集，结果见
+  [`PerformanceReports/phase2-scenes-20260805/README.md`](PerformanceReports/phase2-scenes-20260805/README.md)。
 
 ### Phase 3：Burst 化和数据布局重构
 

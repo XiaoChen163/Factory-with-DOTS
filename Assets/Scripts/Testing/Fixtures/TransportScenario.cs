@@ -6,12 +6,13 @@ using Unity.Mathematics;
 namespace Factory.Tests
 {
     /// <summary>
-    /// Builds transport snapshots and advances them with the same multi-pass
-    /// contract currently used by BeltTransferSystem for one fixed tick.
+    /// Builds transport snapshots and can advance them with either the legacy
+    /// or Phase 2 resolver for one fixed tick.
     /// </summary>
     public sealed class TransportScenario : IDisposable
     {
         private readonly World world;
+        private readonly List<Entity> items = new List<Entity>();
         private readonly List<Entity> beltEntities = new List<Entity>();
         private readonly List<Belt> belts = new List<Belt>();
         private readonly List<Entity> mergerEntities = new List<Entity>();
@@ -20,6 +21,8 @@ namespace Factory.Tests
         private readonly List<Splitter> splitters = new List<Splitter>();
         private readonly HashSet<Entity> processedJunctions =
             new HashSet<Entity>();
+        private readonly FactoryLinearTransferResolver linearResolver =
+            new FactoryLinearTransferResolver();
 
         public TransportScenario(string name = "Transport scenario")
         {
@@ -29,15 +32,27 @@ namespace Factory.Tests
         public IReadOnlyList<Belt> Belts => belts;
         public IReadOnlyList<Merger> Mergers => mergers;
         public IReadOnlyList<Splitter> Splitters => splitters;
+        public int LinearTopologyRebuildCount =>
+            linearResolver.TopologyRebuildCount;
+        public int LinearCandidateInspectionCount =>
+            linearResolver.LastCandidateInspectionCount;
+        public int LinearRoutingPassCount =>
+            linearResolver.LastRoutingPassCount;
 
         public Entity CreateItem(ushort itemType = 1)
         {
             Entity item = world.EntityManager.CreateEntity();
+            items.Add(item);
             world.EntityManager.AddComponentData(item, new Item
             {
                 ItemType = new ItemId { Value = itemType }
             });
             return item;
+        }
+
+        public int GetItemOrdinal(Entity item)
+        {
+            return item == Entity.Null ? -1 : items.IndexOf(item);
         }
 
         public Entity AddBelt(
@@ -149,6 +164,46 @@ namespace Factory.Tests
                 executedPassCount);
         }
 
+        public TransportTickResult ResolveTickLinear(uint revision = 1)
+        {
+            Entity[] beltEntitySnapshot = beltEntities.ToArray();
+            Belt[] beltSnapshot = belts.ToArray();
+            Entity[] mergerEntitySnapshot = mergerEntities.ToArray();
+            Merger[] mergerSnapshot = mergers.ToArray();
+            Entity[] splitterEntitySnapshot = splitterEntities.ToArray();
+            Splitter[] splitterSnapshot = splitters.ToArray();
+
+            linearResolver.EnsureTopology(
+                revision,
+                beltEntitySnapshot,
+                beltSnapshot,
+                mergerEntitySnapshot,
+                mergerSnapshot,
+                splitterEntitySnapshot,
+                splitterSnapshot);
+            processedJunctions.Clear();
+            linearResolver.Resolve(
+                beltEntitySnapshot,
+                beltSnapshot,
+                mergerEntitySnapshot,
+                mergerSnapshot,
+                splitterEntitySnapshot,
+                splitterSnapshot,
+                processedJunctions,
+                out int readyRequestCount,
+                out int acceptedTransferCount);
+
+            ReplaceContents(belts, beltSnapshot);
+            ReplaceContents(mergers, mergerSnapshot);
+            ReplaceContents(splitters, splitterSnapshot);
+
+            return new TransportTickResult(
+                linearResolver.LoopCount,
+                readyRequestCount,
+                acceptedTransferCount,
+                1);
+        }
+
         public TransportStateSnapshot CaptureState()
         {
             List<TransportNodeSnapshot> nodes =
@@ -192,6 +247,7 @@ namespace Factory.Tests
 
         public void Dispose()
         {
+            linearResolver.Dispose();
             if (world != null && world.IsCreated)
             {
                 world.Dispose();

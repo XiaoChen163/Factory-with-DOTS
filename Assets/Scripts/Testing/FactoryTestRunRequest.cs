@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Factory.Tests
 {
     /// <summary>
-    /// Allows an already-open Editor to run this assembly after a script reload.
+    /// Allows an already-open Editor to run this assembly after recompilation.
     /// Create Temp/Factory.Tests.run, then refresh the Asset Database.
     /// </summary>
     [InitializeOnLoad]

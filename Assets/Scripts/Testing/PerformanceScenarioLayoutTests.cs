@@ -57,6 +57,76 @@ namespace Factory.Tests
             AssertInitialItemsUseBeltCells(definition);
         }
 
+        [TestCase(0, 0)]
+        [TestCase(50, 64)]
+        [TestCase(100, 128)]
+        public void ScalableStraight_UsesRequestedLoad(
+            int loadPercent,
+            int expectedItems)
+        {
+            FactoryPerformanceScenarioDefinition definition =
+                FactoryPerformanceScenarioLayout.Create(
+                    FactoryPerformanceScenario.ScalableStraight,
+                    128,
+                    loadPercent);
+
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(128, 1)));
+            Assert.That(definition.BeltCount, Is.EqualTo(128));
+            Assert.That(definition.InitialItemCells, Has.Length.EqualTo(expectedItems));
+            AssertUniquePlacementAnchors(definition);
+            AssertInitialItemsUseTransportCells(definition);
+        }
+
+        [Test]
+        public void MixedJunctionScenario_Has512NodesAndTenPercentJunctions()
+        {
+            FactoryPerformanceScenarioDefinition definition =
+                FactoryPerformanceScenarioLayout.Create(
+                    FactoryPerformanceScenario.MixedJunctions512);
+
+            Assert.That(definition.BeltCount, Is.EqualTo(462));
+            Assert.That(definition.MergerCount, Is.EqualTo(25));
+            Assert.That(definition.SplitterCount, Is.EqualTo(25));
+            Assert.That(
+                definition.BeltCount + definition.MergerCount +
+                definition.SplitterCount,
+                Is.EqualTo(512));
+            Assert.That(definition.InitialItemCells, Has.Length.EqualTo(256));
+            AssertUniquePlacementAnchors(definition);
+            AssertInitialItemsUseTransportCells(definition);
+            AssertTransportOutputsStayInsideNetwork(definition);
+        }
+
+        [Test]
+        public void FullLoopScenario_IsClosedAndContains4096LoadedBelts()
+        {
+            FactoryPerformanceScenarioDefinition definition =
+                FactoryPerformanceScenarioLayout.Create(
+                    FactoryPerformanceScenario.Mk4FullLoop4096);
+
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(64, 64)));
+            Assert.That(definition.BeltCount, Is.EqualTo(4096));
+            Assert.That(definition.InitialItemCells, Has.Length.EqualTo(4096));
+
+            AssertTransportOutputsStayInsideNetwork(definition);
+        }
+
+        [Test]
+        public void ProducerConsumerScenario_Has64CompleteLanes()
+        {
+            FactoryPerformanceScenarioDefinition definition =
+                FactoryPerformanceScenarioLayout.Create(
+                    FactoryPerformanceScenario.ProducerConsumer);
+
+            Assert.That(definition.BeltCount, Is.EqualTo(1024));
+            Assert.That(definition.MinerCount, Is.EqualTo(64));
+            Assert.That(definition.FurnaceCount, Is.EqualTo(64));
+            Assert.That(definition.ProcessorCount, Is.EqualTo(128));
+            Assert.That(definition.StorageCount, Is.EqualTo(64));
+            Assert.That(definition.InitialItemCells, Is.Empty);
+            AssertUniquePlacementAnchors(definition);
+        }
+
         private static void AssertUniquePlacementAnchors(
             FactoryPerformanceScenarioDefinition definition)
         {
@@ -77,23 +147,78 @@ namespace Factory.Tests
         private static void AssertInitialItemsUseBeltCells(
             FactoryPerformanceScenarioDefinition definition)
         {
-            HashSet<int2> beltCells = new HashSet<int2>();
-            for (int i = 0; i < definition.Placements.Length; i++)
-            {
-                FactoryPerformancePlacement placement =
-                    definition.Placements[i];
-                if (placement.Kind == BuildingKind.Belt)
-                {
-                    beltCells.Add(placement.Cell);
-                }
-            }
+            AssertInitialItemsUseTransportCells(definition);
+        }
+
+        private static void AssertInitialItemsUseTransportCells(
+            FactoryPerformanceScenarioDefinition definition)
+        {
+            HashSet<int2> transportCells = GetTransportCells(definition);
 
             HashSet<int2> itemCells = new HashSet<int2>();
             for (int i = 0; i < definition.InitialItemCells.Length; i++)
             {
                 int2 cell = definition.InitialItemCells[i];
-                Assert.That(beltCells.Contains(cell), Is.True);
+                Assert.That(transportCells.Contains(cell), Is.True);
                 Assert.That(itemCells.Add(cell), Is.True);
+            }
+        }
+
+        private static HashSet<int2> GetTransportCells(
+            FactoryPerformanceScenarioDefinition definition)
+        {
+            HashSet<int2> result = new HashSet<int2>();
+            for (int i = 0; i < definition.Placements.Length; i++)
+            {
+                FactoryPerformancePlacement placement = definition.Placements[i];
+                if (placement.Kind == BuildingKind.Belt ||
+                    placement.Kind == BuildingKind.Merger ||
+                    placement.Kind == BuildingKind.Splitter)
+                {
+                    result.Add(placement.Cell);
+                }
+            }
+
+            return result;
+        }
+
+        private static void AssertTransportOutputsStayInsideNetwork(
+            FactoryPerformanceScenarioDefinition definition)
+        {
+            HashSet<int2> transportCells = GetTransportCells(definition);
+            for (int i = 0; i < definition.Placements.Length; i++)
+            {
+                FactoryPerformancePlacement placement = definition.Placements[i];
+                if (placement.Kind != BuildingKind.Belt &&
+                    placement.Kind != BuildingKind.Merger &&
+                    placement.Kind != BuildingKind.Splitter)
+                {
+                    continue;
+                }
+
+                int2 forward = EcsGridUtility.Rotate(
+                    new int2(1, 0),
+                    placement.QuarterTurns);
+                Assert.That(
+                    transportCells.Contains(placement.Cell + forward),
+                    Is.True,
+                    "Transport output is open at " + placement.Cell + ".");
+
+                if (placement.Kind != BuildingKind.Splitter)
+                {
+                    continue;
+                }
+
+                int2 left = EcsGridUtility.Rotate(forward, 1);
+                int2 right = EcsGridUtility.Rotate(forward, 3);
+                Assert.That(
+                    transportCells.Contains(placement.Cell + left),
+                    Is.True,
+                    "Splitter left output is open at " + placement.Cell + ".");
+                Assert.That(
+                    transportCells.Contains(placement.Cell + right),
+                    Is.True,
+                    "Splitter right output is open at " + placement.Cell + ".");
             }
         }
     }

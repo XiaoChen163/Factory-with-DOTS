@@ -42,6 +42,56 @@ Splitter 使用数据库中唯一的 `splitter_mk1`。
 用于持续制造快速主干、慢速出口之间的移动与反压，最终在仓库装满后
 形成完全阻塞。
 
+### Perf_Straight_Scalable
+
+- 默认 128 格四级直线传送带，50% 均匀装载
+- 使用 `-factoryPerformanceNodeCount` 设置节点数，范围 `2～16384`
+- 使用 `-factoryPerformanceLoadPercent` 设置初始装载率，范围 `0～100`
+- 推荐矩阵：`128 / 512 / 1024 / 4096` × `0 / 50 / 100%`
+
+该场景用于隔离节点规模、装载率、Job 调度固定成本和线性增长趋势。
+
+### Perf_512_MixedJunction
+
+- 462 格四级传送带、25 个 Merger、25 个 Splitter，共 512 个运输节点
+- 25 个相互隔离的闭合三路分流/三路合流模块，另有 1 个 62 格闭环，
+  Junction 比例约 9.8%
+- 默认 50% 确定性交错装载，使 Splitter 输出和 Merger 输入竞争同时活跃
+- 可使用 `-factoryPerformanceLoadPercent 100` 测量完全阻塞的 Junction 网络
+
+所有模块均为闭环，长时间预热后仍会持续经过 Splitter 和 Merger，避免开放
+链路排空后退化为静态阻塞样本。
+
+### Perf_4096_Mk4_FullLoop
+
+- `64 × 64` Hamilton 环，4096 格四级传送带
+- 默认 100% 满载，末端重新连接起点
+- 同一 Ready Tick 可原子提交全部 4096 个物品，用于测量高密度状态写回
+- 可使用 `-factoryPerformanceLoadPercent` 创建同拓扑的部分装载对照
+
+### Perf_ProducerConsumer
+
+- 64 条相互独立的持续生产线
+- 每条为 `Miner → 8 Mk4 Belt → Furnace → 8 Mk4 Belt → Storage`
+- 合计 128 个 Processor、64 个 Storage 和 1024 格四级传送带
+- Miner 持续产生铁矿石，Furnace 冶炼铁锭，Storage 持续消费运输实体
+
+该场景用于覆盖建筑端口、Receipt Buffer、Item Instantiate/Destroy 和 ECB
+Playback，不与纯 Resolver 场景的结果混合解释。
+
+## 参数化运行
+
+参数只影响支持它的场景；未传入时使用上述默认值。例如：
+
+```text
+-factoryPerformanceScene Perf_Straight_Scalable
+-factoryPerformanceNodeCount 4096
+-factoryPerformanceLoadPercent 50
+```
+
+`Perf_512_MixedJunction` 和 `Perf_4096_Mk4_FullLoop` 支持装载率参数；其余既有
+场景和 `Perf_ProducerConsumer` 使用固定布局。
+
 ## 采样建议
 
 1. 关闭 Deep Profile。

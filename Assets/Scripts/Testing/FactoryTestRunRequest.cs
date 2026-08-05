@@ -15,6 +15,7 @@ namespace Factory.Tests
         private const string RequestPath = "Temp/Factory.Tests.run";
         private const string ResultPath = "Temp/Factory.Tests.result";
         private static TestRunnerApi runner;
+        private static bool exitBatchModeWhenFinished;
 
         static FactoryTestRunRequest()
         {
@@ -25,6 +26,12 @@ namespace Factory.Tests
 
             File.Delete(RequestPath);
             EditorApplication.delayCall += RunRequestedTests;
+        }
+
+        public static void RunFromCommandLine()
+        {
+            exitBatchModeWhenFinished = true;
+            RunRequestedTests();
         }
 
         private static void RunRequestedTests()
@@ -55,6 +62,10 @@ namespace Factory.Tests
                 File.WriteAllText(ResultPath, summary);
                 Object.DestroyImmediate(runner);
                 runner = null;
+                if (exitBatchModeWhenFinished)
+                {
+                    EditorApplication.Exit(result.FailCount == 0 ? 0 : 1);
+                }
             }
 
             public void TestStarted(ITestAdaptor test)

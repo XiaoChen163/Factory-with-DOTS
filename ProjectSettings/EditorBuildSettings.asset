@@ -23,6 +23,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Performance/Perf_4096_Mk4_Blocking.unity
     guid: c1024a4b5c6d47e89f00112233445566
+  - enabled: 1
+    path: Assets/Scenes/Performance/Perf_Straight_Scalable.unity
+    guid: d1024a4b5c6d47e89f00112233445566
+  - enabled: 1
+    path: Assets/Scenes/Performance/Perf_512_MixedJunction.unity
+    guid: e1024a4b5c6d47e89f00112233445566
+  - enabled: 1
+    path: Assets/Scenes/Performance/Perf_4096_Mk4_FullLoop.unity
+    guid: f1024a4b5c6d47e89f00112233445566
+  - enabled: 1
+    path: Assets/Scenes/Performance/Perf_ProducerConsumer.unity
+    guid: 91024a4b5c6d47e89f00112233445566
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

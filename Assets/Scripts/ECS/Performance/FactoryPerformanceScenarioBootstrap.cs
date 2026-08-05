@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -11,6 +13,8 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 {
     private const string BaseSceneName = "Stage3Ecs";
     private const float SetupTimeoutSeconds = 300f;
+    private const string NodeCountArgument = "-factoryPerformanceNodeCount";
+    private const string LoadPercentArgument = "-factoryPerformanceLoadPercent";
 
     private static readonly Dictionary<string, FactoryPerformanceScenario>
         ScenarioBySceneName =
@@ -27,6 +31,22 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 {
                     "Perf_4096_Mk4_Blocking",
                     FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1
+                },
+                {
+                    "Perf_Straight_Scalable",
+                    FactoryPerformanceScenario.ScalableStraight
+                },
+                {
+                    "Perf_512_MixedJunction",
+                    FactoryPerformanceScenario.MixedJunctions512
+                },
+                {
+                    "Perf_4096_Mk4_FullLoop",
+                    FactoryPerformanceScenario.Mk4FullLoop4096
+                },
+                {
+                    "Perf_ProducerConsumer",
+                    FactoryPerformanceScenario.ProducerConsumer
                 }
             };
 
@@ -50,7 +70,11 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         DontDestroyOnLoad(bootstrapObject);
         FactoryPerformanceScenarioBootstrap bootstrap =
             bootstrapObject.AddComponent<FactoryPerformanceScenarioBootstrap>();
-        bootstrap.definition = FactoryPerformanceScenarioLayout.Create(scenario);
+        string[] arguments = Environment.GetCommandLineArgs();
+        bootstrap.definition = FactoryPerformanceScenarioLayout.Create(
+            scenario,
+            ReadOptionalIntArgument(arguments, NodeCountArgument, 0),
+            ReadOptionalIntArgument(arguments, LoadPercentArgument, -1));
         bootstrap.StartCoroutine(bootstrap.Setup());
     }
 
@@ -153,14 +177,21 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         status = "Building the compact ECS layout...";
         EntityQuery beltQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadWrite<Belt>());
+        EntityQuery mergerQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadWrite<Merger>());
         EntityQuery splitterQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<Splitter>());
+            ComponentType.ReadWrite<Splitter>());
+        EntityQuery processorQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<ItemProcessor>());
         EntityQuery storageQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<StorageState>());
 
         while ((beltQuery.CalculateEntityCount() != definition.BeltCount ||
+                mergerQuery.CalculateEntityCount() != definition.MergerCount ||
                 splitterQuery.CalculateEntityCount() !=
                     definition.SplitterCount ||
+                processorQuery.CalculateEntityCount() !=
+                    definition.ProcessorCount ||
                 storageQuery.CalculateEntityCount() !=
                     definition.StorageCount) &&
                Time.realtimeSinceStartup < deadline)
@@ -170,7 +201,9 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
         bool buildCountsMatch =
             beltQuery.CalculateEntityCount() == definition.BeltCount &&
+            mergerQuery.CalculateEntityCount() == definition.MergerCount &&
             splitterQuery.CalculateEntityCount() == definition.SplitterCount &&
+            processorQuery.CalculateEntityCount() == definition.ProcessorCount &&
             storageQuery.CalculateEntityCount() == definition.StorageCount;
         if (!buildCountsMatch)
         {
@@ -178,7 +211,9 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 gridQuery,
                 catalogQuery,
                 beltQuery,
+                mergerQuery,
                 splitterQuery,
+                processorQuery,
                 storageQuery);
             Fail("Timed out while building the performance layout.");
             yield break;
@@ -201,7 +236,9 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 gridQuery,
                 catalogQuery,
                 beltQuery,
+                mergerQuery,
                 splitterQuery,
+                processorQuery,
                 storageQuery);
             Fail(failedBuilds + " performance placements were rejected.");
             yield break;
@@ -214,13 +251,17 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 entityManager,
                 catalogQuery.GetSingletonEntity(),
                 beltQuery,
+                mergerQuery,
+                splitterQuery,
                 out string itemFailure))
         {
             DisposeQueries(
                 gridQuery,
                 catalogQuery,
                 beltQuery,
+                mergerQuery,
                 splitterQuery,
+                processorQuery,
                 storageQuery);
             Fail(itemFailure);
             yield break;
@@ -231,7 +272,9 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             gridQuery,
             catalogQuery,
             beltQuery,
+            mergerQuery,
             splitterQuery,
+            processorQuery,
             storageQuery);
 
         ready = true;
@@ -241,7 +284,9 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             ". Grid=" + definition.GridSize.x + "x" +
             definition.GridSize.y +
             ", Belts=" + definition.BeltCount +
+            ", Mergers=" + definition.MergerCount +
             ", Splitters=" + definition.SplitterCount +
+            ", Processors=" + definition.ProcessorCount +
             ", Items=" + definition.InitialItemCells.Length + ".");
 
         FactoryPerformanceMetricsCapture.StartIfRequested(definition);
@@ -251,6 +296,8 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         EntityManager entityManager,
         Entity catalog,
         EntityQuery beltQuery,
+        EntityQuery mergerQuery,
+        EntityQuery splitterQuery,
         out string failure)
     {
         DynamicBuffer<ItemPrefabEntry> itemPrefabs =
@@ -299,11 +346,31 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             beltQuery.ToEntityArray(Allocator.Temp);
         using NativeArray<Belt> belts =
             beltQuery.ToComponentDataArray<Belt>(Allocator.Temp);
+        using NativeArray<Entity> mergerEntities =
+            mergerQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<Merger> mergers =
+            mergerQuery.ToComponentDataArray<Merger>(Allocator.Temp);
+        using NativeArray<Entity> splitterEntities =
+            splitterQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<Splitter> splitters =
+            splitterQuery.ToComponentDataArray<Splitter>(Allocator.Temp);
         Dictionary<int2, int> beltIndexByCell =
             new Dictionary<int2, int>(belts.Length);
+        Dictionary<int2, int> mergerIndexByCell =
+            new Dictionary<int2, int>(mergers.Length);
+        Dictionary<int2, int> splitterIndexByCell =
+            new Dictionary<int2, int>(splitters.Length);
         for (int i = 0; i < belts.Length; i++)
         {
             beltIndexByCell.Add(belts[i].Cell, i);
+        }
+        for (int i = 0; i < mergers.Length; i++)
+        {
+            mergerIndexByCell.Add(mergers[i].Cell, i);
+        }
+        for (int i = 0; i < splitters.Length; i++)
+        {
+            splitterIndexByCell.Add(splitters[i].Cell, i);
         }
 
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
@@ -312,10 +379,15 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         for (int i = 0; i < definition.InitialItemCells.Length; i++)
         {
             int2 cell = definition.InitialItemCells[i];
-            if (!beltIndexByCell.TryGetValue(cell, out int beltIndex))
+            bool isBelt = beltIndexByCell.TryGetValue(cell, out int beltIndex);
+            bool isMerger = mergerIndexByCell.TryGetValue(cell, out int mergerIndex);
+            bool isSplitter = splitterIndexByCell.TryGetValue(
+                cell,
+                out int splitterIndex);
+            if (!isBelt && !isMerger && !isSplitter)
             {
                 ecb.Dispose();
-                failure = "No Belt entity exists for initial item cell " +
+                failure = "No transport entity exists for initial item cell " +
                           cell + ".";
                 return false;
             }
@@ -334,16 +406,56 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             itemTransform.Position = position;
             ecb.SetComponent(item, itemTransform);
 
-            Belt belt = belts[beltIndex];
-            belt.CurrentItem = item;
-            belt.Progress = 0f;
-            ecb.SetComponent(beltEntities[beltIndex], belt);
+            if (isBelt)
+            {
+                Belt belt = belts[beltIndex];
+                belt.CurrentItem = item;
+                belt.Progress = 0f;
+                ecb.SetComponent(beltEntities[beltIndex], belt);
+            }
+            else if (isMerger)
+            {
+                Merger merger = mergers[mergerIndex];
+                merger.CurrentItem = item;
+                ecb.SetComponent(mergerEntities[mergerIndex], merger);
+            }
+            else
+            {
+                Splitter splitter = splitters[splitterIndex];
+                splitter.CurrentItem = item;
+                ecb.SetComponent(splitterEntities[splitterIndex], splitter);
+            }
         }
 
         ecb.Playback(entityManager);
         ecb.Dispose();
         failure = null;
         return true;
+    }
+
+    private static int ReadOptionalIntArgument(
+        string[] arguments,
+        string name,
+        int fallback)
+    {
+        int index = Array.IndexOf(arguments, name);
+        if (index < 0)
+        {
+            return fallback;
+        }
+
+        if (index + 1 >= arguments.Length ||
+            !int.TryParse(
+                arguments[index + 1],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out int value))
+        {
+            throw new ArgumentException(
+                "Invalid integer value for " + name + ".");
+        }
+
+        return value;
     }
 
     private static void ResetSimulationStats(EntityManager entityManager)

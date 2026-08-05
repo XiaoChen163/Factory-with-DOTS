@@ -191,10 +191,14 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 gridWidth = definition.GridSize.x,
                 gridHeight = definition.GridSize.y,
                 expectedBelts = definition.BeltCount,
+                expectedMergers = definition.MergerCount,
                 expectedSplitters = definition.SplitterCount,
+                expectedProcessors = definition.ProcessorCount,
                 initialItems = definition.InitialItemCells.Length,
                 beltEntities = entityCounts.belts,
+                mergerEntities = entityCounts.mergers,
                 splitterEntities = entityCounts.splitters,
+                processorEntities = entityCounts.processors,
                 storageEntities = entityCounts.storages,
                 itemEntities = entityCounts.items,
                 warmupSeconds = warmupSeconds,
@@ -398,8 +402,12 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         EntityManager entityManager = world.EntityManager;
         EntityQuery belts = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<Belt>());
+        EntityQuery mergers = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<Merger>());
         EntityQuery splitters = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<Splitter>());
+        EntityQuery processors = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<ItemProcessor>());
         EntityQuery storages = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<StorageState>());
         EntityQuery items = entityManager.CreateEntityQuery(
@@ -407,12 +415,16 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         EntityCounts counts = new EntityCounts
         {
             belts = belts.CalculateEntityCount(),
+            mergers = mergers.CalculateEntityCount(),
             splitters = splitters.CalculateEntityCount(),
+            processors = processors.CalculateEntityCount(),
             storages = storages.CalculateEntityCount(),
             items = items.CalculateEntityCount()
         };
         belts.Dispose();
+        mergers.Dispose();
         splitters.Dispose();
+        processors.Dispose();
         storages.Dispose();
         items.Dispose();
         return counts;
@@ -547,7 +559,9 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
     private struct EntityCounts
     {
         public int belts;
+        public int mergers;
         public int splitters;
+        public int processors;
         public int storages;
         public int items;
     }
@@ -571,10 +585,14 @@ public sealed class FactoryPerformanceCaptureReport
     public int gridWidth;
     public int gridHeight;
     public int expectedBelts;
+    public int expectedMergers;
     public int expectedSplitters;
+    public int expectedProcessors;
     public int initialItems;
     public int beltEntities;
+    public int mergerEntities;
     public int splitterEntities;
+    public int processorEntities;
     public int storageEntities;
     public int itemEntities;
     public float warmupSeconds;

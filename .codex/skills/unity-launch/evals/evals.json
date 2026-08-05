@@ -1,0 +1,23 @@
+{
+  "skill_name": "unity-launch",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run a quick performance capture of the 128-belt scalable scene in the Factory-with-DOTS Unity project and tell me the mean and P95 frame time.",
+      "expected_output": "A batch Unity run finishes with exit code 0, a JSON/CSV report is written, and the user is given the mean and P95 frame times from the report.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Why does launching Unity from a new Codex session hang on licensing? Launch the project once to confirm the fix and clean up processes afterwards.",
+      "expected_output": "The agent explains the sandbox/licensing causes, completes a batch launch with hard timeout and escalation, verifies completion markers, and cleans up test-spawned processes.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I'm on a different Windows machine now, so the Unity licensing channel may not be LicenseClient-Xiao_Chen. Launch a performance capture anyway.",
+      "expected_output": "The script resolves the licensing channel from the Hub log or the current username, does not hardcode LicenseClient-Xiao_Chen, and completes a batch run with a verified report.",
+      "files": []
+    }
+  ]
+}

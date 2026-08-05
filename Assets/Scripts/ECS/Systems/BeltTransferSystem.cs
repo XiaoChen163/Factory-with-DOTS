@@ -63,6 +63,12 @@ public partial class BeltTransferSystem : SystemBase
         new Dictionary<PortKey, ulong>();
     private readonly Dictionary<PortKey, ulong> acceptedOutputs =
         new Dictionary<PortKey, ulong>();
+    private readonly Dictionary<ItemId, Entity> itemPrefabsByType =
+        new Dictionary<ItemId, Entity>();
+    private readonly Dictionary<int2, TransportIndex> transportByCell =
+        new Dictionary<int2, TransportIndex>();
+    private readonly HashSet<Entity> reservedTargets =
+        new HashSet<Entity>();
 
     private EntityQuery beltQuery;
     private EntityQuery mergerQuery;
@@ -70,7 +76,13 @@ public partial class BeltTransferSystem : SystemBase
     private EntityQuery inputPortQuery;
     private EntityQuery outputPortQuery;
     private EntityQuery itemCatalogQuery;
+    private EntityQuery gridQuery;
     private Entity statsEntity;
+    private Entity cachedItemCatalog = Entity.Null;
+    private Entity[] inputPortOwners = Array.Empty<Entity>();
+    private Entity[] outputPortOwners = Array.Empty<Entity>();
+    private uint cachedPortOwnerRevision;
+    private bool hasCachedPortOwnerRevision;
 
     protected override void OnCreate()
     {
@@ -90,6 +102,8 @@ public partial class BeltTransferSystem : SystemBase
         itemCatalogQuery = GetEntityQuery(
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
             ComponentType.ReadOnly<ItemPrefabEntry>());
+        gridQuery = GetEntityQuery(
+            ComponentType.ReadOnly<GridDefinition>());
         statsEntity = EntityManager.CreateEntity(typeof(Stage3SimulationStats));
         RequireForUpdate<Stage3SimulationStats>();
     }
@@ -116,8 +130,9 @@ public partial class BeltTransferSystem : SystemBase
         Entity[] splitterEntities = splitterEntitySnapshot.ToArray();
         Splitter[] splitters = splitterComponentSnapshot.ToArray();
 
-        Dictionary<int2, TransportIndex> transportByCell =
-            BuildTransportIndex(belts, mergers, splitters);
+        RebuildTransportIndex(belts, mergers, splitters);
+        RefreshPortOwnerCache();
+        RefreshItemPrefabIndex();
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
 
         processedJunctions.Clear();
@@ -205,15 +220,13 @@ public partial class BeltTransferSystem : SystemBase
         ref EntityCommandBuffer ecb,
         ref int requestCount)
     {
-        using NativeArray<Entity> snapshot =
-            inputPortQuery.ToEntityArray(Allocator.Temp);
-        Entity[] owners = snapshot.ToArray();
-        SortPortOwners(owners);
         int acceptedCount = 0;
 
-        for (int ownerIndex = 0; ownerIndex < owners.Length; ownerIndex++)
+        for (int ownerIndex = 0;
+             ownerIndex < inputPortOwners.Length;
+             ownerIndex++)
         {
-            Entity owner = owners[ownerIndex];
+            Entity owner = inputPortOwners[ownerIndex];
             GridPlacement placement =
                 EntityManager.GetComponentData<GridPlacement>(owner);
             DynamicBuffer<BuildingPort> buildingPorts =
@@ -330,17 +343,14 @@ public partial class BeltTransferSystem : SystemBase
         ref EntityCommandBuffer ecb,
         ref int requestCount)
     {
-        Dictionary<ItemId, Entity> prefabsByType = BuildItemPrefabIndex();
-        using NativeArray<Entity> snapshot =
-            outputPortQuery.ToEntityArray(Allocator.Temp);
-        Entity[] owners = snapshot.ToArray();
-        SortPortOwners(owners);
-        HashSet<Entity> reservedTargets = new HashSet<Entity>();
+        reservedTargets.Clear();
         int acceptedCount = 0;
 
-        for (int ownerIndex = 0; ownerIndex < owners.Length; ownerIndex++)
+        for (int ownerIndex = 0;
+             ownerIndex < outputPortOwners.Length;
+             ownerIndex++)
         {
-            Entity owner = owners[ownerIndex];
+            Entity owner = outputPortOwners[ownerIndex];
             GridPlacement placement =
                 EntityManager.GetComponentData<GridPlacement>(owner);
             DynamicBuffer<BuildingPort> buildingPorts =
@@ -406,7 +416,6 @@ public partial class BeltTransferSystem : SystemBase
                 requestCount++;
                 if (!TryGetItemPrefab(
                         port.ItemType,
-                        prefabsByType,
                         out Entity prefab))
                 {
                     continue;
@@ -419,7 +428,7 @@ public partial class BeltTransferSystem : SystemBase
                     targetCell.x + 0.5f,
                     0.535f,
                     targetCell.y + 0.5f);
-                ecb.AddComponent(item, new Item
+                ecb.SetComponent(item, new Item
                 {
                     ItemType = port.ItemType,
                     Position = position
@@ -482,10 +491,9 @@ public partial class BeltTransferSystem : SystemBase
 
     private bool TryGetItemPrefab(
         ItemId itemType,
-        Dictionary<ItemId, Entity> prefabsByType,
         out Entity prefab)
     {
-        if (prefabsByType.TryGetValue(itemType, out prefab) &&
+        if (itemPrefabsByType.TryGetValue(itemType, out prefab) &&
             prefab != Entity.Null && EntityManager.Exists(prefab) &&
             EntityManager.HasComponent<Prefab>(prefab))
         {
@@ -496,16 +504,23 @@ public partial class BeltTransferSystem : SystemBase
         return false;
     }
 
-    private Dictionary<ItemId, Entity> BuildItemPrefabIndex()
+    private void RefreshItemPrefabIndex()
     {
-        Dictionary<ItemId, Entity> result =
-            new Dictionary<ItemId, Entity>();
         if (itemCatalogQuery.CalculateEntityCount() != 1)
         {
-            return result;
+            cachedItemCatalog = Entity.Null;
+            itemPrefabsByType.Clear();
+            return;
         }
 
         Entity catalog = itemCatalogQuery.GetSingletonEntity();
+        if (catalog == cachedItemCatalog)
+        {
+            return;
+        }
+
+        cachedItemCatalog = catalog;
+        itemPrefabsByType.Clear();
         DynamicBuffer<ItemPrefabEntry> entries =
             EntityManager.GetBuffer<ItemPrefabEntry>(catalog, true);
         for (int i = 0; i < entries.Length; i++)
@@ -513,38 +528,34 @@ public partial class BeltTransferSystem : SystemBase
             ItemPrefabEntry entry = entries[i];
             if (entry.ItemType.IsValid && entry.Prefab != Entity.Null)
             {
-                result[entry.ItemType] = entry.Prefab;
+                itemPrefabsByType[entry.ItemType] = entry.Prefab;
             }
         }
-
-        return result;
     }
 
-    private static Dictionary<int2, TransportIndex> BuildTransportIndex(
+    private void RebuildTransportIndex(
         Belt[] belts,
         Merger[] mergers,
         Splitter[] splitters)
     {
-        Dictionary<int2, TransportIndex> result =
-            new Dictionary<int2, TransportIndex>(
-                belts.Length + mergers.Length + splitters.Length);
+        transportByCell.Clear();
+        transportByCell.EnsureCapacity(
+            belts.Length + mergers.Length + splitters.Length);
         for (int i = 0; i < belts.Length; i++)
         {
-            result[belts[i].Cell] =
+            transportByCell[belts[i].Cell] =
                 new TransportIndex(TransportKind.Belt, i);
         }
         for (int i = 0; i < mergers.Length; i++)
         {
-            result[mergers[i].Cell] =
+            transportByCell[mergers[i].Cell] =
                 new TransportIndex(TransportKind.Merger, i);
         }
         for (int i = 0; i < splitters.Length; i++)
         {
-            result[splitters[i].Cell] =
+            transportByCell[splitters[i].Cell] =
                 new TransportIndex(TransportKind.Splitter, i);
         }
-
-        return result;
     }
 
     private static bool TryGetReadyItem(
@@ -696,6 +707,35 @@ public partial class BeltTransferSystem : SystemBase
                 rightPlacement.AnchorCell.y);
             return y != 0 ? y : left.Index.CompareTo(right.Index);
         });
+    }
+
+    private void RefreshPortOwnerCache()
+    {
+        if (gridQuery.CalculateEntityCount() != 1)
+        {
+            inputPortOwners = Array.Empty<Entity>();
+            outputPortOwners = Array.Empty<Entity>();
+            hasCachedPortOwnerRevision = false;
+            return;
+        }
+
+        uint revision = gridQuery.GetSingleton<GridDefinition>().Revision;
+        if (hasCachedPortOwnerRevision &&
+            revision == cachedPortOwnerRevision)
+        {
+            return;
+        }
+
+        using NativeArray<Entity> inputSnapshot =
+            inputPortQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<Entity> outputSnapshot =
+            outputPortQuery.ToEntityArray(Allocator.Temp);
+        inputPortOwners = inputSnapshot.ToArray();
+        outputPortOwners = outputSnapshot.ToArray();
+        SortPortOwners(inputPortOwners);
+        SortPortOwners(outputPortOwners);
+        cachedPortOwnerRevision = revision;
+        hasCachedPortOwnerRevision = true;
     }
 
     private static bool TryGetBuildingPort(

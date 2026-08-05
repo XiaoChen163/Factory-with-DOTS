@@ -6,6 +6,7 @@ using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+[DisableAutoCreation]
 public partial class PlayerShootingSystem : SystemBase
 {
     public Action<Entity> OnShoot;

@@ -6,6 +6,9 @@ using Unity.Transforms;
 [UpdateBefore(typeof(GridOccupancyIndexSystem))]
 public partial struct GridPlacementTransformSystem : ISystem
 {
+    private uint lastGridRevision;
+    private bool hasAlignedRevision;
+
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -18,6 +21,13 @@ public partial struct GridPlacementTransformSystem : ISystem
     {
         GridDefinition grid =
             SystemAPI.GetSingleton<GridDefinition>();
+        if (hasAlignedRevision && grid.Revision == lastGridRevision)
+        {
+            return;
+        }
+
+        lastGridRevision = grid.Revision;
+        hasAlignedRevision = true;
         state.Dependency = new AlignToGridJob
         {
             Grid = grid

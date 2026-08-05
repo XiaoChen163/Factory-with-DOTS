@@ -7,6 +7,20 @@ using UnityEngine;
 public static class FactoryPerformanceBatchRunner
 {
     private const string SceneArgument = "-factoryPerformanceScene";
+    private const string SharedSubScenePath =
+        "Assets/Scenes/Stage3EntitiesSubscene.unity";
+
+    public static void ReimportSubSceneAndRun()
+    {
+        Debug.Log(
+            "[ECS Performance] Force reimporting shared SubScene: " +
+            SharedSubScenePath);
+        AssetDatabase.ImportAsset(
+            SharedSubScenePath,
+            ImportAssetOptions.ForceSynchronousImport |
+            ImportAssetOptions.ForceUpdate);
+        Run();
+    }
 
     public static void Run()
     {

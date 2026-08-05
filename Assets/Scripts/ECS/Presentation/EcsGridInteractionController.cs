@@ -44,6 +44,14 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private bool beltPathStarted;
     private bool horizontalFirst = true;
     private int2 beltPathStart;
+    private World cachedWorld;
+    private EntityQuery gridQuery;
+    private EntityQuery databaseQuery;
+    private Entity gridEntity = Entity.Null;
+    private Entity databaseEntity = Entity.Null;
+    private BlobAssetReference<FactoryDatabaseBlob> databaseReference;
+    private bool ecsCacheInitialized;
+    private int cachedGridCount;
 
     public BuildingKind SelectedKind { get; private set; } =
         BuildingKind.Belt;
@@ -78,10 +86,12 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private void OnDisable()
     {
         HidePlacementPreview();
+        ReleaseEcsCache();
     }
 
     private void OnDestroy()
     {
+        ReleaseEcsCache();
         if (previewRoot != null)
         {
             Destroy(previewRoot.gameObject);
@@ -849,48 +859,37 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         out bool isInside,
         bool logFailure)
     {
-        world = World.DefaultGameObjectInjectionWorld;
+        world = null;
         grid = default;
         gridEntity = Entity.Null;
         cell = default;
         hitPoint = default;
         isInside = false;
+        if (!TryGetGrid(
+                out world,
+                out gridEntity,
+                out grid))
+        {
+            if (logFailure)
+            {
+                if (world == null || !world.IsCreated)
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Raycast] The default ECS World is unavailable.");
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Raycast] Exactly one GridDefinition is required; found " +
+                        cachedGridCount + ".");
+                }
+            }
+
+            return false;
+        }
+
         Ray ray = inputCamera.ScreenPointToRay(
             Input.mousePosition);
-        if (world == null || !world.IsCreated)
-        {
-            if (logFailure)
-            {
-                Debug.LogWarning(
-                    "[ECS Grid Raycast] The default ECS World is unavailable.");
-            }
-
-            return false;
-        }
-
-        EntityManager entityManager = world.EntityManager;
-        EntityQuery query = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<GridDefinition>());
-        int gridCount = query.CalculateEntityCount();
-        bool found = gridCount == 1;
-        if (found)
-        {
-            gridEntity = query.GetSingletonEntity();
-            grid = query.GetSingleton<GridDefinition>();
-        }
-
-        query.Dispose();
-        if (!found)
-        {
-            if (logFailure)
-            {
-                Debug.LogWarning(
-                    "[ECS Grid Raycast] Exactly one GridDefinition is required; found " +
-                    gridCount + ".");
-            }
-
-            return false;
-        }
 
         Plane gridPlane = new Plane(
             Vector3.up,
@@ -1039,21 +1038,128 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         }
     }
 
-    private static bool TryGetDatabase(
+    private bool TryGetDatabase(
         out BlobAssetReference<FactoryDatabaseBlob> reference)
     {
         reference = default;
-        World world = World.DefaultGameObjectInjectionWorld;
-        if (world == null || !world.IsCreated)
+        if (!EnsureEcsCache())
+        {
             return false;
-        EntityManager entityManager = world.EntityManager;
-        EntityQuery query = entityManager.CreateEntityQuery(
+        }
+
+        EntityManager entityManager = cachedWorld.EntityManager;
+        if (databaseEntity == Entity.Null ||
+            !entityManager.Exists(databaseEntity) ||
+            !entityManager.HasComponent<FactoryDatabase>(databaseEntity) ||
+            !databaseReference.IsCreated)
+        {
+            RefreshDatabaseSingleton();
+        }
+
+        reference = databaseReference;
+        return databaseEntity != Entity.Null && reference.IsCreated;
+    }
+
+    private bool TryGetGrid(
+        out World world,
+        out Entity currentGridEntity,
+        out GridDefinition grid)
+    {
+        world = null;
+        currentGridEntity = Entity.Null;
+        grid = default;
+        if (!EnsureEcsCache())
+        {
+            return false;
+        }
+
+        world = cachedWorld;
+        EntityManager entityManager = cachedWorld.EntityManager;
+        if (gridEntity == Entity.Null ||
+            !entityManager.Exists(gridEntity) ||
+            !entityManager.HasComponent<GridDefinition>(gridEntity))
+        {
+            RefreshGridSingleton();
+        }
+
+        if (gridEntity == Entity.Null)
+        {
+            return false;
+        }
+
+        currentGridEntity = gridEntity;
+        grid = entityManager.GetComponentData<GridDefinition>(gridEntity);
+        return true;
+    }
+
+    private bool EnsureEcsCache()
+    {
+        World currentWorld = World.DefaultGameObjectInjectionWorld;
+        if (currentWorld == null || !currentWorld.IsCreated)
+        {
+            ReleaseEcsCache();
+            return false;
+        }
+
+        if (ecsCacheInitialized && cachedWorld == currentWorld)
+        {
+            return true;
+        }
+
+        ReleaseEcsCache();
+        cachedWorld = currentWorld;
+        EntityManager entityManager = currentWorld.EntityManager;
+        gridQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<GridDefinition>());
+        databaseQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<FactoryDatabase>());
-        bool found = query.CalculateEntityCount() == 1;
-        if (found)
-            reference = query.GetSingleton<FactoryDatabase>().Value;
-        query.Dispose();
-        return found && reference.IsCreated;
+        ecsCacheInitialized = true;
+        RefreshGridSingleton();
+        RefreshDatabaseSingleton();
+        return true;
+    }
+
+    private void RefreshGridSingleton()
+    {
+        gridEntity = Entity.Null;
+        cachedGridCount = gridQuery.CalculateEntityCount();
+        if (cachedGridCount == 1)
+        {
+            gridEntity = gridQuery.GetSingletonEntity();
+        }
+    }
+
+    private void RefreshDatabaseSingleton()
+    {
+        databaseEntity = Entity.Null;
+        databaseReference = default;
+        if (databaseQuery.CalculateEntityCount() != 1)
+        {
+            return;
+        }
+
+        databaseEntity = databaseQuery.GetSingletonEntity();
+        databaseReference = cachedWorld.EntityManager
+            .GetComponentData<FactoryDatabase>(databaseEntity)
+            .Value;
+    }
+
+    private void ReleaseEcsCache()
+    {
+        if (ecsCacheInitialized &&
+            cachedWorld != null &&
+            cachedWorld.IsCreated)
+        {
+            gridQuery.Dispose();
+            databaseQuery.Dispose();
+        }
+
+        ecsCacheInitialized = false;
+        cachedWorld = null;
+        gridEntity = Entity.Null;
+        databaseEntity = Entity.Null;
+        databaseReference = default;
+        cachedGridCount = 0;
     }
 
     private static void Enqueue(
@@ -1074,26 +1180,24 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             .Add(command);
     }
 
-    private static void ConsumeBuildResults()
+    private void ConsumeBuildResults()
     {
-        World world = World.DefaultGameObjectInjectionWorld;
-        if (world == null || !world.IsCreated)
+        if (!TryGetGrid(
+                out World world,
+                out Entity currentGridEntity,
+                out _))
         {
             return;
         }
 
         EntityManager entityManager = world.EntityManager;
-        EntityQuery query = entityManager.CreateEntityQuery(
-            ComponentType.ReadWrite<GridBuildResult>());
-        if (query.CalculateEntityCount() != 1)
+        if (!entityManager.HasBuffer<GridBuildResult>(currentGridEntity))
         {
-            query.Dispose();
             return;
         }
 
-        Entity gridEntity = query.GetSingletonEntity();
         DynamicBuffer<GridBuildResult> results =
-            entityManager.GetBuffer<GridBuildResult>(gridEntity);
+            entityManager.GetBuffer<GridBuildResult>(currentGridEntity);
         for (int i = 0; i < results.Length; i++)
         {
             GridBuildResult result = results[i];
@@ -1120,6 +1224,5 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         }
 
         results.Clear();
-        query.Dispose();
     }
 }

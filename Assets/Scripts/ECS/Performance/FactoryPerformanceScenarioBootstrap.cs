@@ -269,12 +269,29 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             }
         }
 
-        if (itemPrefab == Entity.Null ||
-            !entityManager.Exists(itemPrefab) ||
-            !entityManager.HasComponent<Prefab>(itemPrefab) ||
-            !entityManager.HasComponent<LocalTransform>(itemPrefab))
+        if (itemPrefab == Entity.Null)
         {
-            failure = "Iron ore Item Prefab is unavailable.";
+            failure = "Iron ore Item Prefab entry is unavailable.";
+            return false;
+        }
+        if (!entityManager.Exists(itemPrefab))
+        {
+            failure = "Iron ore Item Prefab entity does not exist.";
+            return false;
+        }
+        if (!entityManager.HasComponent<Prefab>(itemPrefab))
+        {
+            failure = "Iron ore Item Prefab is missing Prefab.";
+            return false;
+        }
+        if (!entityManager.HasComponent<Item>(itemPrefab))
+        {
+            failure = "Iron ore Item Prefab is missing Item.";
+            return false;
+        }
+        if (!entityManager.HasComponent<LocalTransform>(itemPrefab))
+        {
+            failure = "Iron ore Item Prefab is missing LocalTransform.";
             return false;
         }
 
@@ -308,7 +325,7 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 cell.x + 0.5f,
                 0.535f,
                 cell.y + 0.5f);
-            ecb.AddComponent(item, new Item
+            ecb.SetComponent(item, new Item
             {
                 ItemType = itemType,
                 Position = position

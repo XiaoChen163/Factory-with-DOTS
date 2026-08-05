@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
+[DisableAutoCreation]
 public partial class SpawnCubeSystem : SystemBase
 {
     protected override void OnCreate()

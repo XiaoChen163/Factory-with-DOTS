@@ -269,19 +269,33 @@ public struct BeltState : IComponentData
 
 任务：
 
-- [ ] 缓存 Item Prefab Index。
-- [ ] 缓存端口 Owner 顺序，只在 Grid Revision 变化时重建。
-- [ ] 为 Item Prefab 预置 Item 组件。
-- [ ] 缓存表现层 EntityQuery 和 Singleton。
-- [ ] 为 GridPlacement Transform 增加 Dirty/Revision 门控。
-- [ ] 清理或隔离自动创建的 DotsTest Systems。
-- [ ] 移除稳态 Tick 中能直接消除的托管临时集合。
+- [x] 缓存 Item Prefab Index。
+- [x] 缓存端口 Owner 顺序，只在 Grid Revision 变化时重建。
+- [x] 为 Item Prefab 预置 Item 组件。
+- [x] 缓存表现层 EntityQuery 和 Singleton。
+- [x] 为 GridPlacement Transform 增加 Dirty/Revision 门控。
+- [x] 清理或隔离自动创建的 DotsTest Systems。
+- [x] 移除稳态 Tick 中能直接消除的托管临时集合。
 
 退出条件：
 
 - 稳态 GC Alloc 显著下降；
 - 建造、拆除和端口行为回归测试通过；
 - Grid 未变化时不再遍历并写入全部建筑 Transform。
+
+实施记录（2026-08-05）：
+
+- `BeltTransferSystem` 持久复用 Item Prefab Index、Cell Index 和目标保留集合；
+  输入/输出端口 Owner 只在 `GridDefinition.Revision` 变化时重新抓取和排序。
+- Item Prefab 在烘焙阶段由 `ItemPrefabBakingSystem` 预置 `Item`，运行时实例化
+  路径由 `AddComponent` 改为 `SetComponent`，性能场景初始化路径同步更新。
+- `EcsGridInteractionController` 按 Default World 生命周期缓存 Grid/Database
+  Query、Singleton Entity 和 Database Blob 引用。
+- `GridPlacementTransformSystem` 只在 Grid Revision 变化时调度全量对齐 Job。
+- DotsTest 下 4 个演示系统均标记 `[DisableAutoCreation]`。
+- 新增建筑输入、建筑输出和端口 Owner Revision 失效测试。
+- 当前机器的采集结果与原基准硬件隔离保存，不做跨硬件结论；采集说明见
+  [`PerformanceReports/phase1-current-hardware/README.md`](PerformanceReports/phase1-current-hardware/README.md)。
 
 ### Phase 2：拓扑缓存和 O(N) Resolver
 

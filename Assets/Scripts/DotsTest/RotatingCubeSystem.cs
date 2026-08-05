@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Transforms;
 
+[DisableAutoCreation]
 public partial struct RotatingCubeSystem : ISystem
 {
     public void OnCreate(ref SystemState state)

@@ -103,12 +103,13 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             for (int i = 0; i < authoring.database.items.Length; i++)
             {
                 FactoryItemTableRow item = authoring.database.items[i];
+                Entity itemPrefab = GetEntity(
+                    item.prefab,
+                    TransformUsageFlags.Dynamic);
                 itemPrefabs.Add(new ItemPrefabEntry
                 {
                     ItemType = new ItemId { Value = item.id },
-                    Prefab = GetEntity(
-                        item.prefab,
-                        TransformUsageFlags.Dynamic)
+                    Prefab = itemPrefab
                 });
             }
         }
@@ -128,6 +129,8 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             bool valid = true;
             System.Collections.Generic.HashSet<ushort> itemIds =
                 new System.Collections.Generic.HashSet<ushort>();
+            System.Collections.Generic.HashSet<GameObject> itemPrefabs =
+                new System.Collections.Generic.HashSet<GameObject>();
             for (int i = 0; i < authoring.database.items.Length; i++)
             {
                 FactoryItemTableRow item = authoring.database.items[i];
@@ -139,7 +142,8 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                 if (item.id == 0 ||
                     !itemIds.Add(item.id) ||
                     string.IsNullOrWhiteSpace(item.prefabKey) ||
-                    item.prefab == null)
+                    item.prefab == null ||
+                    !itemPrefabs.Add(item.prefab))
                 {
                     Debug.LogError(
                         $"Generated item row '{item.key}' has an invalid " +

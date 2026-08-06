@@ -14,7 +14,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
     protected override void OnCreate()
     {
         beltQuery = GetEntityQuery(
-            ComponentType.ReadOnly<Belt>(),
+            ComponentType.ReadOnly<BeltTopology>(),
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingVisualReference>());
         RequireForUpdate<GridDefinition>();
@@ -40,8 +40,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
         }
 
         Dependency.Complete();
-        using Unity.Collections.NativeArray<Belt> belts =
-            beltQuery.ToComponentDataArray<Belt>(
+        using Unity.Collections.NativeArray<BeltTopology> belts =
+            beltQuery.ToComponentDataArray<BeltTopology>(
                 Unity.Collections.Allocator.Temp);
         using Unity.Collections.NativeArray<GridPlacement> placements =
             beltQuery.ToComponentDataArray<GridPlacement>(
@@ -72,7 +72,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private void RefreshBeltVisual(
-        in Belt belt,
+        in BeltTopology belt,
         in GridPlacement placement,
         in BeltVisualParts visual,
         GridOccupancyIndexSystem occupancySystem)
@@ -207,7 +207,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private bool HasOutputConnection(
-        in Belt belt,
+        in BeltTopology belt,
         GridOccupancyIndexSystem occupancySystem)
     {
         int2 targetCell = belt.Cell + belt.Direction;
@@ -220,10 +220,10 @@ public partial class BeltTopologyVisualSystem : SystemBase
             return false;
         }
 
-        if (EntityManager.HasComponent<Belt>(target))
+        if (EntityManager.HasComponent<BeltTopology>(target))
         {
-            Belt targetBelt =
-                EntityManager.GetComponentData<Belt>(target);
+            BeltTopology targetBelt =
+                EntityManager.GetComponentData<BeltTopology>(target);
             return TryFindIncomingDirection(
                        targetBelt.Cell,
                        targetBelt.Direction,

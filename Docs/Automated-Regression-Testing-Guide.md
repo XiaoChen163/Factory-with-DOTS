@@ -47,7 +47,16 @@
 
 ## 3. 当前自动化测试项目
 
-当前 `Factory.Tests` 一共包含 9 个测试。
+当前 `Factory.Tests` 一共包含 39 个测试，分布如下：
+
+- `FixtureSmokeTests`：2 个夹具烟雾测试；
+- `BeltTransferResolverTests`：7 个旧 Resolver 直线、阻塞和争抢测试；
+- `BeltTransferResolverPhase2Tests`：8 个新旧 Resolver 差分与复杂度测试；
+- `BeltTransferSystemPhase1Tests`：5 个建筑端口与 Revision 失效测试；
+- `BeltTransferResolverPhase3Tests`：3 个 Burst 仲裁 Job 回归路径测试；
+- `BeltTransferSystemPhase3Tests`：5 个组件拆分、多 Tick 链路、统计和
+  ECB 生命周期测试；
+- `PerformanceScenarioLayoutTests`：9 个性能场景布局校验测试。
 
 ### 3.1 夹具烟雾测试
 
@@ -103,7 +112,7 @@
 2. 选择 `EditMode`。
 3. 选择 `Factory.Tests`。
 4. 点击 `Run All`。
-5. 确认 9 个测试全部通过，Console 中没有异常。
+5. 确认 39 个测试全部通过，Console 中没有异常。
 
 ### 4.2 使用项目内的测试请求入口
 
@@ -143,9 +152,12 @@ $testLog = Join-Path $projectPath "Temp/Factory.Tests.log"
   -testPlatform EditMode `
   -assemblyNames Factory.Tests `
   -testResults $testResults `
-  -logFile $testLog `
-  -quit
+  -logFile $testLog
 ```
+
+注意：不要追加 `-quit`。本项目的批处理实例在脚本需要重新编译时会先执行
+编译和 Domain Reload，此时 `-quit` 会在测试框架启动前触发退出，导致没有
+测试结果文件；去掉 `-quit` 后测试框架会在运行结束后自行退出。
 
 CI 不仅要检查 Unity 进程退出状态，还应解析测试 XML，确认失败数量为零。
 

@@ -955,12 +955,14 @@ public partial class GridBuildCommandSystem : SystemBase
                     ref database,
                     level.Id,
                     out FactoryBeltLevelBlob beltLevel);
-                ecb.AddComponent(instance, new Belt
+                ecb.AddComponent(instance, new BeltTopology
                 {
                     CellsPerSecond = beltLevel.CellsPerSecond,
                     Cell = placement.AnchorCell,
-                    Direction = direction,
-                    NextCell = placement.AnchorCell + direction,
+                    Direction = direction
+                });
+                ecb.AddComponent(instance, new BeltState
+                {
                     CurrentItem = Entity.Null
                 });
                 break;
@@ -1104,10 +1106,10 @@ public partial class GridBuildCommandSystem : SystemBase
         ref EntityCommandBuffer ecb)
     {
         Entity item = Entity.Null;
-        if (EntityManager.HasComponent<Belt>(building))
+        if (EntityManager.HasComponent<BeltState>(building))
         {
             item =
-                EntityManager.GetComponentData<Belt>(building)
+                EntityManager.GetComponentData<BeltState>(building)
                     .CurrentItem;
         }
         else if (EntityManager.HasComponent<Merger>(building))

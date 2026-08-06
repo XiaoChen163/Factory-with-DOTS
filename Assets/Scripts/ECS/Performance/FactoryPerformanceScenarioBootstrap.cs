@@ -176,7 +176,8 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
         status = "Building the compact ECS layout...";
         EntityQuery beltQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadWrite<Belt>());
+            ComponentType.ReadOnly<BeltTopology>(),
+            ComponentType.ReadWrite<BeltState>());
         EntityQuery mergerQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadWrite<Merger>());
         EntityQuery splitterQuery = entityManager.CreateEntityQuery(
@@ -344,8 +345,10 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
         using NativeArray<Entity> beltEntities =
             beltQuery.ToEntityArray(Allocator.Temp);
-        using NativeArray<Belt> belts =
-            beltQuery.ToComponentDataArray<Belt>(Allocator.Temp);
+        using NativeArray<BeltTopology> beltTopologies =
+            beltQuery.ToComponentDataArray<BeltTopology>(Allocator.Temp);
+        using NativeArray<BeltState> beltStates =
+            beltQuery.ToComponentDataArray<BeltState>(Allocator.Temp);
         using NativeArray<Entity> mergerEntities =
             mergerQuery.ToEntityArray(Allocator.Temp);
         using NativeArray<Merger> mergers =
@@ -355,14 +358,14 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         using NativeArray<Splitter> splitters =
             splitterQuery.ToComponentDataArray<Splitter>(Allocator.Temp);
         Dictionary<int2, int> beltIndexByCell =
-            new Dictionary<int2, int>(belts.Length);
+            new Dictionary<int2, int>(beltTopologies.Length);
         Dictionary<int2, int> mergerIndexByCell =
             new Dictionary<int2, int>(mergers.Length);
         Dictionary<int2, int> splitterIndexByCell =
             new Dictionary<int2, int>(splitters.Length);
-        for (int i = 0; i < belts.Length; i++)
+        for (int i = 0; i < beltTopologies.Length; i++)
         {
-            beltIndexByCell.Add(belts[i].Cell, i);
+            beltIndexByCell.Add(beltTopologies[i].Cell, i);
         }
         for (int i = 0; i < mergers.Length; i++)
         {
@@ -408,10 +411,10 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
             if (isBelt)
             {
-                Belt belt = belts[beltIndex];
-                belt.CurrentItem = item;
-                belt.Progress = 0f;
-                ecb.SetComponent(beltEntities[beltIndex], belt);
+                BeltState beltState = beltStates[beltIndex];
+                beltState.CurrentItem = item;
+                beltState.Progress = 0f;
+                ecb.SetComponent(beltEntities[beltIndex], beltState);
             }
             else if (isMerger)
             {

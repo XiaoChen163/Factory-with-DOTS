@@ -1,24 +1,32 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace Factory.Tests
 {
     /// <summary>
     /// Builds transport snapshots and can advance them with either the legacy
-    /// or Phase 2 resolver for one fixed tick.
+    /// resolver or the Phase 3 Burst arbitration job for one fixed tick.
     /// </summary>
     public sealed class TransportScenario : IDisposable
     {
         private readonly World world;
         private readonly List<Entity> items = new List<Entity>();
         private readonly List<Entity> beltEntities = new List<Entity>();
-        private readonly List<Belt> belts = new List<Belt>();
-        private readonly List<Entity> mergerEntities = new List<Entity>();
+        private readonly List<BeltTopology> beltTopologies =
+            new List<BeltTopology>();
+        private readonly List<BeltState> beltStates =
+            new List<BeltState>();
+        private readonly List<Entity> mergerEntities =
+            new List<Entity>();
         private readonly List<Merger> mergers = new List<Merger>();
-        private readonly List<Entity> splitterEntities = new List<Entity>();
-        private readonly List<Splitter> splitters = new List<Splitter>();
+        private readonly List<Entity> splitterEntities =
+            new List<Entity>();
+        private readonly List<Splitter> splitters =
+            new List<Splitter>();
         private readonly HashSet<Entity> processedJunctions =
             new HashSet<Entity>();
         private readonly FactoryLinearTransferResolver linearResolver =
@@ -29,7 +37,9 @@ namespace Factory.Tests
             world = new World(name);
         }
 
-        public IReadOnlyList<Belt> Belts => belts;
+        public IReadOnlyList<BeltTopology> BeltTopologies =>
+            beltTopologies;
+        public IReadOnlyList<BeltState> BeltStates => beltStates;
         public IReadOnlyList<Merger> Mergers => mergers;
         public IReadOnlyList<Splitter> Splitters => splitters;
         public int LinearTopologyRebuildCount =>
@@ -64,14 +74,16 @@ namespace Factory.Tests
         {
             Entity entity = world.EntityManager.CreateEntity();
             beltEntities.Add(entity);
-            belts.Add(new Belt
+            beltTopologies.Add(new BeltTopology
             {
                 Cell = cell,
                 Direction = direction,
-                NextCell = cell + direction,
-                CurrentItem = item,
-                Progress = progress,
                 CellsPerSecond = cellsPerSecond
+            });
+            beltStates.Add(new BeltState
+            {
+                CurrentItem = item,
+                Progress = progress
             });
             return entity;
         }
@@ -115,7 +127,9 @@ namespace Factory.Tests
         public TransportTickResult ResolveTick()
         {
             Entity[] beltEntitySnapshot = beltEntities.ToArray();
-            Belt[] beltSnapshot = belts.ToArray();
+            BeltTopology[] beltTopologySnapshot =
+                beltTopologies.ToArray();
+            BeltState[] beltStateSnapshot = beltStates.ToArray();
             Entity[] mergerEntitySnapshot = mergerEntities.ToArray();
             Merger[] mergerSnapshot = mergers.ToArray();
             Entity[] splitterEntitySnapshot = splitterEntities.ToArray();
@@ -133,7 +147,8 @@ namespace Factory.Tests
             {
                 FactoryTransferResolver.Resolve(
                     beltEntitySnapshot,
-                    beltSnapshot,
+                    beltTopologySnapshot,
+                    beltStateSnapshot,
                     mergerEntitySnapshot,
                     mergerSnapshot,
                     splitterEntitySnapshot,
@@ -153,7 +168,8 @@ namespace Factory.Tests
                 }
             }
 
-            ReplaceContents(belts, beltSnapshot);
+            ReplaceContents(beltTopologies, beltTopologySnapshot);
+            ReplaceContents(beltStates, beltStateSnapshot);
             ReplaceContents(mergers, mergerSnapshot);
             ReplaceContents(splitters, splitterSnapshot);
 
@@ -163,44 +179,63 @@ namespace Factory.Tests
                 acceptedTransferCount,
                 executedPassCount);
         }
-
         public TransportTickResult ResolveTickLinear(uint revision = 1)
         {
-            Entity[] beltEntitySnapshot = beltEntities.ToArray();
-            Belt[] beltSnapshot = belts.ToArray();
-            Entity[] mergerEntitySnapshot = mergerEntities.ToArray();
-            Merger[] mergerSnapshot = mergers.ToArray();
-            Entity[] splitterEntitySnapshot = splitterEntities.ToArray();
-            Splitter[] splitterSnapshot = splitters.ToArray();
+            using NativeArray<Entity> beltEntitySnapshot =
+                new NativeArray<Entity>(
+                    beltEntities.ToArray(),
+                    Allocator.TempJob);
+            using NativeArray<BeltTopology> beltTopologySnapshot =
+                new NativeArray<BeltTopology>(
+                    beltTopologies.ToArray(),
+                    Allocator.TempJob);
+            using NativeArray<BeltState> beltStateSnapshot =
+                new NativeArray<BeltState>(
+                    beltStates.ToArray(),
+                    Allocator.TempJob);
+            using NativeArray<Entity> mergerEntitySnapshot =
+                new NativeArray<Entity>(
+                    mergerEntities.ToArray(),
+                    Allocator.TempJob);
+            using NativeArray<Merger> mergerSnapshot =
+                new NativeArray<Merger>(
+                    mergers.ToArray(),
+                    Allocator.TempJob);
+            using NativeArray<Entity> splitterEntitySnapshot =
+                new NativeArray<Entity>(
+                    splitterEntities.ToArray(),
+                    Allocator.TempJob);
+            using NativeArray<Splitter> splitterSnapshot =
+                new NativeArray<Splitter>(
+                    splitters.ToArray(),
+                    Allocator.TempJob);
 
             linearResolver.EnsureTopology(
                 revision,
                 beltEntitySnapshot,
-                beltSnapshot,
+                beltTopologySnapshot,
                 mergerEntitySnapshot,
                 mergerSnapshot,
                 splitterEntitySnapshot,
                 splitterSnapshot);
-            processedJunctions.Clear();
-            linearResolver.Resolve(
-                beltEntitySnapshot,
-                beltSnapshot,
-                mergerEntitySnapshot,
-                mergerSnapshot,
-                splitterEntitySnapshot,
-                splitterSnapshot,
-                processedJunctions,
-                out int readyRequestCount,
-                out int acceptedTransferCount);
 
-            ReplaceContents(belts, beltSnapshot);
+            FactoryTransferArbitrationJob job =
+                linearResolver.CreateArbitrationJob();
+            job.EnableInterface = 0;
+            job.BeltStates = beltStateSnapshot;
+            job.Mergers = mergerSnapshot;
+            job.Splitters = splitterSnapshot;
+            job.Execute();
+
+            ReplaceContents(beltTopologies, beltTopologySnapshot);
+            ReplaceContents(beltStates, beltStateSnapshot);
             ReplaceContents(mergers, mergerSnapshot);
             ReplaceContents(splitters, splitterSnapshot);
 
             return new TransportTickResult(
                 linearResolver.LoopCount,
-                readyRequestCount,
-                acceptedTransferCount,
+                linearResolver.LastReadyRequestCount,
+                linearResolver.LastAcceptedTransferCount,
                 1);
         }
 
@@ -208,16 +243,18 @@ namespace Factory.Tests
         {
             List<TransportNodeSnapshot> nodes =
                 new List<TransportNodeSnapshot>(
-                    belts.Count + mergers.Count + splitters.Count);
+                    beltTopologies.Count + mergers.Count +
+                    splitters.Count);
 
-            for (int i = 0; i < belts.Count; i++)
+            for (int i = 0; i < beltTopologies.Count; i++)
             {
-                Belt belt = belts[i];
+                BeltTopology topology = beltTopologies[i];
+                BeltState state = beltStates[i];
                 nodes.Add(new TransportNodeSnapshot(
                     TransportNodeKind.Belt,
-                    belt.Cell,
-                    belt.CurrentItem,
-                    belt.Progress,
+                    topology.Cell,
+                    state.CurrentItem,
+                    state.Progress,
                     0));
             }
             for (int i = 0; i < mergers.Count; i++)
@@ -254,13 +291,26 @@ namespace Factory.Tests
             }
         }
 
-        private static void ReplaceContents<T>(List<T> target, T[] source)
+        private static void ReplaceContents<T>(
+            List<T> target,
+            T[] source)
         {
             target.Clear();
             target.AddRange(source);
         }
-    }
 
+        private static void ReplaceContents<T>(
+            List<T> target,
+            NativeArray<T> source)
+            where T : unmanaged
+        {
+            target.Clear();
+            for (int i = 0; i < source.Length; i++)
+            {
+                target.Add(source[i]);
+            }
+        }
+    }
     public readonly struct TransportTickResult
     {
         public TransportTickResult(

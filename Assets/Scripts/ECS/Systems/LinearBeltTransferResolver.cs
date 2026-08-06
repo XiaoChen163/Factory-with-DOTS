@@ -1,8 +1,10 @@
 using System;
-using System.Collections.Generic;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Transforms;
 
 public enum FactoryTransportKind : byte
 {
@@ -11,75 +13,232 @@ public enum FactoryTransportKind : byte
     Splitter
 }
 
-public readonly struct FactoryTransportIndex
+/// <summary>
+/// Unmanaged per-port key used by the building-port reservation counters.
+/// </summary>
+public readonly struct TransportPortKey : IEquatable<TransportPortKey>
 {
-    public FactoryTransportIndex(
-        FactoryTransportKind kind,
-        int index)
+    public TransportPortKey(Entity owner, byte portIndex)
     {
-        Kind = kind;
-        Index = index;
+        Owner = owner;
+        PortIndex = portIndex;
     }
 
-    public FactoryTransportKind Kind { get; }
-    public int Index { get; }
+    public readonly Entity Owner;
+    public readonly byte PortIndex;
+
+    public bool Equals(TransportPortKey other)
+    {
+        return Owner == other.Owner && PortIndex == other.PortIndex;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is TransportPortKey other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return (Owner.GetHashCode() * 397) ^ PortIndex;
+    }
 }
 
+internal struct TransportTopologyNode
+{
+    public Entity Entity;
+    public FactoryTransportKind Kind;
+    public int SourceIndex;
+    public int2 Cell;
+    public int2 Direction;
+    public int Input0;
+    public int Input1;
+    public int Input2;
+    public int Output0;
+    public int Output1;
+    public int Output2;
+    public byte InputCount;
+}
+
+internal struct TransportDynamicNode
+{
+    public Entity CurrentItem;
+    public float Progress;
+    public int Cursor;
+    public int TargetIndex;
+    public int OutputIndex;
+    public byte IsReady;
+}
+
+internal static class TransportTopologyAccess
+{
+    public static int GetInput(in TransportTopologyNode node, int index)
+    {
+        switch (index)
+        {
+            case 0:
+                return node.Input0;
+            case 1:
+                return node.Input1;
+            case 2:
+                return node.Input2;
+            default:
+                return -1;
+        }
+    }
+
+    public static void SetInput(
+        ref TransportTopologyNode node,
+        int index,
+        int value)
+    {
+        switch (index)
+        {
+            case 0:
+                node.Input0 = value;
+                break;
+            case 1:
+                node.Input1 = value;
+                break;
+            case 2:
+                node.Input2 = value;
+                break;
+        }
+    }
+
+    public static int GetOutput(in TransportTopologyNode node, int index)
+    {
+        switch (index)
+        {
+            case 0:
+                return node.Output0;
+            case 1:
+                return node.Output1;
+            case 2:
+                return node.Output2;
+            default:
+                return -1;
+        }
+    }
+
+    public static void SetOutput(
+        ref TransportTopologyNode node,
+        int index,
+        int value)
+    {
+        switch (index)
+        {
+            case 0:
+                node.Output0 = value;
+                break;
+            case 1:
+                node.Output1 = value;
+                break;
+            case 2:
+                node.Output2 = value;
+                break;
+        }
+    }
+
+    public static int WrapThree(int value)
+    {
+        int wrapped = value % 3;
+        return wrapped < 0 ? wrapped + 3 : wrapped;
+    }
+
+    public static int2 RotateClockwise(int2 direction)
+    {
+        return new int2(direction.y, -direction.x);
+    }
+
+    public static int2 RotateCounterClockwise(int2 direction)
+    {
+        return new int2(-direction.y, direction.x);
+    }
+
+    public static int2 GetSplitterOutputDirection(
+        int2 direction,
+        int outputIndex)
+    {
+        switch (WrapThree(outputIndex))
+        {
+            case 0:
+                return direction;
+            case 1:
+                return RotateCounterClockwise(direction);
+            default:
+                return RotateClockwise(direction);
+        }
+    }
+
+    public static int GetSplitterOutputIndex(
+        int2 direction,
+        int2 outputDirection)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            if (math.all(
+                    GetSplitterOutputDirection(direction, i) ==
+                    outputDirection))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    public static int GetMergerInputIndex(
+        int2 direction,
+        int2 travelDirection)
+    {
+        if (math.all(travelDirection == direction))
+        {
+            return 0;
+        }
+
+        if (math.all(travelDirection == RotateClockwise(direction)))
+        {
+            return 1;
+        }
+
+        if (math.all(travelDirection == RotateCounterClockwise(direction)))
+        {
+            return 2;
+        }
+
+        return -1;
+    }
+}
 /// <summary>
-/// Phase 2 transfer resolver. Static connections and loop data live in
+/// Phase 3 transfer resolver. Static connections and loop data live in
 /// persistent native containers and are rebuilt only when the grid revision
-/// changes. Dynamic arbitration remains on the main thread until Phase 3.
+/// changes. The per-tick arbitration runs inside
+/// <see cref="FactoryTransferArbitrationJob"/>, a Burst-compilable single job
+/// that also commits building-port transfers. The steady-state tick path no
+/// longer converts native snapshots to managed arrays and never writes
+/// transport components back from the main thread.
 /// </summary>
 public sealed class FactoryLinearTransferResolver : IDisposable
 {
-    private const int MaxRoutingPasses = 3;
-
-    private enum ResolutionState : byte
-    {
-        Unresolved,
-        Resolving,
-        Accepted,
-        Rejected
-    }
-
-    private struct TopologyNode
-    {
-        public Entity Entity;
-        public FactoryTransportKind Kind;
-        public int SourceIndex;
-        public int2 Cell;
-        public int2 Direction;
-        public int Input0;
-        public int Input1;
-        public int Input2;
-        public int Output0;
-        public int Output1;
-        public int Output2;
-        public byte InputCount;
-        public byte IsLoop;
-    }
-
-    private struct DynamicNode
-    {
-        public Entity CurrentItem;
-        public float Progress;
-        public int Cursor;
-        public int TargetIndex;
-        public int OutputIndex;
-        public byte IsReady;
-    }
-
     private NativeParallelHashMap<int2, int> indexByCell;
-    private NativeList<TopologyNode> topology;
-    private NativeList<DynamicNode> dynamicNodes;
+    private NativeList<TransportTopologyNode> topology;
+    private NativeList<byte> loopVisitState;
+    private NativeList<int> loopPathIndex;
+    private NativeList<int> loopPath;
+    private NativeList<TransportDynamicNode> dynamicNodes;
     private NativeList<int> candidateForTarget;
     private NativeList<byte> resolutionStates;
     private NativeList<byte> accepted;
     private NativeList<Entity> transferredItems;
     private NativeList<int> resolutionStack;
-    private NativeList<byte> loopVisitState;
-    private NativeList<int> loopPathIndex;
-    private NativeList<int> loopPath;
+    private NativeHashSet<Entity> processedJunctions;
+    private NativeHashSet<Entity> reservedTargets;
+    private NativeParallelHashMap<TransportPortKey, ulong> acceptedInputs;
+    private NativeParallelHashMap<TransportPortKey, ulong> acceptedOutputs;
+    private NativeReference<int> candidateInspectionRef;
+    private NativeReference<int> routingPassCountRef;
+    private NativeReference<int> readyRequestCountRef;
+    private NativeReference<int> acceptedTransferCountRef;
     private uint cachedRevision;
     private int cachedBeltCount;
     private int cachedMergerCount;
@@ -92,58 +251,78 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         indexByCell = new NativeParallelHashMap<int2, int>(
             16,
             Allocator.Persistent);
-        topology = new NativeList<TopologyNode>(
+        topology = new NativeList<TransportTopologyNode>(
             16,
             Allocator.Persistent);
-        dynamicNodes = new NativeList<DynamicNode>(
+        loopVisitState = new NativeList<byte>(16, Allocator.Persistent);
+        loopPathIndex = new NativeList<int>(16, Allocator.Persistent);
+        loopPath = new NativeList<int>(16, Allocator.Persistent);
+        dynamicNodes = new NativeList<TransportDynamicNode>(
             16,
             Allocator.Persistent);
-        candidateForTarget = new NativeList<int>(
+        candidateForTarget = new NativeList<int>(16, Allocator.Persistent);
+        resolutionStates = new NativeList<byte>(16, Allocator.Persistent);
+        accepted = new NativeList<byte>(16, Allocator.Persistent);
+        transferredItems = new NativeList<Entity>(16, Allocator.Persistent);
+        resolutionStack = new NativeList<int>(16, Allocator.Persistent);
+        processedJunctions = new NativeHashSet<Entity>(
             16,
             Allocator.Persistent);
-        resolutionStates = new NativeList<byte>(
+        reservedTargets = new NativeHashSet<Entity>(
             16,
             Allocator.Persistent);
-        accepted = new NativeList<byte>(
-            16,
-            Allocator.Persistent);
-        transferredItems = new NativeList<Entity>(
-            16,
-            Allocator.Persistent);
-        resolutionStack = new NativeList<int>(
-            16,
-            Allocator.Persistent);
-        loopVisitState = new NativeList<byte>(
-            16,
-            Allocator.Persistent);
-        loopPathIndex = new NativeList<int>(
-            16,
-            Allocator.Persistent);
-        loopPath = new NativeList<int>(
-            16,
-            Allocator.Persistent);
+        acceptedInputs =
+            new NativeParallelHashMap<TransportPortKey, ulong>(
+                16,
+                Allocator.Persistent);
+        acceptedOutputs =
+            new NativeParallelHashMap<TransportPortKey, ulong>(
+                16,
+                Allocator.Persistent);
+        candidateInspectionRef =
+            new NativeReference<int>(Allocator.Persistent);
+        routingPassCountRef =
+            new NativeReference<int>(Allocator.Persistent);
+        readyRequestCountRef =
+            new NativeReference<int>(Allocator.Persistent);
+        acceptedTransferCountRef =
+            new NativeReference<int>(Allocator.Persistent);
     }
 
     public int TopologyRebuildCount { get; private set; }
     public int NodeCount => topology.IsCreated ? topology.Length : 0;
     public int LoopCount { get; private set; }
-    public int LastCandidateInspectionCount { get; private set; }
-    public int LastRoutingPassCount { get; private set; }
+    public int LastCandidateInspectionCount =>
+        candidateInspectionRef.IsCreated
+            ? candidateInspectionRef.Value
+            : 0;
+    public int LastRoutingPassCount =>
+        routingPassCountRef.IsCreated
+            ? routingPassCountRef.Value
+            : 0;
+    public int LastReadyRequestCount =>
+        readyRequestCountRef.IsCreated
+            ? readyRequestCountRef.Value
+            : 0;
+    public int LastAcceptedTransferCount =>
+        acceptedTransferCountRef.IsCreated
+            ? acceptedTransferCountRef.Value
+            : 0;
 
     public void EnsureTopology(
         uint revision,
-        Entity[] beltEntities,
-        Belt[] belts,
-        Entity[] mergerEntities,
-        Merger[] mergers,
-        Entity[] splitterEntities,
-        Splitter[] splitters,
+        NativeArray<Entity> beltEntities,
+        NativeArray<BeltTopology> beltTopologies,
+        NativeArray<Entity> mergerEntities,
+        NativeArray<Merger> mergers,
+        NativeArray<Entity> splitterEntities,
+        NativeArray<Splitter> splitters,
         bool forceRebuild = false)
     {
         ThrowIfDisposed();
         ValidateSnapshots(
             beltEntities,
-            belts,
+            beltTopologies,
             mergerEntities,
             mergers,
             splitterEntities,
@@ -152,7 +331,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         if (!forceRebuild &&
             hasCachedRevision &&
             revision == cachedRevision &&
-            belts.Length == cachedBeltCount &&
+            beltTopologies.Length == cachedBeltCount &&
             mergers.Length == cachedMergerCount &&
             splitters.Length == cachedSplitterCount)
         {
@@ -162,94 +341,45 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         RebuildTopology(
             revision,
             beltEntities,
-            belts,
+            beltTopologies,
             mergerEntities,
             mergers,
             splitterEntities,
             splitters);
     }
 
-    public bool TryGetTransportIndex(
-        int2 cell,
-        out FactoryTransportIndex result)
+    /// <summary>
+    /// Creates a transfer arbitration job. The caller must assign the
+    /// component/buffer lookups, port-owner arrays and ECB for the ECS path,
+    /// or leave them default and assign the state arrays for the standalone
+    /// regression path.
+    /// </summary>
+    public FactoryTransferArbitrationJob CreateArbitrationJob()
     {
         ThrowIfDisposed();
-        if (indexByCell.TryGetValue(cell, out int nodeIndex))
+        return new FactoryTransferArbitrationJob
         {
-            TopologyNode node = topology[nodeIndex];
-            result = new FactoryTransportIndex(
-                node.Kind,
-                node.SourceIndex);
-            return true;
-        }
-
-        result = default;
-        return false;
-    }
-
-    public void Resolve(
-        Entity[] beltEntities,
-        Belt[] belts,
-        Entity[] mergerEntities,
-        Merger[] mergers,
-        Entity[] splitterEntities,
-        Splitter[] splitters,
-        HashSet<Entity> processedJunctions,
-        out int readyRequestCount,
-        out int acceptedTransferCount)
-    {
-        ThrowIfDisposed();
-        ValidateSnapshots(
-            beltEntities,
-            belts,
-            mergerEntities,
-            mergers,
-            splitterEntities,
-            splitters);
-        if (processedJunctions == null)
-        {
-            throw new ArgumentNullException(nameof(processedJunctions));
-        }
-
-        int expectedNodeCount = belts.Length + mergers.Length +
-            splitters.Length;
-        if (topology.Length != expectedNodeCount)
-        {
-            throw new InvalidOperationException(
-                "Transport topology must be built before resolving a tick.");
-        }
-
-        LoadDynamicState(belts, mergers, splitters);
-        readyRequestCount = 0;
-        acceptedTransferCount = 0;
-        LastCandidateInspectionCount = 0;
-        LastRoutingPassCount = 0;
-
-        // A splitter has at most three outputs. Retrying at most three
-        // arbitration waves therefore bounds the work by a constant instead
-        // of the old JunctionCount + 1 full-graph loop.
-        for (int pass = 0; pass < MaxRoutingPasses; pass++)
-        {
-            LastRoutingPassCount++;
-            int passReadyCount = BuildOutgoingRequests(
-                processedJunctions);
-            readyRequestCount += passReadyCount;
-            if (passReadyCount == 0)
-            {
-                break;
-            }
-
-            SelectIncomingCandidates();
-            ResolveCandidates();
-            int passAcceptedCount = Commit(processedJunctions);
-            acceptedTransferCount += passAcceptedCount;
-            if (passAcceptedCount == 0)
-            {
-                break;
-            }
-        }
-
-        StoreDynamicState(belts, mergers, splitters);
+            IndexByCell = indexByCell,
+            Topology = topology,
+            DynamicNodes = dynamicNodes,
+            CandidateForTarget = candidateForTarget,
+            ResolutionStates = resolutionStates,
+            Accepted = accepted,
+            TransferredItems = transferredItems,
+            ResolutionStack = resolutionStack,
+            ProcessedJunctions = processedJunctions,
+            ReservedTargets = reservedTargets,
+            AcceptedInputs = acceptedInputs,
+            AcceptedOutputs = acceptedOutputs,
+            CandidateInspectionRef = candidateInspectionRef,
+            RoutingPassCountRef = routingPassCountRef,
+            ReadyRequestCountRef = readyRequestCountRef,
+            AcceptedTransferCountRef = acceptedTransferCountRef,
+            BeltCount = cachedBeltCount,
+            MergerCount = cachedMergerCount,
+            SplitterCount = cachedSplitterCount,
+            LoopCount = LoopCount
+        };
     }
 
     public void Dispose()
@@ -262,27 +392,35 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         disposed = true;
         DisposeIfCreated(ref indexByCell);
         DisposeIfCreated(ref topology);
+        DisposeIfCreated(ref loopVisitState);
+        DisposeIfCreated(ref loopPathIndex);
+        DisposeIfCreated(ref loopPath);
         DisposeIfCreated(ref dynamicNodes);
         DisposeIfCreated(ref candidateForTarget);
         DisposeIfCreated(ref resolutionStates);
         DisposeIfCreated(ref accepted);
         DisposeIfCreated(ref transferredItems);
         DisposeIfCreated(ref resolutionStack);
-        DisposeIfCreated(ref loopVisitState);
-        DisposeIfCreated(ref loopPathIndex);
-        DisposeIfCreated(ref loopPath);
+        DisposeIfCreated(ref processedJunctions);
+        DisposeIfCreated(ref reservedTargets);
+        DisposeIfCreated(ref acceptedInputs);
+        DisposeIfCreated(ref acceptedOutputs);
+        DisposeIfCreated(ref candidateInspectionRef);
+        DisposeIfCreated(ref routingPassCountRef);
+        DisposeIfCreated(ref readyRequestCountRef);
+        DisposeIfCreated(ref acceptedTransferCountRef);
     }
-
     private void RebuildTopology(
         uint revision,
-        Entity[] beltEntities,
-        Belt[] belts,
-        Entity[] mergerEntities,
-        Merger[] mergers,
-        Entity[] splitterEntities,
-        Splitter[] splitters)
+        NativeArray<Entity> beltEntities,
+        NativeArray<BeltTopology> beltTopologies,
+        NativeArray<Entity> mergerEntities,
+        NativeArray<Merger> mergers,
+        NativeArray<Entity> splitterEntities,
+        NativeArray<Splitter> splitters)
     {
-        int nodeCount = belts.Length + mergers.Length + splitters.Length;
+        int nodeCount =
+            beltTopologies.Length + mergers.Length + splitters.Length;
         EnsureCapacity(nodeCount);
         topology.ResizeUninitialized(nodeCount);
         indexByCell.Clear();
@@ -292,51 +430,44 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         }
 
         int nodeIndex = 0;
-        for (int i = 0; i < belts.Length; i++, nodeIndex++)
+        for (int i = 0; i < beltTopologies.Length; i++, nodeIndex++)
         {
-            Belt belt = belts[i];
-            belt.IsLoop = false;
-            belt.HasOutput = false;
-            belts[i] = belt;
             SetTopologyNode(
                 nodeIndex,
                 beltEntities[i],
                 FactoryTransportKind.Belt,
                 i,
-                belt.Cell,
-                belt.Direction);
+                beltTopologies[i].Cell,
+                beltTopologies[i].Direction);
         }
 
         for (int i = 0; i < mergers.Length; i++, nodeIndex++)
         {
-            Merger merger = mergers[i];
             SetTopologyNode(
                 nodeIndex,
                 mergerEntities[i],
                 FactoryTransportKind.Merger,
                 i,
-                merger.Cell,
-                merger.Direction);
+                mergers[i].Cell,
+                mergers[i].Direction);
         }
 
         for (int i = 0; i < splitters.Length; i++, nodeIndex++)
         {
-            Splitter splitter = splitters[i];
             SetTopologyNode(
                 nodeIndex,
                 splitterEntities[i],
                 FactoryTransportKind.Splitter,
                 i,
-                splitter.Cell,
-                splitter.Direction);
+                splitters[i].Cell,
+                splitters[i].Direction);
         }
 
         BuildConnections();
-        LoopCount = MarkBeltLoops(belts);
-        MarkBeltOutputs(belts);
+        LoopCount = MarkBeltLoops();
 
         cachedRevision = revision;
-        cachedBeltCount = belts.Length;
+        cachedBeltCount = beltTopologies.Length;
         cachedMergerCount = mergers.Length;
         cachedSplitterCount = splitters.Length;
         hasCachedRevision = true;
@@ -351,7 +482,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         int2 cell,
         int2 direction)
     {
-        topology[nodeIndex] = new TopologyNode
+        topology[nodeIndex] = new TransportTopologyNode
         {
             Entity = entity,
             Kind = kind,
@@ -374,7 +505,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
              targetIndex < topology.Length;
              targetIndex++)
         {
-            TopologyNode target = topology[targetIndex];
+            TransportTopologyNode target = topology[targetIndex];
             switch (target.Kind)
             {
                 case FactoryTransportKind.Belt:
@@ -388,11 +519,13 @@ public sealed class FactoryLinearTransferResolver : IDisposable
                     TryConnectInput(
                         targetIndex,
                         1,
-                        RotateClockwise(target.Direction));
+                        TransportTopologyAccess.RotateClockwise(
+                            target.Direction));
                     TryConnectInput(
                         targetIndex,
                         2,
-                        RotateCounterClockwise(target.Direction));
+                        TransportTopologyAccess.RotateCounterClockwise(
+                            target.Direction));
                     break;
                 case FactoryTransportKind.Splitter:
                     TryConnectInput(
@@ -406,7 +539,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
 
     private void ConnectPreferredBeltInput(
         int targetIndex,
-        TopologyNode target)
+        TransportTopologyNode target)
     {
         int2 straight = target.Direction;
         if (TryConnectInput(targetIndex, 0, straight))
@@ -414,7 +547,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             return;
         }
 
-        int2 right = RotateClockwise(straight);
+        int2 right = TransportTopologyAccess.RotateClockwise(straight);
         if (TryConnectInput(targetIndex, 0, right))
         {
             return;
@@ -423,7 +556,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         TryConnectInput(
             targetIndex,
             0,
-            RotateCounterClockwise(straight));
+            TransportTopologyAccess.RotateCounterClockwise(straight));
     }
 
     private bool TryConnectInput(
@@ -431,7 +564,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         int inputIndex,
         int2 travelDirection)
     {
-        TopologyNode target = topology[targetIndex];
+        TransportTopologyNode target = topology[targetIndex];
         int2 sourceCell = target.Cell - travelDirection;
         if (!indexByCell.TryGetValue(
                 sourceCell,
@@ -440,7 +573,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             return false;
         }
 
-        TopologyNode source = topology[sourceIndex];
+        TransportTopologyNode source = topology[sourceIndex];
         if (!TryGetOutputIndex(
                 source,
                 travelDirection,
@@ -449,8 +582,14 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             return false;
         }
 
-        SetInput(ref target, inputIndex, sourceIndex);
-        SetOutput(ref source, outputIndex, targetIndex);
+        TransportTopologyAccess.SetInput(
+            ref target,
+            inputIndex,
+            sourceIndex);
+        TransportTopologyAccess.SetOutput(
+            ref source,
+            outputIndex,
+            targetIndex);
         target.InputCount = (byte)math.max(
             target.InputCount,
             inputIndex + 1);
@@ -459,7 +598,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         return true;
     }
 
-    private int MarkBeltLoops(Belt[] belts)
+    private int MarkBeltLoops()
     {
         ResizeScratch(loopVisitState, topology.Length, (byte)0);
         ResizeScratch(loopPathIndex, topology.Length, -1);
@@ -491,19 +630,6 @@ public sealed class FactoryLinearTransferResolver : IDisposable
                 loopPathIndex[current] >= 0)
             {
                 loopCount++;
-                for (int i = loopPathIndex[current];
-                     i < loopPath.Length;
-                     i++)
-                {
-                    int memberIndex = loopPath[i];
-                    TopologyNode member = topology[memberIndex];
-                    member.IsLoop = 1;
-                    topology[memberIndex] = member;
-
-                    Belt belt = belts[member.SourceIndex];
-                    belt.IsLoop = true;
-                    belts[member.SourceIndex] = belt;
-                }
             }
 
             for (int i = 0; i < loopPath.Length; i++)
@@ -517,392 +643,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         return loopCount;
     }
 
-    private void MarkBeltOutputs(Belt[] belts)
-    {
-        for (int i = 0; i < topology.Length; i++)
-        {
-            TopologyNode node = topology[i];
-            if (node.Kind != FactoryTransportKind.Belt)
-            {
-                continue;
-            }
-
-            Belt belt = belts[node.SourceIndex];
-            belt.HasOutput = node.Output0 >= 0;
-            belts[node.SourceIndex] = belt;
-        }
-    }
-
-    private void LoadDynamicState(
-        Belt[] belts,
-        Merger[] mergers,
-        Splitter[] splitters)
-    {
-        dynamicNodes.ResizeUninitialized(topology.Length);
-        for (int i = 0; i < topology.Length; i++)
-        {
-            TopologyNode node = topology[i];
-            DynamicNode state = new DynamicNode
-            {
-                TargetIndex = -1,
-                OutputIndex = -1
-            };
-            switch (node.Kind)
-            {
-                case FactoryTransportKind.Belt:
-                    Belt belt = belts[node.SourceIndex];
-                    state.CurrentItem = belt.CurrentItem;
-                    state.Progress = belt.Progress;
-                    break;
-                case FactoryTransportKind.Merger:
-                    Merger merger = mergers[node.SourceIndex];
-                    state.CurrentItem = merger.CurrentItem;
-                    state.Progress = merger.CurrentItem == Entity.Null
-                        ? 0f
-                        : 1f;
-                    state.Cursor = WrapThree(merger.NextInputIndex);
-                    break;
-                case FactoryTransportKind.Splitter:
-                    Splitter splitter = splitters[node.SourceIndex];
-                    state.CurrentItem = splitter.CurrentItem;
-                    state.Progress = splitter.CurrentItem == Entity.Null
-                        ? 0f
-                        : 1f;
-                    state.Cursor = WrapThree(splitter.NextOutputIndex);
-                    break;
-            }
-
-            dynamicNodes[i] = state;
-        }
-    }
-
-    private int BuildOutgoingRequests(
-        HashSet<Entity> processedJunctions)
-    {
-        int readyCount = 0;
-        for (int sourceIndex = 0;
-             sourceIndex < topology.Length;
-             sourceIndex++)
-        {
-            TopologyNode source = topology[sourceIndex];
-            DynamicNode state = dynamicNodes[sourceIndex];
-            state.IsReady = 0;
-            state.TargetIndex = -1;
-            state.OutputIndex = -1;
-
-            if (state.CurrentItem == Entity.Null ||
-                (source.Kind == FactoryTransportKind.Belt &&
-                 state.Progress < 1f) ||
-                (source.Kind != FactoryTransportKind.Belt &&
-                 processedJunctions.Contains(source.Entity)))
-            {
-                dynamicNodes[sourceIndex] = state;
-                continue;
-            }
-
-            if (source.Kind == FactoryTransportKind.Splitter)
-            {
-                SelectSplitterOutput(source, ref state);
-            }
-            else
-            {
-                state.TargetIndex = source.Output0;
-                state.OutputIndex = source.Output0 >= 0 ? 0 : -1;
-            }
-
-            if (state.TargetIndex >= 0)
-            {
-                state.IsReady = 1;
-                readyCount++;
-            }
-
-            dynamicNodes[sourceIndex] = state;
-        }
-
-        return readyCount;
-    }
-
-    private void SelectSplitterOutput(
-        TopologyNode source,
-        ref DynamicNode state)
-    {
-        int fallbackOutput = -1;
-        int fallbackTarget = -1;
-
-        for (int offset = 0; offset < 3; offset++)
-        {
-            int outputIndex = WrapThree(state.Cursor + offset);
-            int targetIndex = GetOutput(source, outputIndex);
-            if (targetIndex < 0)
-            {
-                continue;
-            }
-
-            if (fallbackOutput < 0)
-            {
-                fallbackOutput = outputIndex;
-                fallbackTarget = targetIndex;
-            }
-
-            if (dynamicNodes[targetIndex].CurrentItem == Entity.Null)
-            {
-                state.OutputIndex = outputIndex;
-                state.TargetIndex = targetIndex;
-                return;
-            }
-        }
-
-        state.OutputIndex = fallbackOutput;
-        state.TargetIndex = fallbackTarget;
-    }
-
-    private void SelectIncomingCandidates()
-    {
-        ResizeScratch(candidateForTarget, topology.Length, -1);
-
-        for (int targetIndex = 0;
-             targetIndex < topology.Length;
-             targetIndex++)
-        {
-            TopologyNode target = topology[targetIndex];
-            int winner = -1;
-            int winnerDistance = int.MaxValue;
-
-            for (int inputIndex = 0;
-                 inputIndex < target.InputCount;
-                 inputIndex++)
-            {
-                LastCandidateInspectionCount++;
-                int candidate = GetInput(target, inputIndex);
-                if (candidate < 0)
-                {
-                    continue;
-                }
-
-                DynamicNode candidateState = dynamicNodes[candidate];
-                if (candidateState.IsReady == 0 ||
-                    candidateState.TargetIndex != targetIndex)
-                {
-                    continue;
-                }
-
-                int distance = target.Kind == FactoryTransportKind.Merger
-                    ? WrapThree(inputIndex -
-                        dynamicNodes[targetIndex].Cursor)
-                    : 0;
-                if (distance < winnerDistance ||
-                    (distance == winnerDistance &&
-                     (winner < 0 ||
-                      CompareNodes(candidate, winner) < 0)))
-                {
-                    winner = candidate;
-                    winnerDistance = distance;
-                }
-            }
-
-            candidateForTarget[targetIndex] = winner;
-        }
-    }
-
-    private void ResolveCandidates()
-    {
-        ResizeScratch(
-            resolutionStates,
-            topology.Length,
-            (byte)ResolutionState.Unresolved);
-        ResizeScratch(accepted, topology.Length, (byte)0);
-
-        for (int targetIndex = 0;
-             targetIndex < topology.Length;
-             targetIndex++)
-        {
-            int candidate = candidateForTarget[targetIndex];
-            if (candidate >= 0 && ResolveCandidate(candidate))
-            {
-                accepted[candidate] = 1;
-            }
-        }
-    }
-
-    private bool ResolveCandidate(int sourceIndex)
-    {
-        ResolutionState initialState =
-            (ResolutionState)resolutionStates[sourceIndex];
-        if (initialState == ResolutionState.Accepted)
-        {
-            return true;
-        }
-        if (initialState == ResolutionState.Rejected)
-        {
-            return false;
-        }
-
-        resolutionStack.Clear();
-        int current = sourceIndex;
-        bool canMove;
-
-        while (true)
-        {
-            ResolutionState currentState =
-                (ResolutionState)resolutionStates[current];
-            if (currentState == ResolutionState.Accepted)
-            {
-                canMove = true;
-                break;
-            }
-            if (currentState == ResolutionState.Rejected)
-            {
-                canMove = false;
-                break;
-            }
-            if (currentState == ResolutionState.Resolving)
-            {
-                // Reaching the active path again means a full ring can move
-                // atomically from the same snapshot.
-                canMove = true;
-                break;
-            }
-
-            resolutionStates[current] =
-                (byte)ResolutionState.Resolving;
-            resolutionStack.Add(current);
-
-            DynamicNode source = dynamicNodes[current];
-            int targetIndex = source.TargetIndex;
-            if (targetIndex < 0)
-            {
-                canMove = false;
-                break;
-            }
-            if (dynamicNodes[targetIndex].CurrentItem == Entity.Null)
-            {
-                canMove = true;
-                break;
-            }
-
-            DynamicNode target = dynamicNodes[targetIndex];
-            if (target.IsReady == 0 ||
-                target.TargetIndex < 0 ||
-                candidateForTarget[target.TargetIndex] != targetIndex)
-            {
-                canMove = false;
-                break;
-            }
-
-            current = targetIndex;
-        }
-
-        byte finalState = canMove
-            ? (byte)ResolutionState.Accepted
-            : (byte)ResolutionState.Rejected;
-        for (int i = resolutionStack.Length - 1; i >= 0; i--)
-        {
-            resolutionStates[resolutionStack[i]] = finalState;
-        }
-
-        return canMove;
-    }
-
-    private int Commit(HashSet<Entity> processedJunctions)
-    {
-        ResizeScratch(transferredItems, topology.Length, Entity.Null);
-        int acceptedCount = 0;
-
-        for (int sourceIndex = 0;
-             sourceIndex < topology.Length;
-             sourceIndex++)
-        {
-            if (accepted[sourceIndex] == 0)
-            {
-                continue;
-            }
-
-            TopologyNode source = topology[sourceIndex];
-            DynamicNode state = dynamicNodes[sourceIndex];
-            transferredItems[sourceIndex] = state.CurrentItem;
-            state.CurrentItem = Entity.Null;
-            state.Progress = 0f;
-            if (source.Kind == FactoryTransportKind.Splitter)
-            {
-                state.Cursor = WrapThree(state.OutputIndex + 1);
-            }
-            if (source.Kind != FactoryTransportKind.Belt)
-            {
-                processedJunctions.Add(source.Entity);
-            }
-
-            dynamicNodes[sourceIndex] = state;
-            acceptedCount++;
-        }
-
-        for (int sourceIndex = 0;
-             sourceIndex < topology.Length;
-             sourceIndex++)
-        {
-            if (accepted[sourceIndex] == 0)
-            {
-                continue;
-            }
-
-            DynamicNode source = dynamicNodes[sourceIndex];
-            int targetIndex = source.TargetIndex;
-            TopologyNode targetTopology = topology[targetIndex];
-            DynamicNode target = dynamicNodes[targetIndex];
-            target.CurrentItem = transferredItems[sourceIndex];
-            target.Progress = 0f;
-            if (targetTopology.Kind != FactoryTransportKind.Belt)
-            {
-                processedJunctions.Add(targetTopology.Entity);
-            }
-            if (targetTopology.Kind == FactoryTransportKind.Merger)
-            {
-                int inputIndex = FindInputIndex(
-                    targetTopology,
-                    sourceIndex);
-                target.Cursor = WrapThree(inputIndex + 1);
-            }
-
-            dynamicNodes[targetIndex] = target;
-        }
-
-        return acceptedCount;
-    }
-
-    private void StoreDynamicState(
-        Belt[] belts,
-        Merger[] mergers,
-        Splitter[] splitters)
-    {
-        for (int i = 0; i < topology.Length; i++)
-        {
-            TopologyNode node = topology[i];
-            DynamicNode state = dynamicNodes[i];
-            switch (node.Kind)
-            {
-                case FactoryTransportKind.Belt:
-                    Belt belt = belts[node.SourceIndex];
-                    belt.CurrentItem = state.CurrentItem;
-                    belt.Progress = state.Progress;
-                    belts[node.SourceIndex] = belt;
-                    break;
-                case FactoryTransportKind.Merger:
-                    Merger merger = mergers[node.SourceIndex];
-                    merger.CurrentItem = state.CurrentItem;
-                    merger.NextInputIndex = state.Cursor;
-                    mergers[node.SourceIndex] = merger;
-                    break;
-                case FactoryTransportKind.Splitter:
-                    Splitter splitter = splitters[node.SourceIndex];
-                    splitter.CurrentItem = state.CurrentItem;
-                    splitter.NextOutputIndex = state.Cursor;
-                    splitters[node.SourceIndex] = splitter;
-                    break;
-            }
-        }
-    }
-
     private static bool TryGetOutputIndex(
-        TopologyNode source,
+        in TransportTopologyNode source,
         int2 travelDirection,
         out int outputIndex)
     {
@@ -912,133 +654,25 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             return math.all(source.Direction == travelDirection);
         }
 
-        for (int i = 0; i < 3; i++)
-        {
-            if (math.all(
-                    GetSplitterOutputDirection(source.Direction, i) ==
-                    travelDirection))
-            {
-                outputIndex = i;
-                return true;
-            }
-        }
-
-        outputIndex = -1;
-        return false;
-    }
-
-    private int CompareNodes(int leftIndex, int rightIndex)
-    {
-        TopologyNode left = topology[leftIndex];
-        TopologyNode right = topology[rightIndex];
-        int x = left.Cell.x.CompareTo(right.Cell.x);
-        if (x != 0)
-        {
-            return x;
-        }
-
-        int y = left.Cell.y.CompareTo(right.Cell.y);
-        return y != 0
-            ? y
-            : left.Entity.Index.CompareTo(right.Entity.Index);
-    }
-
-    private static int FindInputIndex(
-        TopologyNode target,
-        int sourceIndex)
-    {
-        for (int i = 0; i < target.InputCount; i++)
-        {
-            if (GetInput(target, i) == sourceIndex)
-            {
-                return i;
-            }
-        }
-
-        return 0;
-    }
-
-    private static int GetInput(TopologyNode node, int index)
-    {
-        switch (index)
-        {
-            case 0:
-                return node.Input0;
-            case 1:
-                return node.Input1;
-            case 2:
-                return node.Input2;
-            default:
-                return -1;
-        }
-    }
-
-    private static void SetInput(
-        ref TopologyNode node,
-        int index,
-        int value)
-    {
-        switch (index)
-        {
-            case 0:
-                node.Input0 = value;
-                break;
-            case 1:
-                node.Input1 = value;
-                break;
-            case 2:
-                node.Input2 = value;
-                break;
-        }
-    }
-
-    private static int GetOutput(TopologyNode node, int index)
-    {
-        switch (index)
-        {
-            case 0:
-                return node.Output0;
-            case 1:
-                return node.Output1;
-            case 2:
-                return node.Output2;
-            default:
-                return -1;
-        }
-    }
-
-    private static void SetOutput(
-        ref TopologyNode node,
-        int index,
-        int value)
-    {
-        switch (index)
-        {
-            case 0:
-                node.Output0 = value;
-                break;
-            case 1:
-                node.Output1 = value;
-                break;
-            case 2:
-                node.Output2 = value;
-                break;
-        }
+        outputIndex = TransportTopologyAccess.GetSplitterOutputIndex(
+            source.Direction,
+            travelDirection);
+        return outputIndex >= 0;
     }
 
     private void EnsureCapacity(int nodeCount)
     {
         int capacity = math.max(16, nodeCount);
         EnsureCapacity(topology, capacity);
+        EnsureCapacity(loopVisitState, capacity);
+        EnsureCapacity(loopPathIndex, capacity);
+        EnsureCapacity(loopPath, capacity);
         EnsureCapacity(dynamicNodes, capacity);
         EnsureCapacity(candidateForTarget, capacity);
         EnsureCapacity(resolutionStates, capacity);
         EnsureCapacity(accepted, capacity);
         EnsureCapacity(transferredItems, capacity);
         EnsureCapacity(resolutionStack, capacity);
-        EnsureCapacity(loopVisitState, capacity);
-        EnsureCapacity(loopPathIndex, capacity);
-        EnsureCapacity(loopPath, capacity);
     }
 
     private static void EnsureCapacity<T>(
@@ -1065,57 +699,26 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         }
     }
 
-    private static int2 GetSplitterOutputDirection(
-        int2 direction,
-        int outputIndex)
-    {
-        switch (WrapThree(outputIndex))
-        {
-            case 0:
-                return direction;
-            case 1:
-                return RotateCounterClockwise(direction);
-            default:
-                return RotateClockwise(direction);
-        }
-    }
-
-    private static int2 RotateClockwise(int2 direction)
-    {
-        return new int2(direction.y, -direction.x);
-    }
-
-    private static int2 RotateCounterClockwise(int2 direction)
-    {
-        return new int2(-direction.y, direction.x);
-    }
-
-    private static int WrapThree(int value)
-    {
-        int wrapped = value % 3;
-        return wrapped < 0 ? wrapped + 3 : wrapped;
-    }
-
     private static void ValidateSnapshots(
-        Entity[] beltEntities,
-        Belt[] belts,
-        Entity[] mergerEntities,
-        Merger[] mergers,
-        Entity[] splitterEntities,
-        Splitter[] splitters)
+        NativeArray<Entity> beltEntities,
+        NativeArray<BeltTopology> beltTopologies,
+        NativeArray<Entity> mergerEntities,
+        NativeArray<Merger> mergers,
+        NativeArray<Entity> splitterEntities,
+        NativeArray<Splitter> splitters)
     {
-        if (beltEntities == null ||
-            belts == null ||
-            mergerEntities == null ||
-            mergers == null ||
-            splitterEntities == null ||
-            splitters == null)
+        if (!beltEntities.IsCreated ||
+            !beltTopologies.IsCreated ||
+            !mergerEntities.IsCreated ||
+            !mergers.IsCreated ||
+            !splitterEntities.IsCreated ||
+            !splitters.IsCreated)
         {
-            throw new ArgumentNullException(
-                "Transport snapshots cannot be null.");
+            throw new ArgumentException(
+                "Transport snapshots must be created native containers.");
         }
 
-        if (beltEntities.Length != belts.Length ||
+        if (beltEntities.Length != beltTopologies.Length ||
             mergerEntities.Length != mergers.Length ||
             splitterEntities.Length != splitters.Length)
         {
@@ -1151,6 +754,1075 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         if (container.IsCreated)
         {
             container.Dispose();
+        }
+    }
+
+    private static void DisposeIfCreated<T>(
+        ref NativeHashSet<T> container)
+        where T : unmanaged, IEquatable<T>
+    {
+        if (container.IsCreated)
+        {
+            container.Dispose();
+        }
+    }
+
+    private static void DisposeIfCreated(
+        ref NativeReference<int> container)
+    {
+        if (container.IsCreated)
+        {
+            container.Dispose();
+        }
+    }
+}
+/// <summary>
+/// Burst-compilable single-threaded arbitration job for one fixed tick.
+/// When <see cref="EnableInterface"/> is set the dynamic transport state is
+/// loaded from and stored to component lookups and building-port transfers are
+/// executed. Otherwise the job operates purely on the supplied state arrays,
+/// which is the standalone regression path.
+/// </summary>
+[BurstCompile]
+public partial struct FactoryTransferArbitrationJob : IJob
+{
+    private const int MaxRoutingPasses = 3;
+
+    private enum ResolutionState : byte
+    {
+        Unresolved,
+        Resolving,
+        Accepted,
+        Rejected
+    }
+
+    [ReadOnly]
+    internal NativeParallelHashMap<int2, int> IndexByCell;
+    [ReadOnly]
+    internal NativeList<TransportTopologyNode> Topology;
+
+    internal NativeList<TransportDynamicNode> DynamicNodes;
+    internal NativeList<int> CandidateForTarget;
+    internal NativeList<byte> ResolutionStates;
+    internal NativeList<byte> Accepted;
+    internal NativeList<Entity> TransferredItems;
+    internal NativeList<int> ResolutionStack;
+    internal NativeHashSet<Entity> ProcessedJunctions;
+    internal NativeHashSet<Entity> ReservedTargets;
+    internal NativeParallelHashMap<TransportPortKey, ulong> AcceptedInputs;
+    internal NativeParallelHashMap<TransportPortKey, ulong> AcceptedOutputs;
+    internal NativeReference<int> CandidateInspectionRef;
+    internal NativeReference<int> RoutingPassCountRef;
+    internal NativeReference<int> ReadyRequestCountRef;
+    internal NativeReference<int> AcceptedTransferCountRef;
+
+    public NativeArray<BeltState> BeltStates;
+    public NativeArray<Merger> Mergers;
+    public NativeArray<Splitter> Splitters;
+
+    [ReadOnly]
+    public NativeArray<Entity> InputPortOwners;
+    [ReadOnly]
+    public NativeArray<Entity> OutputPortOwners;
+
+    public ComponentLookup<BeltState> BeltStateLookup;
+    public ComponentLookup<Merger> MergerLookup;
+    public ComponentLookup<Splitter> SplitterLookup;
+    [ReadOnly]
+    public ComponentLookup<GridPlacement> GridPlacementLookup;
+    [ReadOnly]
+    public ComponentLookup<Item> ItemLookup;
+    [ReadOnly]
+    public ComponentLookup<LocalTransform> TransformLookup;
+    [ReadOnly]
+    public BufferLookup<BuildingPort> BuildingPortLookup;
+    [ReadOnly]
+    public BufferLookup<ItemInputPortCurrent> InputPortCurrentLookup;
+    [ReadOnly]
+    public BufferLookup<ItemOutputPortCurrent> OutputPortCurrentLookup;
+    public BufferLookup<ItemTransferReceiptNext> ReceiptNextLookup;
+    [ReadOnly]
+    public BufferLookup<ItemPrefabEntry> ItemPrefabLookup;
+    public ComponentLookup<Stage3SimulationStats> StatsLookup;
+
+    public Entity ItemCatalog;
+    public Entity StatsEntity;
+    public int BeltCount;
+    public int MergerCount;
+    public int SplitterCount;
+    public int LoopCount;
+    public byte EnableInterface;
+    public EntityCommandBuffer Ecb;
+
+    private int candidateInspectionCount;
+    private int routingPassCount;
+
+    public void Execute()
+    {
+        LoadDynamicState();
+        ProcessedJunctions.Clear();
+        ReservedTargets.Clear();
+
+        candidateInspectionCount = 0;
+        routingPassCount = 0;
+        int interfaceRequestCount = 0;
+        int interfaceAcceptedCount = 0;
+        int readyRequestCount = 0;
+        int acceptedTransferCount = 0;
+
+        if (EnableInterface == 1)
+        {
+            interfaceAcceptedCount = ConsumeBuildingInputs(
+                ref interfaceRequestCount);
+        }
+
+        for (int pass = 0; pass < MaxRoutingPasses; pass++)
+        {
+            routingPassCount++;
+            int passReadyCount = BuildOutgoingRequests();
+            readyRequestCount += passReadyCount;
+            if (passReadyCount == 0)
+            {
+                break;
+            }
+
+            SelectIncomingCandidates();
+            ResolveCandidates();
+            int passAcceptedCount = Commit();
+            acceptedTransferCount += passAcceptedCount;
+            if (passAcceptedCount == 0)
+            {
+                break;
+            }
+        }
+
+        if (EnableInterface == 1)
+        {
+            interfaceAcceptedCount += InjectBuildingOutputs(
+                ref interfaceRequestCount);
+        }
+
+        acceptedTransferCount += interfaceAcceptedCount;
+        readyRequestCount += interfaceRequestCount;
+
+        StoreDynamicState();
+
+        CandidateInspectionRef.Value = candidateInspectionCount;
+        RoutingPassCountRef.Value = routingPassCount;
+        ReadyRequestCountRef.Value = readyRequestCount;
+        AcceptedTransferCountRef.Value = acceptedTransferCount;
+
+        if (EnableInterface == 1)
+        {
+            UpdateStats(readyRequestCount, acceptedTransferCount);
+        }
+    }
+    private void LoadDynamicState()
+    {
+        DynamicNodes.ResizeUninitialized(Topology.Length);
+        for (int i = 0; i < Topology.Length; i++)
+        {
+            TransportTopologyNode node = Topology[i];
+            TransportDynamicNode state = new TransportDynamicNode
+            {
+                TargetIndex = -1,
+                OutputIndex = -1
+            };
+            switch (node.Kind)
+            {
+                case FactoryTransportKind.Belt:
+                    BeltState belt = EnableInterface == 1
+                        ? BeltStateLookup[node.Entity]
+                        : BeltStates[node.SourceIndex];
+                    state.CurrentItem = belt.CurrentItem;
+                    state.Progress = belt.Progress;
+                    break;
+                case FactoryTransportKind.Merger:
+                    Merger merger = EnableInterface == 1
+                        ? MergerLookup[node.Entity]
+                        : Mergers[node.SourceIndex];
+                    state.CurrentItem = merger.CurrentItem;
+                    state.Progress = merger.CurrentItem == Entity.Null
+                        ? 0f
+                        : 1f;
+                    state.Cursor = TransportTopologyAccess.WrapThree(
+                        merger.NextInputIndex);
+                    break;
+                case FactoryTransportKind.Splitter:
+                    Splitter splitter = EnableInterface == 1
+                        ? SplitterLookup[node.Entity]
+                        : Splitters[node.SourceIndex];
+                    state.CurrentItem = splitter.CurrentItem;
+                    state.Progress = splitter.CurrentItem == Entity.Null
+                        ? 0f
+                        : 1f;
+                    state.Cursor = TransportTopologyAccess.WrapThree(
+                        splitter.NextOutputIndex);
+                    break;
+            }
+
+            DynamicNodes[i] = state;
+        }
+    }
+
+    private void StoreDynamicState()
+    {
+        for (int i = 0; i < Topology.Length; i++)
+        {
+            TransportTopologyNode node = Topology[i];
+            TransportDynamicNode state = DynamicNodes[i];
+            switch (node.Kind)
+            {
+                case FactoryTransportKind.Belt:
+                    if (EnableInterface == 1)
+                    {
+                        BeltState belt = BeltStateLookup[node.Entity];
+                        belt.CurrentItem = state.CurrentItem;
+                        belt.Progress = state.Progress;
+                        BeltStateLookup[node.Entity] = belt;
+                    }
+                    else
+                    {
+                        BeltState belt = BeltStates[node.SourceIndex];
+                        belt.CurrentItem = state.CurrentItem;
+                        belt.Progress = state.Progress;
+                        BeltStates[node.SourceIndex] = belt;
+                    }
+                    break;
+                case FactoryTransportKind.Merger:
+                    if (EnableInterface == 1)
+                    {
+                        Merger merger = MergerLookup[node.Entity];
+                        merger.CurrentItem = state.CurrentItem;
+                        merger.NextInputIndex = state.Cursor;
+                        MergerLookup[node.Entity] = merger;
+                    }
+                    else
+                    {
+                        Merger merger = Mergers[node.SourceIndex];
+                        merger.CurrentItem = state.CurrentItem;
+                        merger.NextInputIndex = state.Cursor;
+                        Mergers[node.SourceIndex] = merger;
+                    }
+                    break;
+                case FactoryTransportKind.Splitter:
+                    if (EnableInterface == 1)
+                    {
+                        Splitter splitter = SplitterLookup[node.Entity];
+                        splitter.CurrentItem = state.CurrentItem;
+                        splitter.NextOutputIndex = state.Cursor;
+                        SplitterLookup[node.Entity] = splitter;
+                    }
+                    else
+                    {
+                        Splitter splitter = Splitters[node.SourceIndex];
+                        splitter.CurrentItem = state.CurrentItem;
+                        splitter.NextOutputIndex = state.Cursor;
+                        Splitters[node.SourceIndex] = splitter;
+                    }
+                    break;
+            }
+        }
+    }
+
+    private int ConsumeBuildingInputs(ref int requestCount)
+    {
+        int acceptedCount = 0;
+        for (int ownerIndex = 0;
+             ownerIndex < InputPortOwners.Length;
+             ownerIndex++)
+        {
+            Entity owner = InputPortOwners[ownerIndex];
+            if (!GridPlacementLookup.HasComponent(owner) ||
+                !BuildingPortLookup.HasBuffer(owner) ||
+                !InputPortCurrentLookup.HasBuffer(owner) ||
+                !ReceiptNextLookup.HasBuffer(owner))
+            {
+                continue;
+            }
+
+            GridPlacement placement = GridPlacementLookup[owner];
+            DynamicBuffer<BuildingPort> buildingPorts =
+                BuildingPortLookup[owner];
+            DynamicBuffer<ItemInputPortCurrent> ports =
+                InputPortCurrentLookup[owner];
+            DynamicBuffer<ItemTransferReceiptNext> receipts =
+                ReceiptNextLookup[owner];
+
+            for (int i = 0; i < ports.Length; i++)
+            {
+                ItemInputPortSnapshot port = ports[i].Value;
+                if (port.Enabled == 0)
+                {
+                    continue;
+                }
+
+                TransportPortKey key =
+                    new TransportPortKey(owner, port.PortIndex);
+                int availableCapacity = GetEffectiveCount(
+                    AcceptedInputs,
+                    key,
+                    port.AppliedTransferCount,
+                    port.FreeCapacity);
+                if (availableCapacity <= 0 ||
+                    !TryGetBuildingPort(
+                        buildingPorts,
+                        BuildingPortType.Input,
+                        port.PortIndex,
+                        out BuildingPort geometry))
+                {
+                    continue;
+                }
+
+                int2 sourceCell = EcsGridUtility.GetBuildingCell(
+                    placement,
+                    geometry.CellOffset);
+                int2 direction = EcsGridUtility.Rotate(
+                    geometry.Direction,
+                    placement.QuarterTurns);
+                if (!IndexByCell.TryGetValue(
+                        sourceCell,
+                        out int sourceIndex) ||
+                    !TryGetReadyItem(
+                        sourceIndex,
+                        direction,
+                        out Entity itemEntity,
+                        out int sourceOutputIndex))
+                {
+                    continue;
+                }
+
+                requestCount++;
+                if (itemEntity == Entity.Null ||
+                    !ItemLookup.HasComponent(itemEntity))
+                {
+                    continue;
+                }
+
+                ItemId itemType = ItemLookup[itemEntity].ItemType;
+                if (port.FilterMode ==
+                        ItemPortFilterMode.ExactItemType &&
+                    port.AcceptedItemType != itemType)
+                {
+                    continue;
+                }
+
+                ClearTransportItem(sourceIndex, sourceOutputIndex);
+                ProcessedJunctions.Add(Topology[sourceIndex].Entity);
+                receipts.Add(new ItemTransferReceiptNext
+                {
+                    Value = new ItemTransferReceipt
+                    {
+                        ItemType = itemType,
+                        Count = 1,
+                        PortIndex = port.PortIndex,
+                        Kind = ItemTransferReceiptKind.InputAccepted
+                    }
+                });
+                AcceptedInputs[key] =
+                    GetAcceptedCount(
+                        AcceptedInputs,
+                        key,
+                        port.AppliedTransferCount) + 1;
+                Ecb.DestroyEntity(itemEntity);
+                acceptedCount++;
+            }
+        }
+
+        return acceptedCount;
+    }
+    private int InjectBuildingOutputs(ref int requestCount)
+    {
+        ReservedTargets.Clear();
+        int acceptedCount = 0;
+        for (int ownerIndex = 0;
+             ownerIndex < OutputPortOwners.Length;
+             ownerIndex++)
+        {
+            Entity owner = OutputPortOwners[ownerIndex];
+            if (!GridPlacementLookup.HasComponent(owner) ||
+                !BuildingPortLookup.HasBuffer(owner) ||
+                !OutputPortCurrentLookup.HasBuffer(owner) ||
+                !ReceiptNextLookup.HasBuffer(owner))
+            {
+                continue;
+            }
+
+            GridPlacement placement = GridPlacementLookup[owner];
+            DynamicBuffer<BuildingPort> buildingPorts =
+                BuildingPortLookup[owner];
+            DynamicBuffer<ItemOutputPortCurrent> ports =
+                OutputPortCurrentLookup[owner];
+            DynamicBuffer<ItemTransferReceiptNext> receipts =
+                ReceiptNextLookup[owner];
+
+            for (int i = 0; i < ports.Length; i++)
+            {
+                ItemOutputPortSnapshot port = ports[i].Value;
+                if (port.Enabled == 0 || !port.ItemType.IsValid)
+                {
+                    continue;
+                }
+
+                TransportPortKey key =
+                    new TransportPortKey(owner, port.PortIndex);
+                int availableCount = GetEffectiveCount(
+                    AcceptedOutputs,
+                    key,
+                    port.AppliedTransferCount,
+                    port.AvailableCount);
+                if (availableCount <= 0 ||
+                    !TryGetBuildingPort(
+                        buildingPorts,
+                        BuildingPortType.Output,
+                        port.PortIndex,
+                        out BuildingPort geometry))
+                {
+                    continue;
+                }
+
+                int2 targetCell = EcsGridUtility.GetBuildingCell(
+                    placement,
+                    geometry.CellOffset);
+                int2 direction = EcsGridUtility.Rotate(
+                    geometry.Direction,
+                    placement.QuarterTurns);
+                if (!IndexByCell.TryGetValue(
+                        targetCell,
+                        out int targetIndex))
+                {
+                    continue;
+                }
+
+                Entity targetEntity = Topology[targetIndex].Entity;
+                if (ReservedTargets.Contains(targetEntity) ||
+                    !CanInjectIntoTransport(targetIndex, direction))
+                {
+                    continue;
+                }
+
+                requestCount++;
+                if (!TryGetItemPrefab(port.ItemType, out Entity prefab))
+                {
+                    continue;
+                }
+
+                ReservedTargets.Add(targetEntity);
+
+                Entity item = Ecb.Instantiate(prefab);
+                float3 position = new float3(
+                    targetCell.x + 0.5f,
+                    0.535f,
+                    targetCell.y + 0.5f);
+                Item itemData = new Item
+                {
+                    ItemType = port.ItemType,
+                    Position = position
+                };
+                if (ItemLookup.HasComponent(prefab))
+                {
+                    Ecb.SetComponent(item, itemData);
+                }
+                else
+                {
+                    Ecb.AddComponent(item, itemData);
+                }
+
+                if (TransformLookup.HasComponent(prefab))
+                {
+                    LocalTransform transform = TransformLookup[prefab];
+                    transform.Position = position;
+                    Ecb.SetComponent(item, transform);
+                }
+                else
+                {
+                    Ecb.AddComponent(
+                        item,
+                        LocalTransform.FromPosition(position));
+                }
+
+                SetTransportItem(targetIndex, item);
+                RecordInjectedItemViaEcb(targetIndex, item);
+                receipts.Add(new ItemTransferReceiptNext
+                {
+                    Value = new ItemTransferReceipt
+                    {
+                        ItemType = port.ItemType,
+                        Count = 1,
+                        PortIndex = port.PortIndex,
+                        Kind = ItemTransferReceiptKind.OutputTransferred
+                    }
+                });
+                AcceptedOutputs[key] =
+                    GetAcceptedCount(
+                        AcceptedOutputs,
+                        key,
+                        port.AppliedTransferCount) + 1;
+                acceptedCount++;
+            }
+        }
+
+        return acceptedCount;
+    }
+    private void RecordInjectedItemViaEcb(int targetIndex, Entity item)
+    {
+        TransportTopologyNode target = Topology[targetIndex];
+        switch (target.Kind)
+        {
+            case FactoryTransportKind.Belt:
+                BeltState belt = BeltStateLookup[target.Entity];
+                belt.CurrentItem = item;
+                belt.Progress = 0f;
+                Ecb.SetComponent(target.Entity, belt);
+                break;
+            case FactoryTransportKind.Merger:
+                Merger merger = MergerLookup[target.Entity];
+                merger.CurrentItem = item;
+                Ecb.SetComponent(target.Entity, merger);
+                break;
+            case FactoryTransportKind.Splitter:
+                Splitter splitter = SplitterLookup[target.Entity];
+                splitter.CurrentItem = item;
+                Ecb.SetComponent(target.Entity, splitter);
+                break;
+        }
+    }
+
+    private int BuildOutgoingRequests()
+    {
+        int readyCount = 0;
+        for (int sourceIndex = 0;
+             sourceIndex < Topology.Length;
+             sourceIndex++)
+        {
+            TransportTopologyNode source = Topology[sourceIndex];
+            TransportDynamicNode state = DynamicNodes[sourceIndex];
+            state.IsReady = 0;
+            state.TargetIndex = -1;
+            state.OutputIndex = -1;
+
+            if (state.CurrentItem == Entity.Null ||
+                (source.Kind == FactoryTransportKind.Belt &&
+                 state.Progress < 1f) ||
+                (source.Kind != FactoryTransportKind.Belt &&
+                 ProcessedJunctions.Contains(source.Entity)))
+            {
+                DynamicNodes[sourceIndex] = state;
+                continue;
+            }
+
+            if (source.Kind == FactoryTransportKind.Splitter)
+            {
+                SelectSplitterOutput(source, ref state);
+            }
+            else
+            {
+                state.TargetIndex = source.Output0;
+                state.OutputIndex = source.Output0 >= 0 ? 0 : -1;
+            }
+
+            if (state.TargetIndex >= 0)
+            {
+                state.IsReady = 1;
+                readyCount++;
+            }
+
+            DynamicNodes[sourceIndex] = state;
+        }
+
+        return readyCount;
+    }
+
+    private void SelectSplitterOutput(
+        in TransportTopologyNode source,
+        ref TransportDynamicNode state)
+    {
+        int fallbackOutput = -1;
+        int fallbackTarget = -1;
+
+        for (int offset = 0; offset < 3; offset++)
+        {
+            int outputIndex = TransportTopologyAccess.WrapThree(
+                state.Cursor + offset);
+            int targetIndex = TransportTopologyAccess.GetOutput(
+                source,
+                outputIndex);
+            if (targetIndex < 0)
+            {
+                continue;
+            }
+
+            if (fallbackOutput < 0)
+            {
+                fallbackOutput = outputIndex;
+                fallbackTarget = targetIndex;
+            }
+
+            if (DynamicNodes[targetIndex].CurrentItem == Entity.Null)
+            {
+                state.OutputIndex = outputIndex;
+                state.TargetIndex = targetIndex;
+                return;
+            }
+        }
+
+        state.OutputIndex = fallbackOutput;
+        state.TargetIndex = fallbackTarget;
+    }
+
+    private void SelectIncomingCandidates()
+    {
+        ResizeScratch(CandidateForTarget, Topology.Length, -1);
+
+        for (int targetIndex = 0;
+             targetIndex < Topology.Length;
+             targetIndex++)
+        {
+            TransportTopologyNode target = Topology[targetIndex];
+            int winner = -1;
+            int winnerDistance = int.MaxValue;
+
+            for (int inputIndex = 0;
+                 inputIndex < target.InputCount;
+                 inputIndex++)
+            {
+                candidateInspectionCount++;
+                int candidate = TransportTopologyAccess.GetInput(
+                    target,
+                    inputIndex);
+                if (candidate < 0)
+                {
+                    continue;
+                }
+
+                TransportDynamicNode candidateState =
+                    DynamicNodes[candidate];
+                if (candidateState.IsReady == 0 ||
+                    candidateState.TargetIndex != targetIndex)
+                {
+                    continue;
+                }
+
+                int distance =
+                    target.Kind == FactoryTransportKind.Merger
+                        ? TransportTopologyAccess.WrapThree(
+                            inputIndex -
+                            DynamicNodes[targetIndex].Cursor)
+                        : 0;
+                if (distance < winnerDistance ||
+                    (distance == winnerDistance &&
+                     (winner < 0 ||
+                      CompareNodes(candidate, winner) < 0)))
+                {
+                    winner = candidate;
+                    winnerDistance = distance;
+                }
+            }
+
+            CandidateForTarget[targetIndex] = winner;
+        }
+    }
+    private void ResolveCandidates()
+    {
+        ResizeScratch(
+            ResolutionStates,
+            Topology.Length,
+            (byte)ResolutionState.Unresolved);
+        ResizeScratch(Accepted, Topology.Length, (byte)0);
+
+        for (int targetIndex = 0;
+             targetIndex < Topology.Length;
+             targetIndex++)
+        {
+            int candidate = CandidateForTarget[targetIndex];
+            if (candidate >= 0 && ResolveCandidate(candidate))
+            {
+                Accepted[candidate] = 1;
+            }
+        }
+    }
+
+    private bool ResolveCandidate(int sourceIndex)
+    {
+        ResolutionState initialState =
+            (ResolutionState)ResolutionStates[sourceIndex];
+        if (initialState == ResolutionState.Accepted)
+        {
+            return true;
+        }
+        if (initialState == ResolutionState.Rejected)
+        {
+            return false;
+        }
+
+        ResolutionStack.Clear();
+        int current = sourceIndex;
+        bool canMove;
+
+        while (true)
+        {
+            ResolutionState currentState =
+                (ResolutionState)ResolutionStates[current];
+            if (currentState == ResolutionState.Accepted)
+            {
+                canMove = true;
+                break;
+            }
+            if (currentState == ResolutionState.Rejected)
+            {
+                canMove = false;
+                break;
+            }
+            if (currentState == ResolutionState.Resolving)
+            {
+                // Reaching the active path again means a full ring can move
+                // atomically from the same snapshot.
+                canMove = true;
+                break;
+            }
+
+            ResolutionStates[current] =
+                (byte)ResolutionState.Resolving;
+            ResolutionStack.Add(current);
+
+            TransportDynamicNode source = DynamicNodes[current];
+            int targetIndex = source.TargetIndex;
+            if (targetIndex < 0)
+            {
+                canMove = false;
+                break;
+            }
+            if (DynamicNodes[targetIndex].CurrentItem == Entity.Null)
+            {
+                canMove = true;
+                break;
+            }
+
+            TransportDynamicNode target = DynamicNodes[targetIndex];
+            if (target.IsReady == 0 ||
+                target.TargetIndex < 0 ||
+                CandidateForTarget[target.TargetIndex] != targetIndex)
+            {
+                canMove = false;
+                break;
+            }
+
+            current = targetIndex;
+        }
+
+        byte finalState = canMove
+            ? (byte)ResolutionState.Accepted
+            : (byte)ResolutionState.Rejected;
+        for (int i = ResolutionStack.Length - 1; i >= 0; i--)
+        {
+            ResolutionStates[ResolutionStack[i]] = finalState;
+        }
+
+        return canMove;
+    }
+
+    private int Commit()
+    {
+        ResizeScratch(TransferredItems, Topology.Length, Entity.Null);
+        int acceptedCount = 0;
+
+        for (int sourceIndex = 0;
+             sourceIndex < Topology.Length;
+             sourceIndex++)
+        {
+            if (Accepted[sourceIndex] == 0)
+            {
+                continue;
+            }
+
+            TransportTopologyNode source = Topology[sourceIndex];
+            TransportDynamicNode state = DynamicNodes[sourceIndex];
+            TransferredItems[sourceIndex] = state.CurrentItem;
+            state.CurrentItem = Entity.Null;
+            state.Progress = 0f;
+            if (source.Kind == FactoryTransportKind.Splitter)
+            {
+                state.Cursor = TransportTopologyAccess.WrapThree(
+                    state.OutputIndex + 1);
+            }
+            if (source.Kind != FactoryTransportKind.Belt)
+            {
+                ProcessedJunctions.Add(source.Entity);
+            }
+
+            DynamicNodes[sourceIndex] = state;
+            acceptedCount++;
+        }
+
+        for (int sourceIndex = 0;
+             sourceIndex < Topology.Length;
+             sourceIndex++)
+        {
+            if (Accepted[sourceIndex] == 0)
+            {
+                continue;
+            }
+
+            TransportDynamicNode source = DynamicNodes[sourceIndex];
+            int targetIndex = source.TargetIndex;
+            TransportTopologyNode targetTopology =
+                Topology[targetIndex];
+            TransportDynamicNode target = DynamicNodes[targetIndex];
+            target.CurrentItem = TransferredItems[sourceIndex];
+            target.Progress = 0f;
+            if (targetTopology.Kind != FactoryTransportKind.Belt)
+            {
+                ProcessedJunctions.Add(targetTopology.Entity);
+            }
+            if (targetTopology.Kind == FactoryTransportKind.Merger)
+            {
+                int inputIndex = FindInputIndex(
+                    targetTopology,
+                    sourceIndex);
+                target.Cursor = TransportTopologyAccess.WrapThree(
+                    inputIndex + 1);
+            }
+
+            DynamicNodes[targetIndex] = target;
+        }
+
+        return acceptedCount;
+    }
+
+    private int CompareNodes(int leftIndex, int rightIndex)
+    {
+        TransportTopologyNode left = Topology[leftIndex];
+        TransportTopologyNode right = Topology[rightIndex];
+        if (left.Cell.x != right.Cell.x)
+        {
+            return left.Cell.x < right.Cell.x ? -1 : 1;
+        }
+
+        if (left.Cell.y != right.Cell.y)
+        {
+            return left.Cell.y < right.Cell.y ? -1 : 1;
+        }
+
+        if (left.Entity.Index != right.Entity.Index)
+        {
+            return left.Entity.Index < right.Entity.Index ? -1 : 1;
+        }
+
+        return 0;
+    }
+    private void UpdateStats(
+        int readyRequestCount,
+        int acceptedTransferCount)
+    {
+        if (StatsEntity == Entity.Null ||
+            !StatsLookup.HasComponent(StatsEntity))
+        {
+            return;
+        }
+
+        Stage3SimulationStats stats = StatsLookup[StatsEntity];
+        stats.BeltCount = BeltCount;
+        stats.MergerCount = MergerCount;
+        stats.SplitterCount = SplitterCount;
+        stats.LoopCount = LoopCount;
+        stats.ReadyRequestCount = readyRequestCount;
+        stats.AcceptedTransferCount = acceptedTransferCount;
+        stats.TickCount++;
+        stats.TotalReadyRequestCount += (ulong)readyRequestCount;
+        stats.TotalAcceptedTransferCount +=
+            (ulong)acceptedTransferCount;
+        StatsLookup[StatsEntity] = stats;
+    }
+
+    private bool TryGetReadyItem(
+        int sourceIndex,
+        int2 expectedDirection,
+        out Entity item,
+        out int outputIndex)
+    {
+        TransportTopologyNode source = Topology[sourceIndex];
+        TransportDynamicNode state = DynamicNodes[sourceIndex];
+        switch (source.Kind)
+        {
+            case FactoryTransportKind.Belt:
+                item = state.CurrentItem;
+                outputIndex = 0;
+                return item != Entity.Null &&
+                       state.Progress >= 1f &&
+                       math.all(source.Direction == expectedDirection);
+            case FactoryTransportKind.Merger:
+                item = state.CurrentItem;
+                outputIndex = 0;
+                return item != Entity.Null &&
+                       math.all(source.Direction == expectedDirection);
+            case FactoryTransportKind.Splitter:
+                item = state.CurrentItem;
+                outputIndex = TransportTopologyAccess
+                    .GetSplitterOutputIndex(
+                        source.Direction,
+                        expectedDirection);
+                return item != Entity.Null && outputIndex >= 0;
+            default:
+                item = Entity.Null;
+                outputIndex = -1;
+                return false;
+        }
+    }
+
+    private void ClearTransportItem(
+        int sourceIndex,
+        int outputIndex)
+    {
+        TransportTopologyNode source = Topology[sourceIndex];
+        TransportDynamicNode state = DynamicNodes[sourceIndex];
+        switch (source.Kind)
+        {
+            case FactoryTransportKind.Belt:
+                state.CurrentItem = Entity.Null;
+                state.Progress = 0f;
+                break;
+            case FactoryTransportKind.Merger:
+                state.CurrentItem = Entity.Null;
+                break;
+            case FactoryTransportKind.Splitter:
+                state.CurrentItem = Entity.Null;
+                state.Cursor = TransportTopologyAccess.WrapThree(
+                    outputIndex + 1);
+                break;
+        }
+
+        DynamicNodes[sourceIndex] = state;
+    }
+
+    private bool CanInjectIntoTransport(
+        int targetIndex,
+        int2 direction)
+    {
+        TransportTopologyNode target = Topology[targetIndex];
+        TransportDynamicNode state = DynamicNodes[targetIndex];
+        switch (target.Kind)
+        {
+            case FactoryTransportKind.Belt:
+                return state.CurrentItem == Entity.Null;
+            case FactoryTransportKind.Merger:
+                return state.CurrentItem == Entity.Null &&
+                       TransportTopologyAccess.GetMergerInputIndex(
+                           target.Direction,
+                           direction) >= 0;
+            case FactoryTransportKind.Splitter:
+                return state.CurrentItem == Entity.Null &&
+                       math.all(direction == target.Direction);
+            default:
+                return false;
+        }
+    }
+
+    private void SetTransportItem(int targetIndex, Entity item)
+    {
+        TransportDynamicNode target = DynamicNodes[targetIndex];
+        target.CurrentItem = item;
+        target.Progress = 0f;
+        DynamicNodes[targetIndex] = target;
+    }
+
+    private bool TryGetItemPrefab(ItemId itemType, out Entity prefab)
+    {
+        if (ItemCatalog == Entity.Null ||
+            !ItemPrefabLookup.HasBuffer(ItemCatalog))
+        {
+            prefab = Entity.Null;
+            return false;
+        }
+
+        DynamicBuffer<ItemPrefabEntry> entries =
+            ItemPrefabLookup[ItemCatalog];
+        for (int i = 0; i < entries.Length; i++)
+        {
+            if (entries[i].ItemType == itemType)
+            {
+                prefab = entries[i].Prefab;
+                return prefab != Entity.Null;
+            }
+        }
+
+        prefab = Entity.Null;
+        return false;
+    }
+
+    private static bool TryGetBuildingPort(
+        in DynamicBuffer<BuildingPort> ports,
+        BuildingPortType type,
+        byte index,
+        out BuildingPort result)
+    {
+        for (int i = 0; i < ports.Length; i++)
+        {
+            BuildingPort port = ports[i];
+            if (port.Type == type && port.Index == index)
+            {
+                result = port;
+                return true;
+            }
+        }
+
+        result = default;
+        return false;
+    }
+
+    private static ulong GetAcceptedCount(
+        NativeParallelHashMap<TransportPortKey, ulong> accepted,
+        TransportPortKey key,
+        ulong applied)
+    {
+        if (!accepted.TryGetValue(key, out ulong value) ||
+            value < applied)
+        {
+            value = applied;
+            accepted[key] = value;
+        }
+
+        return value;
+    }
+
+    private static int GetEffectiveCount(
+        NativeParallelHashMap<TransportPortKey, ulong> accepted,
+        TransportPortKey key,
+        ulong applied,
+        int publishedCount)
+    {
+        ulong acceptedCount = GetAcceptedCount(accepted, key, applied);
+        ulong outstanding = acceptedCount - applied;
+        return outstanding >= (ulong)math.max(0, publishedCount)
+            ? 0
+            : publishedCount - (int)outstanding;
+    }
+
+    private static int FindInputIndex(
+        in TransportTopologyNode target,
+        int sourceIndex)
+    {
+        for (int i = 0; i < target.InputCount; i++)
+        {
+            if (TransportTopologyAccess.GetInput(target, i) ==
+                sourceIndex)
+            {
+                return i;
+            }
+        }
+
+        return 0;
+    }
+
+    private static void ResizeScratch<T>(
+        NativeList<T> list,
+        int length,
+        T value)
+        where T : unmanaged
+    {
+        list.ResizeUninitialized(length);
+        for (int i = 0; i < length; i++)
+        {
+            list[i] = value;
         }
     }
 }

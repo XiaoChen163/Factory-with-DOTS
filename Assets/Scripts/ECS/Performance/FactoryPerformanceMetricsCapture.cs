@@ -401,7 +401,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
     {
         EntityManager entityManager = world.EntityManager;
         EntityQuery belts = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<Belt>());
+            ComponentType.ReadOnly<BeltState>());
         EntityQuery mergers = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<Merger>());
         EntityQuery splitters = entityManager.CreateEntityQuery(

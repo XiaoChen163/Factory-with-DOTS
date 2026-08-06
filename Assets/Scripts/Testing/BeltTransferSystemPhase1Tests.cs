@@ -46,10 +46,10 @@ namespace Factory.Tests
                     }
                 });
 
-            UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
+            UpdateTransferTick();
 
             Assert.That(
-                EntityManager.GetComponentData<Belt>(belt).CurrentItem,
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem,
                 Is.EqualTo(Entity.Null));
             Assert.That(EntityManager.Exists(item), Is.False);
             DynamicBuffer<ItemTransferReceiptNext> receipts =
@@ -68,10 +68,10 @@ namespace Factory.Tests
             Entity belt = CreateBelt(new int2(0, 0), East);
             Entity owner = CreateOutputOwner(new int2(0, 0));
 
-            UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
+            UpdateTransferTick();
 
             Entity item =
-                EntityManager.GetComponentData<Belt>(belt).CurrentItem;
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem;
             Assert.That(item, Is.Not.EqualTo(Entity.Null));
             Assert.That(EntityManager.HasComponent<Item>(item), Is.True);
             Assert.That(
@@ -94,10 +94,10 @@ namespace Factory.Tests
             Entity belt = CreateBelt(new int2(0, 0), East);
             Entity owner = CreateOutputOwner(new int2(0, 0));
 
-            UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
+            UpdateTransferTick();
 
             Entity item =
-                EntityManager.GetComponentData<Belt>(belt).CurrentItem;
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem;
             Assert.That(item, Is.Not.EqualTo(Entity.Null));
             Assert.That(EntityManager.HasComponent<Item>(item), Is.True);
             Assert.That(
@@ -129,10 +129,10 @@ namespace Factory.Tests
             Entity belt = CreateBelt(new int2(0, 0), East);
             Entity owner = CreateOutputOwner(new int2(0, 0));
 
-            UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
+            UpdateTransferTick();
 
             Entity item =
-                EntityManager.GetComponentData<Belt>(belt).CurrentItem;
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem;
             Assert.That(item, Is.Not.EqualTo(Entity.Null));
             Assert.That(EntityManager.HasComponent<Item>(item), Is.True);
             Assert.That(
@@ -158,24 +158,22 @@ namespace Factory.Tests
                 FootprintSize = new int2(1, 1),
                 Kind = BuildingKind.Storage
             });
-            BeltTransferSystem system =
-                GetOrCreateManagedSystem<BeltTransferSystem>();
-            UpdateSystem(system);
+            UpdateTransferTick();
 
             Entity belt = CreateBelt(new int2(0, 0), East);
             CreateOutputOwner(new int2(0, 0));
-            UpdateSystem(system);
+            UpdateTransferTick();
             Assert.That(
-                EntityManager.GetComponentData<Belt>(belt).CurrentItem,
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem,
                 Is.EqualTo(Entity.Null));
 
             GridDefinition definition =
                 EntityManager.GetComponentData<GridDefinition>(grid);
             definition.Revision++;
             EntityManager.SetComponentData(grid, definition);
-            UpdateSystem(system);
+            UpdateTransferTick();
             Assert.That(
-                EntityManager.GetComponentData<Belt>(belt).CurrentItem,
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem,
                 Is.Not.EqualTo(Entity.Null));
         }
 

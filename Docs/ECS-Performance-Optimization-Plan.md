@@ -338,12 +338,12 @@ public struct BeltState : IComponentData
 
 任务：
 
-- [ ] 将 Resolver 迁移到 Burst 可编译的 Native Job。
-- [ ] 拆分 BeltTopology 和 BeltState。
-- [ ] 删除或迁移 NextCell、HasOutput、IsLoop 等低价值字段。
-- [ ] 用 Chunk/Entity Job 批量提交状态，删除主线程逐实体写回。
-- [ ] 移除 NativeArray 到托管 Array 的中间转换。
-- [ ] 消除 BeltProgress 到 Transfer 之间不必要的主线程等待。
+- [x] 将 Resolver 迁移到 Burst 可编译的 Native Job。
+- [x] 拆分 BeltTopology 和 BeltState。
+- [x] 删除或迁移 NextCell、HasOutput、IsLoop 等低价值字段。
+- [x] 用 Chunk/Entity Job 批量提交状态，删除主线程逐实体写回。
+- [x] 移除 NativeArray 到托管 Array 的中间转换。
+- [x] 消除 BeltProgress 到 Transfer 之间不必要的主线程等待。
 
 退出条件：
 
@@ -351,6 +351,39 @@ public struct BeltState : IComponentData
 - Transfer 主路径可由 Burst 编译；
 - Profiler 中不再由托管 `BeltTransferSystem.OnUpdate` 占据主要模拟时间；
 - 不出现非必要的 `WaitForJobGroup`。
+
+实施记录（2026-08-06）：
+
+- `FactoryTransferArbitrationJob`（`[BurstCompile]` `IJob`）承担单个 Fixed
+  Tick 的全部仲裁与建筑端口转移；持久拓扑、动态状态、候选/状态/已接受/
+  传输队列和统计输出全部改为 Native 容器，`EnableInterface` 字节区分 ECS
+  接口路径（`ComponentLookup`/`BufferLookup` + ECB）与 NativeArray 回归路径。
+- `Belt` 拆分为静态 `BeltTopology`（`Cell`/`Direction`/`CellsPerSecond`）
+  与高频 `BeltState`（`CurrentItem`/`Progress`）；删除低价值的
+  `NextCell`、`HasOutput`、`IsLoop` 字段，环路数改为拓扑重建时统计。
+- 主线程逐实体写回已删除：Job 通过 `ComponentLookup` 直接写回
+  `BeltState`/`Merger`/`Splitter`；`BeltTransferSystem.OnUpdate` 不再持有
+  托管快照数组、`HashSet` 或 `Dictionary`。
+- 稳态 Tick 移除 NativeArray 到托管 Array 的中间转换，并取消
+  `Dependency.Complete()` 的每 Tick 调用；拓扑与端口 Owner 缓存仅在
+  `GridDefinition.Revision` 变化时重建，重建时才有少量托管分配。
+- 新增 `TransferCommandBufferSystem`（`EntityCommandBufferSystem` 子类）
+  延迟回放 Instantiate/Destroy，主线程不再在 `BeltTransferSystem.OnUpdate`
+  内等待整个仲裁 Job 并立即 Playback。
+- 建筑输出注入的物品通过 `ecb.SetComponent` 写回目标组件，使
+  deferred entity 在 ECB playback 时被 remap 为真实实体；相关测试覆盖了
+  playback 前后目标节点状态。
+- 测试基建同步迁移：`TransportScenario` 改为 `List<BeltTopology>` +
+  `List<BeltState>`，回归路径直接调用仲裁 Job；`FactoryWorldFixture`
+  的 `UpdateTransferTick` 按 `BeltProgressSystem → BeltTransferSystem →
+  TransferCommandBufferSystem` 顺序推进。
+- Unity EditMode 回归为 `39 passed / 0 failed`，覆盖 Phase 1/2 既有规则
+  与 Phase 3 新增的组件拆分、多 Tick 链路、统计输出和 ECB 生命周期测试。
+- 性能场景进程采集结果见
+  [`PerformanceReports/phase3-scenes-20260806/README.md`](PerformanceReports/phase3-scenes-20260806/README.md)：
+  `BeltTransferSystem.OnUpdate` 主路径降至 0.034～0.051 ms/Tick，GC 降至
+  47～48 KiB/Tick，三个核心场景均稳定 60+ Tick/s；稳态 `GC.Alloc = 0 B`
+  尚未达成，残余分配主要来自每 Tick 的 ECB 创建/回放与帧基线分配。
 
 ### Phase 4：视觉解耦和 Item 池化
 

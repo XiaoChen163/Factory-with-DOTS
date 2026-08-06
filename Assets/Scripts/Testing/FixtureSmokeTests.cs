@@ -37,7 +37,7 @@ namespace Factory.Tests
             Assert.That(EntityManager.Exists(item), Is.True);
             Assert.That(EntityManager.HasComponent<Item>(item), Is.True);
             Assert.That(
-                EntityManager.GetComponentData<Belt>(belt).CurrentItem,
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem,
                 Is.EqualTo(item));
         }
     }

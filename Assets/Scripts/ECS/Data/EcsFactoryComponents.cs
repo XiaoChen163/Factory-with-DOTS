@@ -1,16 +1,25 @@
 using Unity.Entities;
 using Unity.Mathematics;
 
-public struct Belt : IComponentData
+/// <summary>
+/// Static, low-frequency belt data. Never written by the fixed-tick
+/// simulation after a building is placed.
+/// </summary>
+public struct BeltTopology : IComponentData
 {
     public float CellsPerSecond;
     public int2 Cell;
     public int2 Direction;
-    public int2 NextCell;
+}
+
+/// <summary>
+/// High-frequency belt state written every fixed tick by BeltProgressSystem
+/// and BeltTransferSystem.
+/// </summary>
+public struct BeltState : IComponentData
+{
     public Entity CurrentItem;
     public float Progress;
-    public bool IsLoop;
-    public bool HasOutput;
 }
 
 public struct BeltVisualParts : IComponentData

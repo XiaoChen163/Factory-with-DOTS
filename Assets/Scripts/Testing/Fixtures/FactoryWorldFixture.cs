@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Unity.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -48,14 +49,16 @@ namespace Factory.Tests
             float progress = 0f)
         {
             Entity entity = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(entity, new Belt
+            EntityManager.AddComponentData(entity, new BeltTopology
             {
                 Cell = cell,
                 Direction = direction,
-                NextCell = cell + direction,
-                CurrentItem = item,
-                Progress = progress,
                 CellsPerSecond = 1f
+            });
+            EntityManager.AddComponentData(entity, new BeltState
+            {
+                CurrentItem = item,
+                Progress = progress
             });
             return entity;
         }
@@ -83,6 +86,27 @@ namespace Factory.Tests
         {
             system.Update();
             EntityManager.CompleteAllTrackedJobs();
+        }
+
+        /// <summary>
+        /// Runs one full transport tick: BeltTransferSystem schedules the
+        /// Burst arbitration job and TransferCommandBufferSystem plays back
+        /// the item create/destroy commands it produced. BeltProgressSystem
+        /// runs first with a fixed one-second delta so items become ready one
+        /// cell per tick in logic tests.
+        /// </summary>
+        protected void UpdateTransferTick()
+        {
+            TestWorld.PushTime(new TimeData(
+                TestWorld.Time.ElapsedTime + 1f,
+                1f));
+            SystemHandle progress =
+                TestWorld.GetOrCreateSystem<BeltProgressSystem>();
+            progress.Update(TestWorld.Unmanaged);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
+            UpdateSystem(
+                GetOrCreateManagedSystem<TransferCommandBufferSystem>());
+            TestWorld.PopTime();
         }
     }
 }

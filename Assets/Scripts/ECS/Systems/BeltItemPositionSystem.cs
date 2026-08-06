@@ -59,23 +59,25 @@ public partial struct BeltItemPositionSystem : ISystem
         public ComponentLookup<LocalTransform> TransformLookup;
 
 
-        private void Execute(in Belt belt)
+        private void Execute(
+            in BeltTopology topology,
+            in BeltState state)
         {
-            if (belt.CurrentItem == Entity.Null ||
-                !ItemLookup.HasComponent(belt.CurrentItem))
+            if (state.CurrentItem == Entity.Null ||
+                !ItemLookup.HasComponent(state.CurrentItem))
             {
                 return;
             }
 
             float3 targetPosition = new float3(
-                belt.Cell.x + 0.5f,
+                topology.Cell.x + 0.5f,
                 0.535f,
-                belt.Cell.y + 0.5f);
+                topology.Cell.y + 0.5f);
             float visualSpeed = math.max(
                 MinimumVisualSpeed,
-                belt.CellsPerSecond * TransferSpeedMultiplier);
+                topology.CellsPerSecond * TransferSpeedMultiplier);
             MoveItemTowards(
-                belt.CurrentItem,
+                state.CurrentItem,
                 targetPosition,
                 visualSpeed * DeltaTime,
                 ItemLookup,

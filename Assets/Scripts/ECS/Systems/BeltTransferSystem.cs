@@ -411,17 +411,29 @@ public partial class BeltTransferSystem : SystemBase
                     targetCell.x + 0.5f,
                     0.535f,
                     targetCell.y + 0.5f);
-                ecb.SetComponent(item, new Item
+                Item itemData = new Item
                 {
                     ItemType = port.ItemType,
                     Position = position
-                });
+                };
+                if (EntityManager.HasComponent<Item>(prefab))
+                {
+                    ecb.SetComponent(item, itemData);
+                }
+                else
+                {
+                    ecb.AddComponent(item, itemData);
+                }
                 if (EntityManager.HasComponent<LocalTransform>(prefab))
                 {
                     LocalTransform transform =
                         EntityManager.GetComponentData<LocalTransform>(prefab);
                     transform.Position = position;
                     ecb.SetComponent(item, transform);
+                }
+                else
+                {
+                    ecb.AddComponent(item, LocalTransform.FromPosition(position));
                 }
 
                 SetTransportItem(

@@ -27,9 +27,18 @@ public partial class ItemPrefabBakingSystem : SystemBase
                 EntityManager.GetBuffer<ItemPrefabEntry>(
                     catalogs[catalogIndex],
                     true);
+            using NativeList<ItemPrefabEntry> snapshot =
+                new NativeList<ItemPrefabEntry>(
+                    entries.Length,
+                    Allocator.Temp);
             for (int i = 0; i < entries.Length; i++)
             {
-                ItemPrefabEntry entry = entries[i];
+                snapshot.Add(entries[i]);
+            }
+
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                ItemPrefabEntry entry = snapshot[i];
                 if (!entry.ItemType.IsValid ||
                     entry.Prefab == Entity.Null ||
                     !EntityManager.Exists(entry.Prefab))

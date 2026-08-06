@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
 
 namespace Factory.Tests
 {
@@ -84,6 +85,69 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void BuildingOutput_WhenItemPrefabMissingItemComponent_StillInjectsItem()
+        {
+            CreateGrid();
+            CreateItemCatalog(
+                includeItemComponent: false,
+                includeLocalTransform: true);
+            Entity belt = CreateBelt(new int2(0, 0), East);
+            Entity owner = CreateOutputOwner(new int2(0, 0));
+
+            UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
+
+            Entity item =
+                EntityManager.GetComponentData<Belt>(belt).CurrentItem;
+            Assert.That(item, Is.Not.EqualTo(Entity.Null));
+            Assert.That(EntityManager.HasComponent<Item>(item), Is.True);
+            Assert.That(
+                EntityManager.GetComponentData<Item>(item).ItemType,
+                Is.EqualTo(new ItemId { Value = 1 }));
+            Assert.That(
+                EntityManager.HasComponent<LocalTransform>(item),
+                Is.True);
+            Assert.That(
+                EntityManager.GetComponentData<LocalTransform>(item).Position,
+                Is.EqualTo(new float3(0.5f, 0.535f, 0.5f)));
+            Assert.That(
+                EntityManager.GetBuffer<ItemTransferReceiptNext>(owner)
+                    .Length,
+                Is.EqualTo(1));
+            Assert.That(
+                EntityManager.GetBuffer<ItemTransferReceiptNext>(owner)[0]
+                    .Value.Kind,
+                Is.EqualTo(ItemTransferReceiptKind.OutputTransferred));
+        }
+
+        [Test]
+        public void BuildingOutput_WhenItemPrefabMissingLocalTransform_AddsTransform()
+        {
+            CreateGrid();
+            CreateItemCatalog(
+                includeItemComponent: false,
+                includeLocalTransform: false);
+            Entity belt = CreateBelt(new int2(0, 0), East);
+            Entity owner = CreateOutputOwner(new int2(0, 0));
+
+            UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
+
+            Entity item =
+                EntityManager.GetComponentData<Belt>(belt).CurrentItem;
+            Assert.That(item, Is.Not.EqualTo(Entity.Null));
+            Assert.That(EntityManager.HasComponent<Item>(item), Is.True);
+            Assert.That(
+                EntityManager.HasComponent<LocalTransform>(item),
+                Is.True);
+            Assert.That(
+                EntityManager.GetComponentData<LocalTransform>(item).Position,
+                Is.EqualTo(new float3(0.5f, 0.535f, 0.5f)));
+            Assert.That(
+                EntityManager.GetBuffer<ItemTransferReceiptNext>(owner)
+                    .Length,
+                Is.EqualTo(1));
+        }
+
+        [Test]
         public void PortOwnerOrder_RebuildsOnlyAfterGridRevisionChanges()
         {
             Entity grid = CreateGrid();
@@ -127,15 +191,24 @@ namespace Factory.Tests
             return grid;
         }
 
-        private void CreateItemCatalog()
+        private void CreateItemCatalog(
+            bool includeItemComponent = true,
+            bool includeLocalTransform = false)
         {
-            Entity prefab = EntityManager.CreateEntity(
-                typeof(Prefab),
-                typeof(Item));
-            EntityManager.SetComponentData(prefab, new Item
+            Entity prefab = EntityManager.CreateEntity(typeof(Prefab));
+            if (includeItemComponent)
             {
-                ItemType = new ItemId { Value = 1 }
-            });
+                EntityManager.AddComponentData(prefab, new Item
+                {
+                    ItemType = new ItemId { Value = 1 }
+                });
+            }
+            if (includeLocalTransform)
+            {
+                EntityManager.AddComponentData(
+                    prefab,
+                    LocalTransform.FromPosition(float3.zero));
+            }
             Entity catalog = EntityManager.CreateEntity(
                 typeof(BuildingPrefabCatalog));
             EntityManager.AddBuffer<ItemPrefabEntry>(catalog).Add(

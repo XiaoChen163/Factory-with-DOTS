@@ -5,7 +5,8 @@
         "Factory.Runtime",
         "Unity.Collections",
         "Unity.Entities",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Transforms"
     ],
     "includePlatforms": [
         "Editor"

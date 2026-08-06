@@ -16,6 +16,12 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
     private const string OutputArgument = "-factoryPerformanceOutput";
     private const string WarmupArgument = "-factoryPerformanceWarmupSeconds";
     private const string SampleArgument = "-factoryPerformanceSampleSeconds";
+    private const int MaxExpectedFramesPerSecond = 12000;
+    private const string FixedStepKey = "fixed_step";
+    // FixedStepSimulationSystemGroup reports a ~0.5us noise floor on frames
+    // that do not run a tick, so only frames well above that floor count as
+    // tick frames.
+    private const double TickFrameThresholdMs = 0.01;
 
     private static readonly MetricTarget[] MetricTargets =
     {
@@ -95,7 +101,20 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         World world = World.DefaultGameObjectInjectionWorld;
         Stage3SimulationStats initialStats = ReadStats(world);
         long managedMemoryBefore = GC.GetTotalMemory(false);
-        List<FrameSample> frames = new List<FrameSample>(2048);
+        int frameCapacity = Math.Max(
+            1024,
+            (int)Math.Ceiling(sampleSeconds * MaxExpectedFramesPerSecond));
+        FrameSample[] frames = new FrameSample[frameCapacity];
+        for (int i = 0; i < frameCapacity; i++)
+        {
+            frames[i] = new FrameSample
+            {
+                values = new double[recorders.Count]
+            };
+        }
+
+        int frameCount = 0;
+        bool skipFirstFrame = true;
 
         Debug.Log(
             "[ECS Performance] Sampling for " +
@@ -108,18 +127,33 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         while (Time.realtimeSinceStartup < captureDeadline)
         {
             yield return null;
-            double[] values = new double[recorders.Count];
-            for (int i = 0; i < recorders.Count; i++)
+
+            // The frame immediately after GC.Collect() carries a one-time
+            // managed allocation spike from profiler counter setup; exclude
+            // it so the sample only reflects steady-state frames.
+            if (skipFirstFrame)
             {
-                values[i] = recorders[i].ReadDisplayValue();
+                skipFirstFrame = false;
+                continue;
             }
 
-            frames.Add(new FrameSample
+            if (frameCount >= frameCapacity)
             {
-                elapsedSeconds = Time.realtimeSinceStartup - captureStart,
-                deltaTimeMilliseconds = Time.unscaledDeltaTime * 1000.0,
-                values = values
-            });
+                Debug.LogWarning(
+                    "[ECS Performance] Frame buffer capacity reached; " +
+                    "ending sample early.");
+                break;
+            }
+
+            FrameSample frame = frames[frameCount];
+            frame.elapsedSeconds = Time.realtimeSinceStartup - captureStart;
+            frame.deltaTimeMilliseconds = Time.unscaledDeltaTime * 1000.0;
+            for (int i = 0; i < recorders.Count; i++)
+            {
+                frame.values[i] = recorders[i].ReadDisplayValue();
+            }
+
+            frameCount++;
         }
 
         float actualSampleSeconds = Time.realtimeSinceStartup - captureStart;
@@ -130,6 +164,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         FactoryPerformanceCaptureReport report = BuildReport(
             recorders,
             frames,
+            frameCount,
             initialStats,
             finalStats,
             entityCounts,
@@ -137,7 +172,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
             managedMemoryAfter,
             actualSampleSeconds);
 
-        WriteResults(report, recorders, frames);
+        WriteResults(report, recorders, frames, frameCount);
         for (int i = 0; i < recorders.Count; i++)
         {
             recorders[i].Dispose();
@@ -156,7 +191,8 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
 
     private FactoryPerformanceCaptureReport BuildReport(
         List<MetricRecorder> recorders,
-        List<FrameSample> frames,
+        FrameSample[] frames,
+        int frameCount,
         Stage3SimulationStats initialStats,
         Stage3SimulationStats finalStats,
         EntityCounts entityCounts,
@@ -165,6 +201,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         float actualSampleSeconds)
     {
         double[] frameTimes = frames
+            .Take(frameCount)
             .Select(frame => frame.deltaTimeMilliseconds)
             .ToArray();
         ulong tickDelta = finalStats.TickCount - initialStats.TickCount;
@@ -204,14 +241,14 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 warmupSeconds = warmupSeconds,
                 requestedSampleSeconds = sampleSeconds,
                 actualSampleSeconds = actualSampleSeconds,
-                sampledFrames = frames.Count,
+                sampledFrames = frameCount,
                 frameTimeMeanMilliseconds = Mean(frameTimes),
                 frameTimeP50Milliseconds = Percentile(frameTimes, 0.50),
                 frameTimeP95Milliseconds = Percentile(frameTimes, 0.95),
                 frameTimeP99Milliseconds = Percentile(frameTimes, 0.99),
                 frameTimeMaxMilliseconds = Maximum(frameTimes),
                 framesPerSecond = actualSampleSeconds > 0f
-                    ? frames.Count / actualSampleSeconds
+                    ? frameCount / actualSampleSeconds
                     : 0.0,
                 fixedTickCount = tickDelta,
                 fixedTicksPerSecond = actualSampleSeconds > 0f
@@ -237,14 +274,57 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                     .ToList()
             };
 
+        int fixedStepIndex = -1;
+        for (int i = 0; i < recorders.Count; i++)
+        {
+            if (recorders[i].Key == FixedStepKey)
+            {
+                fixedStepIndex = i;
+                break;
+            }
+        }
+
+        bool[] isTickFrame = new bool[frameCount];
+        int tickFrameCount = 0;
+        for (int i = 0; i < frameCount; i++)
+        {
+            bool isTick = fixedStepIndex >= 0 &&
+                          frames[i].values[fixedStepIndex] >
+                          TickFrameThresholdMs;
+            isTickFrame[i] = isTick;
+            if (isTick)
+            {
+                tickFrameCount++;
+            }
+        }
+
         for (int metricIndex = 0;
              metricIndex < recorders.Count;
              metricIndex++)
         {
             double[] values = frames
+                .Take(frameCount)
                 .Select(frame => frame.values[metricIndex])
                 .ToArray();
             MetricRecorder recorder = recorders[metricIndex];
+            double tickSum = 0.0;
+            List<double> nonTickValues = new List<double>();
+            for (int frameIndex = 0; frameIndex < frameCount; frameIndex++)
+            {
+                if (isTickFrame[frameIndex])
+                {
+                    tickSum += frames[frameIndex].values[metricIndex];
+                }
+                else
+                {
+                    nonTickValues.Add(frames[frameIndex].values[metricIndex]);
+                }
+            }
+
+            double frameBaseline = nonTickValues.Count > 0
+                ? Percentile(nonTickValues.ToArray(), 0.50)
+                : 0.0;
+
             report.metrics.Add(new ProfilerMetricSummary
             {
                 key = recorder.Key,
@@ -258,7 +338,16 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 p95 = Percentile(values, 0.95),
                 p99 = Percentile(values, 0.99),
                 maximum = Maximum(values),
-                sum = values.Sum()
+                sum = values.Sum(),
+                tickFrames = tickFrameCount,
+                perTick = tickDelta > 0
+                    ? tickSum / (double)tickDelta
+                    : 0.0,
+                frameBaseline = frameBaseline,
+                perTickNet = tickDelta > 0
+                    ? (tickSum - tickFrameCount * frameBaseline) /
+                      (double)tickDelta
+                    : 0.0
             });
         }
 
@@ -268,7 +357,8 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
     private void WriteResults(
         FactoryPerformanceCaptureReport report,
         List<MetricRecorder> recorders,
-        List<FrameSample> frames)
+        FrameSample[] frames,
+        int frameCount)
     {
         string fullOutputPath = Path.GetFullPath(outputPath);
         string directory = Path.GetDirectoryName(fullOutputPath);
@@ -294,7 +384,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         }
         csv.AppendLine();
 
-        for (int frameIndex = 0; frameIndex < frames.Count; frameIndex++)
+        for (int frameIndex = 0; frameIndex < frameCount; frameIndex++)
         {
             FrameSample frame = frames[frameIndex];
             csv.Append(frameIndex);
@@ -633,4 +723,8 @@ public sealed class ProfilerMetricSummary
     public double p99;
     public double maximum;
     public double sum;
+    public int tickFrames;
+    public double perTick;
+    public double frameBaseline;
+    public double perTickNet;
 }

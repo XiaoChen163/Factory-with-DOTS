@@ -1,0 +1,119 @@
+{
+  "runId": "stress-20260807-023047",
+  "scene": "Perf_4096_Mk4_FullLoop",
+  "loadPercent": 100,
+  "warmupSeconds": 3.0,
+  "sampleSeconds": 5.0,
+  "startScale": 2,
+  "maxScale": 1024,
+  "multiplier": 2,
+  "tpsThreshold": 50.0,
+  "fpsThreshold": 0.0,
+  "thresholdMode": "Any",
+  "attempts": [
+    {
+      "scale": 2,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.19687180297028,
+      "framesPerSecond": 3832.2041094395963,
+      "frameTimeMeanMilliseconds": 0.2609020923311651,
+      "frameTimeP95Milliseconds": 0.3849985951092094,
+      "beltEntities": 4,
+      "itemEntities": 4,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-2\\report.json"
+    },
+    {
+      "scale": 4,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.59561196116114,
+      "framesPerSecond": 3220.1705967487555,
+      "frameTimeMeanMilliseconds": 0.3104810644851014,
+      "frameTimeP95Milliseconds": 0.4562896836432626,
+      "beltEntities": 16,
+      "itemEntities": 16,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-4\\report.json"
+    },
+    {
+      "scale": 8,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.39814384349838,
+      "framesPerSecond": 2795.1154995333336,
+      "frameTimeMeanMilliseconds": 0.3576710434132916,
+      "frameTimeP95Milliseconds": 0.541726898518391,
+      "beltEntities": 64,
+      "itemEntities": 64,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-8\\report.json"
+    },
+    {
+      "scale": 16,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.59635794239766,
+      "framesPerSecond": 2589.6468798574915,
+      "frameTimeMeanMilliseconds": 0.3859980230890824,
+      "frameTimeP95Milliseconds": 0.602022395469248,
+      "beltEntities": 256,
+      "itemEntities": 256,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-16\\report.json"
+    },
+    {
+      "scale": 32,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.59652828710387,
+      "framesPerSecond": 1426.9195757418381,
+      "frameTimeMeanMilliseconds": 0.7001201267802557,
+      "frameTimeP95Milliseconds": 1.37277846224606,
+      "beltEntities": 1024,
+      "itemEntities": 1024,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-32\\report.json"
+    },
+    {
+      "scale": 64,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.379939551082465,
+      "framesPerSecond": 548.8206321424149,
+      "frameTimeMeanMilliseconds": 1.818518726168309,
+      "frameTimeP95Milliseconds": 3.834136994555592,
+      "beltEntities": 4096,
+      "itemEntities": 4096,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-64\\report-detailed.json"
+    },
+    {
+      "scale": 128,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.943950252533334,
+      "framesPerSecond": 83.5244232437385,
+      "frameTimeMeanMilliseconds": 11.768435177050138,
+      "frameTimeP95Milliseconds": 17.378943320363756,
+      "beltEntities": 16384,
+      "itemEntities": 16384,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-128\\report.json"
+    },
+    {
+      "scale": 256,
+      "scaleUnit": "side",
+      "status": "failed",
+      "fixedTicksPerSecond": 28.158349644424398,
+      "framesPerSecond": 1.2967661020458605,
+      "frameTimeMeanMilliseconds": 683.4310974393572,
+      "frameTimeP95Milliseconds": 733.193051815033,
+      "beltEntities": 65536,
+      "itemEntities": 65536,
+      "reportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-256\\report-detailed.json"
+    }
+  ],
+  "result": {
+    "foundLimit": true,
+    "noLimit": false,
+    "aborted": false,
+    "lastPassingScale": 128,
+    "firstFailingScale": 256,
+    "thresholdReportPath": "Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-023047\\scale-256\\report-detailed.json"
+  }
+}

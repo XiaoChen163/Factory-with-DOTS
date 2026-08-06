@@ -8,13 +8,19 @@
 同时输出一条 `[ECS Performance] READY` 日志。应从此时开始采集
 Profiler，场景加载和批量建造尖峰不属于稳态模拟样本。
 
+## 运行策略
+
+默认只运行 `4096` 参数的固定规模场景，例如 `Perf_4096_Mk4_FullLoop` 或
+`Perf_Straight_Scalable` 的 4096 节点配置。压力测试只有在用户明确要求时才执行，
+结果保存在 `Docs/PerformanceReports/StressTest/` 下。
+
 ## 场景清单
 
 ### Perf_4096_Mk4_HalfLoaded
 
-- 网格：`64 × 64`
-- 4096 格四级传送带，按蛇形填满整个网格
-- 2048 个铁矿石按奇偶格交错放置，形成 50% 初始占用
+- 默认网格：`64 × 64`，可通过 `-factoryPerformanceScale` 设置边长
+- 默认 4096 格四级传送带，按蛇形填满整个网格；边长为 `scale` 时共 `scale²` 格
+- 默认 2048 个铁矿石按奇偶格交错放置，形成 50% 初始占用
 - 无分叉、无接收建筑
 
 交错放置用于在测试开始时制造尽可能多的并发移动请求；尾端无输出，
@@ -31,10 +37,13 @@ Profiler，场景加载和批量建造尖峰不属于稳态模拟样本。
 数据库目前只有一级 Splitter，因此“都是四级”应用于所有普通传送带；
 Splitter 使用数据库中唯一的 `splitter_mk1`。
 
+该场景保持固定布局，`-factoryPerformanceScale` 会被忽略。
+
 ### Perf_4096_Mk4_Blocking
 
-- 网格：`67 × 64`
-- 4096 格四级传送带折叠为 `64 × 64`，初始全部满载
+- 默认网格：`67 × 64`
+- 默认 4096 格四级传送带折叠为 `64 × 64`，初始全部满载
+- 可通过 `-factoryPerformanceScale` 设置主蛇形边长，默认 `64`，从 `2` 起无硬上限
 - 尾部连接 1 格一级传送带
 - 一级传送带进入旋转 180 度的一级储物箱
 
@@ -45,7 +54,8 @@ Splitter 使用数据库中唯一的 `splitter_mk1`。
 ### Perf_Straight_Scalable
 
 - 默认 128 格四级直线传送带，50% 均匀装载
-- 使用 `-factoryPerformanceNodeCount` 设置节点数，范围 `2～16384`
+- 使用 `-factoryPerformanceScale` 或兼容参数 `-factoryPerformanceNodeCount`
+  设置节点数，从 `2` 起无硬上限
 - 使用 `-factoryPerformanceLoadPercent` 设置初始装载率，范围 `0～100`
 - 推荐矩阵：`128 / 512 / 1024 / 4096` × `0 / 50 / 100%`
 
@@ -53,7 +63,9 @@ Splitter 使用数据库中唯一的 `splitter_mk1`。
 
 ### Perf_512_MixedJunction
 
-- 462 格四级传送带、25 个 Merger、25 个 Splitter，共 512 个运输节点
+- 默认 462 格四级传送带、25 个 Merger、25 个 Splitter，共 512 个运输节点
+- 可通过 `-factoryPerformanceScale` 设置模块网格每边模块数，默认 `5`，
+  从 `1` 起无硬上限
 - 25 个相互隔离的闭合三路分流/三路合流模块，另有 1 个 62 格闭环，
   Junction 比例约 9.8%
 - 默认 50% 确定性交错装载，使 Splitter 输出和 Merger 输入竞争同时活跃
@@ -64,14 +76,17 @@ Splitter 使用数据库中唯一的 `splitter_mk1`。
 
 ### Perf_4096_Mk4_FullLoop
 
-- `64 × 64` Hamilton 环，4096 格四级传送带
+- 默认 `64 × 64` Hamilton 环，4096 格四级传送带
+- 可通过 `-factoryPerformanceScale` 设置边长，默认 `64`，从 `2` 起无硬上限，
+  且必须为偶数
 - 默认 100% 满载，末端重新连接起点
 - 同一 Ready Tick 可原子提交全部 4096 个物品，用于测量高密度状态写回
 - 可使用 `-factoryPerformanceLoadPercent` 创建同拓扑的部分装载对照
 
 ### Perf_ProducerConsumer
 
-- 64 条相互独立的持续生产线
+- 默认 64 条相互独立的持续生产线
+- 可通过 `-factoryPerformanceScale` 设置生产线数，默认 `64`，从 `1` 起无硬上限
 - 每条为 `Miner → 8 Mk4 Belt → Furnace → 8 Mk4 Belt → Storage`
 - 合计 128 个 Processor、64 个 Storage 和 1024 格四级传送带
 - Miner 持续产生铁矿石，Furnace 冶炼铁锭，Storage 持续消费运输实体
@@ -81,16 +96,34 @@ Playback，不与纯 Resolver 场景的结果混合解释。
 
 ## 参数化运行
 
-参数只影响支持它的场景；未传入时使用上述默认值。例如：
+除 F16 外的场景都支持 `-factoryPerformanceScale`；未传入时使用上述默认值。
+`scale` 的含义由场景决定，报告中的 `scale` / `scaleUnit` 会记录实际使用的
+主规模参数。例如：
 
 ```text
--factoryPerformanceScene Perf_Straight_Scalable
--factoryPerformanceNodeCount 4096
--factoryPerformanceLoadPercent 50
+-factoryPerformanceScene Perf_4096_Mk4_FullLoop
+-factoryPerformanceScale 128
+-factoryPerformanceLoadPercent 100
 ```
 
-`Perf_512_MixedJunction` 和 `Perf_4096_Mk4_FullLoop` 支持装载率参数；其余既有
-场景和 `Perf_ProducerConsumer` 使用固定布局。
+`-factoryPerformanceScale` 的场景含义：
+
+| 场景 | scale 含义 | 默认 | 最小值 |
+|---|---|---:|---:|
+| `Perf_4096_Mk4_HalfLoaded` | 正方形网格边长 | 64 | 2 |
+| `Perf_4096_Mk4_Blocking` | 主蛇形边长 | 64 | 2 |
+| `Perf_Straight_Scalable` | 传送带节点数 | 128 | 2 |
+| `Perf_512_MixedJunction` | 模块网格每边模块数 | 5 | 1 |
+| `Perf_4096_Mk4_FullLoop` | Hamilton 环边长 | 64 | 2（须为偶数） |
+| `Perf_ProducerConsumer` | 生产线数 | 64 | 1 |
+
+以上场景不再设置 scale 上限，实际可运行规模只受内存、构建超时和 ECS 网格
+尺寸限制。
+
+`Perf_512_MixedJunction` 和 `Perf_4096_Mk4_FullLoop` 支持装载率参数；
+`Perf_Straight_Scalable` 也支持装载率。`Perf_4096_Mk4_HalfLoaded` 和
+`Perf_4096_Mk4_Blocking` 使用场景自身定义的交错/满载装载方式，
+`Perf_ProducerConsumer` 使用持续生产，均不读取装载率。
 
 ## 采样建议
 

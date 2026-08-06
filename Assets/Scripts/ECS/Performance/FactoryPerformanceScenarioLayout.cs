@@ -42,7 +42,9 @@ public sealed class FactoryPerformanceScenarioDefinition
         int2 gridSize,
         FactoryPerformancePlacement[] placements,
         int2[] initialItemCells,
-        int[] branchLengths)
+        int[] branchLengths,
+        int scale,
+        string scaleUnit)
     {
         Scenario = scenario;
         DisplayName = displayName;
@@ -51,6 +53,8 @@ public sealed class FactoryPerformanceScenarioDefinition
         Placements = placements;
         InitialItemCells = initialItemCells;
         BranchLengths = branchLengths;
+        Scale = scale;
+        ScaleUnit = scaleUnit;
 
         for (int i = 0; i < placements.Length; i++)
         {
@@ -95,6 +99,8 @@ public sealed class FactoryPerformanceScenarioDefinition
     public FactoryPerformancePlacement[] Placements { get; }
     public int2[] InitialItemCells { get; }
     public int[] BranchLengths { get; }
+    public int Scale { get; }
+    public string ScaleUnit { get; }
     public int BeltCount { get; }
     public int Mk4BeltCount { get; }
     public int Mk1BeltCount { get; }
@@ -119,29 +125,34 @@ public static class FactoryPerformanceScenarioLayout
 
     public static FactoryPerformanceScenarioDefinition Create(
         FactoryPerformanceScenario scenario,
-        int nodeCount = 0,
+        int scale = 0,
         int loadPercent = -1)
     {
         switch (scenario)
         {
             case FactoryPerformanceScenario.Mk4SerpentineHalfLoaded:
-                return CreateHalfLoadedSerpentine();
+                return CreateHalfLoadedSerpentine(
+                    ResolveScale(scale, 64, 2));
             case FactoryPerformanceScenario.Mk4F16Branches:
                 return CreateF16Branches();
             case FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1:
-                return CreateBlockedSerpentine();
+                return CreateBlockedSerpentine(
+                    ResolveScale(scale, 64, 2));
             case FactoryPerformanceScenario.ScalableStraight:
                 return CreateScalableStraight(
-                    nodeCount > 0 ? nodeCount : 128,
+                    ResolveScale(scale, 128, 2),
                     ResolveLoadPercent(loadPercent, 50));
             case FactoryPerformanceScenario.MixedJunctions512:
                 return CreateMixedJunctions(
+                    ResolveScale(scale, 5, 1),
                     ResolveLoadPercent(loadPercent, 50));
             case FactoryPerformanceScenario.Mk4FullLoop4096:
                 return CreateFullLoop(
+                    ResolveScale(scale, 64, 2),
                     ResolveLoadPercent(loadPercent, 100));
             case FactoryPerformanceScenario.ProducerConsumer:
-                return CreateProducerConsumer();
+                return CreateProducerConsumer(
+                    ResolveScale(scale, 64, 1));
             default:
                 throw new ArgumentOutOfRangeException(
                     nameof(scenario),
@@ -154,14 +165,6 @@ public static class FactoryPerformanceScenarioLayout
         int nodeCount,
         int loadPercent)
     {
-        if (nodeCount < 2 || nodeCount > 16384)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(nodeCount),
-                nodeCount,
-                "Scalable straight node count must be between 2 and 16384.");
-        }
-
         Builder builder = new Builder(new int2(nodeCount, 1));
         List<int2> route = new List<int2>(nodeCount);
         for (int x = 0; x < nodeCount; x++)
@@ -174,15 +177,25 @@ public static class FactoryPerformanceScenarioLayout
         return builder.Build(
             FactoryPerformanceScenario.ScalableStraight,
             nodeCount + " Mk4 belts - " + loadPercent + "% loaded straight",
-            "A parameterized straight chain for scale and occupancy comparisons.");
+            "A parameterized straight chain for scale and occupancy comparisons.",
+            nodeCount,
+            "belts");
     }
 
     private static FactoryPerformanceScenarioDefinition CreateMixedJunctions(
+        int moduleSide,
         int loadPercent)
     {
-        const int moduleColumns = 5;
-        const int moduleRows = 5;
-        Builder builder = new Builder(new int2(47, 24));
+        int moduleColumns = moduleSide;
+        int moduleRows = moduleSide;
+        int gridHeight = moduleRows * 5 - 1;
+        int loopStartX = moduleColumns * 6 + 1;
+        int gridWidth = loopStartX + 16;
+        int loopTop = Math.Clamp(
+            moduleSide * 2 + 6,
+            2,
+            gridHeight - 1);
+        Builder builder = new Builder(new int2(gridWidth, gridHeight));
 
         for (int row = 0; row < moduleRows; row++)
         for (int column = 0; column < moduleColumns; column++)
@@ -222,38 +235,51 @@ public static class FactoryPerformanceScenarioLayout
         }
 
         // A separate 62-belt loop keeps the total node count at exactly 512
-        // while preserving the requested 50 / 512 ~= 9.8% junction ratio.
-        List<int2> beltLoop = new List<int2>(62);
-        for (int x = 31; x <= 46; x++)
+        // for the default 5 x 5 module grid while preserving the requested
+        // junction ratio.
+        List<int2> beltLoop = new List<int2>(30 + loopTop * 2);
+        for (int x = loopStartX; x <= loopStartX + 15; x++)
         {
             beltLoop.Add(new int2(x, 0));
         }
-        for (int y = 1; y <= 16; y++)
+        for (int y = 1; y <= loopTop; y++)
         {
-            beltLoop.Add(new int2(46, y));
+            beltLoop.Add(new int2(loopStartX + 15, y));
         }
-        for (int x = 45; x >= 31; x--)
+        for (int x = loopStartX + 14; x >= loopStartX; x--)
         {
-            beltLoop.Add(new int2(x, 16));
+            beltLoop.Add(new int2(x, loopTop));
         }
-        for (int y = 15; y >= 1; y--)
+        for (int y = loopTop - 1; y >= 1; y--)
         {
-            beltLoop.Add(new int2(31, y));
+            beltLoop.Add(new int2(loopStartX, y));
         }
         builder.AddBeltRoute(beltLoop, Mk4BeltLevelId, new int2(0, -1));
 
         builder.AddInitialItemsByLoadPercent(loadPercent);
         return builder.Build(
             FactoryPerformanceScenario.MixedJunctions512,
-            "512 transport nodes - 10% mixed junctions",
-            "Twenty-five closed splitter/merger modules with deterministic " +
-            loadPercent + "% occupancy.");
+            moduleSide + " x " + moduleSide +
+            " mixed junction modules",
+            moduleSide * moduleSide +
+            " closed splitter/merger modules with deterministic " +
+            loadPercent + "% occupancy.",
+            moduleSide,
+            "modules_per_side");
     }
 
     private static FactoryPerformanceScenarioDefinition CreateFullLoop(
+        int size,
         int loadPercent)
     {
-        const int size = 64;
+        if ((size & 1) != 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(size),
+                size,
+                "Full loop side must be even.");
+        }
+
         Builder builder = new Builder(new int2(size, size));
         List<int2> route = new List<int2>(size * size);
 
@@ -289,13 +315,17 @@ public static class FactoryPerformanceScenarioLayout
         builder.AddInitialItemsByLoadPercent(loadPercent);
         return builder.Build(
             FactoryPerformanceScenario.Mk4FullLoop4096,
-            "4096 Mk4 belts - " + loadPercent + "% loaded full loop",
-            "A Hamiltonian 64 x 64 loop for atomic high-density commits.");
+            size * size + " Mk4 belts - " + loadPercent +
+            "% loaded full loop",
+            "A Hamiltonian " + size + " x " + size +
+            " loop for atomic high-density commits.",
+            size,
+            "side");
     }
 
-    private static FactoryPerformanceScenarioDefinition CreateProducerConsumer()
+    private static FactoryPerformanceScenarioDefinition CreateProducerConsumer(
+        int laneCount)
     {
-        const int laneCount = 64;
         Builder builder = new Builder(new int2(22, laneCount * 3 - 1));
         for (int lane = 0; lane < laneCount; lane++)
         {
@@ -330,8 +360,12 @@ public static class FactoryPerformanceScenarioLayout
 
         return builder.Build(
             FactoryPerformanceScenario.ProducerConsumer,
-            "64 continuous producer-consumer lanes",
-            "64 miners feed furnaces and storage through 1024 Mk4 belts.");
+            laneCount + " continuous producer-consumer lanes",
+            laneCount +
+            " miners feed furnaces and storage through " +
+            laneCount * 16 + " Mk4 belts.",
+            laneCount,
+            "lanes");
     }
 
     private static int ResolveLoadPercent(int requested, int defaultValue)
@@ -348,14 +382,31 @@ public static class FactoryPerformanceScenarioLayout
         return value;
     }
 
-    private static FactoryPerformanceScenarioDefinition
-        CreateHalfLoadedSerpentine()
+    private static int ResolveScale(
+        int requested,
+        int defaultValue,
+        int minimum)
     {
-        Builder builder = new Builder(new int2(64, 64));
+        int value = requested > 0 ? requested : defaultValue;
+        if (value < minimum)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(requested),
+                requested,
+                "Scale must be at least " + minimum + ".");
+        }
+
+        return value;
+    }
+
+    private static FactoryPerformanceScenarioDefinition
+        CreateHalfLoadedSerpentine(int side)
+    {
+        Builder builder = new Builder(new int2(side, side));
         List<int2> route = BuildSerpentine(
             int2.zero,
-            64,
-            64,
+            side,
+            side,
             true);
         builder.AddBeltRoute(
             route,
@@ -369,8 +420,12 @@ public static class FactoryPerformanceScenarioLayout
 
         return builder.Build(
             FactoryPerformanceScenario.Mk4SerpentineHalfLoaded,
-            "4096 Mk4 belts - half loaded",
-            "A 64 x 64 serpentine with 2048 alternating iron ore items.");
+            side * side + " Mk4 belts - half loaded",
+            "A " + side + " x " + side +
+            " serpentine with " + (side * side + 1) / 2 +
+            " alternating iron ore items.",
+            side,
+            "side");
     }
 
     private static FactoryPerformanceScenarioDefinition CreateF16Branches()
@@ -428,17 +483,19 @@ public static class FactoryPerformanceScenarioLayout
             FactoryPerformanceScenario.Mk4F16Branches,
             "F-shaped Mk4 network - 16 x 256 branches",
             "A full 1024-cell input trunk feeds 16 compact 256-cell arms.",
+            16,
+            "branches",
             branchLengths);
     }
 
     private static FactoryPerformanceScenarioDefinition
-        CreateBlockedSerpentine()
+        CreateBlockedSerpentine(int side)
     {
-        Builder builder = new Builder(new int2(67, 64));
+        Builder builder = new Builder(new int2(side + 3, side));
         List<int2> mainRoute = BuildSerpentine(
             new int2(3, 0),
-            64,
-            64,
+            side,
+            side,
             true);
         builder.AddBeltRoute(
             mainRoute,
@@ -450,17 +507,20 @@ public static class FactoryPerformanceScenarioLayout
         }
 
         builder.AddBelt(
-            new int2(2, 63),
+            new int2(2, side - 1),
             new int2(-1, 0),
             Mk1BeltLevelId);
         builder.AddStorage(
-            new int2(0, 62),
+            new int2(0, side - 2),
             new int2(-1, 0));
 
         return builder.Build(
             FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1,
-            "4096 full Mk4 belts -> Mk1 belt -> storage",
-            "A full 64 x 64 Mk4 serpentine drains through one Mk1 belt into a storage.");
+            side * side + " full Mk4 belts -> Mk1 belt -> storage",
+            "A full " + side + " x " + side +
+            " Mk4 serpentine drains through one Mk1 belt into a storage.",
+            side,
+            "side");
     }
 
     private static List<int2> BuildSerpentine(
@@ -626,6 +686,8 @@ public static class FactoryPerformanceScenarioLayout
             FactoryPerformanceScenario scenario,
             string displayName,
             string description,
+            int scale,
+            string scaleUnit,
             int[] branchLengths = null)
         {
             return new FactoryPerformanceScenarioDefinition(
@@ -635,7 +697,9 @@ public static class FactoryPerformanceScenarioLayout
                 gridSize,
                 placements.ToArray(),
                 initialItemCells.ToArray(),
-                branchLengths ?? Array.Empty<int>());
+                branchLengths ?? Array.Empty<int>(),
+                scale,
+                scaleUnit);
         }
 
         private void ReserveCell(int2 cell, BuildingKind kind)

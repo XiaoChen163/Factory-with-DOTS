@@ -24,7 +24,7 @@ Defaults on this machine, all overridable via script parameters:
 - Editor version in `ProjectSettings/ProjectVersion.txt`: `6000.3.19f1`
 - Performance entry point: `FactoryPerformanceBatchRunner.Run` in the `Factory.Editor` assembly
 - Performance scenes: `Assets/Scenes/Performance/Perf_*.unity`
-- Proven lightweight scenario: `Perf_Straight_Scalable` with `-factoryPerformanceNodeCount 128`
+- Default performance scenario: `Perf_4096_Mk4_FullLoop` with `-factoryPerformanceScale 64` (4096 belts)
 - Licensing channel: discovered automatically; do not hardcode a username
 
 ## Cross-machine usage
@@ -56,6 +56,13 @@ These rules map one-to-one to failures seen in real runs. Follow them for every 
 4. **Do not pass `-quit` for the capture pipeline.** `FactoryPerformanceMetricsCapture` calls `EditorApplication.Exit(0)` itself when capture finishes. With `-quit`, the Editor exits before Play Mode and capture complete.
 5. **Log to the workspace.** Always pass `-logFile <workspace path>` and check completion markers after the run; an exit code alone is not enough.
 
+## Stress test policy
+
+Default performance runs use fixed 4096-scale scenes only. Do not start a stress test
+unless the user explicitly asks for one. When a stress test is requested, run
+`Tools/FactoryStress/Run-FactoryStressTest.ps1` and store results under
+`Docs/PerformanceReports/StressTest/`.
+
 ## Quick start
 
 Replace `<skill-dir>` with the folder containing this `SKILL.md` (on this machine: `C:\Users\Xiao_Chen\.codex\skills\unity-launch`). Run the bundled script from an escalated `shell_command`; the licensing channel is resolved automatically:
@@ -65,13 +72,13 @@ Replace `<skill-dir>` with the folder containing this `SKILL.md` (on this machin
   -TimeoutSeconds 240 `
   -ExtraArgs @(
     '-executeMethod','FactoryPerformanceBatchRunner.Run',
-    '-factoryPerformanceScene','Perf_Straight_Scalable',
-    '-factoryPerformanceNodeCount','128',
-    '-factoryPerformanceLoadPercent','50',
+    '-factoryPerformanceScene','Perf_4096_Mk4_FullLoop',
+    '-factoryPerformanceScale','64',
+    '-factoryPerformanceLoadPercent','100',
     '-factoryPerformanceCapture',
     '-factoryPerformanceWarmupSeconds','1',
     '-factoryPerformanceSampleSeconds','2',
-    '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\CodexUnityAccessTest\performance-report.json'
+    '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\Docs\PerformanceReports\Default4096\performance-report.json'
   )
 ```
 
@@ -98,13 +105,13 @@ $args = @(
   '-projectPath','D:\UnityProject\Factory-with-DOTS',
   '-logFile',$log,
   '-executeMethod','FactoryPerformanceBatchRunner.Run',
-  '-factoryPerformanceScene','Perf_Straight_Scalable',
-  '-factoryPerformanceNodeCount','128',
-  '-factoryPerformanceLoadPercent','50',
+  '-factoryPerformanceScene','Perf_4096_Mk4_FullLoop',
+  '-factoryPerformanceScale','64',
+  '-factoryPerformanceLoadPercent','100',
   '-factoryPerformanceCapture',
   '-factoryPerformanceWarmupSeconds','1',
   '-factoryPerformanceSampleSeconds','2',
-  '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\CodexUnityAccessTest\performance-report.json'
+  '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\Docs\PerformanceReports\Default4096\performance-report.json'
 )
 $p = Start-Process -FilePath $exe -ArgumentList $args -PassThru -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(240)
@@ -126,17 +133,32 @@ A successful performance run must show all of the following:
 
 | Argument | Purpose | Example |
 | --- | --- | --- |
-| `-factoryPerformanceScene` | Scene name under `Assets/Scenes/Performance` | `Perf_Straight_Scalable` |
-| `-factoryPerformanceNodeCount` | Scalable scene belt count (2-16384) | `128` |
-| `-factoryPerformanceLoadPercent` | Initial item occupancy percent | `50` |
+| `-factoryPerformanceScene` | Scene name under `Assets/Scenes/Performance` | `Perf_4096_Mk4_FullLoop` |
+| `-factoryPerformanceScale` | Primary scale for all non-F16 parameterized scenes; `ScalableStraight` also accepts the legacy NodeCount argument | `64` |
+| `-factoryPerformanceNodeCount` | Legacy alias for `-factoryPerformanceScale` on `ScalableStraight`; no hard upper limit | `4096` |
+| `-factoryPerformanceLoadPercent` | Initial item occupancy percent | `100` |
 | `-factoryPerformanceCapture` | Enables the Profiler capture component | flag |
 | `-factoryPerformanceWarmupSeconds` | Warmup before sampling | `1` |
 | `-factoryPerformanceSampleSeconds` | Sampling duration | `2` |
 | `-factoryPerformanceOutput` | JSON report path (CSV is derived) | workspace path |
+| `-factoryPerformanceCompact` | Write compact JSON summary without per-frame CSV | flag |
 
 Supported scenes: `Perf_4096_Mk4_HalfLoaded`, `Perf_F16_Mk4_1024Items`, `Perf_4096_Mk4_Blocking`, `Perf_Straight_Scalable`, `Perf_512_MixedJunction`, `Perf_4096_Mk4_FullLoop`, `Perf_ProducerConsumer`.
 
 Reports contain frame time statistics, managed/GC/system memory, ECS system markers (`BeltTransferSystem`, `BeltProgressSystem`, `ItemProcessSystem`, ...), fixed tick rate, and transfer counters. See `references/project-map.md` for the full script/scene map and report schema.
+
+## Stress test
+
+Run only when the user explicitly requests a stress test. Results are written to
+`Docs/PerformanceReports/StressTest/`:
+
+```powershell
+& 'D:\UnityProject\Factory-with-DOTS\Tools\FactoryStress\Run-FactoryStressTest.ps1' `
+  -Scene Perf_4096_Mk4_FullLoop `
+  -StartScale 2 `
+  -MaxScale 128 `
+  -TpsThreshold 50
+```
 
 ## Failure diagnosis
 

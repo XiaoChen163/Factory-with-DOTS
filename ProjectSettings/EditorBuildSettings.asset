@@ -35,6 +35,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Performance/Perf_ProducerConsumer.unity
     guid: 91024a4b5c6d47e89f00112233445566
+  - enabled: 1
+    path: Assets/Scenes/Performance/Perf_ContinuousBeltBuild.unity
+    guid: 8b939249162045a88fda24a013f4b045
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

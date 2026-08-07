@@ -24,11 +24,23 @@ Profiler 摘要。
 | `Perf_512_MixedJunction` | 模块网格每边模块数 | 5 | 1 |
 | `Perf_4096_Mk4_FullLoop` | Hamilton 环边长 | 64 | 2（须为偶数） |
 | `Perf_ProducerConsumer` | 生产线数 | 64 | 1 |
+| `Perf_ContinuousBeltBuild` | 传送带条数，每条长度同为该值 | 64 | 1 |
 
 未传入 `-factoryPerformanceScale` 时，所有场景仍使用原有固定默认值，因此旧报告
 和新报告可以继续对比。报告中的 `scale` 与 `scaleUnit` 字段会记录本次实际规模。
 所有场景不再设置代码级 scale 上限，实际可运行规模只受内存、构建超时和 ECS
 网格尺寸限制。
+
+`Perf_ContinuousBeltBuild` 是 Phase 5 的建造尖峰场景。它模拟玩家连续放置
+传送带：点击起点、从起点匀速拖动到终点让放置预览逐渐变长、点击终点提交
+`PlaceBeltPath`；放置完 `scale` 条后，再按 `demolitionOrder` 逐条拆除
+`RemoveBeltLine`。相关参数：
+
+| 参数 | 默认 | 说明 |
+|---|---|---:|
+| `-factoryPerformanceTimeDelay` | `0.25` | 两次放置之间以及每次拆除之间的间隔秒数 |
+| `-factoryPerformanceDragSeconds` | `0.25` | 起点到终点的匀速拖动秒数 |
+| `-factoryPerformanceDemolitionOrder` | `0` | 拆除顺序，`0` 正序，`1` 倒序 |
 
 ## 3. 单场景性能采样
 
@@ -80,6 +92,9 @@ $unityArgs = @(
 | `-LoadPercent` | `50` | 初始装载率 |
 | `-WarmupSeconds` | `5` | 每轮采样前预热秒数 |
 | `-SampleSeconds` | `10` | 每轮采样秒数 |
+| `-TimeDelaySeconds` | `0.25` | 传送带场景的放置/拆除间隔秒数 |
+| `-DragSeconds` | `0.25` | 传送带场景的拖动秒数 |
+| `-DemolitionOrder` | `0` | 拆除顺序，`0` 正序，`1` 倒序 |
 | `-TpsThreshold` | `50` | tps 下限，`0` 表示不检查 |
 | `-FpsThreshold` | `0` | fps 下限，`0` 表示不检查 |
 | `-ThresholdMode` | `Any` | `Any` 任一低于阈值即失败，`All` 需要两者都低 |
@@ -136,6 +151,8 @@ Docs/PerformanceReports/StressTest/Perf_4096_Mk4_FullLoop/stress-<timestamp>/
 和逐帧 CSV，中间规模只写 compact `report.json`，避免产生大量无用数据：
 
 - `scale == 4096`，或实际实体规模等于 4096；
+- 建造场景的 `peakBeltEntities == 4096`（`Perf_ContinuousBeltBuild` 默认满载
+  时等价于 `scale == 64`）；
 - 触发 tps/fps 性能下限。
 
 完整报告保留 FixedStep、BeltTransfer、GC、内存、实体数量和传输吞吐。

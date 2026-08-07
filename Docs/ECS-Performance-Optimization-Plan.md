@@ -458,6 +458,8 @@ public struct BeltState : IComponentData
 
 同时单独测量：
 
+- 使用 `Perf_ContinuousBeltBuild` 连续拖动放置 `scale` 条 `scale` 格传送带，
+  再逐条拆除；
 - 连续绘制最长 Belt Path；
 - 连续拆除 Belt Line；
 - 大量建筑同时完成生产并输出；

@@ -44,6 +44,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private bool beltPathStarted;
     private bool horizontalFirst = true;
     private int2 beltPathStart;
+    private bool simulatedHoverActive;
+    private int2 simulatedHoverCell;
     private World cachedWorld;
     private EntityQuery gridQuery;
     private EntityQuery databaseQuery;
@@ -190,14 +192,27 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void UpdatePlacementPreview()
     {
-        if (!TryRaycastGrid(
-                out World world,
-                out GridDefinition grid,
-                out _,
-                out int2 hoveredCell,
-                out _,
-                out _,
-                false))
+        World world;
+        GridDefinition grid;
+        int2 hoveredCell;
+        if (simulatedHoverActive)
+        {
+            if (!TryGetGrid(out world, out _, out grid))
+            {
+                HidePlacementPreview();
+                return;
+            }
+
+            hoveredCell = simulatedHoverCell;
+        }
+        else if (!TryRaycastGrid(
+                     out world,
+                     out grid,
+                     out _,
+                     out hoveredCell,
+                     out _,
+                     out _,
+                     false))
         {
             HidePlacementPreview();
             return;
@@ -727,11 +742,29 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         if (!TryRaycastGrid(
                 out World world,
                 out _,
-                out Entity gridEntity,
+                out _,
                 out int2 cell,
-                out Vector3 hitPoint,
-                out bool isInside,
+                out _,
+                out _,
                 true))
+        {
+            return;
+        }
+
+        HandlePrimaryClickAtCell(cell);
+    }
+
+    public void SimulatePrimaryClick(int2 cell)
+    {
+        HandlePrimaryClickAtCell(cell);
+    }
+
+    private void HandlePrimaryClickAtCell(int2 cell)
+    {
+        if (!TryGetGrid(
+                out World world,
+                out Entity gridEntity,
+                out GridDefinition grid))
         {
             return;
         }
@@ -740,6 +773,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
+        bool isInside = EcsGridUtility.Contains(grid, cell);
         bool isOccupied =
             isInside &&
             occupancySystem != null &&
@@ -748,8 +782,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out occupant);
 
         Debug.Log(
-            "[ECS Grid Raycast] Hit=" + hitPoint +
-            ", Cell=(" + cell.x + ", " + cell.y + ")" +
+            "[ECS Grid Raycast] Cell=(" + cell.x + ", " + cell.y + ")" +
             ", Inside=" + isInside +
             ", Occupied=" + isOccupied +
             (isOccupied ? ", Entity=" + occupant : string.Empty) +
@@ -818,7 +851,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         if (!TryRaycastGrid(
                 out World world,
                 out _,
-                out Entity gridEntity,
+                out _,
                 out int2 cell,
                 out _,
                 out bool isInside,
@@ -828,8 +861,27 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return;
         }
 
-        beltPathStarted = false;
+        HandleRemoveAtCell(cell, removeBeltLine);
+    }
 
+    public void SimulateRemove(int2 cell, bool removeBeltLine)
+    {
+        HandleRemoveAtCell(cell, removeBeltLine);
+    }
+
+    private void HandleRemoveAtCell(
+        int2 cell,
+        bool removeBeltLine)
+    {
+        if (!TryGetGrid(
+                out World world,
+                out Entity gridEntity,
+                out _))
+        {
+            return;
+        }
+
+        beltPathStarted = false;
         Enqueue(
             world,
             gridEntity,
@@ -848,6 +900,22 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 QuarterTurns = 0,
                 HorizontalFirst = 0
             });
+    }
+
+    public void SimulateHover(int2 cell)
+    {
+        simulatedHoverActive = true;
+        simulatedHoverCell = cell;
+    }
+
+    public void StopSimulatedHover()
+    {
+        simulatedHoverActive = false;
+    }
+
+    public void CancelBeltPath()
+    {
+        beltPathStarted = false;
     }
 
     private bool TryRaycastGrid(
@@ -925,6 +993,29 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     {
         if (!SelectedBuildingLevel.IsValid)
             SelectBuildingMenuIndex(0);
+    }
+
+    public bool TrySelectBuildingLevel(BuildingLevelId buildingLevel)
+    {
+        if (!TryGetDatabase(
+                out BlobAssetReference<FactoryDatabaseBlob> reference))
+        {
+            return false;
+        }
+
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        for (int i = 0; i < database.BuildingLevelMenu.Length; i++)
+        {
+            if (database.BuildingLevelMenu[i] != buildingLevel)
+            {
+                continue;
+            }
+
+            SelectBuildingMenuIndex(i);
+            return SelectedBuildingLevel == buildingLevel;
+        }
+
+        return false;
     }
 
     private void SelectBuildingMenuIndex(int index)

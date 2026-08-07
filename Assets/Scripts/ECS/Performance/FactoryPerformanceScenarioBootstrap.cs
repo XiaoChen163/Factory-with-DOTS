@@ -16,6 +16,10 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
     private const string ScaleArgument = "-factoryPerformanceScale";
     private const string NodeCountArgument = "-factoryPerformanceNodeCount";
     private const string LoadPercentArgument = "-factoryPerformanceLoadPercent";
+    private const string TimeDelayArgument = "-factoryPerformanceTimeDelay";
+    private const string DragSecondsArgument = "-factoryPerformanceDragSeconds";
+    private const string DemolitionOrderArgument =
+        "-factoryPerformanceDemolitionOrder";
 
     private static readonly Dictionary<string, FactoryPerformanceScenario>
         ScenarioBySceneName =
@@ -48,6 +52,10 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 {
                     "Perf_ProducerConsumer",
                     FactoryPerformanceScenario.ProducerConsumer
+                },
+                {
+                    "Perf_ContinuousBeltBuild",
+                    FactoryPerformanceScenario.ContinuousBeltBuild
                 }
             };
 
@@ -82,6 +90,24 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             scenario,
             scale,
             ReadOptionalIntArgument(arguments, LoadPercentArgument, -1));
+        bootstrap.definition.TimeDelaySeconds = ReadOptionalFloatArgument(
+            arguments,
+            TimeDelayArgument,
+            0.25f);
+        bootstrap.definition.DragSeconds = ReadOptionalFloatArgument(
+            arguments,
+            DragSecondsArgument,
+            0.25f);
+        bootstrap.definition.DemolitionOrder = ReadOptionalIntArgument(
+            arguments,
+            DemolitionOrderArgument,
+            0);
+        if (bootstrap.definition.DemolitionOrder != 0 &&
+            bootstrap.definition.DemolitionOrder != 1)
+        {
+            throw new ArgumentException(
+                "Demolition order must be 0 (forward) or 1 (reverse).");
+        }
         bootstrap.StartCoroutine(bootstrap.Setup());
     }
 
@@ -298,7 +324,17 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             ", Processors=" + definition.ProcessorCount +
             ", Items=" + definition.InitialItemCells.Length + ".");
 
-        FactoryPerformanceMetricsCapture.StartIfRequested(definition);
+        FactoryBuildStressDriver driver = null;
+        if (definition.Scenario ==
+            FactoryPerformanceScenario.ContinuousBeltBuild)
+        {
+            driver = FactoryBuildStressDriver.Create(definition);
+            driver.Begin();
+        }
+
+        FactoryPerformanceMetricsCapture.StartIfRequested(
+            definition,
+            driver);
     }
 
     private bool TryPopulateInitialItems(
@@ -480,6 +516,32 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         return value;
     }
 
+    private static float ReadOptionalFloatArgument(
+        string[] arguments,
+        string name,
+        float fallback)
+    {
+        int index = Array.IndexOf(arguments, name);
+        if (index < 0)
+        {
+            return fallback;
+        }
+
+        if (index + 1 >= arguments.Length ||
+            !float.TryParse(
+                arguments[index + 1],
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out float value) ||
+            value < 0f)
+        {
+            throw new ArgumentException(
+                "Invalid non-negative float value for " + name + ".");
+        }
+
+        return value;
+    }
+
     private static void ResetSimulationStats(EntityManager entityManager)
     {
         EntityQuery statsQuery = entityManager.CreateEntityQuery(
@@ -502,12 +564,15 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
     private void ConfigurePresentation()
     {
+        bool keepInteractionEnabled =
+            definition.Scenario ==
+            FactoryPerformanceScenario.ContinuousBeltBuild;
         EcsGridInteractionController[] interactions =
             FindObjectsByType<EcsGridInteractionController>(
                 FindObjectsSortMode.None);
         for (int i = 0; i < interactions.Length; i++)
         {
-            interactions[i].enabled = false;
+            interactions[i].enabled = keepInteractionEnabled;
         }
 
         TopDownPlayerController[] controllers =

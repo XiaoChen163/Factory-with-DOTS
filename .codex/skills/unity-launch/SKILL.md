@@ -140,10 +140,13 @@ A successful performance run must show all of the following:
 | `-factoryPerformanceCapture` | Enables the Profiler capture component | flag |
 | `-factoryPerformanceWarmupSeconds` | Warmup before sampling | `1` |
 | `-factoryPerformanceSampleSeconds` | Sampling duration | `2` |
+| `-factoryPerformanceTimeDelay` | Build stress: seconds between placements/removals | `0.25` |
+| `-factoryPerformanceDragSeconds` | Build stress: drag duration from start to end | `0.25` |
+| `-factoryPerformanceDemolitionOrder` | Build stress: `0` forward, `1` reverse | `0` |
 | `-factoryPerformanceOutput` | JSON report path (CSV is derived) | workspace path |
 | `-factoryPerformanceCompact` | Write compact JSON summary without per-frame CSV | flag |
 
-Supported scenes: `Perf_4096_Mk4_HalfLoaded`, `Perf_F16_Mk4_1024Items`, `Perf_4096_Mk4_Blocking`, `Perf_Straight_Scalable`, `Perf_512_MixedJunction`, `Perf_4096_Mk4_FullLoop`, `Perf_ProducerConsumer`.
+Supported scenes: `Perf_4096_Mk4_HalfLoaded`, `Perf_F16_Mk4_1024Items`, `Perf_4096_Mk4_Blocking`, `Perf_Straight_Scalable`, `Perf_512_MixedJunction`, `Perf_4096_Mk4_FullLoop`, `Perf_ProducerConsumer`, `Perf_ContinuousBeltBuild`.
 
 Reports contain frame time statistics, managed/GC/system memory, ECS system markers (`BeltTransferSystem`, `BeltProgressSystem`, `ItemProcessSystem`, ...), fixed tick rate, and transfer counters. See `references/project-map.md` for the full script/scene map and report schema.
 

@@ -296,6 +296,40 @@ namespace Factory.Tests
             AssertUniquePlacementAnchors(definition);
         }
 
+        [Test]
+        public void ContinuousBeltBuildScenario_UsesScaleForCountAndLength()
+        {
+            FactoryPerformanceScenarioDefinition definition =
+                FactoryPerformanceScenarioLayout.Create(
+                    FactoryPerformanceScenario.ContinuousBeltBuild);
+
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(64, 127)));
+            Assert.That(definition.Scale, Is.EqualTo(64));
+            Assert.That(definition.ScaleUnit, Is.EqualTo("belts"));
+            Assert.That(definition.BeltCount, Is.Zero);
+            Assert.That(definition.Placements, Is.Empty);
+            Assert.That(definition.InitialItemCells, Is.Empty);
+            Assert.That(definition.TimeDelaySeconds, Is.EqualTo(0.25f));
+            Assert.That(definition.DragSeconds, Is.EqualTo(0.25f));
+            Assert.That(definition.DemolitionOrder, Is.Zero);
+        }
+
+        [Test]
+        public void ContinuousBeltBuildScenario_AcceptsScaleParameter()
+        {
+            FactoryPerformanceScenarioDefinition definition =
+                FactoryPerformanceScenarioLayout.Create(
+                    FactoryPerformanceScenario.ContinuousBeltBuild,
+                    8);
+
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(8, 15)));
+            Assert.That(definition.Scale, Is.EqualTo(8));
+            Assert.That(definition.ScaleUnit, Is.EqualTo("belts"));
+            Assert.That(definition.BeltCount, Is.Zero);
+            Assert.That(definition.Placements, Is.Empty);
+            Assert.That(definition.InitialItemCells, Is.Empty);
+        }
+
         private static void AssertUniquePlacementAnchors(
             FactoryPerformanceScenarioDefinition definition)
         {

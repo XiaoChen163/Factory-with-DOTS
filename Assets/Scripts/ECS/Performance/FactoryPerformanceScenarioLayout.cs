@@ -10,7 +10,8 @@ public enum FactoryPerformanceScenario
     ScalableStraight,
     MixedJunctions512,
     Mk4FullLoop4096,
-    ProducerConsumer
+    ProducerConsumer,
+    ContinuousBeltBuild
 }
 
 public readonly struct FactoryPerformancePlacement
@@ -55,6 +56,9 @@ public sealed class FactoryPerformanceScenarioDefinition
         BranchLengths = branchLengths;
         Scale = scale;
         ScaleUnit = scaleUnit;
+        TimeDelaySeconds = 0.25f;
+        DragSeconds = 0.25f;
+        DemolitionOrder = 0;
 
         for (int i = 0; i < placements.Length; i++)
         {
@@ -101,6 +105,9 @@ public sealed class FactoryPerformanceScenarioDefinition
     public int[] BranchLengths { get; }
     public int Scale { get; }
     public string ScaleUnit { get; }
+    public float TimeDelaySeconds { get; internal set; }
+    public float DragSeconds { get; internal set; }
+    public int DemolitionOrder { get; internal set; }
     public int BeltCount { get; }
     public int Mk4BeltCount { get; }
     public int Mk1BeltCount { get; }
@@ -152,6 +159,9 @@ public static class FactoryPerformanceScenarioLayout
                     ResolveLoadPercent(loadPercent, 100));
             case FactoryPerformanceScenario.ProducerConsumer:
                 return CreateProducerConsumer(
+                    ResolveScale(scale, 64, 1));
+            case FactoryPerformanceScenario.ContinuousBeltBuild:
+                return CreateContinuousBeltBuild(
                     ResolveScale(scale, 64, 1));
             default:
                 throw new ArgumentOutOfRangeException(
@@ -366,6 +376,22 @@ public static class FactoryPerformanceScenarioLayout
             laneCount * 16 + " Mk4 belts.",
             laneCount,
             "lanes");
+    }
+
+    private static FactoryPerformanceScenarioDefinition
+        CreateContinuousBeltBuild(int beltCount)
+    {
+        Builder builder = new Builder(
+            new int2(beltCount, beltCount * 2 - 1));
+        return builder.Build(
+            FactoryPerformanceScenario.ContinuousBeltBuild,
+            beltCount + " Mk4 belt lines x " + beltCount +
+            " cells continuous build",
+            "Drag-builds " + beltCount + " Mk4 belt lines of " +
+            beltCount + " cells with growing preview, then removes " +
+            "them one line at a time.",
+            beltCount,
+            "belts");
     }
 
     private static int ResolveLoadPercent(int requested, int defaultValue)

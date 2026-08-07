@@ -94,6 +94,22 @@ Splitter 使用数据库中唯一的 `splitter_mk1`。
 该场景用于覆盖建筑端口、Receipt Buffer、Item Instantiate/Destroy 和 ECB
 Playback，不与纯 Resolver 场景的结果混合解释。
 
+### Perf_ContinuousBeltBuild
+
+- 默认 `scale=64`，网格 `64 × 127`
+- 依次模拟 `scale` 次完整传送带输入：点击起点、在
+  `-factoryPerformanceDragSeconds` 内从起点匀速拖动到终点（放置预览随拖动
+  逐渐变长）、点击终点提交整条 `scale` 格长的 `PlaceBeltPath`
+- 两次放置之间和每次拆除之间间隔 `-factoryPerformanceTimeDelay` 秒，默认 `0.25`
+- 放置完成后按 `-factoryPerformanceDemolitionOrder` 逐条拆除：
+  `0` 按放置顺序正序，`1` 倒序，默认 `0`
+- 总传送带节点数在满载时为 `scale²`，默认 4096
+
+该场景专门覆盖 Phase 5 的连续拖动建造和连续拆除 Belt Line 尖峰；报告会记录
+`timeDelaySeconds`、`dragSeconds`、`demolitionOrder`、已完成放置/拆除数量，
+`peakBeltEntities`（满载时 `scale²`），并新增 `grid_build`、
+`grid_occupancy_index`、`belt_topology_visual` Profiler 摘要。
+
 ## 参数化运行
 
 除 F16 外的场景都支持 `-factoryPerformanceScale`；未传入时使用上述默认值。
@@ -116,6 +132,7 @@ Playback，不与纯 Resolver 场景的结果混合解释。
 | `Perf_512_MixedJunction` | 模块网格每边模块数 | 5 | 1 |
 | `Perf_4096_Mk4_FullLoop` | Hamilton 环边长 | 64 | 2（须为偶数） |
 | `Perf_ProducerConsumer` | 生产线数 | 64 | 1 |
+| `Perf_ContinuousBeltBuild` | 传送带条数，每条长度同为该值 | 64 | 1 |
 
 以上场景不再设置 scale 上限，实际可运行规模只受内存、构建超时和 ECS 网格
 尺寸限制。

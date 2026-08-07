@@ -52,18 +52,23 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         new MetricTarget("item_port_adapter", "ItemPortAdapterSystem"),
         new MetricTarget("item_port_buffer_swap", "ItemPortBufferSwapSystem"),
         new MetricTarget("grid_placement_transform", "GridPlacementTransformSystem"),
+        new MetricTarget("grid_build", "GridBuildCommandSystem"),
+        new MetricTarget("grid_occupancy_index", "GridOccupancyIndexSystem"),
+        new MetricTarget("belt_topology_visual", "BeltTopologyVisualSystem"),
         new MetricTarget("wait_for_job_group", "WaitForJobGroupID"),
         new MetricTarget("structural_changes", "Structural Changes")
     };
 
     private FactoryPerformanceScenarioDefinition definition;
+    private FactoryBuildStressDriver driver;
     private string outputPath;
     private float warmupSeconds;
     private float sampleSeconds;
     private bool compactOutput;
 
     public static void StartIfRequested(
-        FactoryPerformanceScenarioDefinition definition)
+        FactoryPerformanceScenarioDefinition definition,
+        FactoryBuildStressDriver driver = null)
     {
         string[] arguments = Environment.GetCommandLineArgs();
         if (Array.IndexOf(arguments, CaptureArgument) < 0)
@@ -77,6 +82,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         FactoryPerformanceMetricsCapture capture =
             captureObject.AddComponent<FactoryPerformanceMetricsCapture>();
         capture.definition = definition;
+        capture.driver = driver;
         capture.outputPath = ReadArgument(
             arguments,
             OutputArgument,
@@ -93,6 +99,10 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
             arguments,
             SampleArgument,
             10f);
+        if (capture.driver != null)
+        {
+            capture.warmupSeconds = 0f;
+        }
         capture.StartCoroutine(capture.Capture());
     }
 
@@ -112,12 +122,26 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         yield return null;
 
         List<MetricRecorder> recorders = CreateMetricRecorders();
+        float effectiveSampleSeconds = sampleSeconds;
+        if (driver != null)
+        {
+            effectiveSampleSeconds = Math.Max(
+                sampleSeconds,
+                driver.EstimatedDurationSeconds + 10f);
+        }
+
+        driver?.Begin();
+
         World world = World.DefaultGameObjectInjectionWorld;
         Stage3SimulationStats initialStats = ReadStats(world);
         long managedMemoryBefore = GC.GetTotalMemory(false);
+        int maxFramesPerSecond = driver != null
+            ? 2000
+            : MaxExpectedFramesPerSecond;
         int frameCapacity = Math.Max(
             1024,
-            (int)Math.Ceiling(sampleSeconds * MaxExpectedFramesPerSecond));
+            (int)Math.Ceiling(
+                effectiveSampleSeconds * maxFramesPerSecond));
         FrameSample[] frames = new FrameSample[frameCapacity];
         for (int i = 0; i < frameCapacity; i++)
         {
@@ -132,13 +156,14 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
 
         Debug.Log(
             "[ECS Performance] Sampling for " +
-            sampleSeconds.ToString("F1", CultureInfo.InvariantCulture) +
+            effectiveSampleSeconds.ToString("F1", CultureInfo.InvariantCulture) +
             " seconds with " + recorders.Count +
             " resolved Profiler counters.");
 
         float captureStart = Time.realtimeSinceStartup;
-        float captureDeadline = captureStart + sampleSeconds;
-        while (Time.realtimeSinceStartup < captureDeadline)
+        float captureDeadline = captureStart + effectiveSampleSeconds;
+        while (Time.realtimeSinceStartup < captureDeadline &&
+               (driver == null || !driver.IsFinished))
         {
             yield return null;
 
@@ -149,6 +174,14 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
             {
                 skipFirstFrame = false;
                 continue;
+            }
+
+            if (driver != null && driver.HasFailed)
+            {
+                Debug.LogError(
+                    "[ECS Performance] Build stress driver failed; " +
+                    "ending sample.");
+                break;
             }
 
             if (frameCount >= frameCapacity)
@@ -254,9 +287,26 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 processorEntities = entityCounts.processors,
                 storageEntities = entityCounts.storages,
                 itemEntities = entityCounts.items,
+                peakBeltEntities = definition.Scenario ==
+                    FactoryPerformanceScenario.ContinuousBeltBuild
+                    ? definition.Scale * definition.Scale
+                    : entityCounts.belts,
                 warmupSeconds = warmupSeconds,
                 requestedSampleSeconds = sampleSeconds,
                 actualSampleSeconds = actualSampleSeconds,
+                timeDelaySeconds = definition.TimeDelaySeconds,
+                dragSeconds = definition.DragSeconds,
+                demolitionOrder = definition.DemolitionOrder,
+                buildStressComplete = driver != null && driver.IsFinished,
+                completedPlacements = driver == null
+                    ? 0
+                    : driver.CompletedPlacements,
+                completedRemovals = driver == null
+                    ? 0
+                    : driver.CompletedRemovals,
+                buildStressStatus = driver == null
+                    ? string.Empty
+                    : driver.Status,
                 sampledFrames = frameCount,
                 frameTimeMeanMilliseconds = Mean(frameTimes),
                 frameTimeP50Milliseconds = Percentile(frameTimes, 0.50),
@@ -465,9 +515,17 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                     processorEntities = report.processorEntities,
                     storageEntities = report.storageEntities,
                     itemEntities = report.itemEntities,
+                    peakBeltEntities = report.peakBeltEntities,
                     warmupSeconds = report.warmupSeconds,
                     requestedSampleSeconds = report.requestedSampleSeconds,
                     actualSampleSeconds = report.actualSampleSeconds,
+                    timeDelaySeconds = report.timeDelaySeconds,
+                    dragSeconds = report.dragSeconds,
+                    demolitionOrder = report.demolitionOrder,
+                    buildStressComplete = report.buildStressComplete,
+                    completedPlacements = report.completedPlacements,
+                    completedRemovals = report.completedRemovals,
+                    buildStressStatus = report.buildStressStatus,
                     sampledFrames = report.sampledFrames,
                     frameTimeMeanMilliseconds = report.frameTimeMeanMilliseconds,
                     frameTimeP50Milliseconds = report.frameTimeP50Milliseconds,
@@ -787,9 +845,17 @@ public sealed class FactoryPerformanceCaptureReport
     public int processorEntities;
     public int storageEntities;
     public int itemEntities;
+    public int peakBeltEntities;
     public float warmupSeconds;
     public float requestedSampleSeconds;
     public float actualSampleSeconds;
+    public float timeDelaySeconds;
+    public float dragSeconds;
+    public int demolitionOrder;
+    public bool buildStressComplete;
+    public int completedPlacements;
+    public int completedRemovals;
+    public string buildStressStatus;
     public int sampledFrames;
     public double frameTimeMeanMilliseconds;
     public double frameTimeP50Milliseconds;
@@ -831,9 +897,17 @@ public sealed class FactoryPerformanceCompactReport
     public int processorEntities;
     public int storageEntities;
     public int itemEntities;
+    public int peakBeltEntities;
     public float warmupSeconds;
     public float requestedSampleSeconds;
     public float actualSampleSeconds;
+    public float timeDelaySeconds;
+    public float dragSeconds;
+    public int demolitionOrder;
+    public bool buildStressComplete;
+    public int completedPlacements;
+    public int completedRemovals;
+    public string buildStressStatus;
     public int sampledFrames;
     public double frameTimeMeanMilliseconds;
     public double frameTimeP50Milliseconds;

@@ -8,6 +8,10 @@ param(
     [int]$LoadPercent = 50,
     [float]$WarmupSeconds = 5,
     [float]$SampleSeconds = 10,
+    [float]$TimeDelaySeconds = 0.25,
+    [float]$DragSeconds = 0.25,
+    [ValidateRange(0, 1)]
+    [int]$DemolitionOrder = 0,
     [float]$TpsThreshold = 50,
     [float]$FpsThreshold = 0,
     [ValidateSet('Any', 'All')]
@@ -116,6 +120,9 @@ function Invoke-PerformanceAttempt {
         '-factoryPerformanceCapture',
         '-factoryPerformanceWarmupSeconds', ([string]$WarmupSeconds),
         '-factoryPerformanceSampleSeconds', ([string]$SampleSeconds),
+        '-factoryPerformanceTimeDelay', ([string]$TimeDelaySeconds),
+        '-factoryPerformanceDragSeconds', ([string]$DragSeconds),
+        '-factoryPerformanceDemolitionOrder', ([string]$DemolitionOrder),
         '-factoryPerformanceOutput', $OutputPath
     )
     if (-not $Detailed) {
@@ -200,7 +207,8 @@ while ($scale -le $MaxScale) {
         $null -ne $report -and
         ($report.beltEntities -eq 4096 -or
          $report.itemEntities -eq 4096 -or
-         $report.expectedBelts -eq 4096)) {
+         $report.expectedBelts -eq 4096 -or
+         $report.peakBeltEntities -eq 4096)) {
         $writeDetailed = $true
         $reportPath = Join-Path $attemptPath 'report-detailed.json'
         $result = Invoke-PerformanceAttempt `
@@ -293,6 +301,9 @@ $summary = [pscustomobject]@{
     loadPercent = $LoadPercent
     warmupSeconds = $WarmupSeconds
     sampleSeconds = $SampleSeconds
+    timeDelaySeconds = $TimeDelaySeconds
+    dragSeconds = $DragSeconds
+    demolitionOrder = $DemolitionOrder
     startScale = $StartScale
     maxScale = $MaxScale
     multiplier = $Multiplier

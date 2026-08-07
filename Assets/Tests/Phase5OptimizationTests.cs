@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Factory.Tests
 {
@@ -171,6 +172,187 @@ namespace Factory.Tests
             DynamicBuffer<BeltVisualDirtyCell> dirty =
                 EntityManager.GetBuffer<BeltVisualDirtyCell>(grid);
             Assert.That(dirty.IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void StorageAdapter_GenerationOneWritesCurrentBuffersWithoutSafetyError()
+        {
+            BlobAssetReference<FactoryDatabaseBlob> database = default;
+            try
+            {
+                database = CreateDatabase();
+                Entity databaseEntity = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(
+                    databaseEntity,
+                    new FactoryDatabase { Value = database });
+
+                Entity owner = CreatePortOwner(new GridPlacement
+                {
+                    AnchorCell = int2.zero,
+                    FootprintSize = new int2(1, 1),
+                    Kind = BuildingKind.Storage
+                });
+                EntityManager.AddComponentData(
+                    owner,
+                    new StorageState { Capacity = 10 });
+                EntityManager.AddBuffer<StoredItemCount>(owner);
+                EntityManager.GetBuffer<BuildingPort>(owner).Add(
+                    new BuildingPort
+                    {
+                        CellOffset = int2.zero,
+                        Direction = int2.zero,
+                        Type = BuildingPortType.Input,
+                        Index = 0
+                    });
+                EntityManager.SetComponentData(
+                    owner,
+                    new ItemPortBufferGeneration { Value = 1 });
+                EntityManager.GetBuffer<ItemInputPortNext>(owner).Add(
+                    new ItemInputPortNext
+                    {
+                        Value = new ItemInputPortSnapshot
+                        {
+                            PortIndex = 0,
+                            Enabled = 1,
+                            FilterMode = ItemPortFilterMode.Any
+                        }
+                    });
+
+                SystemHandle adapter = TestWorld.GetOrCreateSystem<
+                    ItemPortAdapterSystem>();
+                adapter.Update(TestWorld.Unmanaged);
+                EntityManager.CompleteAllTrackedJobs();
+
+                DynamicBuffer<ItemInputPortCurrent> current =
+                    EntityManager.GetBuffer<ItemInputPortCurrent>(owner);
+                Assert.That(current.Length, Is.EqualTo(1));
+                Assert.That(current[0].Value.PortIndex, Is.Zero);
+            }
+            finally
+            {
+                if (database.IsCreated)
+                {
+                    database.Dispose();
+                }
+            }
+        }
+
+        private static BlobAssetReference<FactoryDatabaseBlob> CreateDatabase()
+        {
+            FactoryDatabaseAsset asset =
+                ScriptableObject.CreateInstance<FactoryDatabaseAsset>();
+            GameObject visualPrefab = new GameObject("Storage Visual");
+            asset.items = new[]
+            {
+                new FactoryItemTableRow
+                {
+                    id = 1,
+                    key = "iron_ore",
+                    nameKey = "iron_ore",
+                    maxStack = 1,
+                    category = FactoryItemCategory.Ore
+                }
+            };
+            asset.machineTypes = new[]
+            {
+                new FactoryMachineTypeTableRow
+                {
+                    id = 1,
+                    key = "furnace"
+                }
+            };
+            asset.buildings = new[]
+            {
+                new FactoryBuildingTableRow
+                {
+                    id = 1,
+                    key = "storage",
+                    nameKey = "storage",
+                    behavior = FactoryBuildingBehavior.Storage,
+                    kind = BuildingKind.Storage,
+                    footprintWidth = 1,
+                    footprintHeight = 1,
+                    ports = new[]
+                    {
+                        new FactoryBuildingPortTableRow
+                        {
+                            type = BuildingPortType.Input,
+                            index = 0,
+                            cellOffset = Vector2Int.zero,
+                            direction = Vector2Int.right
+                        }
+                    }
+                }
+            };
+            asset.buildingLevels = new[]
+            {
+                new FactoryBuildingLevelTableRow
+                {
+                    id = 1,
+                    key = "storage_mk1",
+                    buildingKey = "storage",
+                    buildingId = 1,
+                    level = 1,
+                    nameKey = "storage_mk1",
+                    visualPrefab = visualPrefab,
+                    menuOrder = 0
+                }
+            };
+            asset.beltLevels = System.Array.Empty<
+                FactoryBeltLevelTableRow>();
+            asset.processorLevels = System.Array.Empty<
+                FactoryProcessorLevelTableRow>();
+            asset.storageLevels = new[]
+            {
+                new FactoryStorageLevelTableRow
+                {
+                    buildingLevelKey = "storage_mk1",
+                    buildingLevelId = 1,
+                    capacity = 10
+                }
+            };
+            asset.recipes = new[]
+            {
+                new FactoryRecipeTableRow
+                {
+                    id = 1,
+                    key = "smelt",
+                    machineTypeKey = "furnace",
+                    machineTypeId = 1,
+                    durationSeconds = 1f,
+                    inputs = new[]
+                    {
+                        new FactoryRecipeIngredientTableRow
+                        {
+                            itemKey = "iron_ore",
+                            itemId = 1,
+                            count = 1
+                        }
+                    },
+                    outputs = new[]
+                    {
+                        new FactoryRecipeIngredientTableRow
+                        {
+                            itemKey = "iron_ingot",
+                            itemId = 1,
+                            count = 1
+                        }
+                    }
+                }
+            };
+
+            if (!FactoryDatabaseBakingUtility.TryBuild(
+                    asset,
+                    null,
+                    out BlobAssetReference<FactoryDatabaseBlob> result))
+            {
+                throw new System.InvalidOperationException(
+                    "Failed to build minimal factory database.");
+            }
+
+            Object.DestroyImmediate(visualPrefab);
+            Object.DestroyImmediate(asset);
+            return result;
         }
 
         private Entity CreateGrid()

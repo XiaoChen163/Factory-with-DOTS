@@ -39,9 +39,9 @@ public partial struct ItemPortAdapterSystem : ISystem
             DynamicBuffer<ItemProcessInput> inputs,
             in DynamicBuffer<BuildingPort> buildingPorts,
             in ItemPortBufferGeneration generation,
-            in DynamicBuffer<ItemInputPortCurrent> inputCurrent,
+            DynamicBuffer<ItemInputPortCurrent> inputCurrent,
             DynamicBuffer<ItemInputPortNext> inputNext,
-            in DynamicBuffer<ItemOutputPortCurrent> outputCurrent,
+            DynamicBuffer<ItemOutputPortCurrent> outputCurrent,
             DynamicBuffer<ItemOutputPortNext> outputNext,
             DynamicBuffer<ItemTransferReceiptNext> receipts)
         {
@@ -108,9 +108,9 @@ public partial struct ItemPortAdapterSystem : ISystem
             DynamicBuffer<StoredItemCount> storedItems,
             in DynamicBuffer<BuildingPort> buildingPorts,
             in ItemPortBufferGeneration generation,
-            in DynamicBuffer<ItemInputPortCurrent> inputCurrent,
+            DynamicBuffer<ItemInputPortCurrent> inputCurrent,
             DynamicBuffer<ItemInputPortNext> inputNext,
-            in DynamicBuffer<ItemOutputPortCurrent> outputCurrent,
+            DynamicBuffer<ItemOutputPortCurrent> outputCurrent,
             DynamicBuffer<ItemOutputPortNext> outputNext,
             DynamicBuffer<ItemTransferReceiptNext> receipts)
         {

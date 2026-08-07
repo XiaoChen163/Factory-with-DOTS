@@ -389,11 +389,11 @@ public struct BeltState : IComponentData
 
 任务：
 
-- [ ] 将 Item Transform 更新移到 Presentation System。
-- [ ] 保存前后 Tick 状态并进行渲染插值。
-- [ ] 删除 Item.Position 与 LocalTransform.Position 的重复写入。
-- [ ] 改为以 Item 为中心的连续查询。
-- [ ] 实现 Item Entity Pool 和 Enableable Active 状态。
+- [x] 将 Item Transform 更新移到 Presentation System。
+- [x] 保存前后 Tick 状态并进行渲染插值。
+- [x] 删除 Item.Position 与 LocalTransform.Position 的重复写入。
+- [x] 改为以 Item 为中心的连续查询。
+- [x] 实现 Item Entity Pool 和 Enableable Active 状态。
 - [ ] 可选：增加视野裁剪，只更新可见物品 Transform。
 
 退出条件：
@@ -401,6 +401,32 @@ public struct BeltState : IComponentData
 - 一个渲染帧内即使执行多个 Fixed Tick，也只进行一次物品视觉更新；
 - 稳态运输不再频繁 Instantiate/Destroy Item；
 - 逻辑结果不受相机可见性和渲染帧率影响。
+
+实施记录（2026-08-07）：
+
+- 旧 `BeltItemPositionSystem` 从 `FixedStepSimulationSystemGroup` 移除；
+  新增 `ItemVisualStateCaptureSystem`（Fixed Tick 末尾采样 From/To 位置）与
+  `ItemTransformPresentationSystem`（`PresentationSystemGroup` 中以 Item 为
+  中心的连续查询，按前后节点位置与 `Progress` 插值，每渲染帧写一次
+  `LocalTransform`/`LocalToWorld`，并保留 `PostTransformMatrix` 非均匀缩放）。
+- `Item` 改为 `IEnableableComponent`，删除 `Position` 字段；禁用状态表示
+  池中空闲物品，启用状态表示正在运输或被建筑持有的物品。
+- 新增 `ItemPool` / `ItemPoolEntry` 和 `ItemPoolInitializationSystem`，
+  按 Item Prefab Catalog 创建每个物品类型的空闲池；`BeltTransferSystem`
+  持久缓存 `ItemId -> Pool` Native 映射，仅在池数量变化时重建。
+- `FactoryTransferArbitrationJob` 的建筑输入改为将物品放回池（无池时保留
+  `DestroyEntity` 调试后备），建筑输出优先复用池中禁用实体，池空时仍走
+  `Instantiate`；拆除建筑的 `GridBuildCommandSystem` 同样优先归还物品。
+- 初始物品注入和 Item Prefab Baking 为实例写入 `ItemVisualState`，不再写
+  `Item.Position`。
+- Unity EditMode 回归为 `53 passed / 0 failed`，新增
+  `BeltTransferSystemPhase4Tests` 覆盖池归还、池复用、无池回退、视觉快照
+  采样、Presentation 进度插值和非均匀缩放保持。
+- 性能采集见
+  [`PerformanceReports/phase4-20260807/README.md`](PerformanceReports/phase4-20260807/README.md)。
+- Phase 4 后 FullLoop 压力测试（2 → 1024）见
+  [`PerformanceReports/StressTest/README.md`](PerformanceReports/StressTest/README.md)：
+  极限档 65536 节点 TPS 28.16 → 31.78，帧 P95 733 ms → 618 ms。
 
 ### Phase 5：Port、建造和拓扑尖峰优化
 

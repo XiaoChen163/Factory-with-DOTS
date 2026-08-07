@@ -4,7 +4,7 @@ using Unity.Entities;
 [BurstCompile]
 [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
 [UpdateAfter(typeof(BeltTransferSystem))]
-[UpdateBefore(typeof(BeltItemPositionSystem))]
+[UpdateBefore(typeof(ItemVisualStateCaptureSystem))]
 public partial struct ItemPortBufferSwapSystem : ISystem
 {
     [BurstCompile]

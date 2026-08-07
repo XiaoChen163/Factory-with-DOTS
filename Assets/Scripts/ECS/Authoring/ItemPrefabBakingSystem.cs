@@ -48,8 +48,7 @@ public partial class ItemPrefabBakingSystem : SystemBase
 
                 Item item = new Item
                 {
-                    ItemType = entry.ItemType,
-                    Position = default
+                    ItemType = entry.ItemType
                 };
                 if (EntityManager.HasComponent<Item>(entry.Prefab))
                 {
@@ -58,6 +57,20 @@ public partial class ItemPrefabBakingSystem : SystemBase
                 else
                 {
                     EntityManager.AddComponentData(entry.Prefab, item);
+                }
+
+                if (EntityManager.HasComponent<ItemVisualState>(
+                        entry.Prefab))
+                {
+                    EntityManager.SetComponentData(
+                        entry.Prefab,
+                        new ItemVisualState());
+                }
+                else
+                {
+                    EntityManager.AddComponentData(
+                        entry.Prefab,
+                        new ItemVisualState());
                 }
             }
         }

@@ -47,10 +47,37 @@ public struct Splitter : IComponentData
     public int NextOutputIndex;
 }
 
-public struct Item : IComponentData
+public struct Item : IComponentData, IEnableableComponent
 {
     public ItemId ItemType;
-    public float3 Position;
+}
+
+/// <summary>
+/// Interpolation endpoints captured once per fixed tick. The presentation
+/// system reads this component from an item-centered query and writes the
+/// final LocalTransform once per render frame.
+/// </summary>
+public struct ItemVisualState : IComponentData
+{
+    public float3 FromPosition;
+    public float3 ToPosition;
+    public float Progress;
+}
+
+/// <summary>
+/// Persistent free-list for inactive Item entities. Pooled items keep their
+/// Item component disabled until a building output reuses them.
+/// </summary>
+public struct ItemPool : IComponentData
+{
+    public ItemId ItemType;
+    public Entity Prefab;
+    public int FreeCursor;
+}
+
+public struct ItemPoolEntry : IBufferElementData
+{
+    public Entity Entity;
 }
 
 public struct Stage3SimulationStats : IComponentData

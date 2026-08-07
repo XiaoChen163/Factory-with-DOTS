@@ -40,14 +40,14 @@
 | 测试夹具或测试 asmdef | `FixtureSmokeTests` | 完整 `Factory.Tests` | 测试能发现、World 能创建和销毁 |
 | Item Port、Buffer Swap、Processor 或 Storage | 对应端口集成测试；若不存在则必须补建 | 完整 `Factory.Tests` | Receipt 只应用一次，容量和预订正确 |
 | 拓扑缓存或新 Resolver | 旧、新 Resolver 对照测试 | 完整 `Factory.Tests` | 相同输入产生相同标准化状态 |
-| Presentation 或 Transform | 对应 PlayMode 测试 | EditMode 全套及相关 PlayMode 测试 | 多 Fixed Tick 时每渲染帧最多更新一次 |
+| Presentation 或 Transform | 对应 Presentation 系统 EditMode 测试；需要渲染帧时补 PlayMode | EditMode 全套及相关 PlayMode 测试 | 多 Fixed Tick 时每渲染帧最多更新一次 |
 | 纯 UI、文档或非运行时代码 | 相关专项测试 | 至少确认完整脚本编译；影响程序集时运行完整测试 | 不破坏程序集引用和测试发现 |
 
 表格中尚未建立的端口、拓扑对照和 Presentation 测试属于后续必须补齐的测试范围，不能用现有 Resolver 测试代替。
 
 ## 3. 当前自动化测试项目
 
-当前 `Factory.Tests` 一共包含 47 个测试，分布如下：
+当前 `Factory.Tests` 一共包含 53 个测试，分布如下：
 
 - `FixtureSmokeTests`：2 个夹具烟雾测试；
 - `BeltTransferResolverTests`：7 个旧 Resolver 直线、阻塞和争抢测试；
@@ -56,6 +56,8 @@
 - `BeltTransferResolverPhase3Tests`：3 个 Burst 仲裁 Job 回归路径测试；
 - `BeltTransferSystemPhase3Tests`：5 个组件拆分、多 Tick 链路、统计和
   ECB 生命周期测试；
+- `BeltTransferSystemPhase4Tests`：6 个 Item 池归还/复用、视觉快照、
+  Presentation 插值和 PostTransformMatrix 缩放保持测试；
 - `PerformanceScenarioLayoutTests`：17 个性能场景布局与参数化校验测试。
 
 ### 3.1 夹具烟雾测试
@@ -112,7 +114,7 @@
 2. 选择 `EditMode`。
 3. 选择 `Factory.Tests`。
 4. 点击 `Run All`。
-5. 确认 47 个测试全部通过，Console 中没有异常。
+5. 确认 53 个测试全部通过，Console 中没有异常。
 
 ### 4.2 使用项目内的测试请求入口
 

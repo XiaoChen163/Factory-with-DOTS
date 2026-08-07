@@ -1,0 +1,119 @@
+{
+  "runId": "stress-20260807-213025",
+  "scene": "Perf_4096_Mk4_FullLoop",
+  "loadPercent": 100,
+  "warmupSeconds": 3.0,
+  "sampleSeconds": 5.0,
+  "startScale": 2,
+  "maxScale": 1024,
+  "multiplier": 2,
+  "tpsThreshold": 50.0,
+  "fpsThreshold": 0.0,
+  "thresholdMode": "Any",
+  "attempts": [
+    {
+      "scale": 2,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.398348776402,
+      "framesPerSecond": 3411.3082575866088,
+      "frameTimeMeanMilliseconds": 0.2930781086825709,
+      "frameTimeP95Milliseconds": 0.4669203422963618,
+      "beltEntities": 4,
+      "itemEntities": 4,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-2\\report.json"
+    },
+    {
+      "scale": 4,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.39566133641717,
+      "framesPerSecond": 3188.1747004076956,
+      "frameTimeMeanMilliseconds": 0.3135961733948006,
+      "frameTimeP95Milliseconds": 0.4290033204597421,
+      "beltEntities": 16,
+      "itemEntities": 16,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-4\\report.json"
+    },
+    {
+      "scale": 8,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.396252670125115,
+      "framesPerSecond": 2759.2315898687825,
+      "frameTimeMeanMilliseconds": 0.3623434516467847,
+      "frameTimeP95Milliseconds": 0.5632766638882448,
+      "beltEntities": 64,
+      "itemEntities": 64,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-8\\report.json"
+    },
+    {
+      "scale": 16,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.39615313791165,
+      "framesPerSecond": 2583.8381059994085,
+      "frameTimeMeanMilliseconds": 0.38685637739807405,
+      "frameTimeP95Milliseconds": 0.5982993170619011,
+      "beltEntities": 256,
+      "itemEntities": 256,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-16\\report.json"
+    },
+    {
+      "scale": 32,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.59881334683456,
+      "framesPerSecond": 1434.7723602278932,
+      "frameTimeMeanMilliseconds": 0.6963631029579356,
+      "frameTimeP95Milliseconds": 1.1109506071079518,
+      "beltEntities": 1024,
+      "itemEntities": 1024,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-32\\report.json"
+    },
+    {
+      "scale": 64,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.58413082871445,
+      "framesPerSecond": 442.28603049713104,
+      "frameTimeMeanMilliseconds": 2.254083998041113,
+      "frameTimeP95Milliseconds": 3.6814713734202087,
+      "beltEntities": 4096,
+      "itemEntities": 4096,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-64\\report-detailed.json"
+    },
+    {
+      "scale": 128,
+      "scaleUnit": "side",
+      "status": "passed",
+      "fixedTicksPerSecond": 61.66894314488976,
+      "framesPerSecond": 84.02144033656502,
+      "frameTimeMeanMilliseconds": 11.799313068266011,
+      "frameTimeP95Milliseconds": 17.720401287078857,
+      "beltEntities": 16384,
+      "itemEntities": 16384,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-128\\report.json"
+    },
+    {
+      "scale": 256,
+      "scaleUnit": "side",
+      "status": "failed",
+      "fixedTicksPerSecond": 31.779834165965546,
+      "framesPerSecond": 1.4867758674135927,
+      "frameTimeMeanMilliseconds": 599.6801778674126,
+      "frameTimeP95Milliseconds": 618.3959454298019,
+      "beltEntities": 65536,
+      "itemEntities": 65536,
+      "reportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-256\\report-detailed.json"
+    }
+  ],
+  "result": {
+    "foundLimit": true,
+    "noLimit": false,
+    "aborted": false,
+    "lastPassingScale": 128,
+    "firstFailingScale": 256,
+    "thresholdReportPath": "D:\\UnityProject\\Factory-with-DOTS\\Docs\\PerformanceReports\\StressTest\\Perf_4096_Mk4_FullLoop\\stress-20260807-213025\\scale-256\\report-detailed.json"
+  }
+}

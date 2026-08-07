@@ -18,6 +18,7 @@ public partial class BeltTransferSystem : SystemBase
     private EntityQuery outputPortQuery;
     private EntityQuery itemCatalogQuery;
     private EntityQuery gridQuery;
+    private EntityQuery itemPoolQuery;
     private TransferCommandBufferSystem transferEcbSystem;
     private Entity statsEntity;
     private Entity itemCatalog = Entity.Null;
@@ -26,6 +27,11 @@ public partial class BeltTransferSystem : SystemBase
     private NativeArray<BeltState> emptyBeltStates;
     private NativeArray<Merger> emptyMergers;
     private NativeArray<Splitter> emptySplitters;
+    private NativeParallelHashMap<ItemId, Entity> itemPoolByType;
+    private NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>
+        itemPrefabVisualInfo;
+    private int cachedItemPoolCount = -1;
+    private Entity cachedItemPrefabVisualCatalog = Entity.Null;
     private uint cachedGridRevision;
     private bool hasCachedGridRevision;
 
@@ -61,6 +67,17 @@ public partial class BeltTransferSystem : SystemBase
             ComponentType.ReadOnly<ItemPrefabEntry>());
         gridQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridDefinition>());
+        itemPoolQuery = GetEntityQuery(
+            ComponentType.ReadOnly<ItemPool>(),
+            ComponentType.ReadOnly<ItemPoolEntry>());
+        itemPoolByType =
+            new NativeParallelHashMap<ItemId, Entity>(
+                16,
+                Allocator.Persistent);
+        itemPrefabVisualInfo =
+            new NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>(
+                16,
+                Allocator.Persistent);
         transferEcbSystem =
             World.GetOrCreateSystemManaged<TransferCommandBufferSystem>();
         statsEntity =
@@ -91,6 +108,14 @@ public partial class BeltTransferSystem : SystemBase
         {
             outputPortOwners.Dispose();
         }
+        if (itemPoolByType.IsCreated)
+        {
+            itemPoolByType.Dispose();
+        }
+        if (itemPrefabVisualInfo.IsCreated)
+        {
+            itemPrefabVisualInfo.Dispose();
+        }
         transferResolver?.Dispose();
         transferResolver = null;
     }
@@ -111,6 +136,8 @@ public partial class BeltTransferSystem : SystemBase
         }
 
         RefreshItemCatalog();
+        RefreshItemPrefabVisualInfo();
+        RefreshItemPoolCache();
 
         EntityCommandBuffer ecb = transferEcbSystem.CreateCommandBuffer();
         FactoryTransferArbitrationJob job =
@@ -121,7 +148,6 @@ public partial class BeltTransferSystem : SystemBase
         job.SplitterLookup = GetComponentLookup<Splitter>(false);
         job.GridPlacementLookup = GetComponentLookup<GridPlacement>(true);
         job.ItemLookup = GetComponentLookup<Item>(true);
-        job.TransformLookup = GetComponentLookup<LocalTransform>(true);
         job.BuildingPortLookup = GetBufferLookup<BuildingPort>(true);
         job.InputPortCurrentLookup =
             GetBufferLookup<ItemInputPortCurrent>(true);
@@ -129,7 +155,6 @@ public partial class BeltTransferSystem : SystemBase
             GetBufferLookup<ItemOutputPortCurrent>(true);
         job.ReceiptNextLookup =
             GetBufferLookup<ItemTransferReceiptNext>(false);
-        job.ItemPrefabLookup = GetBufferLookup<ItemPrefabEntry>(true);
         job.StatsLookup =
             GetComponentLookup<Stage3SimulationStats>(false);
         job.InputPortOwners = inputPortOwners;
@@ -137,9 +162,13 @@ public partial class BeltTransferSystem : SystemBase
         job.BeltStates = emptyBeltStates;
         job.Mergers = emptyMergers;
         job.Splitters = emptySplitters;
-        job.ItemCatalog = itemCatalog;
         job.StatsEntity = statsEntity;
         job.Ecb = ecb;
+        job.ItemPoolByType = itemPoolByType;
+        job.ItemPoolLookup = GetComponentLookup<ItemPool>(false);
+        job.ItemPoolBufferLookup =
+            GetBufferLookup<ItemPoolEntry>(false);
+        job.ItemPrefabVisualInfo = itemPrefabVisualInfo;
 
         Dependency = job.Schedule(Dependency);
         transferEcbSystem.AddJobHandleForProducer(Dependency);
@@ -206,6 +235,80 @@ public partial class BeltTransferSystem : SystemBase
         itemCatalog = itemCatalogQuery.CalculateEntityCount() == 1
             ? itemCatalogQuery.GetSingletonEntity()
             : Entity.Null;
+    }
+
+    private void RefreshItemPrefabVisualInfo()
+    {
+        if (itemCatalog == cachedItemPrefabVisualCatalog)
+        {
+            return;
+        }
+
+        Dependency.Complete();
+        itemPrefabVisualInfo.Clear();
+        if (itemCatalog != Entity.Null)
+        {
+            DynamicBuffer<ItemPrefabEntry> entries =
+                EntityManager.GetBuffer<ItemPrefabEntry>(
+                    itemCatalog,
+                    true);
+            for (int i = 0; i < entries.Length; i++)
+            {
+                ItemPrefabEntry entry = entries[i];
+                ItemPrefabVisualInfo info = new ItemPrefabVisualInfo
+                {
+                    Prefab = entry.Prefab
+                };
+                if (entry.Prefab != Entity.Null &&
+                    EntityManager.HasComponent<LocalTransform>(
+                        entry.Prefab))
+                {
+                    info.Transform =
+                        EntityManager.GetComponentData<LocalTransform>(
+                            entry.Prefab);
+                    info.HasTransform = 1;
+                }
+                if (entry.Prefab != Entity.Null &&
+                    EntityManager.HasComponent<ItemVisualState>(
+                        entry.Prefab))
+                {
+                    info.HasVisualState = 1;
+                }
+
+                itemPrefabVisualInfo[entry.ItemType] = info;
+            }
+        }
+
+        cachedItemPrefabVisualCatalog = itemCatalog;
+    }
+
+    private void RefreshItemPoolCache()
+    {
+        int poolCount = itemPoolQuery.CalculateEntityCount();
+        if (poolCount == cachedItemPoolCount)
+        {
+            return;
+        }
+
+        Dependency.Complete();
+        if (itemPoolByType.IsCreated)
+        {
+            itemPoolByType.Dispose();
+        }
+
+        itemPoolByType = new NativeParallelHashMap<ItemId, Entity>(
+            math.max(16, poolCount),
+            Allocator.Persistent);
+        using NativeArray<Entity> pools =
+            itemPoolQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<ItemPool> poolData =
+            itemPoolQuery.ToComponentDataArray<ItemPool>(Allocator.Temp);
+        for (int i = 0; i < pools.Length; i++)
+        {
+            itemPoolByType.TryAdd(poolData[i].ItemType, pools[i]);
+        }
+
+        cachedItemPoolCount = poolCount;
     }
 
     private NativeArray<Entity> SortPortOwners(

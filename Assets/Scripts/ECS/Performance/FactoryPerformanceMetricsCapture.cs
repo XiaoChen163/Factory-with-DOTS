@@ -36,7 +36,18 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         new MetricTarget("fixed_step", "FixedStepSimulationSystemGroup"),
         new MetricTarget("belt_transfer", "BeltTransferSystem"),
         new MetricTarget("belt_progress", "BeltProgressSystem"),
-        new MetricTarget("belt_item_position", "BeltItemPositionSystem"),
+        new MetricTarget(
+            "transfer_command_buffer",
+            "TransferCommandBufferSystem"),
+        new MetricTarget(
+            "item_pool_initialization",
+            "ItemPoolInitializationSystem"),
+        new MetricTarget(
+            "item_visual_capture",
+            "ItemVisualStateCaptureSystem"),
+        new MetricTarget(
+            "item_transform_presentation",
+            "ItemTransformPresentationSystem"),
         new MetricTarget("item_process", "ItemProcessSystem"),
         new MetricTarget("item_port_adapter", "ItemPortAdapterSystem"),
         new MetricTarget("item_port_buffer_swap", "ItemPortBufferSwapSystem"),

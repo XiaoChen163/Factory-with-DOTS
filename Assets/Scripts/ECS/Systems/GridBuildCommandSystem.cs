@@ -40,6 +40,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private EntityQuery gridQuery;
     private EntityQuery catalogQuery;
     private EntityQuery placementQuery;
+    private EntityQuery itemPoolQuery;
 
     protected override void OnCreate()
     {
@@ -55,6 +56,9 @@ public partial class GridBuildCommandSystem : SystemBase
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<OccupiedCellOffset>(),
             ComponentType.ReadOnly<BuildingPort>());
+        itemPoolQuery = GetEntityQuery(
+            ComponentType.ReadOnly<ItemPool>(),
+            ComponentType.ReadOnly<ItemPoolEntry>());
     }
 
     protected override void OnUpdate()
@@ -1126,8 +1130,46 @@ public partial class GridBuildCommandSystem : SystemBase
         }
         if (item != Entity.Null && EntityManager.Exists(item))
         {
-            ecb.DestroyEntity(item);
+            if (!TryReturnToItemPool(item, ref ecb))
+            {
+                ecb.DestroyEntity(item);
+            }
         }
+    }
+
+    private bool TryReturnToItemPool(
+        Entity item,
+        ref EntityCommandBuffer ecb)
+    {
+        if (!EntityManager.HasComponent<Item>(item))
+        {
+            return false;
+        }
+
+        ItemId itemType =
+            EntityManager.GetComponentData<Item>(item).ItemType;
+        using NativeArray<Entity> pools =
+            itemPoolQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<ItemPool> poolData =
+            itemPoolQuery.ToComponentDataArray<ItemPool>(Allocator.Temp);
+        for (int i = 0; i < pools.Length; i++)
+        {
+            if (poolData[i].ItemType != itemType)
+            {
+                continue;
+            }
+
+            ecb.SetComponentEnabled<Item>(item, false);
+            ecb.AppendToBuffer(
+                pools[i],
+                new ItemPoolEntry
+                {
+                    Entity = item
+                });
+            return true;
+        }
+
+        return false;
     }
 
     private static void AddRecord(

@@ -350,6 +350,11 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             failure = "Iron ore Item Prefab is missing LocalTransform.";
             return false;
         }
+        if (!entityManager.HasComponent<ItemVisualState>(itemPrefab))
+        {
+            failure = "Iron ore Item Prefab is missing ItemVisualState.";
+            return false;
+        }
 
         using NativeArray<Entity> beltEntities =
             beltQuery.ToEntityArray(Allocator.Temp);
@@ -410,8 +415,14 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 cell.y + 0.5f);
             ecb.SetComponent(item, new Item
             {
-                ItemType = itemType,
-                Position = position
+                ItemType = itemType
+            });
+            ecb.SetComponentEnabled<Item>(item, true);
+            ecb.SetComponent(item, new ItemVisualState
+            {
+                FromPosition = position,
+                ToPosition = position,
+                Progress = 0f
             });
             LocalTransform itemTransform = prefabTransform;
             itemTransform.Position = position;

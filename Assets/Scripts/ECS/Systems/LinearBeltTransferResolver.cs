@@ -43,6 +43,19 @@ public readonly struct TransportPortKey : IEquatable<TransportPortKey>
     }
 }
 
+/// <summary>
+/// Prefab visual information captured on the main thread when the item
+/// catalog changes. Passed into the arbitration job as a Native map so the
+/// per-tick job does not create read dependencies on visual components.
+/// </summary>
+public struct ItemPrefabVisualInfo
+{
+    public Entity Prefab;
+    public LocalTransform Transform;
+    public byte HasTransform;
+    public byte HasVisualState;
+}
+
 internal struct TransportTopologyNode
 {
     public Entity Entity;
@@ -239,6 +252,9 @@ public sealed class FactoryLinearTransferResolver : IDisposable
     private NativeReference<int> routingPassCountRef;
     private NativeReference<int> readyRequestCountRef;
     private NativeReference<int> acceptedTransferCountRef;
+    private NativeParallelHashMap<ItemId, Entity> itemPoolByType;
+    private NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>
+        itemPrefabVisualInfo;
     private uint cachedRevision;
     private int cachedBeltCount;
     private int cachedMergerCount;
@@ -287,6 +303,14 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             new NativeReference<int>(Allocator.Persistent);
         acceptedTransferCountRef =
             new NativeReference<int>(Allocator.Persistent);
+        itemPoolByType =
+            new NativeParallelHashMap<ItemId, Entity>(
+                16,
+                Allocator.Persistent);
+        itemPrefabVisualInfo =
+            new NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>(
+                16,
+                Allocator.Persistent);
     }
 
     public int TopologyRebuildCount { get; private set; }
@@ -375,6 +399,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             RoutingPassCountRef = routingPassCountRef,
             ReadyRequestCountRef = readyRequestCountRef,
             AcceptedTransferCountRef = acceptedTransferCountRef,
+            ItemPoolByType = itemPoolByType,
+            ItemPrefabVisualInfo = itemPrefabVisualInfo,
             BeltCount = cachedBeltCount,
             MergerCount = cachedMergerCount,
             SplitterCount = cachedSplitterCount,
@@ -409,6 +435,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         DisposeIfCreated(ref routingPassCountRef);
         DisposeIfCreated(ref readyRequestCountRef);
         DisposeIfCreated(ref acceptedTransferCountRef);
+        DisposeIfCreated(ref itemPoolByType);
+        DisposeIfCreated(ref itemPrefabVisualInfo);
     }
     private void RebuildTopology(
         uint revision,
@@ -833,19 +861,14 @@ public partial struct FactoryTransferArbitrationJob : IJob
     [ReadOnly]
     public ComponentLookup<Item> ItemLookup;
     [ReadOnly]
-    public ComponentLookup<LocalTransform> TransformLookup;
-    [ReadOnly]
     public BufferLookup<BuildingPort> BuildingPortLookup;
     [ReadOnly]
     public BufferLookup<ItemInputPortCurrent> InputPortCurrentLookup;
     [ReadOnly]
     public BufferLookup<ItemOutputPortCurrent> OutputPortCurrentLookup;
     public BufferLookup<ItemTransferReceiptNext> ReceiptNextLookup;
-    [ReadOnly]
-    public BufferLookup<ItemPrefabEntry> ItemPrefabLookup;
     public ComponentLookup<Stage3SimulationStats> StatsLookup;
 
-    public Entity ItemCatalog;
     public Entity StatsEntity;
     public int BeltCount;
     public int MergerCount;
@@ -853,6 +876,14 @@ public partial struct FactoryTransferArbitrationJob : IJob
     public int LoopCount;
     public byte EnableInterface;
     public EntityCommandBuffer Ecb;
+
+    [ReadOnly]
+    public NativeParallelHashMap<ItemId, Entity> ItemPoolByType;
+    public ComponentLookup<ItemPool> ItemPoolLookup;
+    public BufferLookup<ItemPoolEntry> ItemPoolBufferLookup;
+    [ReadOnly]
+    public NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>
+        ItemPrefabVisualInfo;
 
     private int candidateInspectionCount;
     private int routingPassCount;
@@ -1124,7 +1155,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
                         AcceptedInputs,
                         key,
                         port.AppliedTransferCount) + 1;
-                Ecb.DestroyEntity(itemEntity);
+                ReturnItemToPool(itemEntity, itemType);
                 acceptedCount++;
             }
         }
@@ -1209,17 +1240,23 @@ public partial struct FactoryTransferArbitrationJob : IJob
 
                 ReservedTargets.Add(targetEntity);
 
-                Entity item = Ecb.Instantiate(prefab);
                 float3 position = new float3(
                     targetCell.x + 0.5f,
                     0.535f,
                     targetCell.y + 0.5f);
+                bool reused = TryGetPooledItem(
+                    port.ItemType,
+                    out Entity item);
+                if (!reused)
+                {
+                    item = Ecb.Instantiate(prefab);
+                }
+
                 Item itemData = new Item
                 {
-                    ItemType = port.ItemType,
-                    Position = position
+                    ItemType = port.ItemType
                 };
-                if (ItemLookup.HasComponent(prefab))
+                if (ItemLookup.HasComponent(prefab) || reused)
                 {
                     Ecb.SetComponent(item, itemData);
                 }
@@ -1227,10 +1264,13 @@ public partial struct FactoryTransferArbitrationJob : IJob
                 {
                     Ecb.AddComponent(item, itemData);
                 }
+                Ecb.SetComponentEnabled<Item>(item, true);
 
-                if (TransformLookup.HasComponent(prefab))
+                ItemPrefabVisualInfo prefabInfo =
+                    ItemPrefabVisualInfo[port.ItemType];
+                if (prefabInfo.HasTransform != 0)
                 {
-                    LocalTransform transform = TransformLookup[prefab];
+                    LocalTransform transform = prefabInfo.Transform;
                     transform.Position = position;
                     Ecb.SetComponent(item, transform);
                 }
@@ -1239,6 +1279,21 @@ public partial struct FactoryTransferArbitrationJob : IJob
                     Ecb.AddComponent(
                         item,
                         LocalTransform.FromPosition(position));
+                }
+
+                ItemVisualState visualState = new ItemVisualState
+                {
+                    FromPosition = position,
+                    ToPosition = position,
+                    Progress = 0f
+                };
+                if (prefabInfo.HasVisualState != 0)
+                {
+                    Ecb.SetComponent(item, visualState);
+                }
+                else
+                {
+                    Ecb.AddComponent(item, visualState);
                 }
 
                 SetTransportItem(targetIndex, item);
@@ -1725,24 +1780,69 @@ public partial struct FactoryTransferArbitrationJob : IJob
         DynamicNodes[targetIndex] = target;
     }
 
-    private bool TryGetItemPrefab(ItemId itemType, out Entity prefab)
+    private bool TryGetPooledItem(ItemId itemType, out Entity item)
     {
-        if (ItemCatalog == Entity.Null ||
-            !ItemPrefabLookup.HasBuffer(ItemCatalog))
+        item = Entity.Null;
+        if (!ItemPoolByType.IsCreated ||
+            !ItemPoolByType.TryGetValue(
+                itemType,
+                out Entity poolEntity) ||
+            !ItemPoolLookup.HasComponent(poolEntity) ||
+            !ItemPoolBufferLookup.HasBuffer(poolEntity))
         {
-            prefab = Entity.Null;
             return false;
         }
 
-        DynamicBuffer<ItemPrefabEntry> entries =
-            ItemPrefabLookup[ItemCatalog];
-        for (int i = 0; i < entries.Length; i++)
+        ItemPool pool = ItemPoolLookup[poolEntity];
+        DynamicBuffer<ItemPoolEntry> entries =
+            ItemPoolBufferLookup[poolEntity];
+        while (pool.FreeCursor < entries.Length)
         {
-            if (entries[i].ItemType == itemType)
+            Entity candidate = entries[pool.FreeCursor].Entity;
+            entries[pool.FreeCursor] = default;
+            pool.FreeCursor++;
+            if (candidate != Entity.Null &&
+                ItemLookup.HasComponent(candidate) &&
+                !ItemLookup.IsComponentEnabled(candidate))
             {
-                prefab = entries[i].Prefab;
-                return prefab != Entity.Null;
+                item = candidate;
+                break;
             }
+        }
+
+        ItemPoolLookup[poolEntity] = pool;
+        return item != Entity.Null;
+    }
+
+    private void ReturnItemToPool(Entity itemEntity, ItemId itemType)
+    {
+        if (!ItemPoolByType.IsCreated ||
+            !ItemPoolByType.TryGetValue(
+                itemType,
+                out Entity poolEntity) ||
+            !ItemPoolLookup.HasComponent(poolEntity) ||
+            !ItemPoolBufferLookup.HasBuffer(poolEntity))
+        {
+            Ecb.DestroyEntity(itemEntity);
+            return;
+        }
+
+        ItemPoolBufferLookup[poolEntity].Add(
+            new ItemPoolEntry
+            {
+                Entity = itemEntity
+            });
+        Ecb.SetComponentEnabled<Item>(itemEntity, false);
+    }
+
+    private bool TryGetItemPrefab(ItemId itemType, out Entity prefab)
+    {
+        if (ItemPrefabVisualInfo.TryGetValue(
+                itemType,
+                out ItemPrefabVisualInfo info))
+        {
+            prefab = info.Prefab;
+            return prefab != Entity.Null;
         }
 
         prefab = Entity.Null;

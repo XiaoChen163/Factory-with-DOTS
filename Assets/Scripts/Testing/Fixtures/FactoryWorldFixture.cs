@@ -67,6 +67,9 @@ namespace Factory.Tests
         {
             Entity owner = EntityManager.CreateEntity();
             EntityManager.AddComponentData(owner, placement);
+            EntityManager.AddComponentData(
+                owner,
+                new ItemPortBufferGeneration());
             EntityManager.AddBuffer<BuildingPort>(owner);
             EntityManager.AddBuffer<ItemInputPortCurrent>(owner);
             EntityManager.AddBuffer<ItemInputPortNext>(owner);

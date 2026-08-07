@@ -55,12 +55,16 @@ public partial class BeltTransferSystem : SystemBase
         inputPortQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingPort>(),
+            ComponentType.ReadOnly<ItemPortBufferGeneration>(),
             ComponentType.ReadOnly<ItemInputPortCurrent>(),
+            ComponentType.ReadOnly<ItemInputPortNext>(),
             ComponentType.ReadWrite<ItemTransferReceiptNext>());
         outputPortQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingPort>(),
+            ComponentType.ReadOnly<ItemPortBufferGeneration>(),
             ComponentType.ReadOnly<ItemOutputPortCurrent>(),
+            ComponentType.ReadOnly<ItemOutputPortNext>(),
             ComponentType.ReadWrite<ItemTransferReceiptNext>());
         itemCatalogQuery = GetEntityQuery(
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
@@ -148,11 +152,17 @@ public partial class BeltTransferSystem : SystemBase
         job.SplitterLookup = GetComponentLookup<Splitter>(false);
         job.GridPlacementLookup = GetComponentLookup<GridPlacement>(true);
         job.ItemLookup = GetComponentLookup<Item>(true);
+        job.GenerationLookup =
+            GetComponentLookup<ItemPortBufferGeneration>(true);
         job.BuildingPortLookup = GetBufferLookup<BuildingPort>(true);
         job.InputPortCurrentLookup =
-            GetBufferLookup<ItemInputPortCurrent>(true);
+            GetBufferLookup<ItemInputPortCurrent>(false);
+        job.InputPortNextLookup =
+            GetBufferLookup<ItemInputPortNext>(false);
         job.OutputPortCurrentLookup =
-            GetBufferLookup<ItemOutputPortCurrent>(true);
+            GetBufferLookup<ItemOutputPortCurrent>(false);
+        job.OutputPortNextLookup =
+            GetBufferLookup<ItemOutputPortNext>(false);
         job.ReceiptNextLookup =
             GetBufferLookup<ItemTransferReceiptNext>(false);
         job.StatsLookup =

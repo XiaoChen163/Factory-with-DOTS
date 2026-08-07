@@ -12,7 +12,7 @@ public partial struct ItemPortAdapterSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        state.RequireForUpdate<ItemTransferReceiptCurrent>();
+        state.RequireForUpdate<ItemTransferReceiptNext>();
         state.RequireForUpdate<FactoryDatabase>();
     }
 
@@ -38,17 +38,37 @@ public partial struct ItemPortAdapterSystem : ISystem
             in ItemProcessor processor,
             DynamicBuffer<ItemProcessInput> inputs,
             in DynamicBuffer<BuildingPort> buildingPorts,
+            in ItemPortBufferGeneration generation,
             in DynamicBuffer<ItemInputPortCurrent> inputCurrent,
             DynamicBuffer<ItemInputPortNext> inputNext,
             in DynamicBuffer<ItemOutputPortCurrent> outputCurrent,
             DynamicBuffer<ItemOutputPortNext> outputNext,
-            in DynamicBuffer<ItemTransferReceiptCurrent> receipts)
+            DynamicBuffer<ItemTransferReceiptNext> receipts)
         {
             ref FactoryDatabaseBlob database = ref Database.Value;
             ApplyProcessorReceipts(receipts, inputs, ref process);
 
-            inputNext.Clear();
-            outputNext.Clear();
+            DynamicBuffer<ItemInputPortSnapshot> currentInputs;
+            DynamicBuffer<ItemInputPortSnapshot> nextInputs;
+            DynamicBuffer<ItemOutputPortSnapshot> currentOutputs;
+            DynamicBuffer<ItemOutputPortSnapshot> nextOutputs;
+            if (generation.Value == 0)
+            {
+                currentInputs = inputCurrent.Reinterpret<ItemInputPortSnapshot>();
+                nextInputs = inputNext.Reinterpret<ItemInputPortSnapshot>();
+                currentOutputs = outputCurrent.Reinterpret<ItemOutputPortSnapshot>();
+                nextOutputs = outputNext.Reinterpret<ItemOutputPortSnapshot>();
+            }
+            else
+            {
+                currentInputs = inputNext.Reinterpret<ItemInputPortSnapshot>();
+                nextInputs = inputCurrent.Reinterpret<ItemInputPortSnapshot>();
+                currentOutputs = outputNext.Reinterpret<ItemOutputPortSnapshot>();
+                nextOutputs = outputCurrent.Reinterpret<ItemOutputPortSnapshot>();
+            }
+
+            nextInputs.Clear();
+            nextOutputs.Clear();
             for (int i = 0; i < buildingPorts.Length; i++)
             {
                 BuildingPort port = buildingPorts[i];
@@ -60,9 +80,9 @@ public partial struct ItemPortAdapterSystem : ISystem
                         processor.MachineType,
                         inputs,
                         process,
-                        inputCurrent,
+                        currentInputs,
                         receipts,
-                        inputNext);
+                        nextInputs);
                 }
                 else
                 {
@@ -70,11 +90,13 @@ public partial struct ItemPortAdapterSystem : ISystem
                         port.Index,
                         ref database,
                         process,
-                        outputCurrent,
+                        currentOutputs,
                         receipts,
-                        outputNext);
+                        nextOutputs);
                 }
             }
+
+            receipts.Clear();
         }
     }
 
@@ -85,10 +107,12 @@ public partial struct ItemPortAdapterSystem : ISystem
             ref StorageState storage,
             DynamicBuffer<StoredItemCount> storedItems,
             in DynamicBuffer<BuildingPort> buildingPorts,
+            in ItemPortBufferGeneration generation,
             in DynamicBuffer<ItemInputPortCurrent> inputCurrent,
             DynamicBuffer<ItemInputPortNext> inputNext,
+            in DynamicBuffer<ItemOutputPortCurrent> outputCurrent,
             DynamicBuffer<ItemOutputPortNext> outputNext,
-            in DynamicBuffer<ItemTransferReceiptCurrent> receipts)
+            DynamicBuffer<ItemTransferReceiptNext> receipts)
         {
             for (int i = 0; i < receipts.Length; i++)
             {
@@ -103,8 +127,27 @@ public partial struct ItemPortAdapterSystem : ISystem
                 storage.TotalStored += receipt.Count;
             }
 
-            inputNext.Clear();
-            outputNext.Clear();
+            DynamicBuffer<ItemInputPortSnapshot> currentInputs;
+            DynamicBuffer<ItemInputPortSnapshot> nextInputs;
+            DynamicBuffer<ItemOutputPortSnapshot> currentOutputs;
+            DynamicBuffer<ItemOutputPortSnapshot> nextOutputs;
+            if (generation.Value == 0)
+            {
+                currentInputs = inputCurrent.Reinterpret<ItemInputPortSnapshot>();
+                nextInputs = inputNext.Reinterpret<ItemInputPortSnapshot>();
+                currentOutputs = outputCurrent.Reinterpret<ItemOutputPortSnapshot>();
+                nextOutputs = outputNext.Reinterpret<ItemOutputPortSnapshot>();
+            }
+            else
+            {
+                currentInputs = inputNext.Reinterpret<ItemInputPortSnapshot>();
+                nextInputs = inputCurrent.Reinterpret<ItemInputPortSnapshot>();
+                currentOutputs = outputNext.Reinterpret<ItemOutputPortSnapshot>();
+                nextOutputs = outputCurrent.Reinterpret<ItemOutputPortSnapshot>();
+            }
+
+            nextInputs.Clear();
+            nextOutputs.Clear();
             for (int i = 0; i < buildingPorts.Length; i++)
             {
                 BuildingPort port = buildingPorts[i];
@@ -114,32 +157,36 @@ public partial struct ItemPortAdapterSystem : ISystem
                 }
 
                 ulong applied = GetInputAppliedCount(
-                    inputCurrent,
+                    currentInputs,
                     port.Index) +
                     CountReceipts(
                         receipts,
                         port.Index,
                         ItemTransferReceiptKind.InputAccepted);
-                inputNext.Add(new ItemInputPortNext
+                nextInputs.Add(new ItemInputPortSnapshot
                 {
-                    Value = new ItemInputPortSnapshot
-                    {
-                        AcceptedItemType = ItemId.Invalid,
-                        FreeCapacity = math.max(
-                            0,
-                            storage.Capacity - storage.TotalStored),
-                        AppliedTransferCount = applied,
-                        PortIndex = port.Index,
-                        Enabled = 1,
-                        FilterMode = ItemPortFilterMode.Any
-                    }
+                    AcceptedItemType = ItemId.Invalid,
+                    FreeCapacity = math.max(
+                        0,
+                        storage.Capacity - storage.TotalStored),
+                    AppliedTransferCount = applied,
+                    ReservedTransferCount = math.max(
+                        applied,
+                        GetInputReservedCount(
+                            currentInputs,
+                            port.Index)),
+                    PortIndex = port.Index,
+                    Enabled = 1,
+                    FilterMode = ItemPortFilterMode.Any
                 });
             }
+
+            receipts.Clear();
         }
     }
 
     private static void ApplyProcessorReceipts(
-        in DynamicBuffer<ItemTransferReceiptCurrent> receipts,
+        in DynamicBuffer<ItemTransferReceiptNext> receipts,
         DynamicBuffer<ItemProcessInput> inputs,
         ref ItemProcessState process)
     {
@@ -170,9 +217,9 @@ public partial struct ItemPortAdapterSystem : ISystem
         MachineTypeId machineType,
         in DynamicBuffer<ItemProcessInput> inputs,
         in ItemProcessState process,
-        in DynamicBuffer<ItemInputPortCurrent> current,
-        in DynamicBuffer<ItemTransferReceiptCurrent> receipts,
-        DynamicBuffer<ItemInputPortNext> next)
+        in DynamicBuffer<ItemInputPortSnapshot> current,
+        in DynamicBuffer<ItemTransferReceiptNext> receipts,
+        DynamicBuffer<ItemInputPortSnapshot> next)
     {
         ItemId acceptedItemType = ItemId.Invalid;
         int slotCapacity = 0;
@@ -213,19 +260,19 @@ public partial struct ItemPortAdapterSystem : ISystem
                 receipts,
                 portIndex,
                 ItemTransferReceiptKind.InputAccepted);
-        next.Add(new ItemInputPortNext
+        next.Add(new ItemInputPortSnapshot
         {
-            Value = new ItemInputPortSnapshot
-            {
-                AcceptedItemType = acceptedItemType,
-                FreeCapacity = math.max(0, slotCapacity - bufferedCount),
-                AppliedTransferCount = applied,
-                PortIndex = portIndex,
-                Enabled = !acceptedItemType.IsValid
-                    ? (byte)0
-                    : (byte)1,
-                FilterMode = ItemPortFilterMode.ExactItemType
-            }
+            AcceptedItemType = acceptedItemType,
+            FreeCapacity = math.max(0, slotCapacity - bufferedCount),
+            AppliedTransferCount = applied,
+            ReservedTransferCount = math.max(
+                applied,
+                GetInputReservedCount(current, portIndex)),
+            PortIndex = portIndex,
+            Enabled = !acceptedItemType.IsValid
+                ? (byte)0
+                : (byte)1,
+            FilterMode = ItemPortFilterMode.ExactItemType
         });
     }
 
@@ -233,9 +280,9 @@ public partial struct ItemPortAdapterSystem : ISystem
         byte portIndex,
         ref FactoryDatabaseBlob database,
         in ItemProcessState process,
-        in DynamicBuffer<ItemOutputPortCurrent> current,
-        in DynamicBuffer<ItemTransferReceiptCurrent> receipts,
-        DynamicBuffer<ItemOutputPortNext> next)
+        in DynamicBuffer<ItemOutputPortSnapshot> current,
+        in DynamicBuffer<ItemTransferReceiptNext> receipts,
+        DynamicBuffer<ItemOutputPortSnapshot> next)
     {
         ItemId itemType = ItemId.Invalid;
         int active = process.ActiveRecipeIndex;
@@ -253,25 +300,25 @@ public partial struct ItemPortAdapterSystem : ISystem
                 receipts,
                 portIndex,
                 ItemTransferReceiptKind.OutputTransferred);
-        next.Add(new ItemOutputPortNext
+        next.Add(new ItemOutputPortSnapshot
         {
-            Value = new ItemOutputPortSnapshot
-            {
-                ItemType = itemType,
-                AvailableCount = math.max(0, process.PendingOutputCount),
-                AppliedTransferCount = applied,
-                PortIndex = portIndex,
-                Enabled = process.Status == ItemProcessStatus.OutputBlocked &&
-                          itemType.IsValid &&
-                          process.PendingOutputCount > 0
-                    ? (byte)1
-                    : (byte)0
-            }
+            ItemType = itemType,
+            AvailableCount = math.max(0, process.PendingOutputCount),
+            AppliedTransferCount = applied,
+            ReservedTransferCount = math.max(
+                applied,
+                GetOutputReservedCount(current, portIndex)),
+            PortIndex = portIndex,
+            Enabled = process.Status == ItemProcessStatus.OutputBlocked &&
+                      itemType.IsValid &&
+                      process.PendingOutputCount > 0
+                ? (byte)1
+                : (byte)0
         });
     }
 
     private static ulong CountReceipts(
-        in DynamicBuffer<ItemTransferReceiptCurrent> receipts,
+        in DynamicBuffer<ItemTransferReceiptNext> receipts,
         byte portIndex,
         ItemTransferReceiptKind kind)
     {
@@ -289,14 +336,14 @@ public partial struct ItemPortAdapterSystem : ISystem
     }
 
     private static ulong GetInputAppliedCount(
-        in DynamicBuffer<ItemInputPortCurrent> ports,
+        in DynamicBuffer<ItemInputPortSnapshot> ports,
         byte portIndex)
     {
         for (int i = 0; i < ports.Length; i++)
         {
-            if (ports[i].Value.PortIndex == portIndex)
+            if (ports[i].PortIndex == portIndex)
             {
-                return ports[i].Value.AppliedTransferCount;
+                return ports[i].AppliedTransferCount;
             }
         }
 
@@ -304,14 +351,44 @@ public partial struct ItemPortAdapterSystem : ISystem
     }
 
     private static ulong GetOutputAppliedCount(
-        in DynamicBuffer<ItemOutputPortCurrent> ports,
+        in DynamicBuffer<ItemOutputPortSnapshot> ports,
         byte portIndex)
     {
         for (int i = 0; i < ports.Length; i++)
         {
-            if (ports[i].Value.PortIndex == portIndex)
+            if (ports[i].PortIndex == portIndex)
             {
-                return ports[i].Value.AppliedTransferCount;
+                return ports[i].AppliedTransferCount;
+            }
+        }
+
+        return 0;
+    }
+
+    private static ulong GetInputReservedCount(
+        in DynamicBuffer<ItemInputPortSnapshot> ports,
+        byte portIndex)
+    {
+        for (int i = 0; i < ports.Length; i++)
+        {
+            if (ports[i].PortIndex == portIndex)
+            {
+                return ports[i].ReservedTransferCount;
+            }
+        }
+
+        return 0;
+    }
+
+    private static ulong GetOutputReservedCount(
+        in DynamicBuffer<ItemOutputPortSnapshot> ports,
+        byte portIndex)
+    {
+        for (int i = 0; i < ports.Length; i++)
+        {
+            if (ports[i].PortIndex == portIndex)
+            {
+                return ports[i].ReservedTransferCount;
             }
         }
 

@@ -47,7 +47,7 @@
 
 ## 3. 当前自动化测试项目
 
-当前 `Factory.Tests` 一共包含 53 个测试，分布如下：
+当前 `Factory.Tests` 一共包含 59 个测试，分布如下：
 
 - `FixtureSmokeTests`：2 个夹具烟雾测试；
 - `BeltTransferResolverTests`：7 个旧 Resolver 直线、阻塞和争抢测试；
@@ -58,7 +58,9 @@
   ECB 生命周期测试；
 - `BeltTransferSystemPhase4Tests`：6 个 Item 池归还/复用、视觉快照、
   Presentation 插值和 PostTransformMatrix 缩放保持测试；
-- `PerformanceScenarioLayoutTests`：17 个性能场景布局与参数化校验测试。
+- `PerformanceScenarioLayoutTests`：19 个性能场景布局与参数化校验测试；
+- `Phase5OptimizationTests`：4 个 Port generation、reservation、occupancy
+  增量和 Belt 视觉脏刷新测试。
 
 ### 3.1 夹具烟雾测试
 
@@ -114,7 +116,7 @@
 2. 选择 `EditMode`。
 3. 选择 `Factory.Tests`。
 4. 点击 `Run All`。
-5. 确认 53 个测试全部通过，Console 中没有异常。
+5. 确认 59 个测试全部通过，Console 中没有异常。
 
 ### 4.2 使用项目内的测试请求入口
 

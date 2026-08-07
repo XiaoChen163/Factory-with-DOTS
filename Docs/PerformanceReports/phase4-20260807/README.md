@@ -55,7 +55,7 @@ marker 按采样期间实际 Fixed Tick 数折算。
 
 ## 正确性
 
-同机 EditMode 回归 `Factory.Tests`：`53 passed / 0 failed`
+同机 EditMode 回归 `Factory.Tests`：`55 passed / 0 failed`
 （2026-08-07），覆盖 Phase 1/2/3 既有规则以及 Phase 4 的池归还、池复用、
 无池回退、视觉快照采样、Presentation 进度插值和 PostTransformMatrix
 非均匀缩放保持。

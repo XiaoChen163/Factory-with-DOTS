@@ -419,7 +419,7 @@ public struct BeltState : IComponentData
   `Instantiate`；拆除建筑的 `GridBuildCommandSystem` 同样优先归还物品。
 - 初始物品注入和 Item Prefab Baking 为实例写入 `ItemVisualState`，不再写
   `Item.Position`。
-- Unity EditMode 回归为 `53 passed / 0 failed`，新增
+- Unity EditMode 回归为 `55 passed / 0 failed`，新增
   `BeltTransferSystemPhase4Tests` 覆盖池归还、池复用、无池回退、视觉快照
   采样、Presentation 进度插值和非均匀缩放保持。
 - 性能采集见
@@ -432,17 +432,37 @@ public struct BeltState : IComponentData
 
 任务：
 
-- [ ] 将 Port reservation 移入 ECS 状态。
-- [ ] 使用 generation 或缓冲索引替代 Current/Next 全量复制。
-- [ ] 建造命令直接增量更新 occupancy。
-- [ ] Belt 视觉只刷新受影响节点和邻居。
-- [ ] 消除一次刷新中对同一 DisableRendering 的反复 Add/Remove。
+- [x] 将 Port reservation 移入 ECS 状态。
+- [x] 使用 generation 或缓冲索引替代 Current/Next 全量复制。
+- [x] 建造命令直接增量更新 occupancy。
+- [x] Belt 视觉只刷新受影响节点和邻居。
+- [x] 消除一次刷新中对同一 DisableRendering 的反复 Add/Remove。
 
 退出条件：
 
 - 连续拖动建造传送带时没有明显主线程尖峰；
 - Port Buffer Swap 不再是可见的内存带宽热点；
 - 托管 accepted Dictionary 不再随建筑历史数量无限增长。
+
+实施记录（2026-08-07）：
+
+- `ItemInputPortSnapshot` / `ItemOutputPortSnapshot` 新增
+  `ReservedTransferCount`，Port reservation 从 Resolver 的
+  `NativeParallelHashMap` 移入 ECS 快照，不再存在随建筑历史增长的
+  accepted Dictionary/Map。
+- `ItemPortBufferSwapSystem` 不再复制 Current/Next 缓冲，只切换
+  `ItemPortBufferGeneration`；`ItemPortAdapterSystem` 和仲裁 Job 按 generation
+  通过 `Reinterpret` 选择当前缓冲。
+- `GridBuildCommandSystem` 为新建建筑写入 `PendingOccupancyAdd`，拆除时直接
+  从 `GridOccupancyIndexSystem` 增量移除占用；occupancy 不再每次建造全量重建。
+- `BeltTopologyVisualSystem` 改为消费 `BeltVisualDirtyCell`，只刷新脏单元格
+  和邻居；`DisableRendering` 变更先进入 ECB，循环结束后统一播放，避免
+  Lookup 被结构变更失效和反复 Add/Remove。
+- 新增 `Phase5OptimizationTests` 覆盖 generation 切换、reservation 落 ECS、
+  occupancy 增量应用和 Belt 脏单元格清理；`Factory.Tests` 为
+  `59 passed / 0 failed`。
+- 默认 `scale=64` 连续建造/拆除对比见
+  [`PerformanceReports/phase5-20260807/README.md`](PerformanceReports/phase5-20260807/README.md)。
 
 ## 7. 性能测试矩阵
 

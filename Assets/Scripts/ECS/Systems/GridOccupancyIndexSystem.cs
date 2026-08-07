@@ -9,10 +9,12 @@ public partial class GridOccupancyIndexSystem : SystemBase
     private NativeParallelHashMap<int2, Entity> occupancy;
     private EntityQuery gridQuery;
     private EntityQuery placementQuery;
+    private EntityQuery pendingAddQuery;
     private int lastPlacementOrderVersion = -1;
     private int lastPlacementCount = -1;
     private uint lastGridRevision = uint.MaxValue;
     private bool reportedInvalidGridDefinition;
+    private bool hasIncrementalChange;
 
     public NativeParallelHashMap<int2, Entity>.ReadOnly Occupancy =>
         occupancy.AsReadOnly();
@@ -30,6 +32,10 @@ public partial class GridOccupancyIndexSystem : SystemBase
         gridQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridDefinition>());
         placementQuery = GetEntityQuery(
+            ComponentType.ReadOnly<GridPlacement>(),
+            ComponentType.ReadOnly<OccupiedCellOffset>());
+        pendingAddQuery = GetEntityQuery(
+            ComponentType.ReadOnly<PendingOccupancyAdd>(),
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<OccupiedCellOffset>());
     }
@@ -63,6 +69,18 @@ public partial class GridOccupancyIndexSystem : SystemBase
         reportedInvalidGridDefinition = false;
         GridDefinition grid =
             gridQuery.GetSingleton<GridDefinition>();
+        bool appliedPending = ApplyPendingAdds(grid);
+        if (appliedPending || hasIncrementalChange)
+        {
+            lastPlacementCount = placementQuery.CalculateEntityCount();
+            lastPlacementOrderVersion =
+                EntityManager.GetComponentOrderVersion<GridPlacement>();
+            lastGridRevision = grid.Revision;
+            hasIncrementalChange = false;
+            IsReady = true;
+            return;
+        }
+
         int placementCount = placementQuery.CalculateEntityCount();
         int placementOrderVersion =
             EntityManager.GetComponentOrderVersion<GridPlacement>();
@@ -80,6 +98,63 @@ public partial class GridOccupancyIndexSystem : SystemBase
         lastPlacementOrderVersion = placementOrderVersion;
         lastGridRevision = grid.Revision;
         IsReady = true;
+    }
+
+    public void RemoveOccupant(int2 cell, Entity entity)
+    {
+        if (!occupancy.IsCreated ||
+            !occupancy.TryGetValue(cell, out Entity current) ||
+            current != entity)
+        {
+            return;
+        }
+
+        occupancy.Remove(cell);
+        hasIncrementalChange = true;
+    }
+
+    private bool ApplyPendingAdds(in GridDefinition grid)
+    {
+        if (pendingAddQuery.IsEmptyIgnoreFilter)
+        {
+            return false;
+        }
+
+        using NativeArray<Entity> entities =
+            pendingAddQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<GridPlacement> placements =
+            pendingAddQuery.ToComponentDataArray<GridPlacement>(
+                Allocator.Temp);
+        ConflictCount = 0;
+        for (int i = 0; i < entities.Length; i++)
+        {
+            DynamicBuffer<OccupiedCellOffset> offsets =
+                EntityManager.GetBuffer<OccupiedCellOffset>(
+                    entities[i],
+                    true);
+            GridPlacement placement = placements[i];
+            for (int cellIndex = 0;
+                 cellIndex < offsets.Length;
+                 cellIndex++)
+            {
+                int2 cell = EcsGridUtility.GetBuildingCell(
+                    placement,
+                    offsets[cellIndex].Value);
+                if (!EcsGridUtility.Contains(grid, cell) ||
+                    !occupancy.TryAdd(cell, entities[i]))
+                {
+                    ConflictCount++;
+                }
+            }
+        }
+
+        for (int i = 0; i < entities.Length; i++)
+        {
+            EntityManager.RemoveComponent<PendingOccupancyAdd>(
+                entities[i]);
+        }
+
+        return true;
     }
 
     public bool TryGetOccupant(int2 cell, out Entity entity)

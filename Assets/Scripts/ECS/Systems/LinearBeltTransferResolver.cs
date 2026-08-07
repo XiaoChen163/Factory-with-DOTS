@@ -246,8 +246,6 @@ public sealed class FactoryLinearTransferResolver : IDisposable
     private NativeList<int> resolutionStack;
     private NativeHashSet<Entity> processedJunctions;
     private NativeHashSet<Entity> reservedTargets;
-    private NativeParallelHashMap<TransportPortKey, ulong> acceptedInputs;
-    private NativeParallelHashMap<TransportPortKey, ulong> acceptedOutputs;
     private NativeReference<int> candidateInspectionRef;
     private NativeReference<int> routingPassCountRef;
     private NativeReference<int> readyRequestCountRef;
@@ -287,14 +285,6 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         reservedTargets = new NativeHashSet<Entity>(
             16,
             Allocator.Persistent);
-        acceptedInputs =
-            new NativeParallelHashMap<TransportPortKey, ulong>(
-                16,
-                Allocator.Persistent);
-        acceptedOutputs =
-            new NativeParallelHashMap<TransportPortKey, ulong>(
-                16,
-                Allocator.Persistent);
         candidateInspectionRef =
             new NativeReference<int>(Allocator.Persistent);
         routingPassCountRef =
@@ -393,8 +383,6 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             ResolutionStack = resolutionStack,
             ProcessedJunctions = processedJunctions,
             ReservedTargets = reservedTargets,
-            AcceptedInputs = acceptedInputs,
-            AcceptedOutputs = acceptedOutputs,
             CandidateInspectionRef = candidateInspectionRef,
             RoutingPassCountRef = routingPassCountRef,
             ReadyRequestCountRef = readyRequestCountRef,
@@ -429,8 +417,6 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         DisposeIfCreated(ref resolutionStack);
         DisposeIfCreated(ref processedJunctions);
         DisposeIfCreated(ref reservedTargets);
-        DisposeIfCreated(ref acceptedInputs);
-        DisposeIfCreated(ref acceptedOutputs);
         DisposeIfCreated(ref candidateInspectionRef);
         DisposeIfCreated(ref routingPassCountRef);
         DisposeIfCreated(ref readyRequestCountRef);
@@ -837,8 +823,6 @@ public partial struct FactoryTransferArbitrationJob : IJob
     internal NativeList<int> ResolutionStack;
     internal NativeHashSet<Entity> ProcessedJunctions;
     internal NativeHashSet<Entity> ReservedTargets;
-    internal NativeParallelHashMap<TransportPortKey, ulong> AcceptedInputs;
-    internal NativeParallelHashMap<TransportPortKey, ulong> AcceptedOutputs;
     internal NativeReference<int> CandidateInspectionRef;
     internal NativeReference<int> RoutingPassCountRef;
     internal NativeReference<int> ReadyRequestCountRef;
@@ -861,11 +845,13 @@ public partial struct FactoryTransferArbitrationJob : IJob
     [ReadOnly]
     public ComponentLookup<Item> ItemLookup;
     [ReadOnly]
+    public ComponentLookup<ItemPortBufferGeneration> GenerationLookup;
+    [ReadOnly]
     public BufferLookup<BuildingPort> BuildingPortLookup;
-    [ReadOnly]
     public BufferLookup<ItemInputPortCurrent> InputPortCurrentLookup;
-    [ReadOnly]
+    public BufferLookup<ItemInputPortNext> InputPortNextLookup;
     public BufferLookup<ItemOutputPortCurrent> OutputPortCurrentLookup;
+    public BufferLookup<ItemOutputPortNext> OutputPortNextLookup;
     public BufferLookup<ItemTransferReceiptNext> ReceiptNextLookup;
     public ComponentLookup<Stage3SimulationStats> StatsLookup;
 
@@ -1067,6 +1053,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
             if (!GridPlacementLookup.HasComponent(owner) ||
                 !BuildingPortLookup.HasBuffer(owner) ||
                 !InputPortCurrentLookup.HasBuffer(owner) ||
+                !InputPortNextLookup.HasBuffer(owner) ||
                 !ReceiptNextLookup.HasBuffer(owner))
             {
                 continue;
@@ -1075,24 +1062,21 @@ public partial struct FactoryTransferArbitrationJob : IJob
             GridPlacement placement = GridPlacementLookup[owner];
             DynamicBuffer<BuildingPort> buildingPorts =
                 BuildingPortLookup[owner];
-            DynamicBuffer<ItemInputPortCurrent> ports =
-                InputPortCurrentLookup[owner];
+            DynamicBuffer<ItemInputPortSnapshot> ports =
+                GetCurrentInputPorts(owner);
             DynamicBuffer<ItemTransferReceiptNext> receipts =
                 ReceiptNextLookup[owner];
 
             for (int i = 0; i < ports.Length; i++)
             {
-                ItemInputPortSnapshot port = ports[i].Value;
+                ItemInputPortSnapshot port = ports[i];
                 if (port.Enabled == 0)
                 {
                     continue;
                 }
 
-                TransportPortKey key =
-                    new TransportPortKey(owner, port.PortIndex);
                 int availableCapacity = GetEffectiveCount(
-                    AcceptedInputs,
-                    key,
+                    port.ReservedTransferCount,
                     port.AppliedTransferCount,
                     port.FreeCapacity);
                 if (availableCapacity <= 0 ||
@@ -1150,11 +1134,8 @@ public partial struct FactoryTransferArbitrationJob : IJob
                         Kind = ItemTransferReceiptKind.InputAccepted
                     }
                 });
-                AcceptedInputs[key] =
-                    GetAcceptedCount(
-                        AcceptedInputs,
-                        key,
-                        port.AppliedTransferCount) + 1;
+                port.ReservedTransferCount++;
+                ports[i] = port;
                 ReturnItemToPool(itemEntity, itemType);
                 acceptedCount++;
             }
@@ -1174,6 +1155,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
             if (!GridPlacementLookup.HasComponent(owner) ||
                 !BuildingPortLookup.HasBuffer(owner) ||
                 !OutputPortCurrentLookup.HasBuffer(owner) ||
+                !OutputPortNextLookup.HasBuffer(owner) ||
                 !ReceiptNextLookup.HasBuffer(owner))
             {
                 continue;
@@ -1182,24 +1164,21 @@ public partial struct FactoryTransferArbitrationJob : IJob
             GridPlacement placement = GridPlacementLookup[owner];
             DynamicBuffer<BuildingPort> buildingPorts =
                 BuildingPortLookup[owner];
-            DynamicBuffer<ItemOutputPortCurrent> ports =
-                OutputPortCurrentLookup[owner];
+            DynamicBuffer<ItemOutputPortSnapshot> ports =
+                GetCurrentOutputPorts(owner);
             DynamicBuffer<ItemTransferReceiptNext> receipts =
                 ReceiptNextLookup[owner];
 
             for (int i = 0; i < ports.Length; i++)
             {
-                ItemOutputPortSnapshot port = ports[i].Value;
+                ItemOutputPortSnapshot port = ports[i];
                 if (port.Enabled == 0 || !port.ItemType.IsValid)
                 {
                     continue;
                 }
 
-                TransportPortKey key =
-                    new TransportPortKey(owner, port.PortIndex);
                 int availableCount = GetEffectiveCount(
-                    AcceptedOutputs,
-                    key,
+                    port.ReservedTransferCount,
                     port.AppliedTransferCount,
                     port.AvailableCount);
                 if (availableCount <= 0 ||
@@ -1308,11 +1287,8 @@ public partial struct FactoryTransferArbitrationJob : IJob
                         Kind = ItemTransferReceiptKind.OutputTransferred
                     }
                 });
-                AcceptedOutputs[key] =
-                    GetAcceptedCount(
-                        AcceptedOutputs,
-                        key,
-                        port.AppliedTransferCount) + 1;
+                port.ReservedTransferCount++;
+                ports[i] = port;
                 acceptedCount++;
             }
         }
@@ -1869,29 +1845,40 @@ public partial struct FactoryTransferArbitrationJob : IJob
         return false;
     }
 
-    private static ulong GetAcceptedCount(
-        NativeParallelHashMap<TransportPortKey, ulong> accepted,
-        TransportPortKey key,
-        ulong applied)
+    private DynamicBuffer<ItemInputPortSnapshot> GetCurrentInputPorts(
+        Entity owner)
     {
-        if (!accepted.TryGetValue(key, out ulong value) ||
-            value < applied)
-        {
-            value = applied;
-            accepted[key] = value;
-        }
+        byte generation = GenerationLookup.HasComponent(owner)
+            ? GenerationLookup[owner].Value
+            : (byte)0;
+        return generation == 0
+            ? InputPortCurrentLookup[owner]
+                .Reinterpret<ItemInputPortSnapshot>()
+            : InputPortNextLookup[owner]
+                .Reinterpret<ItemInputPortSnapshot>();
+    }
 
-        return value;
+    private DynamicBuffer<ItemOutputPortSnapshot> GetCurrentOutputPorts(
+        Entity owner)
+    {
+        byte generation = GenerationLookup.HasComponent(owner)
+            ? GenerationLookup[owner].Value
+            : (byte)0;
+        return generation == 0
+            ? OutputPortCurrentLookup[owner]
+                .Reinterpret<ItemOutputPortSnapshot>()
+            : OutputPortNextLookup[owner]
+                .Reinterpret<ItemOutputPortSnapshot>();
     }
 
     private static int GetEffectiveCount(
-        NativeParallelHashMap<TransportPortKey, ulong> accepted,
-        TransportPortKey key,
+        ulong reserved,
         ulong applied,
         int publishedCount)
     {
-        ulong acceptedCount = GetAcceptedCount(accepted, key, applied);
-        ulong outstanding = acceptedCount - applied;
+        ulong outstanding = reserved > applied
+            ? reserved - applied
+            : 0;
         return outstanding >= (ulong)math.max(0, publishedCount)
             ? 0
             : publishedCount - (int)outstanding;

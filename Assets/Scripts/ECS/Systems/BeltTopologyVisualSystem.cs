@@ -1,3 +1,4 @@
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
@@ -8,20 +9,30 @@ using Unity.Transforms;
 [UpdateBefore(typeof(GridBuildCommandSystem))]
 public partial class BeltTopologyVisualSystem : SystemBase
 {
-    private EntityQuery beltQuery;
-    private uint lastGridRevision = uint.MaxValue;
+    private ComponentLookup<BeltTopology> beltTopologyLookup;
+    private ComponentLookup<GridPlacement> gridPlacementLookup;
+    private ComponentLookup<BuildingVisualReference> visualReferenceLookup;
+    private ComponentLookup<BeltVisualParts> visualPartsLookup;
+    private EntityCommandBuffer pendingVisualEcb;
 
     protected override void OnCreate()
     {
-        beltQuery = GetEntityQuery(
-            ComponentType.ReadOnly<BeltTopology>(),
-            ComponentType.ReadOnly<GridPlacement>(),
-            ComponentType.ReadOnly<BuildingVisualReference>());
+        beltTopologyLookup = GetComponentLookup<BeltTopology>(true);
+        gridPlacementLookup = GetComponentLookup<GridPlacement>(true);
+        visualReferenceLookup =
+            GetComponentLookup<BuildingVisualReference>(true);
+        visualPartsLookup = GetComponentLookup<BeltVisualParts>(true);
         RequireForUpdate<GridDefinition>();
+        RequireForUpdate<BeltVisualDirtyCell>();
     }
 
     protected override void OnUpdate()
     {
+        beltTopologyLookup.Update(this);
+        gridPlacementLookup.Update(this);
+        visualReferenceLookup.Update(this);
+        visualPartsLookup.Update(this);
+
         GridOccupancyIndexSystem occupancySystem =
             World.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
@@ -34,41 +45,59 @@ public partial class BeltTopologyVisualSystem : SystemBase
 
         GridDefinition grid =
             SystemAPI.GetSingleton<GridDefinition>();
-        if (grid.Revision == lastGridRevision)
+        Entity gridEntity =
+            SystemAPI.GetSingletonEntity<GridDefinition>();
+        if (!EntityManager.HasBuffer<BeltVisualDirtyCell>(gridEntity))
+        {
+            return;
+        }
+
+        DynamicBuffer<BeltVisualDirtyCell> dirtyCells =
+            EntityManager.GetBuffer<BeltVisualDirtyCell>(gridEntity);
+        if (dirtyCells.IsEmpty)
         {
             return;
         }
 
         Dependency.Complete();
-        using Unity.Collections.NativeArray<BeltTopology> belts =
-            beltQuery.ToComponentDataArray<BeltTopology>(
-                Unity.Collections.Allocator.Temp);
-        using Unity.Collections.NativeArray<GridPlacement> placements =
-            beltQuery.ToComponentDataArray<GridPlacement>(
-                Unity.Collections.Allocator.Temp);
-        using Unity.Collections.NativeArray<BuildingVisualReference> visuals =
-            beltQuery.ToComponentDataArray<BuildingVisualReference>(
-                Unity.Collections.Allocator.Temp);
-
-        for (int i = 0; i < belts.Length; i++)
+        using NativeParallelHashSet<int2> dirtyCellSet =
+            new NativeParallelHashSet<int2>(
+                math.max(16, dirtyCells.Length * 2),
+                Allocator.Temp);
+        pendingVisualEcb = new EntityCommandBuffer(Allocator.Temp);
+        for (int i = 0; i < dirtyCells.Length; i++)
         {
-            Entity visualEntity = visuals[i].Value;
+            dirtyCellSet.Add(dirtyCells[i].Value);
+        }
+
+        foreach (int2 cell in dirtyCellSet)
+        {
+            if (!occupancySystem.TryGetOccupant(cell, out Entity building) ||
+                !beltTopologyLookup.HasComponent(building) ||
+                !gridPlacementLookup.HasComponent(building) ||
+                !visualReferenceLookup.HasComponent(building))
+            {
+                continue;
+            }
+
+            Entity visualEntity = visualReferenceLookup[building].Value;
             if (visualEntity == Entity.Null ||
-                !EntityManager.Exists(visualEntity) ||
-                !EntityManager.HasComponent<BeltVisualParts>(visualEntity))
+                !visualPartsLookup.HasComponent(visualEntity))
             {
                 continue;
             }
 
             RefreshBeltVisual(
-                belts[i],
-                placements[i],
-                EntityManager.GetComponentData<BeltVisualParts>(
-                    visualEntity),
+                beltTopologyLookup[building],
+                gridPlacementLookup[building],
+                visualPartsLookup[visualEntity],
                 occupancySystem);
         }
 
-        lastGridRevision = grid.Revision;
+        dirtyCells.Clear();
+        pendingVisualEcb.Playback(EntityManager);
+        pendingVisualEcb.Dispose();
+        pendingVisualEcb = default;
     }
 
     private void RefreshBeltVisual(
@@ -311,12 +340,12 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 visualEntity);
         if (visible && isHidden)
         {
-            EntityManager.RemoveComponent<DisableRendering>(
+            pendingVisualEcb.RemoveComponent<DisableRendering>(
                 visualEntity);
         }
         else if (!visible && !isHidden)
         {
-            EntityManager.AddComponent<DisableRendering>(
+            pendingVisualEcb.AddComponent<DisableRendering>(
                 visualEntity);
         }
     }

@@ -105,7 +105,8 @@ Input / UI
 2. 使用 Item Prefab Catalog 和 `ItemPool` 管理生命周期；
 3. 稳态 Tick 中复用池化物品，不持续 `Instantiate/Destroy`；
 4. 表现状态使用 `ItemVisualState`，逻辑状态使用 `Item`；
-5. 增加物品搬运、加工、池化回归测试。
+5. 物品归还池时同步添加 `DisableRendering`，复用时移除，避免残影；
+6. 增加物品搬运、加工、池化回归测试。
 
 ### 4.3 新增交互
 

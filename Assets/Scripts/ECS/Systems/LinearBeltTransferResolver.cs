@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 public enum FactoryTransportKind : byte
@@ -868,6 +869,8 @@ public partial struct FactoryTransferArbitrationJob : IJob
     public ComponentLookup<ItemPool> ItemPoolLookup;
     public BufferLookup<ItemPoolEntry> ItemPoolBufferLookup;
     [ReadOnly]
+    public ComponentLookup<DisableRendering> DisableRenderingLookup;
+    [ReadOnly]
     public NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>
         ItemPrefabVisualInfo;
 
@@ -1229,6 +1232,10 @@ public partial struct FactoryTransferArbitrationJob : IJob
                 if (!reused)
                 {
                     item = Ecb.Instantiate(prefab);
+                }
+                else if (DisableRenderingLookup.HasComponent(item))
+                {
+                    Ecb.RemoveComponent<DisableRendering>(item);
                 }
 
                 Item itemData = new Item
@@ -1808,6 +1815,10 @@ public partial struct FactoryTransferArbitrationJob : IJob
             {
                 Entity = itemEntity
             });
+        if (!DisableRenderingLookup.HasComponent(itemEntity))
+        {
+            Ecb.AddComponent<DisableRendering>(itemEntity);
+        }
         Ecb.SetComponentEnabled<Item>(itemEntity, false);
     }
 

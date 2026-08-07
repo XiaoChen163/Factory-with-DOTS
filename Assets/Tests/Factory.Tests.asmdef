@@ -5,6 +5,7 @@
         "Factory.Runtime",
         "Unity.Collections",
         "Unity.Entities",
+        "Unity.Entities.Graphics",
         "Unity.Mathematics",
         "Unity.Transforms"
     ],

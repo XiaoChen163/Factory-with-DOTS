@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
@@ -178,6 +179,8 @@ public partial class BeltTransferSystem : SystemBase
         job.ItemPoolLookup = GetComponentLookup<ItemPool>(false);
         job.ItemPoolBufferLookup =
             GetBufferLookup<ItemPoolEntry>(false);
+        job.DisableRenderingLookup =
+            GetComponentLookup<DisableRendering>(true);
         job.ItemPrefabVisualInfo = itemPrefabVisualInfo;
 
         Dependency = job.Schedule(Dependency);

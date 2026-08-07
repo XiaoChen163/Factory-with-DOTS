@@ -1033,6 +1033,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 {
                     CurrentItem = Entity.Null
                 });
+                ecb.AddComponent(instance, new BeltVisualNeedsRefresh());
                 break;
             case BuildingKind.Merger:
                 ecb.AddComponent(instance, new Merger

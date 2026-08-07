@@ -18,6 +18,10 @@ public struct BuildingVisualReference : IComponentData
     public Entity Value;
 }
 
+public struct BeltVisualNeedsRefresh : IComponentData
+{
+}
+
 public enum GridBuildCommandType : byte
 {
     Place,

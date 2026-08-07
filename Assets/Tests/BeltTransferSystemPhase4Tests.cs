@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 namespace Factory.Tests
@@ -38,6 +39,9 @@ namespace Factory.Tests
             Assert.That(
                 EntityManager.IsComponentEnabled<Item>(item),
                 Is.False);
+            Assert.That(
+                EntityManager.HasComponent<DisableRendering>(item),
+                Is.True);
             DynamicBuffer<ItemPoolEntry> entries =
                 EntityManager.GetBuffer<ItemPoolEntry>(pool);
             Assert.That(entries.Length, Is.EqualTo(1));
@@ -74,6 +78,7 @@ namespace Factory.Tests
             EntityManager.AddComponentData(
                 pooledItem,
                 LocalTransform.FromPosition(float3.zero));
+            EntityManager.AddComponent<DisableRendering>(pooledItem);
             EntityManager.SetComponentEnabled<Item>(pooledItem, false);
             Entity pool = CreatePool(
                 IronOre,
@@ -90,6 +95,9 @@ namespace Factory.Tests
             Assert.That(
                 EntityManager.IsComponentEnabled<Item>(item),
                 Is.True);
+            Assert.That(
+                EntityManager.HasComponent<DisableRendering>(item),
+                Is.False);
             Assert.That(
                 EntityManager.GetComponentData<LocalTransform>(item)
                     .Position,

@@ -13,6 +13,7 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 {
     private const string BaseSceneName = "Stage3Ecs";
     private const float SetupTimeoutSeconds = 300f;
+    private const string ScaleArgument = "-factoryPerformanceScale";
     private const string NodeCountArgument = "-factoryPerformanceNodeCount";
     private const string LoadPercentArgument = "-factoryPerformanceLoadPercent";
 
@@ -71,9 +72,15 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         FactoryPerformanceScenarioBootstrap bootstrap =
             bootstrapObject.AddComponent<FactoryPerformanceScenarioBootstrap>();
         string[] arguments = Environment.GetCommandLineArgs();
+        int scale = ReadOptionalIntArgument(arguments, ScaleArgument, 0);
+        if (scale <= 0)
+        {
+            scale = ReadOptionalIntArgument(arguments, NodeCountArgument, 0);
+        }
+
         bootstrap.definition = FactoryPerformanceScenarioLayout.Create(
             scenario,
-            ReadOptionalIntArgument(arguments, NodeCountArgument, 0),
+            scale,
             ReadOptionalIntArgument(arguments, LoadPercentArgument, -1));
         bootstrap.StartCoroutine(bootstrap.Setup());
     }
@@ -282,7 +289,8 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         status = "READY - start Profiler capture now";
         Debug.Log(
             "[ECS Performance] READY: " + definition.DisplayName +
-            ". Grid=" + definition.GridSize.x + "x" +
+            ". Scale=" + definition.Scale + " " + definition.ScaleUnit +
+            ", Grid=" + definition.GridSize.x + "x" +
             definition.GridSize.y +
             ", Belts=" + definition.BeltCount +
             ", Mergers=" + definition.MergerCount +

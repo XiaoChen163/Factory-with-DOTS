@@ -16,6 +16,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
     private const string OutputArgument = "-factoryPerformanceOutput";
     private const string WarmupArgument = "-factoryPerformanceWarmupSeconds";
     private const string SampleArgument = "-factoryPerformanceSampleSeconds";
+    private const string CompactArgument = "-factoryPerformanceCompact";
     private const int MaxExpectedFramesPerSecond = 12000;
     private const string FixedStepKey = "fixed_step";
     // FixedStepSimulationSystemGroup reports a ~0.5us noise floor on frames
@@ -48,6 +49,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
     private string outputPath;
     private float warmupSeconds;
     private float sampleSeconds;
+    private bool compactOutput;
 
     public static void StartIfRequested(
         FactoryPerformanceScenarioDefinition definition)
@@ -71,6 +73,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 Directory.GetCurrentDirectory(),
                 "PerformanceReports",
                 definition.Scenario + ".json"));
+        capture.compactOutput = Array.IndexOf(arguments, CompactArgument) >= 0;
         capture.warmupSeconds = ReadFloatArgument(
             arguments,
             WarmupArgument,
@@ -216,6 +219,8 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 scenario = definition.Scenario.ToString(),
                 displayName = definition.DisplayName,
                 description = definition.Description,
+                scale = definition.Scale,
+                scaleUnit = definition.ScaleUnit,
                 timestampUtc = DateTime.UtcNow.ToString("O"),
                 unityVersion = Application.unityVersion,
                 platform = Application.platform.ToString(),
@@ -360,6 +365,12 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         FrameSample[] frames,
         int frameCount)
     {
+        if (compactOutput)
+        {
+            WriteCompactResults(report);
+            return;
+        }
+
         string fullOutputPath = Path.GetFullPath(outputPath);
         string directory = Path.GetDirectoryName(fullOutputPath);
         if (!string.IsNullOrEmpty(directory))
@@ -409,6 +420,84 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         }
 
         File.WriteAllText(csvPath, csv.ToString(), Encoding.UTF8);
+    }
+
+    private void WriteCompactResults(FactoryPerformanceCaptureReport report)
+    {
+        string fullOutputPath = Path.GetFullPath(outputPath);
+        string directory = Path.GetDirectoryName(fullOutputPath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        File.WriteAllText(
+            fullOutputPath,
+            JsonUtility.ToJson(
+                new FactoryPerformanceCompactReport
+                {
+                    scenario = report.scenario,
+                    displayName = report.displayName,
+                    scale = report.scale,
+                    scaleUnit = report.scaleUnit,
+                    timestampUtc = report.timestampUtc,
+                    gridWidth = report.gridWidth,
+                    gridHeight = report.gridHeight,
+                    expectedBelts = report.expectedBelts,
+                    expectedMergers = report.expectedMergers,
+                    expectedSplitters = report.expectedSplitters,
+                    expectedProcessors = report.expectedProcessors,
+                    initialItems = report.initialItems,
+                    beltEntities = report.beltEntities,
+                    mergerEntities = report.mergerEntities,
+                    splitterEntities = report.splitterEntities,
+                    processorEntities = report.processorEntities,
+                    storageEntities = report.storageEntities,
+                    itemEntities = report.itemEntities,
+                    warmupSeconds = report.warmupSeconds,
+                    requestedSampleSeconds = report.requestedSampleSeconds,
+                    actualSampleSeconds = report.actualSampleSeconds,
+                    sampledFrames = report.sampledFrames,
+                    frameTimeMeanMilliseconds = report.frameTimeMeanMilliseconds,
+                    frameTimeP50Milliseconds = report.frameTimeP50Milliseconds,
+                    frameTimeP95Milliseconds = report.frameTimeP95Milliseconds,
+                    frameTimeP99Milliseconds = report.frameTimeP99Milliseconds,
+                    frameTimeMaxMilliseconds = report.frameTimeMaxMilliseconds,
+                    framesPerSecond = report.framesPerSecond,
+                    fixedTickCount = report.fixedTickCount,
+                    fixedTicksPerSecond = report.fixedTicksPerSecond,
+                    acceptedTransferCount = report.acceptedTransferCount,
+                    acceptedTransfersPerSecond =
+                        report.acceptedTransfersPerSecond,
+                    acceptedTransfersPerTick = report.acceptedTransfersPerTick,
+                    managedMemoryDeltaBytes = report.managedMemoryDeltaBytes,
+                    fixedStepPerTickMilliseconds = MetricPerTick(
+                        report,
+                        "fixed_step"),
+                    beltTransferPerTickMilliseconds = MetricPerTick(
+                        report,
+                        "belt_transfer"),
+                    gcAllocatedBytesPerTick = MetricPerTick(
+                        report,
+                        "gc_allocated_in_frame")
+                },
+                true),
+            Encoding.UTF8);
+    }
+
+    private static double MetricPerTick(
+        FactoryPerformanceCaptureReport report,
+        string key)
+    {
+        for (int i = 0; i < report.metrics.Count; i++)
+        {
+            if (report.metrics[i].key == key)
+            {
+                return report.metrics[i].perTick;
+            }
+        }
+
+        return 0.0;
     }
 
     private static List<MetricRecorder> CreateMetricRecorders()
@@ -663,6 +752,8 @@ public sealed class FactoryPerformanceCaptureReport
     public string scenario;
     public string displayName;
     public string description;
+    public int scale;
+    public string scaleUnit;
     public string timestampUtc;
     public string unityVersion;
     public string platform;
@@ -706,6 +797,48 @@ public sealed class FactoryPerformanceCaptureReport
     public long managedMemoryDeltaBytes;
     public List<ProfilerMetricSummary> metrics;
     public List<string> unresolvedMetrics;
+}
+
+[Serializable]
+public sealed class FactoryPerformanceCompactReport
+{
+    public string scenario;
+    public string displayName;
+    public int scale;
+    public string scaleUnit;
+    public string timestampUtc;
+    public int gridWidth;
+    public int gridHeight;
+    public int expectedBelts;
+    public int expectedMergers;
+    public int expectedSplitters;
+    public int expectedProcessors;
+    public int initialItems;
+    public int beltEntities;
+    public int mergerEntities;
+    public int splitterEntities;
+    public int processorEntities;
+    public int storageEntities;
+    public int itemEntities;
+    public float warmupSeconds;
+    public float requestedSampleSeconds;
+    public float actualSampleSeconds;
+    public int sampledFrames;
+    public double frameTimeMeanMilliseconds;
+    public double frameTimeP50Milliseconds;
+    public double frameTimeP95Milliseconds;
+    public double frameTimeP99Milliseconds;
+    public double frameTimeMaxMilliseconds;
+    public double framesPerSecond;
+    public ulong fixedTickCount;
+    public double fixedTicksPerSecond;
+    public ulong acceptedTransferCount;
+    public double acceptedTransfersPerSecond;
+    public double acceptedTransfersPerTick;
+    public long managedMemoryDeltaBytes;
+    public double fixedStepPerTickMilliseconds;
+    public double beltTransferPerTickMilliseconds;
+    public double gcAllocatedBytesPerTick;
 }
 
 [Serializable]

@@ -28,7 +28,7 @@ if ([string]::IsNullOrWhiteSpace($ProjectPath)) {
     $ProjectPath = (Resolve-Path '.').Path
 }
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $ProjectPath 'Docs\PerformanceReports\StressTest'
+    $OutputDir = Join-Path $ProjectPath 'PerformanceReports\StressTest'
 }
 if ($StartScale -lt 1 -or $MaxScale -lt $StartScale) {
     throw 'StartScale must be >= 1 and MaxScale must be >= StartScale.'

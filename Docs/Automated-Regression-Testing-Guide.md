@@ -11,7 +11,7 @@
 - Unity Test Framework：`1.6.0`
 - 测试程序集：`Factory.Tests`
 - 测试模式：EditMode
-- 测试目录：`Assets/Scripts/Testing`
+- 测试目录：`Assets/Tests`
 
 测试代码只能依赖正式运行时程序集，不得把测试状态或测试专用组件放入正式运行路径。
 
@@ -64,7 +64,7 @@
 
 ### 3.1 夹具烟雾测试
 
-文件：`Assets/Scripts/Testing/FixtureSmokeTests.cs`
+文件：`Assets/Tests/FixtureSmokeTests.cs`
 
 - `TransportScenario_AdvancesOneStraightTransfer`
 - `FactoryWorldFixture_CreatesIsolatedTransportEntities`
@@ -73,7 +73,7 @@
 
 ### 3.2 直线运输
 
-文件：`Assets/Scripts/Testing/BeltTransferResolverTests.cs`
+文件：`Assets/Tests/BeltTransferResolverTests.cs`
 
 - `StraightLine_DoesNotMoveItemBeforeItIsReady`
 - `StraightLine_MovesReadyItemIntoEmptyDownstreamNode`
@@ -178,12 +178,12 @@ CI 不仅要检查 Unity 进程退出状态，还应解析测试 XML，确认失
 
 ### 5.2 创建测试文件
 
-在 `Assets/Scripts/Testing` 下按功能创建 `*Tests.cs` 文件，例如：
+在 `Assets/Tests` 下按功能创建 `*Tests.cs` 文件，例如：
 
 ```text
-Assets/Scripts/Testing/ItemPortIntegrationTests.cs
-Assets/Scripts/Testing/MergerRoundRobinTests.cs
-Assets/Scripts/Testing/LoopTransferTests.cs
+Assets/Tests/ItemPortIntegrationTests.cs
+Assets/Tests/MergerRoundRobinTests.cs
+Assets/Tests/LoopTransferTests.cs
 ```
 
 文件应使用 `Factory.Tests` 命名空间。Unity 生成 `.meta` 后，测试脚本和 `.meta` 必须一起提交。

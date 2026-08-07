@@ -5,7 +5,7 @@
 - `Assets/Scripts/Factory.Runtime.asmdef` -> `Factory.Runtime`
 - `Assets/Scripts/Data/Editor/Factory.Editor.asmdef` -> `Factory.Editor` (references `Factory.Runtime`)
 - `Assets/Scripts/DotsTest/Factory.DotsTest.asmdef` -> `Factory.DotsTest`
-- `Assets/Scripts/Testing/Factory.Tests.asmdef` -> `Factory.Tests`
+- `Assets/Tests/Factory.Tests.asmdef` -> `Factory.Tests`
 
 ## Performance pipeline scripts
 
@@ -23,12 +23,13 @@
 - `Assets/Scenes/Performance/Perf_512_MixedJunction.unity`
 - `Assets/Scenes/Performance/Perf_4096_Mk4_FullLoop.unity`
 - `Assets/Scenes/Performance/Perf_ProducerConsumer.unity`
+- `Assets/Scenes/Performance/Perf_ContinuousBeltBuild.unity`
 - `Assets/Scenes/Stage3Ecs.unity` - shared base scene loaded additively by the bootstrap
 - `Assets/Scenes/Stage3EntitiesSubscene.unity` - shared ECS SubScene
 
 ## Report schema (JSON)
 
-Key fields: `scenario`, `displayName`, `unityVersion`, `batchMode`, `gridWidth/Height`, entity counts, `warmupSeconds`, `requestedSampleSeconds`, `actualSampleSeconds`, `sampledFrames`, `frameTimeMeanMilliseconds`, `frameTimeP50/P95/P99/MaxMilliseconds`, `framesPerSecond`, `fixedTickCount`, `fixedTicksPerSecond`, `acceptedTransferCount`, `acceptedTransfersPerSecond`, managed memory before/after, `metrics[]` with `key`, `profilerMarker`, `category`, `unit`, `sampleCount`, `mean`, `p50`, `p95`, `p99`, `maximum`, `sum`.
+Key fields: `scenario`, `displayName`, `unityVersion`, `batchMode`, `gridWidth/Height`, entity counts, `warmupSeconds`, `requestedSampleSeconds`, `actualSampleSeconds`, `sampledFrames`, `frameTimeMeanMilliseconds`, `frameTimeP50/P95/P99/MaxMilliseconds`, `framesPerSecond`, `fixedTickCount`, `fixedTicksPerSecond`, `acceptedTransferCount`, `acceptedTransfersPerSecond`, managed memory before/after, `peakBeltEntities`, `buildStressComplete`, `completedPlacements`, `completedRemovals`, `metrics[]` with `key`, `profilerMarker`, `category`, `unit`, `sampleCount`, `mean`, `p50`, `p95`, `p99`, `maximum`, `sum`.
 
 The CSV next to the JSON has one row per frame: frame index, elapsed seconds, delta time ms, then one column per resolved metric.
 

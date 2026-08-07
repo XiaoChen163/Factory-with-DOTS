@@ -61,7 +61,7 @@ These rules map one-to-one to failures seen in real runs. Follow them for every 
 Default performance runs use fixed 4096-scale scenes only. Do not start a stress test
 unless the user explicitly asks for one. When a stress test is requested, run
 `Tools/FactoryStress/Run-FactoryStressTest.ps1` and store results under
-`Docs/PerformanceReports/StressTest/`.
+`PerformanceReports/StressTest/`.
 
 ## Quick start
 
@@ -78,7 +78,7 @@ Replace `<skill-dir>` with the folder containing this `SKILL.md` (on this machin
     '-factoryPerformanceCapture',
     '-factoryPerformanceWarmupSeconds','1',
     '-factoryPerformanceSampleSeconds','2',
-    '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\Docs\PerformanceReports\Default4096\performance-report.json'
+    '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\PerformanceReports\Default4096\performance-report.json'
   )
 ```
 
@@ -111,7 +111,7 @@ $args = @(
   '-factoryPerformanceCapture',
   '-factoryPerformanceWarmupSeconds','1',
   '-factoryPerformanceSampleSeconds','2',
-  '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\Docs\PerformanceReports\Default4096\performance-report.json'
+  '-factoryPerformanceOutput','D:\UnityProject\Factory-with-DOTS\PerformanceReports\Default4096\performance-report.json'
 )
 $p = Start-Process -FilePath $exe -ArgumentList $args -PassThru -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(240)
@@ -153,7 +153,7 @@ Reports contain frame time statistics, managed/GC/system memory, ECS system mark
 ## Stress test
 
 Run only when the user explicitly requests a stress test. Results are written to
-`Docs/PerformanceReports/StressTest/`:
+`PerformanceReports/StressTest/`:
 
 ```powershell
 & 'D:\UnityProject\Factory-with-DOTS\Tools\FactoryStress\Run-FactoryStressTest.ps1' `

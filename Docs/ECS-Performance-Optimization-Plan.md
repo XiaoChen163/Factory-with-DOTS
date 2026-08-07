@@ -295,9 +295,9 @@ public struct BeltState : IComponentData
 - DotsTest 下 4 个演示系统均标记 `[DisableAutoCreation]`。
 - 新增建筑输入、建筑输出和端口 Owner Revision 失效测试。
 - 当前机器的采集结果与原基准硬件隔离保存，不做跨硬件结论；采集说明见
-  [`PerformanceReports/phase1-current-hardware/README.md`](PerformanceReports/phase1-current-hardware/README.md)。
+  [`PerformanceReports/phase1-current-hardware/README.md`](../PerformanceReports/phase1-current-hardware/README.md)。
 - i9-12900HX 基线机器上的 Phase 1 同机复测与对照分析见
-  [`PerformanceReports/phase1-local-20260805/README.md`](PerformanceReports/phase1-local-20260805/README.md)。
+  [`PerformanceReports/phase1-local-20260805/README.md`](../PerformanceReports/phase1-local-20260805/README.md)。
 
 ### Phase 2：拓扑缓存和 O(N) Resolver
 
@@ -330,9 +330,9 @@ public struct BeltState : IComponentData
 - 128、512、1024、4096 节点测试的候选检查次数分别为 127、511、1023、
   4095；当前 Editor 样本耗时分别为 0.0315、0.0913、0.2554、0.7313
   ms/Tick。详细记录见
-  [`PerformanceReports/phase2-resolver-20260805/README.md`](PerformanceReports/phase2-resolver-20260805/README.md)。
+  [`PerformanceReports/phase2-resolver-20260805/README.md`](../PerformanceReports/phase2-resolver-20260805/README.md)。
 - 三个完整性能场景已使用独立 Batch Mode 进程采集，结果见
-  [`PerformanceReports/phase2-scenes-20260805/README.md`](PerformanceReports/phase2-scenes-20260805/README.md)。
+  [`PerformanceReports/phase2-scenes-20260805/README.md`](../PerformanceReports/phase2-scenes-20260805/README.md)。
 
 ### Phase 3：Burst 化和数据布局重构
 
@@ -380,7 +380,7 @@ public struct BeltState : IComponentData
 - Unity EditMode 回归为 `39 passed / 0 failed`，覆盖 Phase 1/2 既有规则
   与 Phase 3 新增的组件拆分、多 Tick 链路、统计输出和 ECB 生命周期测试。
 - 性能场景进程采集结果见
-  [`PerformanceReports/phase3-scenes-20260806/README.md`](PerformanceReports/phase3-scenes-20260806/README.md)：
+  [`PerformanceReports/phase3-scenes-20260806/README.md`](../PerformanceReports/phase3-scenes-20260806/README.md)：
   `BeltTransferSystem.OnUpdate` 主路径降至 0.034～0.051 ms/Tick，GC 降至
   47～48 KiB/Tick，三个核心场景均稳定 60+ Tick/s；稳态 `GC.Alloc = 0 B`
   尚未达成，残余分配主要来自每 Tick 的 ECB 创建/回放与帧基线分配。
@@ -423,9 +423,9 @@ public struct BeltState : IComponentData
   `BeltTransferSystemPhase4Tests` 覆盖池归还、池复用、无池回退、视觉快照
   采样、Presentation 进度插值和非均匀缩放保持。
 - 性能采集见
-  [`PerformanceReports/phase4-20260807/README.md`](PerformanceReports/phase4-20260807/README.md)。
+  [`PerformanceReports/phase4-20260807/README.md`](../PerformanceReports/phase4-20260807/README.md)。
 - Phase 4 后 FullLoop 压力测试（2 → 1024）见
-  [`PerformanceReports/StressTest/README.md`](PerformanceReports/StressTest/README.md)：
+  [`PerformanceReports/StressTest/README.md`](../PerformanceReports/StressTest/README.md)：
   极限档 65536 节点 TPS 28.16 → 31.78，帧 P95 733 ms → 618 ms。
 
 ### Phase 5：Port、建造和拓扑尖峰优化
@@ -462,7 +462,7 @@ public struct BeltState : IComponentData
   occupancy 增量应用和 Belt 脏单元格清理；`Factory.Tests` 为
   `59 passed / 0 failed`。
 - 默认 `scale=64` 连续建造/拆除对比见
-  [`PerformanceReports/phase5-20260807/README.md`](PerformanceReports/phase5-20260807/README.md)。
+  [`PerformanceReports/phase5-20260807/README.md`](../PerformanceReports/phase5-20260807/README.md)。
 
 ## 7. 性能测试矩阵
 

@@ -12,7 +12,7 @@ Profiler，场景加载和批量建造尖峰不属于稳态模拟样本。
 
 默认只运行 `4096` 参数的固定规模场景，例如 `Perf_4096_Mk4_FullLoop` 或
 `Perf_Straight_Scalable` 的 4096 节点配置。压力测试只有在用户明确要求时才执行，
-结果保存在 `Docs/PerformanceReports/StressTest/` 下。
+结果保存在 `PerformanceReports/StressTest/` 下。
 
 ## 场景清单
 

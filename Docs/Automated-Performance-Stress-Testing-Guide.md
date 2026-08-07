@@ -98,7 +98,7 @@ $unityArgs = @(
 | `-TpsThreshold` | `50` | tps 下限，`0` 表示不检查 |
 | `-FpsThreshold` | `0` | fps 下限，`0` 表示不检查 |
 | `-ThresholdMode` | `Any` | `Any` 任一低于阈值即失败，`All` 需要两者都低 |
-| `-OutputDir` | `Docs/PerformanceReports/StressTest` | 输出根目录 |
+| `-OutputDir` | `PerformanceReports/StressTest` | 输出根目录 |
 | `-TimeoutSeconds` | `300` | 单个 Unity 进程超时 |
 | `-Graphics` | 关闭 | 不带时使用 `-nographics` |
 | `-ReimportSubScene` | 关闭 | 带时使用 `ReimportSubSceneAndRun` |
@@ -124,7 +124,7 @@ $unityArgs = @(
 脚本输出目录结构：
 
 ```text
-Docs/PerformanceReports/StressTest/Perf_4096_Mk4_FullLoop/stress-<timestamp>/
+PerformanceReports/StressTest/Perf_4096_Mk4_FullLoop/stress-<timestamp>/
   scale-2/report.json           # compact 摘要，无 CSV
   scale-2/unity.log
   scale-4/report.json           # compact 摘要
@@ -170,7 +170,7 @@ Docs/PerformanceReports/StressTest/Perf_4096_Mk4_FullLoop/stress-<timestamp>/
 ## 6. CI 集成建议
 
 1. 在 CI 上锁定同一台硬件或同一规格机器，避免跨机比较绝对毫秒。
-2. 压力测试结果默认写入 `Docs/PerformanceReports/StressTest`，按
+2. 压力测试结果默认写入 `PerformanceReports/StressTest`，按
    `scene/runId` 归档；只有用户明确要求时才执行压力测试。
 3. CI 检查 `stress-summary.json` 中的 `result`：
    - 非 `error` 且达到预期的 `firstFailingScale` 视为通过；

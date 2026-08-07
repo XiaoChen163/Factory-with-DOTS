@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -1226,6 +1227,10 @@ public partial class GridBuildCommandSystem : SystemBase
             }
 
             ecb.SetComponentEnabled<Item>(item, false);
+            if (!EntityManager.HasComponent<DisableRendering>(item))
+            {
+                ecb.AddComponent<DisableRendering>(item);
+            }
             ecb.AppendToBuffer(
                 pools[i],
                 new ItemPoolEntry

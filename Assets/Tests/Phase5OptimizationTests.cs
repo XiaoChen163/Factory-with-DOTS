@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Rendering;
 using UnityEngine;
 
 namespace Factory.Tests
@@ -172,6 +173,151 @@ namespace Factory.Tests
             DynamicBuffer<BeltVisualDirtyCell> dirty =
                 EntityManager.GetBuffer<BeltVisualDirtyCell>(grid);
             Assert.That(dirty.IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void BeltTopologyRefresh_KeepsConnectedEdgeHidden()
+        {
+            Entity grid = CreateGrid();
+            EntityManager.AddBuffer<BeltVisualDirtyCell>(grid).Add(
+                new BeltVisualDirtyCell
+                {
+                    Value = new int2(1, 0)
+                });
+
+            CreateVisualBelt(
+                new int2(0, 0),
+                East,
+                BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new int2(1, 0),
+                East,
+                BuildingPortType.Input);
+            Entity targetVisual = EntityManager
+                .GetComponentData<BuildingVisualReference>(target)
+                .Value;
+            Entity westEdge = EntityManager
+                .GetComponentData<BeltVisualParts>(targetVisual)
+                .WestEdge;
+            EntityManager.AddComponent<DisableRendering>(westEdge);
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            Assert.That(
+                occupancy.TryGetOccupant(new int2(0, 0), out _),
+                Is.True);
+            Assert.That(
+                occupancy.TryGetOccupant(new int2(1, 0), out _),
+                Is.True);
+
+            BeltTopologyVisualSystem visuals =
+                GetOrCreateManagedSystem<BeltTopologyVisualSystem>();
+            UpdateSystem(visuals);
+
+            Assert.That(
+                EntityManager.HasComponent<DisableRendering>(westEdge),
+                Is.True,
+                "The connected edge must remain hidden after a full refresh.");
+            Assert.That(
+                EntityManager.HasComponent<DisableRendering>(
+                    EntityManager
+                        .GetComponentData<BeltVisualParts>(targetVisual)
+                        .EastEdge),
+                Is.False,
+                "Unconnected edges should become visible after a refresh.");
+        }
+
+        [Test]
+        public void RemovingBelt_ReturnsItemToPoolAndHidesRendering()
+        {
+            BlobAssetReference<FactoryDatabaseBlob> database = default;
+            try
+            {
+                database = CreateDatabase();
+                Entity grid = CreateBuildGrid();
+
+                Entity catalog = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(
+                    catalog,
+                    new BuildingPrefabCatalog());
+                EntityManager.AddBuffer<BuildingVisualPrefabEntry>(
+                    catalog);
+                EntityManager.AddComponentData(
+                    catalog,
+                    new FactoryDatabase
+                    {
+                        Value = database
+                    });
+
+                Entity pool = EntityManager.CreateEntity(
+                    typeof(ItemPool),
+                    typeof(ItemPoolEntry));
+                EntityManager.SetComponentData(
+                    pool,
+                    new ItemPool
+                    {
+                        ItemType = new ItemId { Value = 1 },
+                        FreeCursor = 0
+                    });
+
+                Entity item = CreateItem(1);
+                Entity belt = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(
+                    belt,
+                    new BeltState
+                    {
+                        CurrentItem = item
+                    });
+                EntityManager.AddComponentData(
+                    belt,
+                    new GridPlacement
+                    {
+                        AnchorCell = int2.zero,
+                        FootprintSize = new int2(1, 1),
+                        QuarterTurns = 0,
+                        Kind = BuildingKind.Belt
+                    });
+                EntityManager.AddBuffer<OccupiedCellOffset>(belt).Add(
+                    new OccupiedCellOffset
+                    {
+                        Value = int2.zero
+                    });
+                EntityManager.AddBuffer<BuildingPort>(belt);
+
+                GridOccupancyIndexSystem occupancy =
+                    GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+                UpdateSystem(occupancy);
+
+                EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
+                    new GridBuildCommand
+                    {
+                        Type = GridBuildCommandType.Remove,
+                        StartCell = int2.zero
+                    });
+                UpdateSystem(
+                    GetOrCreateManagedSystem<GridBuildCommandSystem>());
+
+                Assert.That(EntityManager.Exists(item), Is.True);
+                Assert.That(
+                    EntityManager.IsComponentEnabled<Item>(item),
+                    Is.False);
+                Assert.That(
+                    EntityManager.HasComponent<DisableRendering>(item),
+                    Is.True);
+                DynamicBuffer<ItemPoolEntry> entries =
+                    EntityManager.GetBuffer<ItemPoolEntry>(pool);
+                Assert.That(entries.Length, Is.EqualTo(1));
+                Assert.That(entries[0].Entity, Is.EqualTo(item));
+                Assert.That(EntityManager.Exists(belt), Is.False);
+            }
+            finally
+            {
+                if (database.IsCreated)
+                {
+                    database.Dispose();
+                }
+            }
         }
 
         [Test]
@@ -365,6 +511,80 @@ namespace Factory.Tests
                 Revision = 1
             });
             return grid;
+        }
+
+        private Entity CreateBuildGrid()
+        {
+            Entity grid = CreateGrid();
+            EntityManager.AddBuffer<GridBuildCommand>(grid);
+            EntityManager.AddBuffer<GridBuildResult>(grid);
+            return grid;
+        }
+
+        private Entity CreateVisualBelt(
+            int2 cell,
+            int2 direction,
+            BuildingPortType portType)
+        {
+            Entity building = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(
+                building,
+                new BeltTopology
+                {
+                    Cell = cell,
+                    Direction = direction,
+                    CellsPerSecond = 1f
+                });
+            EntityManager.AddComponentData(
+                building,
+                new GridPlacement
+                {
+                    AnchorCell = cell,
+                    FootprintSize = new int2(1, 1),
+                    QuarterTurns = 0,
+                    Kind = BuildingKind.Belt
+                });
+            EntityManager.AddBuffer<OccupiedCellOffset>(building).Add(
+                new OccupiedCellOffset
+                {
+                    Value = int2.zero
+                });
+            EntityManager.AddBuffer<BuildingPort>(building).Add(
+                new BuildingPort
+                {
+                    CellOffset = portType == BuildingPortType.Output
+                        ? direction
+                        : -direction,
+                    Direction = direction,
+                    Type = portType,
+                    Index = 0
+                });
+
+            Entity visual = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(
+                visual,
+                new BeltVisualParts
+                {
+                    EastEdge = CreateEdgeEntity(),
+                    NorthEdge = CreateEdgeEntity(),
+                    WestEdge = CreateEdgeEntity(),
+                    SouthEdge = CreateEdgeEntity(),
+                    DirectionTriangle = Entity.Null
+                });
+            EntityManager.AddComponentData(
+                building,
+                new BuildingVisualReference
+                {
+                    Value = visual
+                });
+            return building;
+        }
+
+        private Entity CreateEdgeEntity()
+        {
+            Entity edge = EntityManager.CreateEntity();
+            EntityManager.AddComponent<DisableRendering>(edge);
+            return edge;
         }
     }
 }

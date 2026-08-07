@@ -16,6 +16,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
     private ComponentLookup<BeltVisualParts> visualPartsLookup;
     private EntityQuery needsRefreshQuery;
     private EntityCommandBuffer pendingVisualEcb;
+    private NativeParallelHashSet<Entity> pendingVisibleEdges;
+    private NativeParallelHashSet<Entity> pendingHiddenEdges;
 
     protected override void OnCreate()
     {
@@ -29,7 +31,25 @@ public partial class BeltTopologyVisualSystem : SystemBase
             ComponentType.ReadOnly<BeltTopology>(),
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingVisualReference>());
+        pendingVisibleEdges =
+            new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
+        pendingHiddenEdges =
+            new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
         RequireForUpdate<GridDefinition>();
+    }
+
+    protected override void OnDestroy()
+    {
+        Dependency.Complete();
+        if (pendingVisibleEdges.IsCreated)
+        {
+            pendingVisibleEdges.Dispose();
+        }
+
+        if (pendingHiddenEdges.IsCreated)
+        {
+            pendingHiddenEdges.Dispose();
+        }
     }
 
     protected override void OnUpdate()
@@ -62,6 +82,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
 
         Dependency.Complete();
         pendingVisualEcb = new EntityCommandBuffer(Allocator.Temp);
+        pendingVisibleEdges.Clear();
+        pendingHiddenEdges.Clear();
         DynamicBuffer<BeltVisualDirtyCell> dirtyCells = default;
         if (hasDirty)
         {
@@ -141,6 +163,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 processedRefresh[i]);
         }
 
+        FlushPendingVisibility();
         pendingVisualEcb.Playback(EntityManager);
         pendingVisualEcb.Dispose();
         pendingVisualEcb = default;
@@ -381,18 +404,38 @@ public partial class BeltTopologyVisualSystem : SystemBase
             return;
         }
 
-        bool isHidden =
-            EntityManager.HasComponent<DisableRendering>(
-                visualEntity);
-        if (visible && isHidden)
+        if (visible)
         {
-            pendingVisualEcb.RemoveComponent<DisableRendering>(
-                visualEntity);
+            pendingVisibleEdges.Add(visualEntity);
+            pendingHiddenEdges.Remove(visualEntity);
         }
-        else if (!visible && !isHidden)
+        else
         {
-            pendingVisualEcb.AddComponent<DisableRendering>(
-                visualEntity);
+            pendingHiddenEdges.Add(visualEntity);
+            pendingVisibleEdges.Remove(visualEntity);
+        }
+    }
+
+    private void FlushPendingVisibility()
+    {
+        foreach (Entity visualEntity in pendingVisibleEdges)
+        {
+            if (EntityManager.Exists(visualEntity) &&
+                EntityManager.HasComponent<DisableRendering>(visualEntity))
+            {
+                pendingVisualEcb.RemoveComponent<DisableRendering>(
+                    visualEntity);
+            }
+        }
+
+        foreach (Entity visualEntity in pendingHiddenEdges)
+        {
+            if (EntityManager.Exists(visualEntity) &&
+                !EntityManager.HasComponent<DisableRendering>(visualEntity))
+            {
+                pendingVisualEcb.AddComponent<DisableRendering>(
+                    visualEntity);
+            }
         }
     }
 

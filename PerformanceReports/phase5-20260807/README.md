@@ -71,3 +71,5 @@
 - `baseline-scale64.json`：Phase5 前 `Perf_ContinuousBeltBuild` 默认 64
 - `optimized-scale64.json`：Phase5 后同一场景同一参数
 - `4096-full-loop-detailed.json`：`Perf_4096_Mk4_FullLoop` 稳态详细采集
+- `producer-consumer-adapterfix.json`：`Perf_ProducerConsumer` 64 产线修复后
+  验证，60.89 TPS，无 Port Buffer Safety 异常

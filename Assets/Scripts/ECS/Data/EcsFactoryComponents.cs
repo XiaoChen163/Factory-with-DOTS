@@ -1,16 +1,25 @@
 using Unity.Entities;
 using Unity.Mathematics;
 
-public struct Belt : IComponentData
+/// <summary>
+/// Static, low-frequency belt data. Never written by the fixed-tick
+/// simulation after a building is placed.
+/// </summary>
+public struct BeltTopology : IComponentData
 {
     public float CellsPerSecond;
     public int2 Cell;
     public int2 Direction;
-    public int2 NextCell;
+}
+
+/// <summary>
+/// High-frequency belt state written every fixed tick by BeltProgressSystem
+/// and BeltTransferSystem.
+/// </summary>
+public struct BeltState : IComponentData
+{
     public Entity CurrentItem;
     public float Progress;
-    public bool IsLoop;
-    public bool HasOutput;
 }
 
 public struct BeltVisualParts : IComponentData
@@ -38,10 +47,37 @@ public struct Splitter : IComponentData
     public int NextOutputIndex;
 }
 
-public struct Item : IComponentData
+public struct Item : IComponentData, IEnableableComponent
 {
     public ItemId ItemType;
-    public float3 Position;
+}
+
+/// <summary>
+/// Interpolation endpoints captured once per fixed tick. The presentation
+/// system reads this component from an item-centered query and writes the
+/// final LocalTransform once per render frame.
+/// </summary>
+public struct ItemVisualState : IComponentData
+{
+    public float3 FromPosition;
+    public float3 ToPosition;
+    public float Progress;
+}
+
+/// <summary>
+/// Persistent free-list for inactive Item entities. Pooled items keep their
+/// Item component disabled until a building output reuses them.
+/// </summary>
+public struct ItemPool : IComponentData
+{
+    public ItemId ItemType;
+    public Entity Prefab;
+    public int FreeCursor;
+}
+
+public struct ItemPoolEntry : IBufferElementData
+{
+    public Entity Entity;
 }
 
 public struct Stage3SimulationStats : IComponentData
@@ -53,4 +89,6 @@ public struct Stage3SimulationStats : IComponentData
     public int ReadyRequestCount;
     public int AcceptedTransferCount;
     public ulong TickCount;
+    public ulong TotalReadyRequestCount;
+    public ulong TotalAcceptedTransferCount;
 }

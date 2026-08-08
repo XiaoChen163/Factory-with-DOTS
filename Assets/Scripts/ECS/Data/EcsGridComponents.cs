@@ -9,6 +9,16 @@ public struct GridDefinition : IComponentData
     public uint Revision;
 }
 
+public struct PendingOccupancyAdd : IComponentData
+{
+}
+
+[InternalBufferCapacity(64)]
+public struct BeltVisualDirtyCell : IBufferElementData
+{
+    public int2 Value;
+}
+
 public struct GridPlacement : IComponentData
 {
     public int2 AnchorCell;

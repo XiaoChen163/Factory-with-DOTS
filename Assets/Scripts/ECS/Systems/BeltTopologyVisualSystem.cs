@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
@@ -8,20 +10,55 @@ using Unity.Transforms;
 [UpdateBefore(typeof(GridBuildCommandSystem))]
 public partial class BeltTopologyVisualSystem : SystemBase
 {
-    private EntityQuery beltQuery;
-    private uint lastGridRevision = uint.MaxValue;
+    private ComponentLookup<BeltTopology> beltTopologyLookup;
+    private ComponentLookup<GridPlacement> gridPlacementLookup;
+    private ComponentLookup<BuildingVisualReference> visualReferenceLookup;
+    private ComponentLookup<BeltVisualParts> visualPartsLookup;
+    private EntityQuery needsRefreshQuery;
+    private EntityCommandBuffer pendingVisualEcb;
+    private NativeParallelHashSet<Entity> pendingVisibleEdges;
+    private NativeParallelHashSet<Entity> pendingHiddenEdges;
 
     protected override void OnCreate()
     {
-        beltQuery = GetEntityQuery(
-            ComponentType.ReadOnly<Belt>(),
+        beltTopologyLookup = GetComponentLookup<BeltTopology>(true);
+        gridPlacementLookup = GetComponentLookup<GridPlacement>(true);
+        visualReferenceLookup =
+            GetComponentLookup<BuildingVisualReference>(true);
+        visualPartsLookup = GetComponentLookup<BeltVisualParts>(true);
+        needsRefreshQuery = GetEntityQuery(
+            ComponentType.ReadOnly<BeltVisualNeedsRefresh>(),
+            ComponentType.ReadOnly<BeltTopology>(),
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingVisualReference>());
+        pendingVisibleEdges =
+            new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
+        pendingHiddenEdges =
+            new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
         RequireForUpdate<GridDefinition>();
+    }
+
+    protected override void OnDestroy()
+    {
+        Dependency.Complete();
+        if (pendingVisibleEdges.IsCreated)
+        {
+            pendingVisibleEdges.Dispose();
+        }
+
+        if (pendingHiddenEdges.IsCreated)
+        {
+            pendingHiddenEdges.Dispose();
+        }
     }
 
     protected override void OnUpdate()
     {
+        beltTopologyLookup.Update(this);
+        gridPlacementLookup.Update(this);
+        visualReferenceLookup.Update(this);
+        visualPartsLookup.Update(this);
+
         GridOccupancyIndexSystem occupancySystem =
             World.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
@@ -32,47 +69,108 @@ public partial class BeltTopologyVisualSystem : SystemBase
             return;
         }
 
-        GridDefinition grid =
-            SystemAPI.GetSingleton<GridDefinition>();
-        if (grid.Revision == lastGridRevision)
+        Entity gridEntity =
+            SystemAPI.GetSingletonEntity<GridDefinition>();
+        bool hasDirty =
+            EntityManager.HasBuffer<BeltVisualDirtyCell>(gridEntity) &&
+            !EntityManager.GetBuffer<BeltVisualDirtyCell>(gridEntity)
+                .IsEmpty;
+        if (!hasDirty && needsRefreshQuery.IsEmptyIgnoreFilter)
         {
             return;
         }
 
         Dependency.Complete();
-        using Unity.Collections.NativeArray<Belt> belts =
-            beltQuery.ToComponentDataArray<Belt>(
-                Unity.Collections.Allocator.Temp);
-        using Unity.Collections.NativeArray<GridPlacement> placements =
-            beltQuery.ToComponentDataArray<GridPlacement>(
-                Unity.Collections.Allocator.Temp);
-        using Unity.Collections.NativeArray<BuildingVisualReference> visuals =
-            beltQuery.ToComponentDataArray<BuildingVisualReference>(
-                Unity.Collections.Allocator.Temp);
-
-        for (int i = 0; i < belts.Length; i++)
+        pendingVisualEcb = new EntityCommandBuffer(Allocator.Temp);
+        pendingVisibleEdges.Clear();
+        pendingHiddenEdges.Clear();
+        DynamicBuffer<BeltVisualDirtyCell> dirtyCells = default;
+        if (hasDirty)
         {
-            Entity visualEntity = visuals[i].Value;
+            dirtyCells =
+                EntityManager.GetBuffer<BeltVisualDirtyCell>(gridEntity);
+            using NativeParallelHashSet<int2> dirtyCellSet =
+                new NativeParallelHashSet<int2>(
+                    math.max(16, dirtyCells.Length * 2),
+                    Allocator.Temp);
+            for (int i = 0; i < dirtyCells.Length; i++)
+            {
+                dirtyCellSet.Add(dirtyCells[i].Value);
+            }
+
+            foreach (int2 cell in dirtyCellSet)
+            {
+                if (!occupancySystem.TryGetOccupant(
+                        cell,
+                        out Entity building) ||
+                    !beltTopologyLookup.HasComponent(building) ||
+                    !gridPlacementLookup.HasComponent(building) ||
+                    !visualReferenceLookup.HasComponent(building))
+                {
+                    continue;
+                }
+
+                Entity visualEntity =
+                    visualReferenceLookup[building].Value;
+                if (visualEntity == Entity.Null ||
+                    !visualPartsLookup.HasComponent(visualEntity))
+                {
+                    continue;
+                }
+
+                RefreshBeltVisual(
+                    beltTopologyLookup[building],
+                    gridPlacementLookup[building],
+                    visualPartsLookup[visualEntity],
+                    occupancySystem);
+            }
+
+            dirtyCells.Clear();
+        }
+
+        using NativeArray<Entity> refreshEntities =
+            needsRefreshQuery.ToEntityArray(Allocator.Temp);
+        List<Entity> processedRefresh =
+            new List<Entity>(refreshEntities.Length);
+        for (int i = 0; i < refreshEntities.Length; i++)
+        {
+            Entity building = refreshEntities[i];
+            if (!beltTopologyLookup.HasComponent(building) ||
+                !gridPlacementLookup.HasComponent(building) ||
+                !visualReferenceLookup.HasComponent(building))
+            {
+                continue;
+            }
+
+            Entity visualEntity = visualReferenceLookup[building].Value;
             if (visualEntity == Entity.Null ||
-                !EntityManager.Exists(visualEntity) ||
-                !EntityManager.HasComponent<BeltVisualParts>(visualEntity))
+                !visualPartsLookup.HasComponent(visualEntity))
             {
                 continue;
             }
 
             RefreshBeltVisual(
-                belts[i],
-                placements[i],
-                EntityManager.GetComponentData<BeltVisualParts>(
-                    visualEntity),
+                beltTopologyLookup[building],
+                gridPlacementLookup[building],
+                visualPartsLookup[visualEntity],
                 occupancySystem);
+            processedRefresh.Add(building);
         }
 
-        lastGridRevision = grid.Revision;
+        for (int i = 0; i < processedRefresh.Count; i++)
+        {
+            EntityManager.RemoveComponent<BeltVisualNeedsRefresh>(
+                processedRefresh[i]);
+        }
+
+        FlushPendingVisibility();
+        pendingVisualEcb.Playback(EntityManager);
+        pendingVisualEcb.Dispose();
+        pendingVisualEcb = default;
     }
 
     private void RefreshBeltVisual(
-        in Belt belt,
+        in BeltTopology belt,
         in GridPlacement placement,
         in BeltVisualParts visual,
         GridOccupancyIndexSystem occupancySystem)
@@ -207,7 +305,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private bool HasOutputConnection(
-        in Belt belt,
+        in BeltTopology belt,
         GridOccupancyIndexSystem occupancySystem)
     {
         int2 targetCell = belt.Cell + belt.Direction;
@@ -220,10 +318,10 @@ public partial class BeltTopologyVisualSystem : SystemBase
             return false;
         }
 
-        if (EntityManager.HasComponent<Belt>(target))
+        if (EntityManager.HasComponent<BeltTopology>(target))
         {
-            Belt targetBelt =
-                EntityManager.GetComponentData<Belt>(target);
+            BeltTopology targetBelt =
+                EntityManager.GetComponentData<BeltTopology>(target);
             return TryFindIncomingDirection(
                        targetBelt.Cell,
                        targetBelt.Direction,
@@ -306,18 +404,38 @@ public partial class BeltTopologyVisualSystem : SystemBase
             return;
         }
 
-        bool isHidden =
-            EntityManager.HasComponent<DisableRendering>(
-                visualEntity);
-        if (visible && isHidden)
+        if (visible)
         {
-            EntityManager.RemoveComponent<DisableRendering>(
-                visualEntity);
+            pendingVisibleEdges.Add(visualEntity);
+            pendingHiddenEdges.Remove(visualEntity);
         }
-        else if (!visible && !isHidden)
+        else
         {
-            EntityManager.AddComponent<DisableRendering>(
-                visualEntity);
+            pendingHiddenEdges.Add(visualEntity);
+            pendingVisibleEdges.Remove(visualEntity);
+        }
+    }
+
+    private void FlushPendingVisibility()
+    {
+        foreach (Entity visualEntity in pendingVisibleEdges)
+        {
+            if (EntityManager.Exists(visualEntity) &&
+                EntityManager.HasComponent<DisableRendering>(visualEntity))
+            {
+                pendingVisualEcb.RemoveComponent<DisableRendering>(
+                    visualEntity);
+            }
+        }
+
+        foreach (Entity visualEntity in pendingHiddenEdges)
+        {
+            if (EntityManager.Exists(visualEntity) &&
+                !EntityManager.HasComponent<DisableRendering>(visualEntity))
+            {
+                pendingVisualEcb.AddComponent<DisableRendering>(
+                    visualEntity);
+            }
         }
     }
 

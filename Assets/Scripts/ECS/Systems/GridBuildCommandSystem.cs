@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -40,6 +41,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private EntityQuery gridQuery;
     private EntityQuery catalogQuery;
     private EntityQuery placementQuery;
+    private EntityQuery itemPoolQuery;
 
     protected override void OnCreate()
     {
@@ -55,6 +57,9 @@ public partial class GridBuildCommandSystem : SystemBase
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<OccupiedCellOffset>(),
             ComponentType.ReadOnly<BuildingPort>());
+        itemPoolQuery = GetEntityQuery(
+            ComponentType.ReadOnly<ItemPool>(),
+            ComponentType.ReadOnly<ItemPoolEntry>());
     }
 
     protected override void OnUpdate()
@@ -122,6 +127,7 @@ public partial class GridBuildCommandSystem : SystemBase
         EntityCommandBuffer ecb =
             new EntityCommandBuffer(Allocator.Temp);
         bool gridChanged = false;
+        HashSet<int2> dirtyCells = new HashSet<int2>();
 
         for (int commandIndex = 0;
              commandIndex < commands.Length;
@@ -139,6 +145,8 @@ public partial class GridBuildCommandSystem : SystemBase
                         command.StartCell,
                         records,
                         occupantByCell,
+                        dirtyCells,
+                        occupancySystem,
                         ref ecb,
                         out failureReason);
                     affectedCount = success ? 1 : 0;
@@ -149,6 +157,8 @@ public partial class GridBuildCommandSystem : SystemBase
                         command.StartCell,
                         records,
                         occupantByCell,
+                        dirtyCells,
+                        occupancySystem,
                         ref ecb,
                         out affectedCount,
                         out failureReason);
@@ -163,6 +173,7 @@ public partial class GridBuildCommandSystem : SystemBase
                         ref database,
                         records,
                         occupantByCell,
+                        dirtyCells,
                         ref ecb,
                         out failureReason);
                     affectedCount = success ? 1 : 0;
@@ -179,6 +190,7 @@ public partial class GridBuildCommandSystem : SystemBase
                         ref database,
                         records,
                         occupantByCell,
+                        dirtyCells,
                         ref ecb,
                         out failureReason);
                     affectedCount = success ? 1 : 0;
@@ -210,6 +222,23 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             grid.Revision++;
             EntityManager.SetComponentData(gridEntity, grid);
+            if (!EntityManager.HasBuffer<BeltVisualDirtyCell>(
+                    gridEntity))
+            {
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(
+                    gridEntity);
+            }
+
+            DynamicBuffer<BeltVisualDirtyCell> dirtyBuffer =
+                EntityManager.GetBuffer<BeltVisualDirtyCell>(
+                    gridEntity);
+            foreach (int2 cell in dirtyCells)
+            {
+                dirtyBuffer.Add(new BeltVisualDirtyCell
+                {
+                    Value = cell
+                });
+            }
         }
     }
 
@@ -272,6 +301,7 @@ public partial class GridBuildCommandSystem : SystemBase
         ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
+        HashSet<int2> dirtyCells,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
@@ -318,6 +348,7 @@ public partial class GridBuildCommandSystem : SystemBase
             catalog,
             ref database,
             ref ecb);
+        MarkCellsDirty(candidate.OccupiedCells, dirtyCells);
         failureReason = GridBuildFailureReason.None;
         return true;
     }
@@ -330,6 +361,7 @@ public partial class GridBuildCommandSystem : SystemBase
         ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
+        HashSet<int2> dirtyCells,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
@@ -412,6 +444,7 @@ public partial class GridBuildCommandSystem : SystemBase
 
         for (int i = 0; i < staged.Count; i++)
         {
+            MarkCellsDirty(staged[i].OccupiedCells, dirtyCells);
             Instantiate(
                 beltPrefab,
                 beltBuilding,
@@ -431,6 +464,8 @@ public partial class GridBuildCommandSystem : SystemBase
         int2 cell,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
+        HashSet<int2> dirtyCells,
+        GridOccupancyIndexSystem occupancySystem,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
@@ -445,6 +480,8 @@ public partial class GridBuildCommandSystem : SystemBase
         }
 
         RemoveRecord(record, records, occupantByCell);
+        RemoveOccupancy(record, occupancySystem);
+        MarkCellsDirty(record.OccupiedCells, dirtyCells);
         DestroyOwnedItem(record.Entity, ref ecb);
         ecb.DestroyEntity(record.Entity);
         failureReason = GridBuildFailureReason.None;
@@ -455,6 +492,8 @@ public partial class GridBuildCommandSystem : SystemBase
         int2 cell,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
+        HashSet<int2> dirtyCells,
+        GridOccupancyIndexSystem occupancySystem,
         ref EntityCommandBuffer ecb,
         out int removedCount,
         out GridBuildFailureReason failureReason)
@@ -502,6 +541,8 @@ public partial class GridBuildCommandSystem : SystemBase
         foreach (PlacementRecord belt in connectedBelts)
         {
             RemoveRecord(belt, records, occupantByCell);
+            RemoveOccupancy(belt, occupancySystem);
+            MarkCellsDirty(belt.OccupiedCells, dirtyCells);
             DestroyOwnedItem(belt.Entity, ref ecb);
             ecb.DestroyEntity(belt.Entity);
             removedCount++;
@@ -509,6 +550,33 @@ public partial class GridBuildCommandSystem : SystemBase
 
         failureReason = GridBuildFailureReason.None;
         return removedCount > 0;
+    }
+
+    private static void RemoveOccupancy(
+        PlacementRecord record,
+        GridOccupancyIndexSystem occupancySystem)
+    {
+        for (int i = 0; i < record.OccupiedCells.Length; i++)
+        {
+            occupancySystem.RemoveOccupant(
+                record.OccupiedCells[i],
+                record.Entity);
+        }
+    }
+
+    private static void MarkCellsDirty(
+        int2[] cells,
+        HashSet<int2> dirtyCells)
+    {
+        for (int i = 0; i < cells.Length; i++)
+        {
+            int2 cell = cells[i];
+            dirtyCells.Add(cell);
+            dirtyCells.Add(cell + new int2(1, 0));
+            dirtyCells.Add(cell + new int2(-1, 0));
+            dirtyCells.Add(cell + new int2(0, 1));
+            dirtyCells.Add(cell + new int2(0, -1));
+        }
     }
 
     private static void TryEnqueueOutputBelt(
@@ -857,6 +925,7 @@ public partial class GridBuildCommandSystem : SystemBase
         ref EntityCommandBuffer ecb)
     {
         Entity instance = ecb.CreateEntity();
+        ecb.AddComponent(instance, new PendingOccupancyAdd());
         ecb.AddComponent(instance, placement);
         ecb.AddComponent(instance, new BuildingIdentity
         {
@@ -955,14 +1024,17 @@ public partial class GridBuildCommandSystem : SystemBase
                     ref database,
                     level.Id,
                     out FactoryBeltLevelBlob beltLevel);
-                ecb.AddComponent(instance, new Belt
+                ecb.AddComponent(instance, new BeltTopology
                 {
                     CellsPerSecond = beltLevel.CellsPerSecond,
                     Cell = placement.AnchorCell,
-                    Direction = direction,
-                    NextCell = placement.AnchorCell + direction,
+                    Direction = direction
+                });
+                ecb.AddComponent(instance, new BeltState
+                {
                     CurrentItem = Entity.Null
                 });
+                ecb.AddComponent(instance, new BeltVisualNeedsRefresh());
                 break;
             case BuildingKind.Merger:
                 ecb.AddComponent(instance, new Merger
@@ -1019,6 +1091,7 @@ public partial class GridBuildCommandSystem : SystemBase
         Entity instance,
         ref EntityCommandBuffer ecb)
     {
+        ecb.AddComponent(instance, new ItemPortBufferGeneration());
         ecb.AddBuffer<ItemInputPortCurrent>(instance);
         ecb.AddBuffer<ItemInputPortNext>(instance);
         ecb.AddBuffer<ItemOutputPortCurrent>(instance);
@@ -1104,10 +1177,10 @@ public partial class GridBuildCommandSystem : SystemBase
         ref EntityCommandBuffer ecb)
     {
         Entity item = Entity.Null;
-        if (EntityManager.HasComponent<Belt>(building))
+        if (EntityManager.HasComponent<BeltState>(building))
         {
             item =
-                EntityManager.GetComponentData<Belt>(building)
+                EntityManager.GetComponentData<BeltState>(building)
                     .CurrentItem;
         }
         else if (EntityManager.HasComponent<Merger>(building))
@@ -1124,8 +1197,50 @@ public partial class GridBuildCommandSystem : SystemBase
         }
         if (item != Entity.Null && EntityManager.Exists(item))
         {
-            ecb.DestroyEntity(item);
+            if (!TryReturnToItemPool(item, ref ecb))
+            {
+                ecb.DestroyEntity(item);
+            }
         }
+    }
+
+    private bool TryReturnToItemPool(
+        Entity item,
+        ref EntityCommandBuffer ecb)
+    {
+        if (!EntityManager.HasComponent<Item>(item))
+        {
+            return false;
+        }
+
+        ItemId itemType =
+            EntityManager.GetComponentData<Item>(item).ItemType;
+        using NativeArray<Entity> pools =
+            itemPoolQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<ItemPool> poolData =
+            itemPoolQuery.ToComponentDataArray<ItemPool>(Allocator.Temp);
+        for (int i = 0; i < pools.Length; i++)
+        {
+            if (poolData[i].ItemType != itemType)
+            {
+                continue;
+            }
+
+            ecb.SetComponentEnabled<Item>(item, false);
+            if (!EntityManager.HasComponent<DisableRendering>(item))
+            {
+                ecb.AddComponent<DisableRendering>(item);
+            }
+            ecb.AppendToBuffer(
+                pools[i],
+                new ItemPoolEntry
+                {
+                    Entity = item
+                });
+            return true;
+        }
+
+        return false;
     }
 
     private static void AddRecord(

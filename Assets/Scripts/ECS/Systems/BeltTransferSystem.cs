@@ -1,682 +1,334 @@
 using System;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Rendering;
 using Unity.Transforms;
 
 [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
 [UpdateAfter(typeof(BeltProgressSystem))]
 [UpdateBefore(typeof(ItemPortBufferSwapSystem))]
-[UpdateBefore(typeof(BeltItemPositionSystem))]
 public partial class BeltTransferSystem : SystemBase
 {
-    private enum TransportKind : byte
-    {
-        Belt,
-        Merger,
-        Splitter
-    }
-
-    private readonly struct TransportIndex
-    {
-        public TransportIndex(TransportKind kind, int index)
-        {
-            Kind = kind;
-            Index = index;
-        }
-
-        public TransportKind Kind { get; }
-        public int Index { get; }
-    }
-
-    private readonly struct PortKey : IEquatable<PortKey>
-    {
-        public PortKey(Entity owner, byte portIndex)
-        {
-            Owner = owner;
-            PortIndex = portIndex;
-        }
-
-        public Entity Owner { get; }
-        public byte PortIndex { get; }
-
-        public bool Equals(PortKey other)
-        {
-            return Owner == other.Owner && PortIndex == other.PortIndex;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is PortKey other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            return (Owner.GetHashCode() * 397) ^ PortIndex;
-        }
-    }
-
-    private readonly HashSet<Entity> processedJunctions =
-        new HashSet<Entity>();
-    private readonly Dictionary<PortKey, ulong> acceptedInputs =
-        new Dictionary<PortKey, ulong>();
-    private readonly Dictionary<PortKey, ulong> acceptedOutputs =
-        new Dictionary<PortKey, ulong>();
-
-    private EntityQuery beltQuery;
+    private FactoryLinearTransferResolver transferResolver;
+    private EntityQuery beltTopologyQuery;
     private EntityQuery mergerQuery;
     private EntityQuery splitterQuery;
     private EntityQuery inputPortQuery;
     private EntityQuery outputPortQuery;
     private EntityQuery itemCatalogQuery;
+    private EntityQuery gridQuery;
+    private EntityQuery itemPoolQuery;
+    private TransferCommandBufferSystem transferEcbSystem;
     private Entity statsEntity;
+    private Entity itemCatalog = Entity.Null;
+    private NativeArray<Entity> inputPortOwners;
+    private NativeArray<Entity> outputPortOwners;
+    private NativeArray<BeltState> emptyBeltStates;
+    private NativeArray<Merger> emptyMergers;
+    private NativeArray<Splitter> emptySplitters;
+    private NativeParallelHashMap<ItemId, Entity> itemPoolByType;
+    private NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>
+        itemPrefabVisualInfo;
+    private int cachedItemPoolCount = -1;
+    private Entity cachedItemPrefabVisualCatalog = Entity.Null;
+    private uint cachedGridRevision;
+    private bool hasCachedGridRevision;
+
+    public int TransportTopologyRebuildCount =>
+        transferResolver?.TopologyRebuildCount ?? 0;
 
     protected override void OnCreate()
     {
-        beltQuery = GetEntityQuery(ComponentType.ReadWrite<Belt>());
-        mergerQuery = GetEntityQuery(ComponentType.ReadWrite<Merger>());
-        splitterQuery = GetEntityQuery(ComponentType.ReadWrite<Splitter>());
+        transferResolver = new FactoryLinearTransferResolver();
+        emptyBeltStates =
+            new NativeArray<BeltState>(0, Allocator.Persistent);
+        emptyMergers = new NativeArray<Merger>(0, Allocator.Persistent);
+        emptySplitters =
+            new NativeArray<Splitter>(0, Allocator.Persistent);
+        beltTopologyQuery = GetEntityQuery(
+            ComponentType.ReadOnly<BeltTopology>());
+        mergerQuery = GetEntityQuery(
+            ComponentType.ReadOnly<Merger>());
+        splitterQuery = GetEntityQuery(
+            ComponentType.ReadOnly<Splitter>());
         inputPortQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingPort>(),
+            ComponentType.ReadOnly<ItemPortBufferGeneration>(),
             ComponentType.ReadOnly<ItemInputPortCurrent>(),
+            ComponentType.ReadOnly<ItemInputPortNext>(),
             ComponentType.ReadWrite<ItemTransferReceiptNext>());
         outputPortQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingPort>(),
+            ComponentType.ReadOnly<ItemPortBufferGeneration>(),
             ComponentType.ReadOnly<ItemOutputPortCurrent>(),
+            ComponentType.ReadOnly<ItemOutputPortNext>(),
             ComponentType.ReadWrite<ItemTransferReceiptNext>());
         itemCatalogQuery = GetEntityQuery(
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
             ComponentType.ReadOnly<ItemPrefabEntry>());
-        statsEntity = EntityManager.CreateEntity(typeof(Stage3SimulationStats));
+        gridQuery = GetEntityQuery(
+            ComponentType.ReadOnly<GridDefinition>());
+        itemPoolQuery = GetEntityQuery(
+            ComponentType.ReadOnly<ItemPool>(),
+            ComponentType.ReadOnly<ItemPoolEntry>());
+        itemPoolByType =
+            new NativeParallelHashMap<ItemId, Entity>(
+                16,
+                Allocator.Persistent);
+        itemPrefabVisualInfo =
+            new NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>(
+                16,
+                Allocator.Persistent);
+        transferEcbSystem =
+            World.GetOrCreateSystemManaged<TransferCommandBufferSystem>();
+        statsEntity =
+            EntityManager.CreateEntity(typeof(Stage3SimulationStats));
         RequireForUpdate<Stage3SimulationStats>();
+    }
+
+    protected override void OnDestroy()
+    {
+        Dependency.Complete();
+        if (emptyBeltStates.IsCreated)
+        {
+            emptyBeltStates.Dispose();
+        }
+        if (emptyMergers.IsCreated)
+        {
+            emptyMergers.Dispose();
+        }
+        if (emptySplitters.IsCreated)
+        {
+            emptySplitters.Dispose();
+        }
+        if (inputPortOwners.IsCreated)
+        {
+            inputPortOwners.Dispose();
+        }
+        if (outputPortOwners.IsCreated)
+        {
+            outputPortOwners.Dispose();
+        }
+        if (itemPoolByType.IsCreated)
+        {
+            itemPoolByType.Dispose();
+        }
+        if (itemPrefabVisualInfo.IsCreated)
+        {
+            itemPrefabVisualInfo.Dispose();
+        }
+        transferResolver?.Dispose();
+        transferResolver = null;
     }
 
     protected override void OnUpdate()
     {
-        using NativeArray<Entity> beltEntitySnapshot =
-            beltQuery.ToEntityArray(Allocator.Temp);
-        using NativeArray<Belt> beltComponentSnapshot =
-            beltQuery.ToComponentDataArray<Belt>(Allocator.Temp);
-        using NativeArray<Entity> mergerEntitySnapshot =
+        bool hasGrid = gridQuery.CalculateEntityCount() == 1;
+        uint gridRevision = hasGrid
+            ? gridQuery.GetSingleton<GridDefinition>().Revision
+            : 0;
+        if (!hasCachedGridRevision || gridRevision != cachedGridRevision)
+        {
+            Dependency.Complete();
+            RefreshTopology(gridRevision, hasGrid);
+            RefreshPortOwnerCache();
+            hasCachedGridRevision = true;
+            cachedGridRevision = gridRevision;
+        }
+
+        RefreshItemCatalog();
+        RefreshItemPrefabVisualInfo();
+        RefreshItemPoolCache();
+
+        EntityCommandBuffer ecb = transferEcbSystem.CreateCommandBuffer();
+        FactoryTransferArbitrationJob job =
+            transferResolver.CreateArbitrationJob();
+        job.EnableInterface = 1;
+        job.BeltStateLookup = GetComponentLookup<BeltState>(false);
+        job.MergerLookup = GetComponentLookup<Merger>(false);
+        job.SplitterLookup = GetComponentLookup<Splitter>(false);
+        job.GridPlacementLookup = GetComponentLookup<GridPlacement>(true);
+        job.ItemLookup = GetComponentLookup<Item>(true);
+        job.GenerationLookup =
+            GetComponentLookup<ItemPortBufferGeneration>(true);
+        job.BuildingPortLookup = GetBufferLookup<BuildingPort>(true);
+        job.InputPortCurrentLookup =
+            GetBufferLookup<ItemInputPortCurrent>(false);
+        job.InputPortNextLookup =
+            GetBufferLookup<ItemInputPortNext>(false);
+        job.OutputPortCurrentLookup =
+            GetBufferLookup<ItemOutputPortCurrent>(false);
+        job.OutputPortNextLookup =
+            GetBufferLookup<ItemOutputPortNext>(false);
+        job.ReceiptNextLookup =
+            GetBufferLookup<ItemTransferReceiptNext>(false);
+        job.StatsLookup =
+            GetComponentLookup<Stage3SimulationStats>(false);
+        job.InputPortOwners = inputPortOwners;
+        job.OutputPortOwners = outputPortOwners;
+        job.BeltStates = emptyBeltStates;
+        job.Mergers = emptyMergers;
+        job.Splitters = emptySplitters;
+        job.StatsEntity = statsEntity;
+        job.Ecb = ecb;
+        job.ItemPoolByType = itemPoolByType;
+        job.ItemPoolLookup = GetComponentLookup<ItemPool>(false);
+        job.ItemPoolBufferLookup =
+            GetBufferLookup<ItemPoolEntry>(false);
+        job.DisableRenderingLookup =
+            GetComponentLookup<DisableRendering>(true);
+        job.ItemPrefabVisualInfo = itemPrefabVisualInfo;
+
+        Dependency = job.Schedule(Dependency);
+        transferEcbSystem.AddJobHandleForProducer(Dependency);
+    }
+
+    private void RefreshTopology(uint gridRevision, bool hasGrid)
+    {
+        uint revision = hasGrid ? gridRevision : 0;
+        using NativeArray<Entity> beltEntities =
+            beltTopologyQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<BeltTopology> beltTopologies =
+            beltTopologyQuery.ToComponentDataArray<BeltTopology>(
+                Allocator.Temp);
+        using NativeArray<Entity> mergerEntities =
             mergerQuery.ToEntityArray(Allocator.Temp);
-        using NativeArray<Merger> mergerComponentSnapshot =
+        using NativeArray<Merger> mergers =
             mergerQuery.ToComponentDataArray<Merger>(Allocator.Temp);
-        using NativeArray<Entity> splitterEntitySnapshot =
+        using NativeArray<Entity> splitterEntities =
             splitterQuery.ToEntityArray(Allocator.Temp);
-        using NativeArray<Splitter> splitterComponentSnapshot =
+        using NativeArray<Splitter> splitters =
             splitterQuery.ToComponentDataArray<Splitter>(Allocator.Temp);
-
-        Entity[] beltEntities = beltEntitySnapshot.ToArray();
-        Belt[] belts = beltComponentSnapshot.ToArray();
-        Entity[] mergerEntities = mergerEntitySnapshot.ToArray();
-        Merger[] mergers = mergerComponentSnapshot.ToArray();
-        Entity[] splitterEntities = splitterEntitySnapshot.ToArray();
-        Splitter[] splitters = splitterComponentSnapshot.ToArray();
-
-        Dictionary<int2, TransportIndex> transportByCell =
-            BuildTransportIndex(belts, mergers, splitters);
-        EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
-
-        processedJunctions.Clear();
-        int interfaceRequestCount = 0;
-        int interfaceAcceptedCount = ConsumeBuildingInputs(
-            transportByCell,
+        transferResolver.EnsureTopology(
+            revision,
+            beltEntities,
+            beltTopologies,
             mergerEntities,
-            splitterEntities,
-            belts,
             mergers,
+            splitterEntities,
             splitters,
-            ref ecb,
-            ref interfaceRequestCount);
-
-        int loopCount = 0;
-        int readyRequestCount = 0;
-        int acceptedTransferCount = 0;
-        int passLimit = mergers.Length + splitters.Length + 1;
-        for (int pass = 0; pass < passLimit; pass++)
-        {
-            FactoryTransferResolver.Resolve(
-                beltEntities,
-                belts,
-                mergerEntities,
-                mergers,
-                splitterEntities,
-                splitters,
-                processedJunctions,
-                out int passLoopCount,
-                out int passReadyRequestCount,
-                out int passAcceptedTransferCount);
-
-            loopCount = passLoopCount;
-            readyRequestCount += passReadyRequestCount;
-            acceptedTransferCount += passAcceptedTransferCount;
-            if (passAcceptedTransferCount == 0)
-            {
-                break;
-            }
-        }
-
-        WriteTransportSnapshots(
-            beltEntities,
-            belts,
-            mergerEntities,
-            mergers,
-            splitterEntities,
-            splitters);
-
-        interfaceAcceptedCount += InjectBuildingOutputs(
-            transportByCell,
-            beltEntities,
-            mergerEntities,
-            splitterEntities,
-            ref ecb,
-            ref interfaceRequestCount);
-
-        ecb.Playback(EntityManager);
-        ecb.Dispose();
-
-        Stage3SimulationStats stats =
-            EntityManager.GetComponentData<Stage3SimulationStats>(statsEntity);
-        stats.BeltCount = belts.Length;
-        stats.MergerCount = mergers.Length;
-        stats.SplitterCount = splitters.Length;
-        stats.LoopCount = loopCount;
-        stats.ReadyRequestCount =
-            readyRequestCount + interfaceRequestCount;
-        stats.AcceptedTransferCount =
-            acceptedTransferCount + interfaceAcceptedCount;
-        stats.TickCount++;
-        EntityManager.SetComponentData(statsEntity, stats);
+            !hasGrid);
     }
 
-    private int ConsumeBuildingInputs(
-        Dictionary<int2, TransportIndex> transportByCell,
-        Entity[] mergerEntities,
-        Entity[] splitterEntities,
-        Belt[] belts,
-        Merger[] mergers,
-        Splitter[] splitters,
-        ref EntityCommandBuffer ecb,
-        ref int requestCount)
+    private void RefreshPortOwnerCache()
     {
-        using NativeArray<Entity> snapshot =
+        if (inputPortOwners.IsCreated)
+        {
+            inputPortOwners.Dispose();
+        }
+        if (outputPortOwners.IsCreated)
+        {
+            outputPortOwners.Dispose();
+        }
+        inputPortOwners = default;
+        outputPortOwners = default;
+        if (gridQuery.CalculateEntityCount() != 1)
+        {
+            inputPortOwners =
+                new NativeArray<Entity>(0, Allocator.Persistent);
+            outputPortOwners =
+                new NativeArray<Entity>(0, Allocator.Persistent);
+            return;
+        }
+
+        using NativeArray<Entity> inputSnapshot =
             inputPortQuery.ToEntityArray(Allocator.Temp);
-        Entity[] owners = snapshot.ToArray();
-        SortPortOwners(owners);
-        int acceptedCount = 0;
-
-        for (int ownerIndex = 0; ownerIndex < owners.Length; ownerIndex++)
-        {
-            Entity owner = owners[ownerIndex];
-            GridPlacement placement =
-                EntityManager.GetComponentData<GridPlacement>(owner);
-            DynamicBuffer<BuildingPort> buildingPorts =
-                EntityManager.GetBuffer<BuildingPort>(owner, true);
-            DynamicBuffer<ItemInputPortCurrent> ports =
-                EntityManager.GetBuffer<ItemInputPortCurrent>(owner, true);
-            DynamicBuffer<ItemTransferReceiptNext> receipts =
-                EntityManager.GetBuffer<ItemTransferReceiptNext>(owner);
-
-            for (int i = 0; i < ports.Length; i++)
-            {
-                ItemInputPortSnapshot port = ports[i].Value;
-                if (port.Enabled == 0)
-                {
-                    continue;
-                }
-
-                PortKey key = new PortKey(owner, port.PortIndex);
-                int availableCapacity = GetEffectiveCount(
-                    acceptedInputs,
-                    key,
-                    port.AppliedTransferCount,
-                    port.FreeCapacity);
-                if (availableCapacity <= 0 ||
-                    !TryGetBuildingPort(
-                        buildingPorts,
-                        BuildingPortType.Input,
-                        port.PortIndex,
-                        out BuildingPort geometry))
-                {
-                    continue;
-                }
-
-                int2 sourceCell = EcsGridUtility.GetBuildingCell(
-                    placement,
-                    geometry.CellOffset);
-                int2 direction = EcsGridUtility.Rotate(
-                    geometry.Direction,
-                    placement.QuarterTurns);
-                if (!transportByCell.TryGetValue(
-                        sourceCell,
-                        out TransportIndex source) ||
-                    !TryGetReadyItem(
-                        source,
-                        direction,
-                        belts,
-                        mergers,
-                        splitters,
-                        out Entity itemEntity,
-                        out int sourceOutputIndex))
-                {
-                    continue;
-                }
-
-                requestCount++;
-                if (!EntityManager.Exists(itemEntity) ||
-                    !EntityManager.HasComponent<Item>(itemEntity))
-                {
-                    continue;
-                }
-
-                ItemId itemType =
-                    EntityManager.GetComponentData<Item>(itemEntity).ItemType;
-                if (port.FilterMode == ItemPortFilterMode.ExactItemType &&
-                    port.AcceptedItemType != itemType)
-                {
-                    continue;
-                }
-
-                ClearTransportItem(
-                    source,
-                    sourceOutputIndex,
-                    belts,
-                    mergers,
-                    splitters);
-                if (source.Kind == TransportKind.Merger)
-                {
-                    processedJunctions.Add(
-                        mergerEntities[source.Index]);
-                }
-                else if (source.Kind == TransportKind.Splitter)
-                {
-                    processedJunctions.Add(
-                        splitterEntities[source.Index]);
-                }
-                receipts.Add(new ItemTransferReceiptNext
-                {
-                    Value = new ItemTransferReceipt
-                    {
-                        ItemType = itemType,
-                        Count = 1,
-                        PortIndex = port.PortIndex,
-                        Kind = ItemTransferReceiptKind.InputAccepted
-                    }
-                });
-                acceptedInputs[key] =
-                    GetAcceptedCount(
-                        acceptedInputs,
-                        key,
-                        port.AppliedTransferCount) + 1;
-                ecb.DestroyEntity(itemEntity);
-                acceptedCount++;
-            }
-        }
-
-        return acceptedCount;
-    }
-
-    private int InjectBuildingOutputs(
-        Dictionary<int2, TransportIndex> transportByCell,
-        Entity[] beltEntities,
-        Entity[] mergerEntities,
-        Entity[] splitterEntities,
-        ref EntityCommandBuffer ecb,
-        ref int requestCount)
-    {
-        Dictionary<ItemId, Entity> prefabsByType = BuildItemPrefabIndex();
-        using NativeArray<Entity> snapshot =
+        using NativeArray<Entity> outputSnapshot =
             outputPortQuery.ToEntityArray(Allocator.Temp);
-        Entity[] owners = snapshot.ToArray();
-        SortPortOwners(owners);
-        HashSet<Entity> reservedTargets = new HashSet<Entity>();
-        int acceptedCount = 0;
+        inputPortOwners = SortPortOwners(inputSnapshot);
+        outputPortOwners = SortPortOwners(outputSnapshot);
+    }
 
-        for (int ownerIndex = 0; ownerIndex < owners.Length; ownerIndex++)
+    private void RefreshItemCatalog()
+    {
+        itemCatalog = itemCatalogQuery.CalculateEntityCount() == 1
+            ? itemCatalogQuery.GetSingletonEntity()
+            : Entity.Null;
+    }
+
+    private void RefreshItemPrefabVisualInfo()
+    {
+        if (itemCatalog == cachedItemPrefabVisualCatalog)
         {
-            Entity owner = owners[ownerIndex];
-            GridPlacement placement =
-                EntityManager.GetComponentData<GridPlacement>(owner);
-            DynamicBuffer<BuildingPort> buildingPorts =
-                EntityManager.GetBuffer<BuildingPort>(owner, true);
-            DynamicBuffer<ItemOutputPortCurrent> ports =
-                EntityManager.GetBuffer<ItemOutputPortCurrent>(owner, true);
-            DynamicBuffer<ItemTransferReceiptNext> receipts =
-                EntityManager.GetBuffer<ItemTransferReceiptNext>(owner);
+            return;
+        }
 
-            for (int i = 0; i < ports.Length; i++)
+        Dependency.Complete();
+        itemPrefabVisualInfo.Clear();
+        if (itemCatalog != Entity.Null)
+        {
+            DynamicBuffer<ItemPrefabEntry> entries =
+                EntityManager.GetBuffer<ItemPrefabEntry>(
+                    itemCatalog,
+                    true);
+            for (int i = 0; i < entries.Length; i++)
             {
-                ItemOutputPortSnapshot port = ports[i].Value;
-                if (port.Enabled == 0 || !port.ItemType.IsValid)
+                ItemPrefabEntry entry = entries[i];
+                ItemPrefabVisualInfo info = new ItemPrefabVisualInfo
                 {
-                    continue;
+                    Prefab = entry.Prefab
+                };
+                if (entry.Prefab != Entity.Null &&
+                    EntityManager.HasComponent<LocalTransform>(
+                        entry.Prefab))
+                {
+                    info.Transform =
+                        EntityManager.GetComponentData<LocalTransform>(
+                            entry.Prefab);
+                    info.HasTransform = 1;
+                }
+                if (entry.Prefab != Entity.Null &&
+                    EntityManager.HasComponent<ItemVisualState>(
+                        entry.Prefab))
+                {
+                    info.HasVisualState = 1;
                 }
 
-                PortKey key = new PortKey(owner, port.PortIndex);
-                int availableCount = GetEffectiveCount(
-                    acceptedOutputs,
-                    key,
-                    port.AppliedTransferCount,
-                    port.AvailableCount);
-                if (availableCount <= 0 ||
-                    !TryGetBuildingPort(
-                        buildingPorts,
-                        BuildingPortType.Output,
-                        port.PortIndex,
-                        out BuildingPort geometry))
-                {
-                    continue;
-                }
-
-                int2 targetCell = EcsGridUtility.GetBuildingCell(
-                    placement,
-                    geometry.CellOffset);
-                int2 direction = EcsGridUtility.Rotate(
-                    geometry.Direction,
-                    placement.QuarterTurns);
-                if (!transportByCell.TryGetValue(
-                        targetCell,
-                        out TransportIndex target))
-                {
-                    continue;
-                }
-
-                Entity targetEntity = GetTransportEntity(
-                    target,
-                    beltEntities,
-                    mergerEntities,
-                    splitterEntities);
-                if (reservedTargets.Contains(targetEntity) ||
-                    !CanInjectIntoTransport(
-                        target,
-                        direction,
-                        beltEntities,
-                        mergerEntities,
-                        splitterEntities))
-                {
-                    continue;
-                }
-
-                requestCount++;
-                if (!TryGetItemPrefab(
-                        port.ItemType,
-                        prefabsByType,
-                        out Entity prefab))
-                {
-                    continue;
-                }
-
-                reservedTargets.Add(targetEntity);
-
-                Entity item = ecb.Instantiate(prefab);
-                float3 position = new float3(
-                    targetCell.x + 0.5f,
-                    0.535f,
-                    targetCell.y + 0.5f);
-                ecb.AddComponent(item, new Item
-                {
-                    ItemType = port.ItemType,
-                    Position = position
-                });
-                if (EntityManager.HasComponent<LocalTransform>(prefab))
-                {
-                    LocalTransform transform =
-                        EntityManager.GetComponentData<LocalTransform>(prefab);
-                    transform.Position = position;
-                    ecb.SetComponent(item, transform);
-                }
-
-                SetTransportItem(
-                    target,
-                    item,
-                    beltEntities,
-                    mergerEntities,
-                    splitterEntities,
-                    ref ecb);
-                receipts.Add(new ItemTransferReceiptNext
-                {
-                    Value = new ItemTransferReceipt
-                    {
-                        ItemType = port.ItemType,
-                        Count = 1,
-                        PortIndex = port.PortIndex,
-                        Kind = ItemTransferReceiptKind.OutputTransferred
-                    }
-                });
-                acceptedOutputs[key] =
-                    GetAcceptedCount(
-                        acceptedOutputs,
-                        key,
-                        port.AppliedTransferCount) + 1;
-                acceptedCount++;
+                itemPrefabVisualInfo[entry.ItemType] = info;
             }
         }
 
-        return acceptedCount;
+        cachedItemPrefabVisualCatalog = itemCatalog;
     }
 
-    private static Entity GetTransportEntity(
-        TransportIndex target,
-        Entity[] beltEntities,
-        Entity[] mergerEntities,
-        Entity[] splitterEntities)
+    private void RefreshItemPoolCache()
     {
-        switch (target.Kind)
+        int poolCount = itemPoolQuery.CalculateEntityCount();
+        if (poolCount == cachedItemPoolCount)
         {
-            case TransportKind.Belt:
-                return beltEntities[target.Index];
-            case TransportKind.Merger:
-                return mergerEntities[target.Index];
-            case TransportKind.Splitter:
-                return splitterEntities[target.Index];
-            default:
-                return Entity.Null;
+            return;
         }
+
+        Dependency.Complete();
+        if (itemPoolByType.IsCreated)
+        {
+            itemPoolByType.Dispose();
+        }
+
+        itemPoolByType = new NativeParallelHashMap<ItemId, Entity>(
+            math.max(16, poolCount),
+            Allocator.Persistent);
+        using NativeArray<Entity> pools =
+            itemPoolQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<ItemPool> poolData =
+            itemPoolQuery.ToComponentDataArray<ItemPool>(Allocator.Temp);
+        for (int i = 0; i < pools.Length; i++)
+        {
+            itemPoolByType.TryAdd(poolData[i].ItemType, pools[i]);
+        }
+
+        cachedItemPoolCount = poolCount;
     }
 
-    private bool TryGetItemPrefab(
-        ItemId itemType,
-        Dictionary<ItemId, Entity> prefabsByType,
-        out Entity prefab)
+    private NativeArray<Entity> SortPortOwners(
+        NativeArray<Entity> owners)
     {
-        if (prefabsByType.TryGetValue(itemType, out prefab) &&
-            prefab != Entity.Null && EntityManager.Exists(prefab) &&
-            EntityManager.HasComponent<Prefab>(prefab))
-        {
-            return true;
-        }
-
-        prefab = Entity.Null;
-        return false;
-    }
-
-    private Dictionary<ItemId, Entity> BuildItemPrefabIndex()
-    {
-        Dictionary<ItemId, Entity> result =
-            new Dictionary<ItemId, Entity>();
-        if (itemCatalogQuery.CalculateEntityCount() != 1)
-        {
-            return result;
-        }
-
-        Entity catalog = itemCatalogQuery.GetSingletonEntity();
-        DynamicBuffer<ItemPrefabEntry> entries =
-            EntityManager.GetBuffer<ItemPrefabEntry>(catalog, true);
-        for (int i = 0; i < entries.Length; i++)
-        {
-            ItemPrefabEntry entry = entries[i];
-            if (entry.ItemType.IsValid && entry.Prefab != Entity.Null)
-            {
-                result[entry.ItemType] = entry.Prefab;
-            }
-        }
-
-        return result;
-    }
-
-    private static Dictionary<int2, TransportIndex> BuildTransportIndex(
-        Belt[] belts,
-        Merger[] mergers,
-        Splitter[] splitters)
-    {
-        Dictionary<int2, TransportIndex> result =
-            new Dictionary<int2, TransportIndex>(
-                belts.Length + mergers.Length + splitters.Length);
-        for (int i = 0; i < belts.Length; i++)
-        {
-            result[belts[i].Cell] =
-                new TransportIndex(TransportKind.Belt, i);
-        }
-        for (int i = 0; i < mergers.Length; i++)
-        {
-            result[mergers[i].Cell] =
-                new TransportIndex(TransportKind.Merger, i);
-        }
-        for (int i = 0; i < splitters.Length; i++)
-        {
-            result[splitters[i].Cell] =
-                new TransportIndex(TransportKind.Splitter, i);
-        }
-
-        return result;
-    }
-
-    private static bool TryGetReadyItem(
-        TransportIndex source,
-        int2 expectedDirection,
-        Belt[] belts,
-        Merger[] mergers,
-        Splitter[] splitters,
-        out Entity item,
-        out int outputIndex)
-    {
-        switch (source.Kind)
-        {
-            case TransportKind.Belt:
-                Belt belt = belts[source.Index];
-                item = belt.CurrentItem;
-                outputIndex = 0;
-                return item != Entity.Null &&
-                       belt.Progress >= 1f &&
-                       math.all(belt.Direction == expectedDirection);
-            case TransportKind.Merger:
-                Merger merger = mergers[source.Index];
-                item = merger.CurrentItem;
-                outputIndex = 0;
-                return item != Entity.Null &&
-                       math.all(merger.Direction == expectedDirection);
-            case TransportKind.Splitter:
-                Splitter splitter = splitters[source.Index];
-                item = splitter.CurrentItem;
-                outputIndex = GetSplitterOutputIndex(
-                    splitter.Direction,
-                    expectedDirection);
-                return item != Entity.Null &&
-                       outputIndex >= 0;
-            default:
-                item = Entity.Null;
-                outputIndex = -1;
-                return false;
-        }
-    }
-
-    private static void ClearTransportItem(
-        TransportIndex source,
-        int outputIndex,
-        Belt[] belts,
-        Merger[] mergers,
-        Splitter[] splitters)
-    {
-        switch (source.Kind)
-        {
-            case TransportKind.Belt:
-                Belt belt = belts[source.Index];
-                belt.CurrentItem = Entity.Null;
-                belt.Progress = 0f;
-                belts[source.Index] = belt;
-                break;
-            case TransportKind.Merger:
-                Merger merger = mergers[source.Index];
-                merger.CurrentItem = Entity.Null;
-                mergers[source.Index] = merger;
-                break;
-            case TransportKind.Splitter:
-                Splitter splitter = splitters[source.Index];
-                splitter.CurrentItem = Entity.Null;
-                splitter.NextOutputIndex =
-                    WrapThree(outputIndex + 1);
-                splitters[source.Index] = splitter;
-                break;
-        }
-    }
-
-    private bool CanInjectIntoTransport(
-        TransportIndex target,
-        int2 direction,
-        Entity[] beltEntities,
-        Entity[] mergerEntities,
-        Entity[] splitterEntities)
-    {
-        switch (target.Kind)
-        {
-            case TransportKind.Belt:
-                return EntityManager.GetComponentData<Belt>(
-                    beltEntities[target.Index]).CurrentItem == Entity.Null;
-            case TransportKind.Merger:
-                Merger merger = EntityManager.GetComponentData<Merger>(
-                    mergerEntities[target.Index]);
-                return merger.CurrentItem == Entity.Null &&
-                       GetMergerInputIndex(merger.Direction, direction) >= 0;
-            case TransportKind.Splitter:
-                Splitter splitter =
-                    EntityManager.GetComponentData<Splitter>(
-                        splitterEntities[target.Index]);
-                return splitter.CurrentItem == Entity.Null &&
-                       math.all(direction == splitter.Direction);
-            default:
-                return false;
-        }
-    }
-
-    private void SetTransportItem(
-        TransportIndex target,
-        Entity item,
-        Entity[] beltEntities,
-        Entity[] mergerEntities,
-        Entity[] splitterEntities,
-        ref EntityCommandBuffer ecb)
-    {
-        switch (target.Kind)
-        {
-            case TransportKind.Belt:
-                Belt belt = EntityManager.GetComponentData<Belt>(
-                    beltEntities[target.Index]);
-                belt.CurrentItem = item;
-                belt.Progress = 0f;
-                ecb.SetComponent(beltEntities[target.Index], belt);
-                break;
-            case TransportKind.Merger:
-                Merger merger = EntityManager.GetComponentData<Merger>(
-                    mergerEntities[target.Index]);
-                merger.CurrentItem = item;
-                ecb.SetComponent(mergerEntities[target.Index], merger);
-                break;
-            case TransportKind.Splitter:
-                Splitter splitter =
-                    EntityManager.GetComponentData<Splitter>(
-                        splitterEntities[target.Index]);
-                splitter.CurrentItem = item;
-                ecb.SetComponent(splitterEntities[target.Index], splitter);
-                break;
-        }
-    }
-
-    private void SortPortOwners(Entity[] owners)
-    {
-        Array.Sort(owners, (left, right) =>
+        Entity[] managed = owners.ToArray();
+        Array.Sort(managed, (left, right) =>
         {
             GridPlacement leftPlacement =
                 EntityManager.GetComponentData<GridPlacement>(left);
@@ -693,131 +345,15 @@ public partial class BeltTransferSystem : SystemBase
                 rightPlacement.AnchorCell.y);
             return y != 0 ? y : left.Index.CompareTo(right.Index);
         });
-    }
 
-    private static bool TryGetBuildingPort(
-        DynamicBuffer<BuildingPort> ports,
-        BuildingPortType type,
-        byte index,
-        out BuildingPort result)
-    {
-        for (int i = 0; i < ports.Length; i++)
+        NativeArray<Entity> result = new NativeArray<Entity>(
+            managed.Length,
+            Allocator.Persistent);
+        for (int i = 0; i < managed.Length; i++)
         {
-            BuildingPort port = ports[i];
-            if (port.Type == type && port.Index == index)
-            {
-                result = port;
-                return true;
-            }
+            result[i] = managed[i];
         }
 
-        result = default;
-        return false;
-    }
-
-    private static ulong GetAcceptedCount(
-        Dictionary<PortKey, ulong> accepted,
-        PortKey key,
-        ulong applied)
-    {
-        if (!accepted.TryGetValue(key, out ulong value) || value < applied)
-        {
-            value = applied;
-            accepted[key] = value;
-        }
-
-        return value;
-    }
-
-    private static int GetEffectiveCount(
-        Dictionary<PortKey, ulong> accepted,
-        PortKey key,
-        ulong applied,
-        int publishedCount)
-    {
-        ulong acceptedCount = GetAcceptedCount(accepted, key, applied);
-        ulong outstanding = acceptedCount - applied;
-        return outstanding >= (ulong)math.max(0, publishedCount)
-            ? 0
-            : publishedCount - (int)outstanding;
-    }
-
-    private void WriteTransportSnapshots(
-        Entity[] beltEntities,
-        Belt[] belts,
-        Entity[] mergerEntities,
-        Merger[] mergers,
-        Entity[] splitterEntities,
-        Splitter[] splitters)
-    {
-        for (int i = 0; i < beltEntities.Length; i++)
-        {
-            EntityManager.SetComponentData(beltEntities[i], belts[i]);
-        }
-        for (int i = 0; i < mergerEntities.Length; i++)
-        {
-            EntityManager.SetComponentData(mergerEntities[i], mergers[i]);
-        }
-        for (int i = 0; i < splitterEntities.Length; i++)
-        {
-            EntityManager.SetComponentData(splitterEntities[i], splitters[i]);
-        }
-    }
-
-    private static int GetMergerInputIndex(
-        int2 direction,
-        int2 travelDirection)
-    {
-        if (math.all(travelDirection == direction))
-        {
-            return 0;
-        }
-        if (math.all(travelDirection == new int2(direction.y, -direction.x)))
-        {
-            return 1;
-        }
-        if (math.all(travelDirection == new int2(-direction.y, direction.x)))
-        {
-            return 2;
-        }
-        return -1;
-    }
-
-    private static int2 GetSplitterOutputDirection(
-        int2 direction,
-        int outputIndex)
-    {
-        switch (WrapThree(outputIndex))
-        {
-            case 0:
-                return direction;
-            case 1:
-                return new int2(-direction.y, direction.x);
-            default:
-                return new int2(direction.y, -direction.x);
-        }
-    }
-
-    private static int GetSplitterOutputIndex(
-        int2 direction,
-        int2 outputDirection)
-    {
-        for (int i = 0; i < 3; i++)
-        {
-            if (math.all(
-                    GetSplitterOutputDirection(direction, i) ==
-                    outputDirection))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    private static int WrapThree(int value)
-    {
-        int wrapped = value % 3;
-        return wrapped < 0 ? wrapped + 3 : wrapped;
+        return result;
     }
 }

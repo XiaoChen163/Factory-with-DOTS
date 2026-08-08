@@ -26,16 +26,19 @@ public partial struct BeltProgressSystem : ISystem
     {
         public float DeltaTime;
 
-        private void Execute(ref Belt belt)
+        private void Execute(
+            ref BeltState state,
+            in BeltTopology topology)
         {
-            if (belt.CurrentItem == Entity.Null)
+            if (state.CurrentItem == Entity.Null)
             {
-                belt.Progress = 0f;
+                state.Progress = 0f;
                 return;
             }
 
-            belt.Progress = math.min(
-                belt.Progress + belt.CellsPerSecond * DeltaTime,
+            state.Progress = math.min(
+                state.Progress +
+                topology.CellsPerSecond * DeltaTime,
                 1f);
         }
     }

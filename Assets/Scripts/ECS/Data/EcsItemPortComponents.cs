@@ -11,6 +11,7 @@ public struct ItemInputPortSnapshot
     public ItemId AcceptedItemType;
     public int FreeCapacity;
     public ulong AppliedTransferCount;
+    public ulong ReservedTransferCount;
     public byte PortIndex;
     public byte Enabled;
     public ItemPortFilterMode FilterMode;
@@ -21,8 +22,14 @@ public struct ItemOutputPortSnapshot
     public ItemId ItemType;
     public int AvailableCount;
     public ulong AppliedTransferCount;
+    public ulong ReservedTransferCount;
     public byte PortIndex;
     public byte Enabled;
+}
+
+public struct ItemPortBufferGeneration : IComponentData
+{
+    public byte Value;
 }
 
 [InternalBufferCapacity(2)]

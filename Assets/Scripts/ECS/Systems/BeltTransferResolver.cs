@@ -38,7 +38,8 @@ public static class FactoryTransferResolver
 
     public static void Resolve(
         Entity[] beltEntities,
-        Belt[] belts,
+        BeltTopology[] beltTopologies,
+        BeltState[] beltStates,
         Entity[] mergerEntities,
         Merger[] mergers,
         Entity[] splitterEntities,
@@ -50,14 +51,15 @@ public static class FactoryTransferResolver
     {
         ValidateInputs(
             beltEntities,
-            belts,
+            beltTopologies,
+            beltStates,
             mergerEntities,
             mergers,
             splitterEntities,
             splitters,
             processedJunctions);
 
-        int beltCount = belts.Length;
+        int beltCount = beltTopologies.Length;
         int mergerCount = mergers.Length;
         int splitterCount = splitters.Length;
         Node[] nodes = new Node[
@@ -68,9 +70,7 @@ public static class FactoryTransferResolver
         int nodeIndex = 0;
         for (int i = 0; i < beltCount; i++, nodeIndex++)
         {
-            Belt belt = belts[i];
-            belt.IsLoop = false;
-            belts[i] = belt;
+            BeltTopology belt = beltTopologies[i];
             nodes[nodeIndex] = new Node
             {
                 Entity = beltEntities[i],
@@ -78,8 +78,8 @@ public static class FactoryTransferResolver
                 SourceIndex = i,
                 Cell = belt.Cell,
                 Direction = belt.Direction,
-                CurrentItem = belt.CurrentItem,
-                Progress = belt.Progress,
+                CurrentItem = beltStates[i].CurrentItem,
+                Progress = beltStates[i].Progress,
                 TargetIndex = -1,
                 OutputIndex = -1
             };
@@ -124,8 +124,7 @@ public static class FactoryTransferResolver
             indexByCell[splitter.Cell] = nodeIndex;
         }
 
-        MarkBeltOutputs(nodes, indexByCell, belts);
-        loopCount = MarkBeltLoops(nodes, indexByCell, belts);
+        loopCount = MarkBeltLoops(nodes, indexByCell);
         readyRequestCount = BuildOutgoingRequests(
             nodes,
             indexByCell,
@@ -163,7 +162,7 @@ public static class FactoryTransferResolver
         Commit(
             nodes,
             accepted,
-            belts,
+            beltStates,
             mergers,
             splitters,
             processedJunctions,
@@ -537,7 +536,7 @@ public static class FactoryTransferResolver
     private static void Commit(
         Node[] nodes,
         bool[] accepted,
-        Belt[] belts,
+        BeltState[] beltStates,
         Merger[] mergers,
         Splitter[] splitters,
         HashSet<Entity> processedJunctions,
@@ -610,10 +609,10 @@ public static class FactoryTransferResolver
             switch (node.Kind)
             {
                 case NodeKind.Belt:
-                    Belt belt = belts[node.SourceIndex];
+                    BeltState belt = beltStates[node.SourceIndex];
                     belt.CurrentItem = node.CurrentItem;
                     belt.Progress = node.Progress;
-                    belts[node.SourceIndex] = belt;
+                    beltStates[node.SourceIndex] = belt;
                     break;
                 case NodeKind.Merger:
                     Merger merger = mergers[node.SourceIndex];
@@ -633,8 +632,7 @@ public static class FactoryTransferResolver
 
     private static int MarkBeltLoops(
         Node[] nodes,
-        Dictionary<int2, int> indexByCell,
-        Belt[] belts)
+        Dictionary<int2, int> indexByCell)
     {
         byte[] visitState = new byte[nodes.Length];
         int[] pathIndex = new int[nodes.Length];
@@ -681,15 +679,6 @@ public static class FactoryTransferResolver
                 pathIndex[current] >= 0)
             {
                 loopCount++;
-                for (int i = pathIndex[current];
-                     i < path.Count;
-                     i++)
-                {
-                    Node member = nodes[path[i]];
-                    Belt belt = belts[member.SourceIndex];
-                    belt.IsLoop = true;
-                    belts[member.SourceIndex] = belt;
-                }
             }
 
             for (int i = 0; i < path.Count; i++)
@@ -700,37 +689,6 @@ public static class FactoryTransferResolver
         }
 
         return loopCount;
-    }
-
-    private static void MarkBeltOutputs(
-        Node[] nodes,
-        Dictionary<int2, int> indexByCell,
-        Belt[] belts)
-    {
-        for (int i = 0; i < nodes.Length; i++)
-        {
-            Node source = nodes[i];
-            if (source.Kind != NodeKind.Belt)
-            {
-                continue;
-            }
-
-            int2 targetCell = source.Cell + source.Direction;
-            bool hasOutput =
-                indexByCell.TryGetValue(
-                    targetCell,
-                    out int targetIndex) &&
-                CanAcceptInput(
-                    nodes[targetIndex],
-                    source.Cell,
-                    source.Direction,
-                    nodes,
-                    indexByCell);
-
-            Belt belt = belts[source.SourceIndex];
-            belt.HasOutput = hasOutput;
-            belts[source.SourceIndex] = belt;
-        }
     }
 
     private static int GetMergerInputIndex(
@@ -806,7 +764,8 @@ public static class FactoryTransferResolver
 
     private static void ValidateInputs(
         Entity[] beltEntities,
-        Belt[] belts,
+        BeltTopology[] beltTopologies,
+        BeltState[] beltStates,
         Entity[] mergerEntities,
         Merger[] mergers,
         Entity[] splitterEntities,
@@ -814,7 +773,8 @@ public static class FactoryTransferResolver
         HashSet<Entity> processedJunctions)
     {
         if (beltEntities == null ||
-            belts == null ||
+            beltTopologies == null ||
+            beltStates == null ||
             mergerEntities == null ||
             mergers == null ||
             splitterEntities == null ||
@@ -830,7 +790,8 @@ public static class FactoryTransferResolver
                 nameof(processedJunctions));
         }
 
-        if (beltEntities.Length != belts.Length ||
+        if (beltEntities.Length != beltTopologies.Length ||
+            beltTopologies.Length != beltStates.Length ||
             mergerEntities.Length != mergers.Length ||
             splitterEntities.Length != splitters.Length)
         {

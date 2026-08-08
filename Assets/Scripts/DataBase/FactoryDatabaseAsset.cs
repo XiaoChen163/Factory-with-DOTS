@@ -28,6 +28,8 @@ public struct FactoryItemTableRow
     public FactoryItemCategory category;
     public string prefabKey;
     public GameObject prefab;
+    public string iconKey;
+    public Sprite icon;
 }
 
 [Serializable]
@@ -93,6 +95,8 @@ public struct FactoryBuildingLevelTableRow
     public string nameKey;
     public string visualPrefabKey;
     public GameObject visualPrefab;
+    public string iconKey;
+    public Sprite icon;
     public int menuOrder;
 }
 

@@ -1,0 +1,63 @@
+.game-ui-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.ui-fill,
+#window-layer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.dock {
+    position: absolute;
+    top: 72px;
+    bottom: 72px;
+    width: 420px;
+    justify-content: center;
+}
+
+.dock-left {
+    left: 24px;
+}
+
+.dock-right {
+    right: 24px;
+}
+
+.dock-overlay {
+    position: absolute;
+    left: 25%;
+    right: 25%;
+    top: 15%;
+    bottom: 15%;
+}
+
+.dock-bottom {
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: 24px;
+    height: 180px;
+    align-items: flex-start;
+}
+
+.factory-window {
+    min-height: 240px;
+    width: 100%;
+    background-color: rgba(7, 10, 18, 0.92);
+    border-width: 1px;
+    border-color: rgba(130, 160, 205, 0.45);
+    border-radius: 12px;
+}
+
+.build-catalog-window {
+    width: 520px;
+    min-height: 160px;
+}

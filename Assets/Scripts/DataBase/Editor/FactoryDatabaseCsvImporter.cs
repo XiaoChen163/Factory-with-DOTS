@@ -15,6 +15,8 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
     private const string BuildingLevelTableDirectory = BuildingTableDirectory + "/levels";
     private const string ItemPrefabDirectory = "Assets/Prefabs/Items";
     private const string BuildingPrefabDirectory = "Assets/Prefabs/Buildings";
+    private const string ItemIconDirectory = "Assets/Art/Icons/Items";
+    private const string BuildingIconDirectory = "Assets/Art/Icons/Buildings";
     private const string ItemTablePath = ItemTableDirectory + "/items.csv";
     private const string MachineTypeTablePath = BuildingTableDirectory + "/machine_types.csv";
     private const string BuildingTablePath = BuildingTableDirectory + "/buildings.csv";
@@ -69,7 +71,9 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             (path.StartsWith(ItemPrefabDirectory + "/", StringComparison.Ordinal) &&
              path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase)) ||
             (path.StartsWith(BuildingPrefabDirectory + "/", StringComparison.Ordinal) &&
-             path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase)));
+             path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase)) ||
+            path.StartsWith(ItemIconDirectory + "/", StringComparison.Ordinal) ||
+            path.StartsWith(BuildingIconDirectory + "/", StringComparison.Ordinal));
     }
 
     private static void Rebuild()
@@ -135,6 +139,7 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
     {
         CsvTable table = CsvTable.Read(ItemTablePath);
         Dictionary<string, GameObject> prefabs = BuildPrefabIndex(ItemPrefabDirectory);
+        Dictionary<string, Sprite> icons = BuildSpriteIndex(ItemIconDirectory);
         List<FactoryItemTableRow> result = new List<FactoryItemTableRow>(table.RowCount);
         HashSet<ushort> ids = new HashSet<ushort>();
         HashSet<string> keys = NewKeySet();
@@ -143,6 +148,9 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             ushort id = ParseUShort(table.Get(row, "id"), "item id");
             string key = RequiredKey(table.Get(row, "key"), "item key");
             string prefabKey = RequiredKey(table.Get(row, "prefab_key"), "item prefab key");
+            string iconKey = table.TryGet(row, "icon_key", out string configuredIcon)
+                ? RequiredKey(configuredIcon, "item icon key")
+                : string.Empty;
             if (id == 0 || !ids.Add(id) || !keys.Add(key))
                 throw new InvalidDataException($"Duplicate or invalid item '{key}' ({id}).");
             GameObject prefab = ResolvePrefab(prefabs, prefabKey, ItemPrefabDirectory);
@@ -156,7 +164,11 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
                 maxStack = ParseUShort(table.Get(row, "max_stack"), "max stack"),
                 category = ParseEnum<FactoryItemCategory>(table.Get(row, "category"), "item category"),
                 prefabKey = prefabKey,
-                prefab = prefab
+                prefab = prefab,
+                iconKey = iconKey,
+                icon = string.IsNullOrEmpty(iconKey)
+                    ? null
+                    : ResolveSprite(icons, iconKey, ItemIconDirectory)
             });
         }
         result.Sort((a, b) => a.id.CompareTo(b.id));
@@ -273,6 +285,7 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
     {
         CsvTable table = CsvTable.Read(BuildingLevelTablePath);
         Dictionary<string, GameObject> prefabs = BuildPrefabIndex(BuildingPrefabDirectory);
+        Dictionary<string, Sprite> icons = BuildSpriteIndex(BuildingIconDirectory);
         List<FactoryBuildingLevelTableRow> rows = new List<FactoryBuildingLevelTableRow>(table.RowCount);
         HashSet<string> keys = NewKeySet();
         HashSet<string> buildingLevels = NewKeySet();
@@ -286,6 +299,9 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             if (!buildingsByKey.TryGetValue(buildingKey, out FactoryBuildingTableRow building))
                 throw new InvalidDataException($"Building level '{key}' references unknown building '{buildingKey}'.");
             string prefabKey = RequiredKey(table.Get(row, "visual_prefab_key"), "building visual prefab key");
+            string iconKey = table.TryGet(row, "icon_key", out string configuredIcon)
+                ? RequiredKey(configuredIcon, "building icon key")
+                : string.Empty;
             GameObject prefab = ResolvePrefab(prefabs, prefabKey, BuildingPrefabDirectory);
             ValidateBuildingVisualPrefab(prefab, prefabKey);
             rows.Add(new FactoryBuildingLevelTableRow
@@ -297,6 +313,10 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
                 nameKey = table.Get(row, "name_key"),
                 visualPrefabKey = prefabKey,
                 visualPrefab = prefab,
+                iconKey = iconKey,
+                icon = string.IsNullOrEmpty(iconKey)
+                    ? null
+                    : ResolveSprite(icons, iconKey, BuildingIconDirectory),
                 menuOrder = ParseInt(table.Get(row, "menu_order"), "menu order")
             });
         }
@@ -631,6 +651,37 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
         return result;
     }
 
+    private static Dictionary<string, Sprite> BuildSpriteIndex(string directory)
+    {
+        Dictionary<string, Sprite> result =
+            new Dictionary<string, Sprite>(StringComparer.Ordinal);
+        if (!AssetDatabase.IsValidFolder(directory))
+            return result;
+        foreach (string guid in AssetDatabase.FindAssets("t:Sprite", new[] { directory }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+                continue;
+            string key = NormalizeKey(Path.GetFileNameWithoutExtension(path));
+            if (string.IsNullOrEmpty(key) || result.ContainsKey(key))
+                throw new InvalidDataException($"Duplicate or invalid icon name at '{path}'.");
+            result.Add(key, sprite);
+        }
+        return result;
+    }
+
+    private static Sprite ResolveSprite(
+        Dictionary<string, Sprite> sprites,
+        string key,
+        string directory)
+    {
+        if (sprites.TryGetValue(NormalizeKey(key), out Sprite sprite))
+            return sprite;
+        throw new InvalidDataException(
+            $"Icon key '{key}' was not found in '{directory}'.");
+    }
+
     private static GameObject ResolvePrefab(
         Dictionary<string, GameObject> prefabs,
         string key,
@@ -748,6 +799,18 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             if (index >= rows[row].Length)
                 throw new InvalidDataException($"CSV row {row + 2} is missing column '{column}'.");
             return rows[row][index].Trim();
+        }
+
+        public bool TryGet(int row, string column, out string value)
+        {
+            if (!columns.TryGetValue(column, out int index) ||
+                index >= rows[row].Length)
+            {
+                value = string.Empty;
+                return false;
+            }
+            value = rows[row][index].Trim();
+            return true;
         }
 
         public static CsvTable Read(string path)

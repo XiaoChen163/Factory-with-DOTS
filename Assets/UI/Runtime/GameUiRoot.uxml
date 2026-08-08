@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="project://database/Assets/UI/Runtime/GameUiTheme.uss" />
+    <ui:VisualElement name="game-ui-root" class="game-ui-root" picking-mode="Ignore">
+        <ui:VisualElement name="hud-layer" class="ui-fill" picking-mode="Ignore" />
+        <ui:VisualElement name="window-layer" class="ui-fill" picking-mode="Ignore">
+            <ui:VisualElement name="left-dock" class="dock dock-left" picking-mode="Ignore">
+                <ui:VisualElement name="building-window" class="factory-window" />
+            </ui:VisualElement>
+            <ui:VisualElement name="center-overlay" class="dock-overlay" picking-mode="Ignore" />
+            <ui:VisualElement name="right-dock" class="dock dock-right" picking-mode="Ignore">
+                <ui:VisualElement name="backpack-window" class="factory-window" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="build-catalog-dock" class="dock-bottom" picking-mode="Ignore">
+            <ui:VisualElement name="build-catalog-window" class="factory-window build-catalog-window" />
+        </ui:VisualElement>
+        <ui:VisualElement name="drag-layer" class="ui-fill" picking-mode="Ignore" />
+        <ui:VisualElement name="notification-layer" class="ui-fill" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

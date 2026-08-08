@@ -4,15 +4,83 @@
         <ui:VisualElement name="hud-layer" class="ui-fill" picking-mode="Ignore" />
         <ui:VisualElement name="window-layer" class="ui-fill" picking-mode="Ignore">
             <ui:VisualElement name="left-dock" class="dock dock-left" picking-mode="Ignore">
-                <ui:VisualElement name="building-window" class="factory-window" />
+                <ui:VisualElement name="building-window" class="factory-window interaction-window building-interaction-window">
+                    <ui:VisualElement class="window-header">
+                        <ui:Label name="building-title" text="建筑" class="window-title" />
+                        <ui:Button name="building-close" text="×" class="close-button" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="building-storage-page" class="window-content storage-page">
+                        <ui:Label text="容器" class="section-title centered-title" />
+                        <ui:VisualElement name="storage-slot-grid" class="slot-grid" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="building-processor-page" class="window-content processor-page">
+                        <ui:Button name="recipe-picker-open" text="更换配方" class="recipe-picker-open" />
+                        <ui:VisualElement class="processor-flow">
+                            <ui:Label text="原料" class="flow-label" />
+                            <ui:VisualElement name="processor-input-grid" class="slot-grid flow-slot-grid" />
+                            <ui:Label name="processor-arrow" text="↓" class="processor-arrow" />
+                            <ui:Label name="processor-status" text="空闲" class="status-label" />
+                            <ui:ProgressBar name="processor-progress" title="0%" low-value="0" high-value="100" class="processor-progress" />
+                            <ui:Label text="产物" class="flow-label" />
+                            <ui:VisualElement name="processor-output-grid" class="slot-grid flow-slot-grid" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="building-recipe-page" class="window-content recipe-picker-page">
+                        <ui:VisualElement class="recipe-picker-header">
+                            <ui:Label text="配方选择" class="section-title recipe-picker-title" />
+                            <ui:Button name="recipe-picker-back" text="返回" class="secondary-button" />
+                        </ui:VisualElement>
+                        <ui:ScrollView name="recipe-list" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="recipe-list" />
+                    </ui:VisualElement>
+                    <ui:Label name="building-empty" text="该建筑没有可交互内容" class="empty-label" />
+                </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="center-overlay" class="dock-overlay" picking-mode="Ignore" />
             <ui:VisualElement name="right-dock" class="dock dock-right" picking-mode="Ignore">
-                <ui:VisualElement name="backpack-window" class="factory-window" />
+                <ui:VisualElement name="backpack-window" class="factory-window interaction-window backpack-window">
+                    <ui:VisualElement class="window-header">
+                        <ui:Label text="物品栏" class="window-title" />
+                        <ui:Label text="TAB" class="key-hint" />
+                        <ui:Button name="backpack-close" text="×" class="close-button" />
+                    </ui:VisualElement>
+                    <ui:ScrollView class="window-content">
+                        <ui:VisualElement name="backpack-slot-grid" class="slot-grid" />
+                    </ui:ScrollView>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="build-catalog-dock" class="dock-bottom" picking-mode="Ignore">
-            <ui:VisualElement name="build-catalog-window" class="factory-window build-catalog-window" />
+            <ui:VisualElement name="build-catalog-window" class="factory-window build-catalog-window">
+                <ui:VisualElement class="window-header">
+                    <ui:Label text="建筑界面" class="window-title catalog-window-title" />
+                    <ui:Label text="选择建筑后可连续建造 · Q 更换 · ESC 退出" class="window-subtitle" />
+                    <ui:Button name="build-catalog-close" text="×" class="close-button" />
+                </ui:VisualElement>
+                <ui:VisualElement class="catalog-body">
+                    <ui:VisualElement class="catalog-categories">
+                        <ui:Label text="分类" class="catalog-column-title" />
+                        <ui:Button text="电力" class="category-button" />
+                        <ui:Button text="物流" class="category-button category-button--selected" />
+                        <ui:Button text="开采" class="category-button" />
+                        <ui:Button text="加工" class="category-button" />
+                        <ui:Button text="运输" class="category-button" />
+                        <ui:Button text="防御" class="category-button" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="catalog-browser">
+                        <ui:Label text="全部建筑" class="catalog-column-title" />
+                        <ui:ScrollView vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden" class="catalog-scroll">
+                            <ui:VisualElement name="build-catalog-list" class="catalog-list" />
+                        </ui:ScrollView>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="catalog-details">
+                        <ui:VisualElement name="catalog-detail-icon" class="catalog-detail-icon" />
+                        <ui:Label name="catalog-detail-name" text="请选择建筑" class="catalog-detail-name" />
+                        <ui:Label name="catalog-detail-description" text="从中间列表选择要放置的建筑。" class="catalog-detail-description" />
+                        <ui:VisualElement class="catalog-detail-spacer" />
+                        <ui:Button name="build-catalog-confirm" text="确定" class="confirm-button" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="drag-layer" class="ui-fill" picking-mode="Ignore" />
         <ui:VisualElement name="notification-layer" class="ui-fill" picking-mode="Ignore" />

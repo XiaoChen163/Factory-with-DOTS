@@ -115,7 +115,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
                 .AddBinding("<Keyboard>/tab");
         if (map.FindAction("ToggleBuildCatalog", false) == null)
             map.AddAction("ToggleBuildCatalog", InputActionType.Button)
-                .AddBinding("<Keyboard>/b");
+                .AddBinding("<Keyboard>/q");
     }
 
     private static InputActionMap CreateBuildMap(InputActionAsset asset)

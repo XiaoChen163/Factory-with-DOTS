@@ -33,5 +33,57 @@ namespace Factory.Tests
             Assert.That(controller.DataHub.Observations.PlayerCount, Is.Zero);
             Assert.That(controller.DataHub.Observations.BuildingCount, Is.Zero);
         }
+
+        [UnityTest]
+        public IEnumerator Phase3_InputModes_KeepBuildAndRegularWindowsExclusive()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            GameUiController controller = Object.FindFirstObjectByType<GameUiController>();
+            PlayerInputModeController input =
+                controller.GetComponent<PlayerInputModeController>();
+
+            controller.HandleBackpackToggle();
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.True);
+
+            controller.HandleBuildCatalogToggle();
+            Assert.That(input.IsBuildMode, Is.True);
+            Assert.That(input.IsModalOpen, Is.True);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.True);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False);
+
+            controller.HandleBackpackToggle();
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False,
+                "Tab must be ignored while building.");
+
+            controller.CloseBuildCatalog();
+            Assert.That(input.IsBuildMode, Is.True,
+                "Closing the picker must keep batch build mode active.");
+            controller.HandleBuildCatalogToggle();
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.True);
+
+            controller.HandleCancel();
+            Assert.That(input.IsBuildMode, Is.False);
+            Assert.That(input.IsModalOpen, Is.False);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator Phase3_EscapeClosesBackpackAndBuildingTogether()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            GameUiController controller = Object.FindFirstObjectByType<GameUiController>();
+            controller.ToggleBackpack(new PlayerId { Value = 1 });
+            controller.OpenBuilding(new BuildingRuntimeId(123));
+            controller.HandleCancel();
+
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Building), Is.False);
+            Assert.That(controller.DataHub.Observations.PlayerCount, Is.Zero);
+            Assert.That(controller.DataHub.Observations.BuildingCount, Is.Zero);
+        }
     }
 }

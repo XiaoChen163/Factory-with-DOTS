@@ -54,6 +54,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private BlobAssetReference<FactoryDatabaseBlob> databaseReference;
     private bool ecsCacheInitialized;
     private int cachedGridCount;
+    private PlayerInputModeController inputMode;
 
     public BuildingKind SelectedKind { get; private set; } =
         BuildingKind.Belt;
@@ -62,13 +63,25 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private void Awake()
     {
         inputCamera = GetComponent<Camera>();
+        inputMode = FindFirstObjectByType<PlayerInputModeController>();
     }
 
     private void Update()
     {
         ConsumeBuildResults();
+        if (inputMode != null && !inputMode.IsBuildMode)
+        {
+            beltPathStarted = false;
+            HidePlacementPreview();
+            return;
+        }
         EnsureSelectedBuildingLevel();
         HandleSelectionAndRotation();
+        if (inputMode != null && inputMode.BlocksWorldInput)
+        {
+            HidePlacementPreview();
+            return;
+        }
         UpdatePlacementPreview();
 
         if (Input.GetMouseButtonDown(0))
@@ -757,6 +770,24 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     public void SimulatePrimaryClick(int2 cell)
     {
         HandlePrimaryClickAtCell(cell);
+    }
+
+    public bool TryGetHoveredBuilding(out BuildingRuntimeId runtimeId)
+    {
+        runtimeId = default;
+        if (!TryRaycastGrid(out World world, out _, out _, out int2 cell,
+                out _, out bool isInside, false) || !isInside)
+            return false;
+        GridOccupancyIndexSystem occupancy =
+            world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+        if (occupancy == null || !occupancy.TryGetOccupant(cell, out Entity entity))
+            return false;
+        EntityManager manager = world.EntityManager;
+        if (!manager.Exists(entity) || !manager.HasComponent<ItemContainerIdentity>(entity))
+            return false;
+        runtimeId = new BuildingRuntimeId(
+            manager.GetComponentData<ItemContainerIdentity>(entity).RuntimeId);
+        return runtimeId.IsValid;
     }
 
     private void HandlePrimaryClickAtCell(int2 cell)

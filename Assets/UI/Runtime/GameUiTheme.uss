@@ -4,6 +4,7 @@
     right: 0;
     top: 0;
     bottom: 0;
+    color: rgb(226, 234, 244);
 }
 
 .ui-fill,
@@ -15,49 +16,379 @@
     bottom: 0;
 }
 
+/* Normal play: the building/container and backpack form two equal, full-height columns. */
 .dock {
     position: absolute;
-    top: 72px;
-    bottom: 72px;
-    width: 420px;
-    justify-content: center;
+    top: 6%;
+    bottom: 5%;
+    width: 42.5%;
+    justify-content: stretch;
 }
 
-.dock-left {
-    left: 24px;
-}
-
-.dock-right {
-    right: 24px;
-}
+.dock-left { left: 4%; }
+.dock-right { right: 4%; }
 
 .dock-overlay {
     position: absolute;
-    left: 25%;
-    right: 25%;
-    top: 15%;
-    bottom: 15%;
+    left: 7%;
+    right: 7%;
+    top: 7%;
+    bottom: 7%;
 }
 
+/* Build picker: full-screen workspace, matching the three-column sketch. */
 .dock-bottom {
     position: absolute;
-    left: 24px;
-    right: 24px;
-    bottom: 24px;
-    height: 180px;
-    align-items: flex-start;
+    left: 3%;
+    right: 3%;
+    top: 3%;
+    bottom: 3%;
+    align-items: stretch;
 }
 
 .factory-window {
-    min-height: 240px;
     width: 100%;
-    background-color: rgba(7, 10, 18, 0.92);
+    height: 100%;
+    min-height: 240px;
+    padding: 12px;
+    background-color: rgba(8, 13, 22, 0.97);
     border-width: 1px;
-    border-color: rgba(130, 160, 205, 0.45);
-    border-radius: 12px;
+    border-color: rgba(155, 181, 216, 0.62);
+    border-radius: 4px;
 }
 
-.build-catalog-window {
-    width: 520px;
-    min-height: 160px;
+.interaction-window { flex-grow: 1; }
+
+.window-header {
+    min-height: 38px;
+    margin: -12px -12px 12px -12px;
+    padding-left: 14px;
+    padding-right: 8px;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(20, 32, 50, 0.96);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(155, 181, 216, 0.55);
 }
+
+.window-title {
+    flex-grow: 1;
+    font-size: 18px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.window-subtitle {
+    margin-right: 12px;
+    color: rgb(146, 166, 194);
+    font-size: 12px;
+}
+
+.key-hint {
+    margin-right: 10px;
+    padding: 2px 7px;
+    color: rgb(116, 214, 255);
+    background-color: rgba(46, 77, 105, 0.7);
+    border-radius: 3px;
+    -unity-font-style: bold;
+}
+
+.close-button {
+    width: 30px;
+    height: 28px;
+    padding: 0;
+    font-size: 18px;
+    background-color: rgba(66, 82, 108, 0.55);
+    border-width: 0;
+    color: rgb(220, 230, 242);
+}
+
+.window-content { flex-grow: 1; }
+.centered-title { -unity-text-align: middle-center; }
+
+.section-title {
+    margin-bottom: 8px;
+    color: rgb(142, 205, 240);
+    -unity-font-style: bold;
+}
+
+.slot-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+.storage-page .slot-grid,
+.backpack-window .slot-grid {
+    padding: 4px;
+}
+
+.item-slot {
+    width: 54px;
+    height: 54px;
+    margin: 5px;
+    background-color: rgba(18, 27, 41, 0.98);
+    border-width: 1px;
+    border-color: rgba(164, 185, 214, 0.72);
+    border-radius: 2px;
+}
+
+.item-slot:hover {
+    background-color: rgba(31, 49, 70, 0.98);
+    border-color: rgb(101, 206, 255);
+}
+
+.item-slot__icon {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 6px;
+    bottom: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.item-slot__count {
+    position: absolute;
+    right: 4px;
+    bottom: 2px;
+    color: white;
+    -unity-font-style: bold;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: black;
+}
+
+.item-slot--restricted { border-color: rgba(239, 169, 79, 0.85); }
+
+/* Processor page: ingredients, process direction and products read top-to-bottom. */
+.processor-page { justify-content: space-between; }
+
+.recipe-picker-open {
+    position: absolute;
+    right: 4px;
+    top: 0;
+    height: 30px;
+    background-color: rgba(39, 66, 91, 0.82);
+    border-width: 1px;
+    border-color: rgba(111, 170, 207, 0.7);
+    color: rgb(187, 221, 241);
+}
+
+.processor-flow {
+    flex-grow: 1;
+    padding: 9% 7% 3% 7%;
+}
+
+.flow-label {
+    margin-bottom: 5px;
+    color: rgb(190, 211, 234);
+    -unity-font-style: bold;
+}
+
+.flow-slot-grid {
+    min-height: 66px;
+    justify-content: center;
+}
+
+.processor-arrow {
+    height: 62px;
+    margin-top: 8px;
+    color: rgb(113, 202, 245);
+    font-size: 50px;
+    -unity-text-align: middle-center;
+}
+
+.status-label {
+    margin-bottom: 5px;
+    color: rgb(169, 203, 229);
+    -unity-text-align: middle-center;
+}
+
+.processor-progress {
+    width: 58%;
+    align-self: center;
+    margin-bottom: 14px;
+}
+
+.recipe-picker-page { flex-grow: 1; }
+
+.recipe-picker-header {
+    height: 38px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.recipe-picker-title {
+    flex-grow: 1;
+    font-size: 16px;
+    -unity-text-align: middle-center;
+}
+
+.secondary-button {
+    width: 62px;
+    height: 30px;
+    background-color: rgba(48, 63, 83, 0.86);
+    border-width: 1px;
+    border-color: rgba(128, 154, 187, 0.65);
+    color: rgb(205, 218, 234);
+}
+
+.recipe-list { flex-grow: 1; }
+.recipe-list .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+.recipe-card {
+    width: 82px;
+    height: 62px;
+    margin: 6px;
+    background-color: rgba(28, 42, 62, 0.95);
+    border-width: 1px;
+    border-color: rgba(112, 143, 183, 0.55);
+    border-radius: 2px;
+    color: rgb(212, 224, 240);
+}
+
+.recipe-card--selected {
+    border-width: 2px;
+    border-color: rgb(78, 190, 255);
+}
+
+.empty-label {
+    margin-top: 18px;
+    color: rgb(145, 158, 180);
+    -unity-text-align: middle-center;
+}
+
+/* Full-screen build catalog. */
+.build-catalog-window { min-height: 420px; }
+.catalog-window-title { -unity-text-align: middle-left; }
+
+.catalog-body {
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+.catalog-categories {
+    width: 13%;
+    min-width: 104px;
+    padding-right: 10px;
+    border-right-width: 1px;
+    border-right-color: rgba(150, 176, 211, 0.48);
+}
+
+.catalog-column-title {
+    height: 34px;
+    margin-bottom: 8px;
+    color: rgb(209, 224, 239);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.category-button {
+    height: 38px;
+    margin-bottom: 4px;
+    background-color: transparent;
+    border-width: 0;
+    color: rgb(175, 195, 218);
+    -unity-text-align: middle-left;
+}
+
+.category-button:hover,
+.category-button--selected {
+    background-color: rgba(37, 70, 96, 0.72);
+    color: rgb(112, 218, 255);
+    border-left-width: 3px;
+    border-left-color: rgb(91, 206, 255);
+}
+
+.catalog-browser {
+    width: 61%;
+    padding-left: 14px;
+    padding-right: 14px;
+}
+
+.catalog-scroll { flex-grow: 1; }
+
+.catalog-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+.catalog-card {
+    width: 86px;
+    height: 86px;
+    margin: 5px;
+    padding: 5px;
+    background-color: rgba(20, 31, 48, 0.98);
+    border-width: 1px;
+    border-color: rgba(137, 164, 199, 0.68);
+    border-radius: 2px;
+}
+
+.catalog-card:hover {
+    background-color: rgba(35, 58, 84, 0.98);
+    border-color: rgb(90, 205, 255);
+}
+
+.catalog-card--selected {
+    border-width: 2px;
+    border-color: rgb(80, 215, 255);
+    background-color: rgba(32, 65, 88, 0.98);
+}
+
+.catalog-card__icon {
+    height: 52px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.catalog-card__label {
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.catalog-details {
+    width: 26%;
+    min-width: 220px;
+    padding-left: 14px;
+    border-left-width: 1px;
+    border-left-color: rgba(150, 176, 211, 0.48);
+}
+
+.catalog-detail-icon {
+    width: 100%;
+    height: 210px;
+    margin-bottom: 12px;
+    background-color: rgba(17, 26, 39, 0.92);
+    border-width: 1px;
+    border-color: rgba(150, 177, 210, 0.65);
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.catalog-detail-name {
+    min-height: 34px;
+    font-size: 18px;
+    -unity-font-style: bold;
+}
+
+.catalog-detail-description {
+    margin-top: 6px;
+    color: rgb(157, 177, 203);
+    white-space: normal;
+}
+
+.catalog-detail-spacer { flex-grow: 1; }
+
+.confirm-button {
+    height: 42px;
+    background-color: rgb(40, 104, 139);
+    border-width: 1px;
+    border-color: rgb(99, 203, 246);
+    color: white;
+    -unity-font-style: bold;
+}
+
+.confirm-button:hover { background-color: rgb(49, 130, 169); }

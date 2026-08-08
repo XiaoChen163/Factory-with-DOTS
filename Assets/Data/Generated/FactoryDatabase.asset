@@ -274,6 +274,7 @@ MonoBehaviour:
   - buildingLevelKey: storage_mk1
     buildingLevelId: 7
     capacity: 100
+    slotCount: 8
   recipes:
   - id: 1
     key: mine_iron
@@ -295,6 +296,25 @@ MonoBehaviour:
       itemId: 1
       count: 2
     outputs:
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+  - id: 3
+    key: test_multi_io
+    machineTypeKey: smelting
+    machineTypeId: 2
+    durationSeconds: 1
+    inputs:
+    - itemKey: iron_ore
+      itemId: 1
+      count: 1
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+    outputs:
+    - itemKey: iron_ore
+      itemId: 1
+      count: 1
     - itemKey: iron_ingot
       itemId: 2
       count: 1

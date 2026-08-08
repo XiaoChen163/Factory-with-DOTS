@@ -4,57 +4,92 @@ using Unity.Mathematics;
 
 public static class ItemProcessUtility
 {
-    public static bool TryStart(
+    public static bool TrySelectRecipe(
         int recipeIndex,
-        ushort workRatePermille,
-        in FactoryRecipeBlob recipe,
-        in FactoryRecipeIngredientBlob inputIngredient,
-        in FactoryRecipeIngredientBlob outputIngredient,
-        DynamicBuffer<ItemProcessInput> inputs,
+        in FactoryRecipeRangeBlob range,
+        ref FactoryDatabaseBlob database,
+        DynamicBuffer<ProcessorItemSlot> slots,
         ref ItemProcessState process)
     {
-        if (process.Status != ItemProcessStatus.Idle ||
-            process.PendingOutputCount > 0 ||
-            !outputIngredient.ItemId.IsValid ||
-            outputIngredient.Count <= 0 ||
-            recipe.DurationTicks <= 0)
+        if (recipeIndex < 0 || recipeIndex >= range.Count ||
+            process.Status != ItemProcessStatus.Idle || HasAnyItems(slots))
         {
             return false;
         }
 
-        int requiredInputs = recipe.InputCount == 0
-            ? 0
-            : math.max(0, inputIngredient.Count);
-        int inputIndex = -1;
-        if (requiredInputs > 0)
+        FactoryRecipeBlob recipe = database.Recipes[range.Start + recipeIndex];
+        slots.Clear();
+        for (int i = 0; i < recipe.InputCount; i++)
         {
-            if (!inputIngredient.ItemId.IsValid)
+            FactoryRecipeIngredientBlob ingredient =
+                database.Inputs[recipe.InputStart + i];
+            if (!TryAddSlot(
+                    ref database,
+                    ingredient,
+                    (byte)i,
+                    ProcessorSlotKind.Input,
+                    slots))
             {
+                slots.Clear();
                 return false;
             }
-
-            for (int i = 0; i < inputs.Length; i++)
+        }
+        for (int i = 0; i < recipe.OutputCount; i++)
+        {
+            FactoryRecipeIngredientBlob ingredient =
+                database.Outputs[recipe.OutputStart + i];
+            if (!TryAddSlot(
+                    ref database,
+                    ingredient,
+                    (byte)i,
+                    ProcessorSlotKind.Output,
+                    slots))
             {
-                ItemProcessInput input = inputs[i];
-                if (input.ItemType == inputIngredient.ItemId &&
-                    input.Count >= requiredInputs)
-                {
-                    inputIndex = i;
-                    break;
-                }
+                slots.Clear();
+                return false;
             }
+        }
 
-            if (inputIndex < 0)
+        process.SelectedRecipeIndex = recipeIndex;
+        process.InventoryRevision++;
+        return true;
+    }
+
+    public static bool TryStart(
+        int recipeIndex,
+        ushort workRatePermille,
+        in FactoryRecipeBlob recipe,
+        DynamicBuffer<ProcessorItemSlot> slots,
+        ref ItemProcessState process)
+    {
+        if (process.Status != ItemProcessStatus.Idle ||
+            recipe.DurationTicks <= 0 || recipe.OutputCount == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            ProcessorItemSlot slot = slots[i];
+            int batchCount = slot.RequiredOrProducedCount;
+            if (slot.Kind == ProcessorSlotKind.Input)
+            {
+                if (slot.Count < batchCount)
+                    return false;
+            }
+            else if (slot.Count + batchCount > slot.Capacity)
             {
                 return false;
             }
         }
 
-        if (inputIndex >= 0)
+        for (int i = 0; i < slots.Length; i++)
         {
-            ItemProcessInput input = inputs[inputIndex];
-            input.Count -= requiredInputs;
-            inputs[inputIndex] = input;
+            ProcessorItemSlot slot = slots[i];
+            if (slot.Kind != ProcessorSlotKind.Input)
+                continue;
+            slot.Count = (ushort)(slot.Count - slot.RequiredOrProducedCount);
+            slots[i] = slot;
         }
 
         process.ElapsedTicks = 0;
@@ -65,58 +100,49 @@ public static class ItemProcessUtility
             (int)((scaledDuration + workRate - 1L) / workRate));
         process.ActiveRecipeIndex = recipeIndex;
         process.Status = ItemProcessStatus.Processing;
-        return true;
-    }
-
-    public static bool TrySelectRecipe(
-        int recipeIndex,
-        int recipeCount,
-        ref ItemProcessState process)
-    {
-        if (recipeIndex < 0 || recipeIndex >= recipeCount)
-        {
-            return false;
-        }
-
-        process.SelectedRecipeIndex = recipeIndex;
+        process.InventoryRevision++;
         return true;
     }
 
     public static bool AdvanceOneTick(ref ItemProcessState process)
     {
         if (process.Status != ItemProcessStatus.Processing)
-        {
             return false;
-        }
 
         process.ElapsedTicks = math.min(
             process.ElapsedTicks + 1,
             process.DurationTicks);
         if (process.ElapsedTicks < process.DurationTicks)
-        {
             return false;
-        }
 
         process.Status = ItemProcessStatus.Completed;
         return true;
     }
 
-    public static bool PublishCompletedOutput(
-        in FactoryRecipeIngredientBlob outputIngredient,
+    public static bool PublishCompletedOutputs(
+        DynamicBuffer<ProcessorItemSlot> slots,
         ref ItemProcessState process)
     {
         if (process.Status != ItemProcessStatus.Completed)
-        {
             return false;
-        }
 
-        process.PendingOutputCount = math.max(1, outputIngredient.Count);
+        for (int i = 0; i < slots.Length; i++)
+        {
+            ProcessorItemSlot slot = slots[i];
+            if (slot.Kind != ProcessorSlotKind.Output)
+                continue;
+            slot.Count = (ushort)(slot.Count + slot.RequiredOrProducedCount);
+            slots[i] = slot;
+        }
         process.Status = ItemProcessStatus.OutputBlocked;
+        process.InventoryRevision++;
         return true;
     }
 
     public static void AcknowledgeOutput(
+        ItemId itemType,
         int transferredCount,
+        DynamicBuffer<ProcessorItemSlot> slots,
         ref ItemProcessState process)
     {
         if (transferredCount <= 0 ||
@@ -125,13 +151,26 @@ public static class ItemProcessUtility
             return;
         }
 
-        process.PendingOutputCount = math.max(
-            0,
-            process.PendingOutputCount - transferredCount);
-        if (process.PendingOutputCount > 0)
+        int remaining = transferredCount;
+        for (int i = 0; i < slots.Length && remaining > 0; i++)
         {
-            return;
+            ProcessorItemSlot slot = slots[i];
+            if (slot.Kind != ProcessorSlotKind.Output ||
+                slot.AcceptedItemType != itemType)
+            {
+                continue;
+            }
+
+            int removed = math.min(remaining, slot.Count);
+            slot.Count = (ushort)(slot.Count - removed);
+            slots[i] = slot;
+            remaining -= removed;
         }
+
+        if (remaining != transferredCount)
+            process.InventoryRevision++;
+        if (HasOutputItems(slots))
+            return;
 
         process.ElapsedTicks = 0;
         process.DurationTicks = 0;
@@ -139,17 +178,54 @@ public static class ItemProcessUtility
         process.Status = ItemProcessStatus.Idle;
     }
 
-    public static float GetNormalizedProgress(
-        in ItemProcessState process)
+    public static float GetNormalizedProgress(in ItemProcessState process)
     {
         if (process.Status == ItemProcessStatus.Idle ||
             process.DurationTicks <= 0)
         {
             return 0f;
         }
+        return math.saturate(process.ElapsedTicks / (float)process.DurationTicks);
+    }
 
-        return math.saturate(
-            process.ElapsedTicks / (float)process.DurationTicks);
+    private static bool TryAddSlot(
+        ref FactoryDatabaseBlob database,
+        in FactoryRecipeIngredientBlob ingredient,
+        byte recipeSlotIndex,
+        ProcessorSlotKind kind,
+        DynamicBuffer<ProcessorItemSlot> slots)
+    {
+        if (!FactoryDatabaseUtility.IsValidItem(ref database, ingredient.ItemId) ||
+            ingredient.Count <= 0 || ingredient.Count > ushort.MaxValue)
+        {
+            return false;
+        }
+
+        slots.Add(new ProcessorItemSlot
+        {
+            AcceptedItemType = ingredient.ItemId,
+            Capacity = database.ItemsById[ingredient.ItemId.Value].MaxStack,
+            RequiredOrProducedCount = (ushort)ingredient.Count,
+            RecipeSlotIndex = recipeSlotIndex,
+            Kind = kind
+        });
+        return true;
+    }
+
+    private static bool HasAnyItems(in DynamicBuffer<ProcessorItemSlot> slots)
+    {
+        for (int i = 0; i < slots.Length; i++)
+            if (slots[i].Count > 0)
+                return true;
+        return false;
+    }
+
+    private static bool HasOutputItems(in DynamicBuffer<ProcessorItemSlot> slots)
+    {
+        for (int i = 0; i < slots.Length; i++)
+            if (slots[i].Kind == ProcessorSlotKind.Output && slots[i].Count > 0)
+                return true;
+        return false;
     }
 }
 
@@ -171,8 +247,7 @@ public partial struct ItemProcessSystem : ISystem
         state.Dependency = new ItemProcessJob
         {
             Database = SystemAPI.GetSingleton<FactoryDatabase>().Value
-        }
-            .ScheduleParallel(state.Dependency);
+        }.ScheduleParallel(state.Dependency);
     }
 
     [BurstCompile]
@@ -182,53 +257,28 @@ public partial struct ItemProcessSystem : ISystem
 
         private void Execute(
             in ItemProcessor processor,
-            DynamicBuffer<ItemProcessInput> inputs,
+            DynamicBuffer<ProcessorItemSlot> slots,
             ref ItemProcessState process)
         {
             ref FactoryDatabaseBlob database = ref Database.Value;
-            FactoryRecipeRangeBlob range =
-                FactoryDatabaseUtility.GetRecipeRange(
-                    ref database,
-                    processor.MachineType);
-            int selectedRecipeIndex = process.SelectedRecipeIndex;
+            FactoryRecipeRangeBlob range = FactoryDatabaseUtility.GetRecipeRange(
+                ref database,
+                processor.MachineType);
+            int selected = process.SelectedRecipeIndex;
             if (process.Status == ItemProcessStatus.Idle &&
-                selectedRecipeIndex >= 0 &&
-                selectedRecipeIndex < range.Count)
+                selected >= 0 && selected < range.Count)
             {
-                int databaseRecipeIndex = range.Start + selectedRecipeIndex;
-                FactoryRecipeBlob selectedRecipe =
-                    database.Recipes[databaseRecipeIndex];
-                FactoryRecipeIngredientBlob input =
-                    selectedRecipe.InputCount == 0
-                        ? default
-                        : database.Inputs[selectedRecipe.InputStart];
-                FactoryRecipeIngredientBlob output =
-                    database.Outputs[selectedRecipe.OutputStart];
+                int databaseRecipeIndex = range.Start + selected;
                 ItemProcessUtility.TryStart(
                     databaseRecipeIndex,
                     processor.WorkRatePermille,
-                    selectedRecipe,
-                    input,
-                    output,
-                    inputs,
+                    database.Recipes[databaseRecipeIndex],
+                    slots,
                     ref process);
             }
 
             ItemProcessUtility.AdvanceOneTick(ref process);
-
-            int activeRecipeIndex = process.ActiveRecipeIndex;
-            if (process.Status == ItemProcessStatus.Completed &&
-                activeRecipeIndex >= 0 &&
-                activeRecipeIndex < database.Recipes.Length)
-            {
-                FactoryRecipeBlob activeRecipe =
-                    database.Recipes[activeRecipeIndex];
-                FactoryRecipeIngredientBlob output =
-                    database.Outputs[activeRecipe.OutputStart];
-                ItemProcessUtility.PublishCompletedOutput(
-                    output,
-                    ref process);
-            }
+            ItemProcessUtility.PublishCompletedOutputs(slots, ref process);
         }
     }
 }

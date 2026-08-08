@@ -118,6 +118,7 @@ public struct FactoryStorageLevelTableRow
     public string buildingLevelKey;
     public ushort buildingLevelId;
     public int capacity;
+    public ushort slotCount;
 }
 
 // Generated cache. Edit the CSV files in Assets/Data/FactoryTables instead.

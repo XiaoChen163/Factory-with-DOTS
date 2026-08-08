@@ -452,11 +452,18 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             if (capacity <= 0)
                 throw new InvalidDataException(
                     $"Storage level '{levelKey}' storage_capacity must be positive.");
+            ushort slotCount = ParseUShort(
+                table.Get(row, "slot_count"),
+                "storage slot count");
+            if (slotCount == 0)
+                throw new InvalidDataException(
+                    $"Storage level '{levelKey}' slot_count must be positive.");
             rows.Add(new FactoryStorageLevelTableRow
             {
                 buildingLevelKey = levelKey,
                 buildingLevelId = level.id,
-                capacity = capacity
+                capacity = capacity,
+                slotCount = slotCount
             });
         }
 

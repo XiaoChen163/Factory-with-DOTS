@@ -1063,12 +1063,17 @@ public partial class GridBuildCommandSystem : SystemBase
                     MachineType = building.MachineType,
                     WorkRatePermille = processorLevel.WorkRatePermille
                 });
-                ecb.AddBuffer<ItemProcessInput>(instance);
+                ecb.AddBuffer<ProcessorItemSlot>(instance);
                 ecb.AddComponent(instance, new ItemProcessState
                 {
                     ActiveRecipeIndex = -1,
-                    SelectedRecipeIndex = 0,
+                    SelectedRecipeIndex = -1,
                     Status = ItemProcessStatus.Idle
+                });
+                ecb.AddComponent(instance, new ItemContainerIdentity
+                {
+                    RuntimeId = ItemContainerRuntimeIdUtility.FromCell(
+                        placement.AnchorCell)
                 });
                 AddItemPortBuffers(instance, ref ecb);
                 break;
@@ -1079,9 +1084,20 @@ public partial class GridBuildCommandSystem : SystemBase
                     out FactoryStorageLevelBlob storageLevel);
                 ecb.AddComponent(instance, new StorageState
                 {
-                    Capacity = storageLevel.Capacity
+                    Capacity = storageLevel.Capacity,
+                    SlotCount = storageLevel.SlotCount
                 });
-                ecb.AddBuffer<StoredItemCount>(instance);
+                DynamicBuffer<InventorySlot> storageSlots =
+                    ecb.AddBuffer<InventorySlot>(instance);
+                for (int i = 0; i < storageLevel.SlotCount; i++)
+                {
+                    storageSlots.Add(default);
+                }
+                ecb.AddComponent(instance, new ItemContainerIdentity
+                {
+                    RuntimeId = ItemContainerRuntimeIdUtility.FromCell(
+                        placement.AnchorCell)
+                });
                 AddItemPortBuffers(instance, ref ecb);
                 break;
         }

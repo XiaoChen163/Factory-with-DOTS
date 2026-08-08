@@ -340,8 +340,12 @@ namespace Factory.Tests
                 });
                 EntityManager.AddComponentData(
                     owner,
-                    new StorageState { Capacity = 10 });
-                EntityManager.AddBuffer<StoredItemCount>(owner);
+                    new StorageState { Capacity = 10, SlotCount = 2 });
+                DynamicBuffer<InventorySlot> storageSlots =
+                    EntityManager.AddBuffer<InventorySlot>(owner);
+                storageSlots.ResizeUninitialized(2);
+                storageSlots[0] = default;
+                storageSlots[1] = default;
                 EntityManager.GetBuffer<BuildingPort>(owner).Add(
                     new BuildingPort
                     {
@@ -454,7 +458,8 @@ namespace Factory.Tests
                 {
                     buildingLevelKey = "storage_mk1",
                     buildingLevelId = 1,
-                    capacity = 10
+                    capacity = 10,
+                    slotCount = 2
                 }
             };
             asset.recipes = new[]

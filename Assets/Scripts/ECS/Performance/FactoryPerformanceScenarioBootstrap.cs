@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 
 public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 {
-    private const string BaseSceneName = "Stage3Ecs";
+    private const string BaseSceneName = "Ecs";
     private const float SetupTimeoutSeconds = 300f;
     private const string ScaleArgument = "-factoryPerformanceScale";
     private const string NodeCountArgument = "-factoryPerformanceNodeCount";
@@ -279,6 +279,74 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         }
         results.Clear();
 
+        if (!TrySubmitRecipeSelections(
+                entityManager,
+                gridEntity,
+                out int recipeCommandCount,
+                out string recipeFailure))
+        {
+            DisposeQueries(
+                gridQuery,
+                catalogQuery,
+                beltQuery,
+                mergerQuery,
+                splitterQuery,
+                processorQuery,
+                storageQuery);
+            Fail(recipeFailure);
+            yield break;
+        }
+
+        if (recipeCommandCount > 0)
+        {
+            status = "Applying " + recipeCommandCount +
+                     " explicit processor recipes...";
+            int recipeResultCount = 0;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                recipeResultCount = entityManager.GetBuffer<
+                    RecipeSelectionResult>(gridEntity).Length;
+                if (recipeResultCount >= recipeCommandCount)
+                    break;
+                yield return null;
+            }
+
+            if (recipeResultCount < recipeCommandCount)
+            {
+                DisposeQueries(
+                    gridQuery,
+                    catalogQuery,
+                    beltQuery,
+                    mergerQuery,
+                    splitterQuery,
+                    processorQuery,
+                    storageQuery);
+                Fail("Timed out while selecting performance recipes.");
+                yield break;
+            }
+
+            DynamicBuffer<RecipeSelectionResult> recipeResults =
+                entityManager.GetBuffer<RecipeSelectionResult>(gridEntity);
+            for (int i = 0; i < recipeResults.Length; i++)
+            {
+                if (recipeResults[i].Success != 0)
+                    continue;
+                DisposeQueries(
+                    gridQuery,
+                    catalogQuery,
+                    beltQuery,
+                    mergerQuery,
+                    splitterQuery,
+                    processorQuery,
+                    storageQuery);
+                Fail("Performance recipe selection failed at " +
+                     recipeResults[i].BuildingCell + ": " +
+                     recipeResults[i].FailureReason + ".");
+                yield break;
+            }
+            recipeResults.Clear();
+        }
+
         status = "Injecting " + definition.InitialItemCells.Length +
                  " initial items...";
         if (!TryPopulateInitialItems(
@@ -335,6 +403,78 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         FactoryPerformanceMetricsCapture.StartIfRequested(
             definition,
             driver);
+    }
+
+    private bool TrySubmitRecipeSelections(
+        EntityManager entityManager,
+        Entity commandEntity,
+        out int commandCount,
+        out string failure)
+    {
+        commandCount = 0;
+        failure = null;
+        if (!entityManager.HasBuffer<RecipeSelectionCommand>(commandEntity))
+            entityManager.AddBuffer<RecipeSelectionCommand>(commandEntity);
+        if (!entityManager.HasBuffer<RecipeSelectionResult>(commandEntity))
+            entityManager.AddBuffer<RecipeSelectionResult>(commandEntity);
+
+        EntityQuery databaseQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<FactoryDatabase>());
+        if (databaseQuery.CalculateEntityCount() != 1)
+        {
+            databaseQuery.Dispose();
+            failure = "FactoryDatabase is unavailable for recipe setup.";
+            return false;
+        }
+
+        BlobAssetReference<FactoryDatabaseBlob> databaseReference =
+            databaseQuery.GetSingleton<FactoryDatabase>().Value;
+        databaseQuery.Dispose();
+        ref FactoryDatabaseBlob database = ref databaseReference.Value;
+        DynamicBuffer<RecipeSelectionCommand> commands =
+            entityManager.GetBuffer<RecipeSelectionCommand>(commandEntity);
+        for (int i = 0; i < definition.Placements.Length; i++)
+        {
+            FactoryPerformancePlacement placement = definition.Placements[i];
+            if (string.IsNullOrEmpty(placement.RecipeKey))
+                continue;
+
+            RecipeId recipeId = RecipeId.Invalid;
+            FixedString64Bytes recipeKey =
+                new FixedString64Bytes(placement.RecipeKey);
+            for (int recipeIndex = 0;
+                 recipeIndex < database.Recipes.Length;
+                 recipeIndex++)
+            {
+                if (database.Recipes[recipeIndex].Key.Equals(recipeKey))
+                {
+                    recipeId = database.Recipes[recipeIndex].Id;
+                    break;
+                }
+            }
+
+            if (!recipeId.IsValid)
+            {
+                failure = "Performance recipe key '" + placement.RecipeKey +
+                          "' does not exist.";
+                commands.Clear();
+                return false;
+            }
+
+            commandCount++;
+            commands.Add(new RecipeSelectionCommand
+            {
+                Header = new PlayerCommandHeader
+                {
+                    Player = new PlayerId { Value = 1 },
+                    RequestId = (ulong)(100000 + i),
+                    ClientSequence = (ulong)commandCount
+                },
+                BuildingCell = placement.Cell,
+                Recipe = recipeId
+            });
+        }
+        return true;
     }
 
     private bool TryPopulateInitialItems(

@@ -38,6 +38,11 @@ public partial struct PlayerBootstrapSystem : ISystem
         }
         state.EntityManager.AddBuffer<MoveItemPlayerCommand>(player);
         state.EntityManager.AddBuffer<MoveItemPlayerResult>(player);
+        state.EntityManager.AddBuffer<RecipeSelectionCommand>(player);
+        state.EntityManager.AddBuffer<RecipeSelectionResult>(player);
+        state.EntityManager.AddBuffer<GridBuildPlayerCommand>(player);
+        state.EntityManager.AddBuffer<GridBuildPlayerResult>(player);
+        state.EntityManager.AddComponentData(player, new PlayerCommandSequenceState());
     }
 
     public void OnUpdate(ref SystemState state)

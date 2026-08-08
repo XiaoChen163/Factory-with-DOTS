@@ -6,12 +6,17 @@ public sealed class ItemSlotGridView
 {
     private readonly VisualElement root;
     private readonly FactoryPresentationCatalog catalog;
+    private Func<ItemSlotSnapshot, ItemEndpoint> endpointFactory;
+    public event Action<ItemSlotBinding, PointerDownEvent> PointerDown;
 
     public ItemSlotGridView(VisualElement root, FactoryPresentationCatalog catalog)
     {
         this.root = root ?? throw new ArgumentNullException(nameof(root));
         this.catalog = catalog;
     }
+
+    public void SetEndpointFactory(Func<ItemSlotSnapshot, ItemEndpoint> value) =>
+        endpointFactory = value;
 
     public void Render(ItemSlotSnapshot[] slots)
     {
@@ -25,6 +30,11 @@ public sealed class ItemSlotGridView
             slot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
             if (!visible) continue;
             ItemSlotSnapshot value = slots[i];
+            ItemSlotBinding binding = slot.userData as ItemSlotBinding ?? new ItemSlotBinding();
+            binding.Element = slot;
+            binding.Snapshot = value;
+            binding.Endpoint = endpointFactory != null ? endpointFactory(value) : default;
+            slot.userData = binding;
             VisualElement icon = slot.Q("icon");
             Label count = slot.Q<Label>("count");
             icon.style.backgroundImage = new StyleBackground(
@@ -38,7 +48,7 @@ public sealed class ItemSlotGridView
         }
     }
 
-    private static VisualElement CreateSlot()
+    private VisualElement CreateSlot()
     {
         VisualElement slot = new();
         slot.AddToClassList("item-slot");
@@ -48,8 +58,20 @@ public sealed class ItemSlotGridView
         count.AddToClassList("item-slot__count");
         slot.Add(icon);
         slot.Add(count);
+        slot.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (slot.userData is ItemSlotBinding binding)
+                PointerDown?.Invoke(binding, evt);
+        });
         return slot;
     }
+}
+
+public sealed class ItemSlotBinding
+{
+    public VisualElement Element { get; set; }
+    public ItemSlotSnapshot Snapshot { get; set; }
+    public ItemEndpoint Endpoint { get; set; }
 }
 
 public sealed class BuildingWindowView
@@ -70,6 +92,10 @@ public sealed class BuildingWindowView
     private readonly FactoryPresentationCatalog catalog;
     private bool showRecipePicker;
     private bool hasSelectedRecipe;
+    private bool recipePending;
+    private BuildingRuntimeId runtimeId;
+    public event Action<RecipeId> RecipeSelected;
+    public event Action<ItemSlotBinding, PointerDownEvent> SlotPointerDown;
 
     public BuildingWindowView(VisualElement root, FactoryPresentationCatalog catalog)
     {
@@ -82,6 +108,9 @@ public sealed class BuildingWindowView
         storage = new ItemSlotGridView(Require(root, "storage-slot-grid"), catalog);
         inputs = new ItemSlotGridView(Require(root, "processor-input-grid"), catalog);
         outputs = new ItemSlotGridView(Require(root, "processor-output-grid"), catalog);
+        storage.PointerDown += (binding, evt) => SlotPointerDown?.Invoke(binding, evt);
+        inputs.PointerDown += (binding, evt) => SlotPointerDown?.Invoke(binding, evt);
+        outputs.PointerDown += (binding, evt) => SlotPointerDown?.Invoke(binding, evt);
         status = Require<Label>(root, "processor-status");
         progress = Require<ProgressBar>(root, "processor-progress");
         recipes = Require<ScrollView>(root, "recipe-list");
@@ -102,6 +131,28 @@ public sealed class BuildingWindowView
     public void Render(BuildingSnapshot snapshot)
     {
         title.text = catalog?.GetBuildingName(snapshot.BuildingLevelId) ?? "建筑";
+        runtimeId = snapshot.RuntimeId;
+        storage.SetEndpointFactory(slot => new ItemEndpoint
+        {
+            OwnerKind = ItemOwnerKind.Storage,
+            OwnerRuntimeId = runtimeId.Value,
+            Domain = ItemSlotDomain.Inventory,
+            SlotIndex = slot.SlotIndex
+        });
+        inputs.SetEndpointFactory(slot => new ItemEndpoint
+        {
+            OwnerKind = ItemOwnerKind.Processor,
+            OwnerRuntimeId = runtimeId.Value,
+            Domain = ItemSlotDomain.ProcessorInput,
+            SlotIndex = slot.SlotIndex
+        });
+        outputs.SetEndpointFactory(slot => new ItemEndpoint
+        {
+            OwnerKind = ItemOwnerKind.Processor,
+            OwnerRuntimeId = runtimeId.Value,
+            Domain = ItemSlotDomain.ProcessorOutput,
+            SlotIndex = slot.SlotIndex
+        });
         bool isStorage = snapshot.Kind == BuildingKind.Storage;
         bool isProcessor = snapshot.Processor != null;
         storagePage.style.display = isStorage ? DisplayStyle.Flex : DisplayStyle.None;
@@ -127,9 +178,28 @@ public sealed class BuildingWindowView
             RecipeId id = value.AvailableRecipes[i];
             Button card = new() { text = catalog?.GetRecipeName(id) ?? $"配方 {id.Value}" };
             card.AddToClassList("recipe-card");
+            card.userData = id;
             card.EnableInClassList("recipe-card--selected", id == value.SelectedRecipeId);
-            card.SetEnabled(false); // Phase 4 sends the authoritative selection command.
+            card.SetEnabled(!recipePending);
+            card.EnableInClassList("recipe-card--pending", recipePending);
+            card.clicked += () => RecipeSelected?.Invoke(id);
             recipes.Add(card);
+        }
+    }
+
+    public void SetRecipePending(bool pending, bool selectionSucceeded = false)
+    {
+        recipePending = pending;
+        if (selectionSucceeded)
+        {
+            showRecipePicker = false;
+            ApplyProcessorPageState();
+        }
+        for (int i = 0; i < recipes.childCount; i++)
+        {
+            VisualElement card = recipes[i];
+            card.SetEnabled(!pending);
+            card.EnableInClassList("recipe-card--pending", pending);
         }
     }
 

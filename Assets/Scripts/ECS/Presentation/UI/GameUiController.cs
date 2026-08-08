@@ -19,6 +19,10 @@ public sealed class GameUiController : MonoBehaviour
     private ItemSlotGridView backpackView;
     private BuildingWindowView buildingView;
     private BuildCatalogView buildCatalogView;
+    private ItemDragController dragController;
+    private PlayerCommandBus commandBus;
+    private VisualElement notificationLayer;
+    private ulong pendingRecipeRequest;
     private BuildingRuntimeId openBuildingId;
 
     public UiDataHub DataHub { get; private set; }
@@ -27,6 +31,7 @@ public sealed class GameUiController : MonoBehaviour
     public BuildingSnapshot LatestBuilding { get; private set; }
     public BuildCatalogSnapshot LatestBuildCatalog { get; private set; }
     public FactoryPresentationCatalog PresentationCatalog => presentationCatalog;
+    public PlayerCommandBus CommandBus => commandBus;
 
     private void OnEnable()
     {
@@ -62,12 +67,32 @@ public sealed class GameUiController : MonoBehaviour
         buildingView = new BuildingWindowView(uiRoot, presentationCatalog);
         buildCatalogView = new BuildCatalogView(uiRoot, presentationCatalog);
         buildCatalogView.BuildingSelected += OnBuildingSelected;
+        attachedWorld = World.DefaultGameObjectInjectionWorld;
+        commandBus = PlayerCommandRuntimeServices.GetOrCreateBus(
+            attachedWorld, new PlayerId { Value = localPlayerId });
+        commandBus.ResultReceived += OnCommandResult;
+        backpackView.SetEndpointFactory(slot => new ItemEndpoint
+        {
+            OwnerKind = ItemOwnerKind.Player,
+            OwnerRuntimeId = localPlayerId,
+            Domain = ItemSlotDomain.Inventory,
+            SlotIndex = slot.SlotIndex
+        });
+        notificationLayer = Require(uiRoot, "notification-layer");
+        dragController = new ItemDragController(
+            Require(uiRoot, "drag-layer"),
+            notificationLayer,
+            presentationCatalog,
+            commandBus,
+            inputMode);
+        backpackView.PointerDown += dragController.Begin;
+        buildingView.SlotPointerDown += dragController.Begin;
+        buildingView.RecipeSelected += OnRecipeSelected;
         Require<Button>(uiRoot, "backpack-close").clicked += CloseBackpack;
         Require<Button>(uiRoot, "building-close").clicked += CloseBuilding;
         Require<Button>(uiRoot, "build-catalog-close").clicked += CloseBuildCatalog;
 
         DataHub = new UiDataHub();
-        attachedWorld = World.DefaultGameObjectInjectionWorld;
         UiRuntimeServices.Attach(attachedWorld, DataHub);
     }
 
@@ -75,15 +100,30 @@ public sealed class GameUiController : MonoBehaviour
     {
         if (buildCatalogView != null)
             buildCatalogView.BuildingSelected -= OnBuildingSelected;
+        if (buildingView != null && dragController != null)
+        {
+            buildingView.SlotPointerDown -= dragController.Begin;
+            buildingView.RecipeSelected -= OnRecipeSelected;
+        }
+        if (backpackView != null && dragController != null)
+            backpackView.PointerDown -= dragController.Begin;
+        dragController?.Dispose();
+        if (commandBus != null)
+            commandBus.ResultReceived -= OnCommandResult;
+        dragController = null;
         Windows?.Dispose();
         Windows = null;
         UiRuntimeServices.Detach(attachedWorld, DataHub);
         attachedWorld = null;
         DataHub = null;
+        commandBus = null;
+        notificationLayer = null;
+        pendingRecipeRequest = 0;
     }
 
     private void Update()
     {
+        commandBus?.PumpResults();
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null || Windows == null)
             return;
@@ -158,12 +198,54 @@ public sealed class GameUiController : MonoBehaviour
         inputMode?.SetModalOpen(false);
     }
 
-    public void CloseBackpack() => Windows?.Close(UiWindowId.Backpack);
+    public void CloseBackpack()
+    {
+        dragController?.Cancel();
+        Windows?.Close(UiWindowId.Backpack);
+    }
 
     public void CloseBuilding()
     {
+        dragController?.Cancel();
         Windows?.Close(UiWindowId.Building);
         openBuildingId = default;
+    }
+
+    private void OnRecipeSelected(RecipeId recipe)
+    {
+        if (!openBuildingId.IsValid || LatestBuilding == null ||
+            !LatestBuilding.IsAvailable ||
+            !LatestBuilding.RuntimeId.Equals(openBuildingId))
+            return;
+        pendingRecipeRequest = commandBus?.Submit(new RecipeSelectionCommand
+        {
+            BuildingCell = LatestBuilding.GridCell,
+            Recipe = recipe
+        }) ?? 0;
+        if (pendingRecipeRequest != 0)
+            buildingView.SetRecipePending(true);
+    }
+
+    private void OnCommandResult(PlayerCommandResult result)
+    {
+        if (result.Kind != PlayerCommandKind.SelectRecipe ||
+            result.Header.RequestId != pendingRecipeRequest)
+            return;
+        pendingRecipeRequest = 0;
+        buildingView.SetRecipePending(false, result.Success);
+        if (!result.Success)
+            ShowCommandError(result.FailureReason == PlayerCommandFailureReason.RecipeBusy
+                ? "建筑正在生产或槽内仍有物品，无法更换配方"
+                : "配方选择失败");
+    }
+
+    private void ShowCommandError(string message)
+    {
+        if (notificationLayer == null) return;
+        Label label = new(message) { pickingMode = PickingMode.Ignore };
+        label.AddToClassList("command-error-toast");
+        notificationLayer.Add(label);
+        label.schedule.Execute(label.RemoveFromHierarchy).StartingIn(2500);
     }
 
     public void CloseTopWindow()

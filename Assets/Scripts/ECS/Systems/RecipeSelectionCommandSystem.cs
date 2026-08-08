@@ -1,6 +1,7 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using System;
 
 [BurstCompile]
 [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
@@ -27,20 +28,29 @@ public partial struct RecipeSelectionCommandSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         state.Dependency.Complete();
-        Entity commandEntity = commandQuery.GetSingletonEntity();
-        DynamicBuffer<RecipeSelectionCommand> commands =
-            state.EntityManager.GetBuffer<RecipeSelectionCommand>(commandEntity);
-        DynamicBuffer<RecipeSelectionResult> results =
-            state.EntityManager.GetBuffer<RecipeSelectionResult>(commandEntity);
+        using NativeArray<Entity> commandEntities =
+            commandQuery.ToEntityArray(Allocator.Temp);
+        using NativeList<CommandEnvelope> pending = new(Allocator.Temp);
+        for (int entityIndex = 0; entityIndex < commandEntities.Length; entityIndex++)
+        {
+            Entity owner = commandEntities[entityIndex];
+            DynamicBuffer<RecipeSelectionCommand> buffer =
+                state.EntityManager.GetBuffer<RecipeSelectionCommand>(owner);
+            for (int commandIndex = 0; commandIndex < buffer.Length; commandIndex++)
+                pending.Add(new CommandEnvelope(owner, buffer[commandIndex]));
+            buffer.Clear();
+        }
+        pending.Sort();
         using NativeArray<Entity> processors =
             processorQuery.ToEntityArray(Allocator.Temp);
         BlobAssetReference<FactoryDatabaseBlob> databaseReference =
             SystemAPI.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref databaseReference.Value;
 
-        for (int i = 0; i < commands.Length; i++)
+        for (int i = 0; i < pending.Length; i++)
         {
-            RecipeSelectionCommand command = commands[i];
+            CommandEnvelope envelope = pending[i];
+            RecipeSelectionCommand command = envelope.Command;
             RecipeSelectionFailureReason failure =
                 RecipeSelectionFailureReason.BuildingNotFound;
             bool success = false;
@@ -100,7 +110,8 @@ public partial struct RecipeSelectionCommandSystem : ISystem
                 break;
             }
 
-            results.Add(new RecipeSelectionResult
+            state.EntityManager.GetBuffer<RecipeSelectionResult>(envelope.Owner).Add(
+                new RecipeSelectionResult
             {
                 Header = command.Header,
                 BuildingCell = command.BuildingCell,
@@ -109,7 +120,24 @@ public partial struct RecipeSelectionCommandSystem : ISystem
                 FailureReason = failure
             });
         }
-        commands.Clear();
+    }
+
+    private readonly struct CommandEnvelope : IComparable<CommandEnvelope>
+    {
+        public CommandEnvelope(Entity owner, RecipeSelectionCommand command)
+        {
+            Owner = owner;
+            Command = command;
+        }
+        public Entity Owner { get; }
+        public RecipeSelectionCommand Command { get; }
+        public int CompareTo(CommandEnvelope other)
+        {
+            int player = Command.Header.Player.Value.CompareTo(
+                other.Command.Header.Player.Value);
+            return player != 0 ? player : Command.Header.ClientSequence.CompareTo(
+                other.Command.Header.ClientSequence);
+        }
     }
 
     private static bool IsKnownRecipe(

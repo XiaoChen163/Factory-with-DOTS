@@ -145,6 +145,7 @@ public partial class UiSnapshotExportSystem : SystemBase
             RuntimeId = id,
             BuildingLevelId = identity.BuildingLevel,
             Kind = placement.Kind,
+            GridCell = placement.AnchorCell,
             IsAvailable = true
         };
 
@@ -263,14 +264,14 @@ public partial class UiSnapshotExportSystem : SystemBase
         return result;
     }
 
-    private static ItemSlotSnapshot[] ExportInventorySlots(DynamicBuffer<InventorySlot> slots)
+    private ItemSlotSnapshot[] ExportInventorySlots(DynamicBuffer<InventorySlot> slots)
     {
         ItemSlotSnapshot[] result = new ItemSlotSnapshot[slots.Length];
         for (int i = 0; i < slots.Length; i++)
         {
             InventorySlot slot = slots[i];
             result[i] = new ItemSlotSnapshot(
-                (ushort)i, slot.ItemType, slot.Count, 0, default,
+                (ushort)i, slot.ItemType, slot.Count, GetItemCapacity(slot.ItemType), default,
                 UiSlotAccess.InsertAndExtract);
         }
         return result;
@@ -311,11 +312,15 @@ public partial class UiSnapshotExportSystem : SystemBase
         for (int i = 0; i < slots.Length; i++)
         {
             if (slots[i].Access == UiSlotAccess.Insert)
-                inputs[inputIndex++] = slots[i];
+                inputs[inputIndex] = WithLogicalIndex(slots[i], (ushort)inputIndex++);
             else
-                outputs[outputIndex++] = slots[i];
+                outputs[outputIndex] = WithLogicalIndex(slots[i], (ushort)outputIndex++);
         }
     }
+
+    private static ItemSlotSnapshot WithLogicalIndex(ItemSlotSnapshot value, ushort index) =>
+        new(index, value.ItemId, value.Count, value.Capacity,
+            value.AcceptedItemId, value.Access);
 
     private sealed class InventoryCache
     {

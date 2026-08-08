@@ -40,6 +40,11 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                 Revision = 1
             });
             AddBuffer<GridBuildCommand>(entity);
+            AddBuffer<PlayerGridCommandPending>(entity);
+            AddComponent(entity, new PlayerGridCommandAdapterState
+            {
+                NextGridRequestId = 1
+            });
             AddBuffer<GridBuildResult>(entity);
         }
     }

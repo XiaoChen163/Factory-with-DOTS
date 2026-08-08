@@ -1,4 +1,5 @@
 using System;
+using Unity.Mathematics;
 
 public enum UiDockRegion : byte
 {
@@ -103,6 +104,7 @@ public sealed class BuildingSnapshot
     public BuildingKind Kind { get; set; }
     public uint Revision { get; set; }
     public bool IsAvailable { get; set; }
+    public int2 GridCell { get; set; }
     public ProcessorSnapshot Processor { get; set; }
     public ItemSlotSnapshot[] StorageSlots { get; set; } =
         Array.Empty<ItemSlotSnapshot>();

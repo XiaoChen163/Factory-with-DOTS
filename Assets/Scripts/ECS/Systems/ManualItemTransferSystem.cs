@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Entities;
+using System;
 
 [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
 [UpdateAfter(typeof(RecipeSelectionCommandSystem))]
@@ -23,25 +24,35 @@ public partial struct ManualItemTransferSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         state.Dependency.Complete();
-        Entity commandEntity = commandQuery.GetSingletonEntity();
-        DynamicBuffer<MoveItemPlayerCommand> commands =
-            state.EntityManager.GetBuffer<MoveItemPlayerCommand>(commandEntity);
-        DynamicBuffer<MoveItemPlayerResult> results =
-            state.EntityManager.GetBuffer<MoveItemPlayerResult>(commandEntity);
+        using NativeArray<Entity> commandEntities =
+            commandQuery.ToEntityArray(Allocator.Temp);
+        using NativeList<CommandEnvelope> pending = new(Allocator.Temp);
+        for (int entityIndex = 0; entityIndex < commandEntities.Length; entityIndex++)
+        {
+            Entity owner = commandEntities[entityIndex];
+            DynamicBuffer<MoveItemPlayerCommand> buffer =
+                state.EntityManager.GetBuffer<MoveItemPlayerCommand>(owner);
+            for (int commandIndex = 0; commandIndex < buffer.Length; commandIndex++)
+                pending.Add(new CommandEnvelope(owner, buffer[commandIndex]));
+            buffer.Clear();
+        }
+        pending.Sort();
         using NativeArray<Entity> owners = ownerQuery.ToEntityArray(Allocator.Temp);
         BlobAssetReference<FactoryDatabaseBlob> databaseReference =
             SystemAPI.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref databaseReference.Value;
 
-        for (int i = 0; i < commands.Length; i++)
+        for (int i = 0; i < pending.Length; i++)
         {
-            MoveItemPlayerCommand command = commands[i];
+            CommandEnvelope envelope = pending[i];
+            MoveItemPlayerCommand command = envelope.Command;
             MoveItemFailureReason failure = TryMove(
                 ref state,
                 ref database,
                 owners,
                 command);
-            results.Add(new MoveItemPlayerResult
+            state.EntityManager.GetBuffer<MoveItemPlayerResult>(envelope.Owner).Add(
+                new MoveItemPlayerResult
             {
                 Header = command.Header,
                 Success = failure == MoveItemFailureReason.None ? (byte)1 : (byte)0,
@@ -51,7 +62,24 @@ public partial struct ManualItemTransferSystem : ISystem
                 FailureReason = failure
             });
         }
-        commands.Clear();
+    }
+
+    private readonly struct CommandEnvelope : IComparable<CommandEnvelope>
+    {
+        public CommandEnvelope(Entity owner, MoveItemPlayerCommand command)
+        {
+            Owner = owner;
+            Command = command;
+        }
+        public Entity Owner { get; }
+        public MoveItemPlayerCommand Command { get; }
+        public int CompareTo(CommandEnvelope other)
+        {
+            int player = Command.Header.Player.Value.CompareTo(
+                other.Command.Header.Player.Value);
+            return player != 0 ? player : Command.Header.ClientSequence.CompareTo(
+                other.Command.Header.ClientSequence);
+        }
     }
 
     private static MoveItemFailureReason TryMove(
@@ -60,6 +88,13 @@ public partial struct ManualItemTransferSystem : ISystem
         in NativeArray<Entity> owners,
         in MoveItemPlayerCommand command)
     {
+        if ((command.Source.OwnerKind == ItemOwnerKind.Player &&
+             command.Source.OwnerRuntimeId != command.Header.Player.Value) ||
+            (command.Destination.OwnerKind == ItemOwnerKind.Player &&
+             command.Destination.OwnerRuntimeId != command.Header.Player.Value))
+        {
+            return MoveItemFailureReason.PlayerNotFound;
+        }
         if (command.Amount == 0 ||
             !TryFindOwner(ref state, owners, command.Source, out Entity source) ||
             !TryFindOwner(ref state, owners, command.Destination, out Entity destination))

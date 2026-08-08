@@ -8,6 +8,36 @@ public struct PlayerCommandHeader
     public ulong ClientSequence;
 }
 
+public struct PlayerCommandSequenceState : IComponentData
+{
+    public ulong LastAcceptedSequence;
+}
+
+public enum PlayerCommandKind : byte
+{
+    SelectRecipe,
+    MoveItem,
+    GridBuild
+}
+
+public enum PlayerCommandFailureReason : byte
+{
+    None,
+    PlayerNotFound,
+    SequenceDuplicate,
+    BuildingNotFound,
+    RecipeNotFound,
+    MachineTypeMismatch,
+    RecipeBusy,
+    OwnerNotFound,
+    InvalidSlot,
+    EmptySource,
+    StaleSnapshot,
+    DestinationRejected,
+    CapacityExceeded,
+    GridRejected
+}
+
 public struct RecipeSelectionCommand : IBufferElementData
 {
     public PlayerCommandHeader Header;
@@ -67,6 +97,7 @@ public struct MoveItemPlayerCommand : IBufferElementData
 public enum MoveItemFailureReason : byte
 {
     None,
+    PlayerNotFound,
     OwnerNotFound,
     InvalidSlot,
     EmptySource,
@@ -81,4 +112,35 @@ public struct MoveItemPlayerResult : IBufferElementData
     public byte Success;
     public ushort MovedAmount;
     public MoveItemFailureReason FailureReason;
+}
+
+public struct GridBuildPlayerCommand : IBufferElementData
+{
+    public PlayerCommandHeader Header;
+    public GridBuildCommandType Type;
+    public BuildingKind Kind;
+    public BuildingLevelId BuildingLevel;
+    public int2 StartCell;
+    public int2 EndCell;
+    public byte QuarterTurns;
+    public byte HorizontalFirst;
+}
+
+public struct GridBuildPlayerResult : IBufferElementData
+{
+    public PlayerCommandHeader Header;
+    public byte Success;
+    public int AffectedCount;
+    public GridBuildFailureReason FailureReason;
+}
+
+public struct PlayerGridCommandPending : IBufferElementData
+{
+    public uint GridRequestId;
+    public PlayerCommandHeader Header;
+}
+
+public struct PlayerGridCommandAdapterState : IComponentData
+{
+    public uint NextGridRequestId;
 }

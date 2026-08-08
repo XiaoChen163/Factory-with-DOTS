@@ -39,7 +39,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private Material inputPortPreviewMaterial;
     private Material outputPortPreviewMaterial;
     private Mesh previewTriangleMesh;
-    private uint nextRequestId = 1;
+    [SerializeField] private uint localPlayerId = 1;
+    private PlayerCommandBus commandBus;
     private byte quarterTurns;
     private bool beltPathStarted;
     private bool horizontalFirst = true;
@@ -846,7 +847,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 gridEntity,
                 new GridBuildCommand
                 {
-                    RequestId = nextRequestId++,
+                    RequestId = 0,
                     Type =
                         GridBuildCommandType.PlaceBeltPath,
                     Kind = BuildingKind.Belt,
@@ -866,7 +867,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             gridEntity,
             new GridBuildCommand
             {
-                RequestId = nextRequestId++,
+                RequestId = 0,
                 Type = GridBuildCommandType.Place,
                 Kind = SelectedKind,
                 BuildingLevel = SelectedBuildingLevel,
@@ -918,7 +919,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             gridEntity,
             new GridBuildCommand
             {
-                RequestId = nextRequestId++,
+                RequestId = 0,
                 Type = removeBeltLine
                     ? GridBuildCommandType.RemoveBeltLine
                     : GridBuildCommandType.Remove,
@@ -1284,22 +1285,23 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         cachedGridCount = 0;
     }
 
-    private static void Enqueue(
+    private void Enqueue(
         World world,
         Entity gridEntity,
         GridBuildCommand command)
     {
-        EntityManager entityManager = world.EntityManager;
-        if (!entityManager.HasBuffer<GridBuildCommand>(gridEntity))
+        commandBus ??= PlayerCommandRuntimeServices.GetOrCreateBus(
+            world, new PlayerId { Value = localPlayerId });
+        commandBus.Submit(new GridBuildPlayerCommand
         {
-            Debug.LogWarning(
-                "[ECS Grid Build] Grid command buffer is unavailable.");
-            return;
-        }
-
-        entityManager
-            .GetBuffer<GridBuildCommand>(gridEntity)
-            .Add(command);
+            Type = command.Type,
+            Kind = command.Kind,
+            BuildingLevel = command.BuildingLevel,
+            StartCell = command.StartCell,
+            EndCell = command.EndCell,
+            QuarterTurns = command.QuarterTurns,
+            HorizontalFirst = command.HorizontalFirst
+        });
     }
 
     private void ConsumeBuildResults()

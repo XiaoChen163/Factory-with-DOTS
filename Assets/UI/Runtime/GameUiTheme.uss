@@ -158,6 +158,26 @@
 }
 
 .item-slot--restricted { border-color: rgba(239, 169, 79, 0.85); }
+.item-slot--drag-source { opacity: 0.55; }
+.item-slot--drop-valid { border-width: 2px; border-color: rgb(70, 230, 135); }
+.item-slot--drop-invalid { border-width: 2px; border-color: rgb(246, 82, 82); }
+.item-slot--pending { opacity: 0.62; border-color: rgb(245, 203, 76); }
+
+.item-drag-icon {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.command-error-toast {
+    align-self: center;
+    margin-top: 9%;
+    padding: 9px 16px;
+    color: white;
+    background-color: rgba(138, 35, 35, 0.96);
+    border-radius: 3px;
+}
 
 /* Processor page: ingredients, process direction and products read top-to-bottom. */
 .processor-page { justify-content: space-between; }
@@ -254,6 +274,7 @@
     border-width: 2px;
     border-color: rgb(78, 190, 255);
 }
+.recipe-card--pending { opacity: 0.55; }
 
 .empty-label {
     margin-top: 18px;

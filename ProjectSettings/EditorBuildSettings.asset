@@ -6,13 +6,13 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Stage0Prototype.unity
+    path: Assets/Scenes/Prototype.unity
     guid: 4f88c9df86e6483bb45e8f385154b3ec
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
-    path: Assets/Scenes/Stage3Ecs.unity
+    path: Assets/Scenes/Ecs.unity
     guid: 31aec2397511cf24fbe6f281e4784cb0
   - enabled: 1
     path: Assets/Scenes/Performance/Perf_4096_Mk4_HalfLoaded.unity

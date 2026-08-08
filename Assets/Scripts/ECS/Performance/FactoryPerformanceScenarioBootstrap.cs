@@ -704,6 +704,12 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
     private void ConfigurePresentation()
     {
+        GameObject gameUiRoot = GameObject.Find("GameUiRoot");
+        if (gameUiRoot != null)
+        {
+            gameUiRoot.SetActive(false);
+        }
+
         bool keepInteractionEnabled =
             definition.Scenario ==
             FactoryPerformanceScenario.ContinuousBeltBuild;

@@ -1,7 +1,6 @@
 using System;
 using Unity.Entities;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 [DisallowMultipleComponent]
@@ -24,6 +23,7 @@ public sealed class GameUiController : MonoBehaviour
     private VisualElement notificationLayer;
     private ulong pendingRecipeRequest;
     private BuildingRuntimeId openBuildingId;
+    private bool buildCatalogRendered;
 
     public UiDataHub DataHub { get; private set; }
     public UiWindowManager Windows { get; private set; }
@@ -32,6 +32,8 @@ public sealed class GameUiController : MonoBehaviour
     public BuildCatalogSnapshot LatestBuildCatalog { get; private set; }
     public FactoryPresentationCatalog PresentationCatalog => presentationCatalog;
     public PlayerCommandBus CommandBus => commandBus;
+    public BuildingLevelId SelectedCatalogBuildingLevel =>
+        buildCatalogView?.SelectedBuildingLevel ?? default;
 
     private void OnEnable()
     {
@@ -119,23 +121,23 @@ public sealed class GameUiController : MonoBehaviour
         commandBus = null;
         notificationLayer = null;
         pendingRecipeRequest = 0;
+        buildCatalogRendered = false;
     }
 
     private void Update()
     {
         commandBus?.PumpResults();
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard == null || Windows == null)
+        if (inputMode == null || Windows == null)
             return;
-        if (keyboard.qKey.wasPressedThisFrame)
+        if (inputMode.BuildCatalogTogglePressedThisFrame)
             HandleBuildCatalogToggle();
-        if (keyboard.tabKey.wasPressedThisFrame)
+        if (inputMode.BackpackTogglePressedThisFrame)
             HandleBackpackToggle();
-        if (keyboard.escapeKey.wasPressedThisFrame)
+        if (inputMode.CancelPressedThisFrame)
             HandleCancel();
 
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame &&
-            inputMode != null && !inputMode.IsBuildMode &&
+        if (!inputMode.IsBuildMode &&
+            inputMode.PrimaryPointerPressedThisFrame &&
             !inputMode.BlocksWorldInput &&
             gridInteraction != null &&
             gridInteraction.TryGetHoveredBuilding(out BuildingRuntimeId buildingId))
@@ -151,6 +153,12 @@ public sealed class GameUiController : MonoBehaviour
         OpenBuildingInternal(buildingId);
 
     public void ToggleBuildCatalog() => HandleBuildCatalogToggle();
+
+    public void SelectCatalogBuildingLevel(BuildingLevelId id) =>
+        buildCatalogView?.SetSelected(id);
+
+    public void ConfirmCatalogBuildingSelection() =>
+        buildCatalogView?.ConfirmSelection();
 
     public void HandleBuildCatalogToggle()
     {
@@ -279,9 +287,12 @@ public sealed class GameUiController : MonoBehaviour
     private void OnBuildCatalogChanged(BuildCatalogSnapshot snapshot)
     {
         LatestBuildCatalog = snapshot;
+        if (buildCatalogRendered)
+            return;
         buildCatalogView.Render(snapshot);
         if (gridInteraction != null)
             buildCatalogView.SetSelected(gridInteraction.SelectedBuildingLevel);
+        buildCatalogRendered = true;
     }
 
     private void OpenBuildingInternal(BuildingRuntimeId buildingId)

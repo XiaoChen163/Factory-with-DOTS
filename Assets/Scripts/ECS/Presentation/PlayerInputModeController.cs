@@ -13,6 +13,13 @@ public sealed class PlayerInputModeController : MonoBehaviour
     private InputActionMap gameplay;
     private InputActionMap build;
     private InputActionMap ui;
+    private InputAction toggleBackpack;
+    private InputAction gameplayToggleBuildCatalog;
+    private InputAction buildToggleBuildCatalog;
+    private InputAction place;
+    private InputAction rotate;
+    private InputAction remove;
+    private InputAction cancel;
 
     public bool IsBuildMode { get; private set; }
     public bool IsModalOpen { get; private set; }
@@ -21,6 +28,26 @@ public sealed class PlayerInputModeController : MonoBehaviour
 
     public bool BlocksWorldInput =>
         IsDragging || IsModalOpen || IsPointerOverInteractiveUi();
+
+    public bool IsGameplayActionMapEnabled => gameplay?.enabled == true;
+    public bool IsBuildActionMapEnabled => build?.enabled == true;
+    public bool BackpackTogglePressedThisFrame => WasPressed(toggleBackpack);
+    public bool BuildCatalogTogglePressedThisFrame =>
+        WasPressed(gameplayToggleBuildCatalog) ||
+        WasPressed(buildToggleBuildCatalog);
+    public bool IsBuildCatalogToggleActionEnabled =>
+        gameplayToggleBuildCatalog?.enabled == true ||
+        buildToggleBuildCatalog?.enabled == true;
+    public bool PlacePressedThisFrame => WasPressed(place);
+    public bool PrimaryPointerPressedThisFrame =>
+        Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+    public bool RotatePressedThisFrame => WasPressed(rotate);
+    public bool RemovePressedThisFrame => WasPressed(remove);
+    public bool CancelPressedThisFrame => WasPressed(cancel);
+    public bool RemoveBeltLineModifierActive =>
+        Keyboard.current != null &&
+        (Keyboard.current.leftCtrlKey.isPressed ||
+         Keyboard.current.rightCtrlKey.isPressed);
 
     private void OnEnable()
     {
@@ -31,9 +58,18 @@ public sealed class PlayerInputModeController : MonoBehaviour
                    runtimeActions.FindActionMap("Player", false);
         EnsureGameplayActions(gameplay);
         build = runtimeActions.FindActionMap("Build", false) ??
-                CreateBuildMap(runtimeActions);
+                runtimeActions.AddActionMap("Build");
+        EnsureBuildActions(build);
         ui = runtimeActions.FindActionMap("UI", false);
-        InputAction cancel = ui?.FindAction("Cancel", false);
+        toggleBackpack = gameplay?.FindAction("ToggleBackpack", false);
+        gameplayToggleBuildCatalog =
+            gameplay?.FindAction("ToggleBuildCatalog", false);
+        buildToggleBuildCatalog =
+            build?.FindAction("ToggleBuildCatalog", false);
+        place = build?.FindAction("Place", false);
+        rotate = build?.FindAction("Rotate", false);
+        remove = build?.FindAction("Remove", false);
+        cancel = ui?.FindAction("Cancel", false);
         if (cancel != null)
             cancel.performed += OnCancel;
         ApplyMode();
@@ -48,6 +84,16 @@ public sealed class PlayerInputModeController : MonoBehaviour
         if (runtimeActions != null)
             Destroy(runtimeActions);
         runtimeActions = null;
+        gameplay = null;
+        build = null;
+        ui = null;
+        toggleBackpack = null;
+        gameplayToggleBuildCatalog = null;
+        buildToggleBuildCatalog = null;
+        place = null;
+        rotate = null;
+        remove = null;
+        cancel = null;
     }
 
     public void SetBuildMode(bool value)
@@ -96,6 +142,9 @@ public sealed class PlayerInputModeController : MonoBehaviour
     private void OnCancel(InputAction.CallbackContext context) =>
         CancelRequested?.Invoke();
 
+    private static bool WasPressed(InputAction action) =>
+        action != null && action.WasPressedThisFrame();
+
     private static void SetEnabled(InputActionMap map, bool enabled)
     {
         if (map == null)
@@ -118,19 +167,23 @@ public sealed class PlayerInputModeController : MonoBehaviour
                 .AddBinding("<Keyboard>/q");
     }
 
-    private static InputActionMap CreateBuildMap(InputActionAsset asset)
+    private static void EnsureBuildActions(InputActionMap map)
     {
-        InputActionMap map = asset.AddActionMap("Build");
-        map.AddAction("Place", InputActionType.Button)
-            .AddBinding("<Mouse>/leftButton");
-        map.AddAction("Rotate", InputActionType.Button)
-            .AddBinding("<Keyboard>/r");
-        map.AddAction("Cancel", InputActionType.Button)
-            .AddBinding("<Keyboard>/escape");
-        map.AddAction("Remove", InputActionType.Button)
-            .AddBinding("<Keyboard>/delete");
-        map.AddAction("TogglePathOrder", InputActionType.Button)
-            .AddBinding("<Keyboard>/t");
-        return map;
+        EnsureButton(map, "ToggleBuildCatalog", "<Keyboard>/q");
+        EnsureButton(map, "Place", "<Mouse>/leftButton");
+        EnsureButton(map, "Rotate", "<Keyboard>/r");
+        EnsureButton(map, "Cancel", "<Keyboard>/escape");
+        EnsureButton(map, "Remove", "<Keyboard>/delete");
+    }
+
+    private static void EnsureButton(
+        InputActionMap map,
+        string actionName,
+        string binding)
+    {
+        if (map.FindAction(actionName, false) != null)
+            return;
+        map.AddAction(actionName, InputActionType.Button)
+            .AddBinding(binding);
     }
 }

@@ -116,7 +116,17 @@
 2. 选择 `EditMode`。
 3. 选择 `Factory.Tests`。
 4. 点击 `Run All`。
-5. 确认 59 个测试全部通过，Console 中没有异常。
+5. 确认 `Factory.Tests` 81 个 EditMode 测试全部通过，Console 中没有异常。
+
+UI 入口或 Presentation 改动还需切换到 `PlayMode`，运行
+`Factory.PlayModeTests`；Phase 5 基线为 6 个测试，覆盖窗口生命周期、输入模式
+互斥、Escape 清理、正式场景不再使用原型 IMGUI 入口、建筑目录选择保持，
+以及传送带 R 键横竖优先切换。
+
+其中 `Phase3UiContentTests` 还会验证物品槽与配方卡在连续快照刷新时复用原
+VisualElement，避免 PointerDown 和 PointerUp 之间控件被替换而无法点击。
+同时验证“更换配方”绝对定位按钮位于加工流程层之上、配方页状态能跨快照
+保持，并在切换建筑时正确重置。
 
 ### 4.2 使用项目内的测试请求入口
 

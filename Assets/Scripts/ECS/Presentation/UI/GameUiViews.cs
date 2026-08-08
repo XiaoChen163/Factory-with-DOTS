@@ -96,6 +96,7 @@ public sealed class BuildingWindowView
     private BuildingRuntimeId runtimeId;
     public event Action<RecipeId> RecipeSelected;
     public event Action<ItemSlotBinding, PointerDownEvent> SlotPointerDown;
+    public bool IsRecipePickerShown => showRecipePicker;
 
     public BuildingWindowView(VisualElement root, FactoryPresentationCatalog catalog)
     {
@@ -116,22 +117,21 @@ public sealed class BuildingWindowView
         recipes = Require<ScrollView>(root, "recipe-list");
         recipeOpen = Require<Button>(root, "recipe-picker-open");
         recipeBack = Require<Button>(root, "recipe-picker-back");
-        recipeOpen.clicked += () =>
-        {
-            showRecipePicker = true;
-            ApplyProcessorPageState();
-        };
-        recipeBack.clicked += () =>
-        {
-            showRecipePicker = false;
-            ApplyProcessorPageState();
-        };
+        recipeOpen.clicked += OpenRecipePicker;
+        recipeBack.clicked += CloseRecipePicker;
+        recipeOpen.BringToFront();
     }
 
     public void Render(BuildingSnapshot snapshot)
     {
         title.text = catalog?.GetBuildingName(snapshot.BuildingLevelId) ?? "建筑";
+        bool buildingChanged = !runtimeId.Equals(snapshot.RuntimeId);
         runtimeId = snapshot.RuntimeId;
+        if (buildingChanged)
+        {
+            showRecipePicker = false;
+            recipePending = false;
+        }
         storage.SetEndpointFactory(slot => new ItemEndpoint
         {
             OwnerKind = ItemOwnerKind.Storage,
@@ -172,19 +172,51 @@ public sealed class BuildingWindowView
         status.text = StatusText(value.Status);
         progress.value = value.Progress01 * 100f;
         progress.title = $"{Mathf.RoundToInt(value.Progress01 * 100f)}%";
-        recipes.Clear();
-        for (int i = 0; i < value.AvailableRecipes.Length; i++)
+        VisualElement recipeContainer = recipes.contentContainer;
+        while (recipeContainer.childCount < value.AvailableRecipes.Length)
+            recipeContainer.Add(CreateRecipeCard());
+        for (int i = 0; i < recipeContainer.childCount; i++)
         {
+            Button card = (Button)recipeContainer[i];
+            bool visible = i < value.AvailableRecipes.Length;
+            card.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!visible)
+                continue;
             RecipeId id = value.AvailableRecipes[i];
-            Button card = new() { text = catalog?.GetRecipeName(id) ?? $"配方 {id.Value}" };
-            card.AddToClassList("recipe-card");
             card.userData = id;
+            card.text = catalog?.GetRecipeName(id) ?? $"配方 {id.Value}";
             card.EnableInClassList("recipe-card--selected", id == value.SelectedRecipeId);
             card.SetEnabled(!recipePending);
             card.EnableInClassList("recipe-card--pending", recipePending);
-            card.clicked += () => RecipeSelected?.Invoke(id);
-            recipes.Add(card);
         }
+    }
+
+    private Button CreateRecipeCard()
+    {
+        Button card = new();
+        card.AddToClassList("recipe-card");
+        card.clicked += () =>
+        {
+            if (card.userData is RecipeId id)
+                RecipeSelected?.Invoke(id);
+        };
+        return card;
+    }
+
+    public void OpenRecipePicker()
+    {
+        if (!hasSelectedRecipe)
+            return;
+        showRecipePicker = true;
+        ApplyProcessorPageState();
+    }
+
+    public void CloseRecipePicker()
+    {
+        if (!hasSelectedRecipe)
+            return;
+        showRecipePicker = false;
+        ApplyProcessorPageState();
     }
 
     public void SetRecipePending(bool pending, bool selectionSucceeded = false)
@@ -195,9 +227,10 @@ public sealed class BuildingWindowView
             showRecipePicker = false;
             ApplyProcessorPageState();
         }
-        for (int i = 0; i < recipes.childCount; i++)
+        VisualElement recipeContainer = recipes.contentContainer;
+        for (int i = 0; i < recipeContainer.childCount; i++)
         {
-            VisualElement card = recipes[i];
+            VisualElement card = recipeContainer[i];
             card.SetEnabled(!pending);
             card.EnableInClassList("recipe-card--pending", pending);
         }
@@ -237,6 +270,7 @@ public sealed class BuildCatalogView
     private readonly Button confirm;
     private BuildingLevelId selected;
     public event Action<BuildingLevelId> BuildingSelected;
+    public BuildingLevelId SelectedBuildingLevel => selected;
 
     public BuildCatalogView(VisualElement root, FactoryPresentationCatalog catalog)
     {
@@ -264,25 +298,49 @@ public sealed class BuildCatalogView
 
     public void Render(BuildCatalogSnapshot snapshot)
     {
-        list.Clear();
-        for (int i = 0; i < snapshot.Levels.Length; i++)
+        while (list.childCount < snapshot.Levels.Length)
+            list.Add(CreateCatalogCard());
+        for (int i = 0; i < list.childCount; i++)
         {
+            Button card = (Button)list[i];
+            bool visible = i < snapshot.Levels.Length;
+            card.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!visible)
+                continue;
             BuildingLevelId id = snapshot.Levels[i];
-            Button card = new();
-            card.AddToClassList("catalog-card");
             card.userData = id;
-            VisualElement icon = new() { pickingMode = PickingMode.Ignore };
-            icon.AddToClassList("catalog-card__icon");
+            VisualElement icon = card.Q("catalog-card-icon");
             icon.style.backgroundImage = new StyleBackground(catalog?.GetBuildingIcon(id));
-            Label label = new(catalog?.GetBuildingName(id) ?? $"建筑 {id.Value}")
-                { pickingMode = PickingMode.Ignore };
-            label.AddToClassList("catalog-card__label");
-            card.Add(icon);
-            card.Add(label);
-            card.clicked += () => SetSelected(id);
-            list.Add(card);
+            card.Q<Label>("catalog-card-label").text =
+                catalog?.GetBuildingName(id) ?? $"建筑 {id.Value}";
         }
         RefreshSelection();
+    }
+
+    private Button CreateCatalogCard()
+    {
+        Button card = new();
+        card.AddToClassList("catalog-card");
+        VisualElement icon = new()
+        {
+            name = "catalog-card-icon",
+            pickingMode = PickingMode.Ignore
+        };
+        icon.AddToClassList("catalog-card__icon");
+        Label label = new()
+        {
+            name = "catalog-card-label",
+            pickingMode = PickingMode.Ignore
+        };
+        label.AddToClassList("catalog-card__label");
+        card.Add(icon);
+        card.Add(label);
+        card.clicked += () =>
+        {
+            if (card.userData is BuildingLevelId id)
+                SetSelected(id);
+        };
+        return card;
     }
 
     private void RefreshSelection()
@@ -308,7 +366,7 @@ public sealed class BuildCatalogView
             : "从中间列表选择要放置的建筑。";
     }
 
-    private void ConfirmSelection()
+    public void ConfirmSelection()
     {
         if (selected.IsValid)
             BuildingSelected?.Invoke(selected);

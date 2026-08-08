@@ -24,7 +24,7 @@
 | `Assets/Scripts/ECS/Data` | ECS 组件、Buffer、Blob 结构 |
 | `Assets/Scripts/ECS/Systems` | 模拟系统、建造、拓扑、端口、表现采集 |
 | `Assets/Scripts/ECS/Authoring` | GameObject 到 ECS 的 Baker |
-| `Assets/Scripts/ECS/Presentation` | 玩家输入、HUD、预览交互 |
+| `Assets/Scripts/ECS/Presentation` | 玩家输入、UI Toolkit 界面、预览交互 |
 | `Assets/Scripts/ECS/Performance` | 性能场景定义、Bootstrap、Profiler 采集 |
 | `Assets/Tests` | 所有 EditMode 测试与测试 Fixture |
 | `Assets/Scenes/Performance` | 性能测试场景 |
@@ -84,6 +84,29 @@ Input / UI
   -> GridPlacementTransformSystem（Revision 变化时对齐）
   -> BeltTopologyVisualSystem（脏单元格局部刷新）
 ```
+
+### 3.4 正式 UI 与操作
+
+正式 `Ecs` 场景只使用一个 `UIDocument` 和 UI Toolkit 根树，不再挂载
+`Stage3PrototypeHud` 或由 `EcsGridInteractionController.OnGUI` 绘制入口。
+所有输入由 `PlayerInputModeController` 的 Input System Action Map 仲裁：
+
+| 操作 | 按键/方式 |
+|---|---|
+| 打开建造目录 | `Q` |
+| 选择建造项 | 点击目录卡片 |
+| 放置建筑/设置传送带起止点 | 鼠标左键 |
+| 旋转建筑 | `R` |
+| 旋转建筑/切换传送带拐弯顺序 | `R`；传送带选定起点后切换横竖优先 |
+| 拆除单个建筑 | `Delete` |
+| 拆除连通传送带 | `Ctrl + Delete` |
+| 打开/关闭背包 | 非建造模式下按 `Tab` |
+| 打开建筑窗口 | 非建造模式下左键点击建筑 |
+| 取消拖拽/关闭窗口/退出建造 | `Escape` |
+
+建造目录打开、拖拽或指针位于可交互 UI 上时，世界放置和建筑选择输入会被
+阻断。性能场景 Additive 加载 `Ecs` 后会停用整个 `GameUiRoot`，保持无 UI
+采样路径；性能驱动仍可通过网格控制器的模拟入口提交建造命令。
 
 ## 4. 新增玩法的标准步骤
 
@@ -158,7 +181,8 @@ Input / UI
 - 测试文件放在 `Assets/Tests`，使用 `Factory.Tests` 命名空间。
 - Resolver 测试使用 `TransportScenario`。
 - System 测试使用 `FactoryWorldFixture`。
-- 修改模拟逻辑后必须运行完整 `Factory.Tests`，当前基线为 59 个测试。
+- 修改模拟逻辑后必须运行完整 `Factory.Tests`；UI 入口变更还必须运行
+  `Factory.PlayModeTests`。
 - 新玩法必须带回归测试，不能只用手动验证替代。
 
 ### 7.2 性能报告

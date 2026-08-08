@@ -875,6 +875,17 @@ Assets/Art/Icons/Buildings/
 5. 执行 UI PlayMode 用例和性能场景；
 6. 更新 Gameplay 开发指南和操作说明。
 
+完成状态（2026-08-09）：正式 `Ecs` 场景已移除 `Stage3PrototypeHud`；建造
+选择完全由 UI Toolkit 目录负责，放置、旋转、路径顺序与拆除统一读取 Input
+System Build Action Map；性能 Bootstrap 会停用 `GameUiRoot`；Phase5 PlayMode
+用例覆盖原型入口移除及 Gameplay/Build/Modal Action Map 切换。回归修复后，
+Q 同时存在于 Gameplay/Build Map，目录快照不再重置待确认建筑，R 在传送带
+起点选定后切换横竖优先。配方卡和建筑卡均改为池化复用，连续快照不再在
+PointerDown/PointerUp 之间替换按钮；“更换配方”按钮强制位于加工流程层
+之上，配方页状态按建筑隔离。最终验收通过 81/81 EditMode、6/6
+PlayMode；`Perf_4096_Mk4_FullLoop`（scale 64、4096 节点、100% 装载）
+完成 583 帧短采样，均值 3.407 ms、P95 5.609 ms。
+
 ## 16. 测试矩阵
 
 ### 16.1 ECS EditMode/System 测试

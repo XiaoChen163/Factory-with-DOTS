@@ -21,6 +21,8 @@ MonoBehaviour:
     category: 1
     prefabKey: iron_ore
     prefab: {fileID: 210000, guid: c21f07a46487418a8bcd9bac9777ec26, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
   - id: 2
     key: iron_ingot
     nameKey: item.iron_ingot
@@ -28,6 +30,8 @@ MonoBehaviour:
     category: 2
     prefabKey: iron_ingot
     prefab: {fileID: 220000, guid: d42df505a758468db0c476485424dffd, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
   machineTypes:
   - id: 1
     key: mining
@@ -177,6 +181,8 @@ MonoBehaviour:
     nameKey: building.belt.mk1
     visualPrefabKey: belt
     visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 100
   - id: 2
     key: belt_mk2
@@ -186,6 +192,8 @@ MonoBehaviour:
     nameKey: building.belt.mk2
     visualPrefabKey: belt_mk2
     visualPrefab: {fileID: 194256, guid: f0bf725215764e23aeb4dfd6bf746bc7, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 101
   - id: 3
     key: belt_mk3
@@ -195,6 +203,8 @@ MonoBehaviour:
     nameKey: building.belt.mk3
     visualPrefabKey: belt_mk3
     visualPrefab: {fileID: 143296, guid: ba623fa09eba45dfbba2b343f380e337, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 102
   - id: 4
     key: belt_mk4
@@ -204,6 +214,8 @@ MonoBehaviour:
     nameKey: building.belt.mk4
     visualPrefabKey: belt_mk4
     visualPrefab: {fileID: 132144, guid: f729e0e61af447f9a16bbc93cdfaa2fc, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 103
   - id: 5
     key: miner_mk1
@@ -213,6 +225,8 @@ MonoBehaviour:
     nameKey: building.miner.mk1
     visualPrefabKey: miner
     visualPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 200
   - id: 6
     key: furnace_mk1
@@ -222,6 +236,8 @@ MonoBehaviour:
     nameKey: building.furnace.mk1
     visualPrefabKey: furnace
     visualPrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 300
   - id: 7
     key: storage_mk1
@@ -231,6 +247,8 @@ MonoBehaviour:
     nameKey: building.storage.mk1
     visualPrefabKey: storage
     visualPrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 400
   - id: 8
     key: merger_mk1
@@ -240,6 +258,8 @@ MonoBehaviour:
     nameKey: building.merger.mk1
     visualPrefabKey: merger
     visualPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 500
   - id: 9
     key: splitter_mk1
@@ -249,6 +269,8 @@ MonoBehaviour:
     nameKey: building.splitter.mk1
     visualPrefabKey: splitter
     visualPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
+    iconKey: 
+    icon: {fileID: 0}
     menuOrder: 600
   beltLevels:
   - buildingLevelKey: belt_mk1

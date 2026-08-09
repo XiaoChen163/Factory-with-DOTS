@@ -197,6 +197,7 @@ public struct FactoryStorageLevelBlob
 {
     public BuildingLevelId LevelId;
     public int Capacity;
+    public ushort SlotCount;
 }
 
 public struct FactoryRecipeRangeBlob

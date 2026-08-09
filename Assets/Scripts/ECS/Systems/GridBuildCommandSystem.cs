@@ -42,6 +42,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private EntityQuery catalogQuery;
     private EntityQuery placementQuery;
     private EntityQuery itemPoolQuery;
+    private EntityQuery playerQuery;
 
     protected override void OnCreate()
     {
@@ -60,6 +61,10 @@ public partial class GridBuildCommandSystem : SystemBase
         itemPoolQuery = GetEntityQuery(
             ComponentType.ReadOnly<ItemPool>(),
             ComponentType.ReadOnly<ItemPoolEntry>());
+        playerQuery = GetEntityQuery(
+            ComponentType.ReadOnly<PlayerIdentity>(),
+            ComponentType.ReadWrite<PlayerInventory>(),
+            ComponentType.ReadWrite<InventorySlot>());
     }
 
     protected override void OnUpdate()
@@ -123,6 +128,7 @@ public partial class GridBuildCommandSystem : SystemBase
             occupancySystem,
             out List<PlacementRecord> records,
             out Dictionary<int2, PlacementRecord> occupantByCell);
+        Dictionary<PlayerId, Entity> players = BuildPlayerSnapshot();
 
         EntityCommandBuffer ecb =
             new EntityCommandBuffer(Allocator.Temp);
@@ -143,6 +149,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 case GridBuildCommandType.Remove:
                     success = TryRemove(
                         command.StartCell,
+                        GetPlayer(command.Player, players),
+                        ref database,
                         records,
                         occupantByCell,
                         dirtyCells,
@@ -155,6 +163,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 case GridBuildCommandType.RemoveBeltLine:
                     success = TryRemoveBeltLine(
                         command.StartCell,
+                        GetPlayer(command.Player, players),
+                        ref database,
                         records,
                         occupantByCell,
                         dirtyCells,
@@ -462,6 +472,8 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryRemove(
         int2 cell,
+        Entity player,
+        ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
         HashSet<int2> dirtyCells,
@@ -482,7 +494,7 @@ public partial class GridBuildCommandSystem : SystemBase
         RemoveRecord(record, records, occupantByCell);
         RemoveOccupancy(record, occupancySystem);
         MarkCellsDirty(record.OccupiedCells, dirtyCells);
-        DestroyOwnedItem(record.Entity, ref ecb);
+        RecoverOwnedItems(record.Entity, player, ref database, ref ecb);
         ecb.DestroyEntity(record.Entity);
         failureReason = GridBuildFailureReason.None;
         return true;
@@ -490,6 +502,8 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryRemoveBeltLine(
         int2 cell,
+        Entity player,
+        ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
         Dictionary<int2, PlacementRecord> occupantByCell,
         HashSet<int2> dirtyCells,
@@ -543,7 +557,7 @@ public partial class GridBuildCommandSystem : SystemBase
             RemoveRecord(belt, records, occupantByCell);
             RemoveOccupancy(belt, occupancySystem);
             MarkCellsDirty(belt.OccupiedCells, dirtyCells);
-            DestroyOwnedItem(belt.Entity, ref ecb);
+            RecoverOwnedItems(belt.Entity, player, ref database, ref ecb);
             ecb.DestroyEntity(belt.Entity);
             removedCount++;
         }
@@ -1063,12 +1077,17 @@ public partial class GridBuildCommandSystem : SystemBase
                     MachineType = building.MachineType,
                     WorkRatePermille = processorLevel.WorkRatePermille
                 });
-                ecb.AddBuffer<ItemProcessInput>(instance);
+                ecb.AddBuffer<ProcessorItemSlot>(instance);
                 ecb.AddComponent(instance, new ItemProcessState
                 {
                     ActiveRecipeIndex = -1,
-                    SelectedRecipeIndex = 0,
+                    SelectedRecipeIndex = -1,
                     Status = ItemProcessStatus.Idle
+                });
+                ecb.AddComponent(instance, new ItemContainerIdentity
+                {
+                    RuntimeId = ItemContainerRuntimeIdUtility.FromCell(
+                        placement.AnchorCell)
                 });
                 AddItemPortBuffers(instance, ref ecb);
                 break;
@@ -1079,9 +1098,20 @@ public partial class GridBuildCommandSystem : SystemBase
                     out FactoryStorageLevelBlob storageLevel);
                 ecb.AddComponent(instance, new StorageState
                 {
-                    Capacity = storageLevel.Capacity
+                    Capacity = storageLevel.Capacity,
+                    SlotCount = storageLevel.SlotCount
                 });
-                ecb.AddBuffer<StoredItemCount>(instance);
+                DynamicBuffer<InventorySlot> storageSlots =
+                    ecb.AddBuffer<InventorySlot>(instance);
+                for (int i = 0; i < storageLevel.SlotCount; i++)
+                {
+                    storageSlots.Add(default);
+                }
+                ecb.AddComponent(instance, new ItemContainerIdentity
+                {
+                    RuntimeId = ItemContainerRuntimeIdUtility.FromCell(
+                        placement.AnchorCell)
+                });
                 AddItemPortBuffers(instance, ref ecb);
                 break;
         }
@@ -1176,25 +1206,7 @@ public partial class GridBuildCommandSystem : SystemBase
         Entity building,
         ref EntityCommandBuffer ecb)
     {
-        Entity item = Entity.Null;
-        if (EntityManager.HasComponent<BeltState>(building))
-        {
-            item =
-                EntityManager.GetComponentData<BeltState>(building)
-                    .CurrentItem;
-        }
-        else if (EntityManager.HasComponent<Merger>(building))
-        {
-            item =
-                EntityManager.GetComponentData<Merger>(building)
-                    .CurrentItem;
-        }
-        else if (EntityManager.HasComponent<Splitter>(building))
-        {
-            item =
-                EntityManager.GetComponentData<Splitter>(building)
-                    .CurrentItem;
-        }
+        Entity item = GetOwnedItem(building);
         if (item != Entity.Null && EntityManager.Exists(item))
         {
             if (!TryReturnToItemPool(item, ref ecb))
@@ -1203,6 +1215,158 @@ public partial class GridBuildCommandSystem : SystemBase
             }
         }
     }
+
+    private void RecoverOwnedItems(
+        Entity building,
+        Entity player,
+        ref FactoryDatabaseBlob database,
+        ref EntityCommandBuffer ecb)
+    {
+        if (player == Entity.Null ||
+            !EntityManager.Exists(player) ||
+            !EntityManager.HasComponent<PlayerInventory>(player) ||
+            !EntityManager.HasBuffer<InventorySlot>(player))
+        {
+            DestroyOwnedItem(building, ref ecb);
+            return;
+        }
+
+        DynamicBuffer<InventorySlot> playerSlots =
+            EntityManager.GetBuffer<InventorySlot>(player);
+        PlayerInventory inventory =
+            EntityManager.GetComponentData<PlayerInventory>(player);
+        bool recoveredAny = false;
+
+        if (EntityManager.HasBuffer<InventorySlot>(building))
+        {
+            DynamicBuffer<InventorySlot> buildingSlots =
+                EntityManager.GetBuffer<InventorySlot>(building, true);
+            for (int i = 0; i < buildingSlots.Length; i++)
+            {
+                InventorySlot slot = buildingSlots[i];
+                recoveredAny |= AddRecoveredItem(
+                    slot.ItemType,
+                    slot.Count,
+                    ref database,
+                    playerSlots,
+                    ref inventory);
+            }
+        }
+
+        if (EntityManager.HasBuffer<ProcessorItemSlot>(building))
+        {
+            DynamicBuffer<ProcessorItemSlot> processorSlots =
+                EntityManager.GetBuffer<ProcessorItemSlot>(building, true);
+            for (int i = 0; i < processorSlots.Length; i++)
+            {
+                ProcessorItemSlot slot = processorSlots[i];
+                recoveredAny |= AddRecoveredItem(
+                    slot.AcceptedItemType,
+                    slot.Count,
+                    ref database,
+                    playerSlots,
+                    ref inventory);
+            }
+
+            if (EntityManager.HasComponent<ItemProcessState>(building))
+            {
+                ItemProcessState process =
+                    EntityManager.GetComponentData<ItemProcessState>(building);
+                if ((process.Status == ItemProcessStatus.Processing ||
+                     process.Status == ItemProcessStatus.Completed) &&
+                    process.ActiveRecipeIndex >= 0 &&
+                    process.ActiveRecipeIndex < database.Recipes.Length)
+                {
+                    FactoryRecipeBlob recipe =
+                        database.Recipes[process.ActiveRecipeIndex];
+                    for (int i = 0; i < recipe.InputCount; i++)
+                    {
+                        FactoryRecipeIngredientBlob ingredient =
+                            database.Inputs[recipe.InputStart + i];
+                        recoveredAny |= AddRecoveredItem(
+                            ingredient.ItemId,
+                            ingredient.Count,
+                            ref database,
+                            playerSlots,
+                            ref inventory);
+                    }
+                }
+            }
+        }
+
+        Entity carriedItem = GetOwnedItem(building);
+        if (carriedItem != Entity.Null &&
+            EntityManager.Exists(carriedItem) &&
+            EntityManager.HasComponent<Item>(carriedItem))
+        {
+            recoveredAny |= AddRecoveredItem(
+                EntityManager.GetComponentData<Item>(carriedItem).ItemType,
+                1,
+                ref database,
+                playerSlots,
+                ref inventory);
+        }
+
+        if (recoveredAny)
+        {
+            inventory.Revision++;
+            EntityManager.SetComponentData(player, inventory);
+        }
+
+        DestroyOwnedItem(building, ref ecb);
+    }
+
+    private static bool AddRecoveredItem(
+        ItemId itemType,
+        int count,
+        ref FactoryDatabaseBlob database,
+        DynamicBuffer<InventorySlot> playerSlots,
+        ref PlayerInventory inventory)
+    {
+        if (count <= 0 ||
+            !FactoryDatabaseUtility.IsValidItem(ref database, itemType))
+        {
+            return false;
+        }
+
+        ItemProcessUtility.AddToInventory(
+            itemType,
+            count,
+            ref database,
+            playerSlots,
+            ref inventory);
+        return true;
+    }
+
+    private Entity GetOwnedItem(Entity building)
+    {
+        if (EntityManager.HasComponent<BeltState>(building))
+            return EntityManager.GetComponentData<BeltState>(building).CurrentItem;
+        if (EntityManager.HasComponent<Merger>(building))
+            return EntityManager.GetComponentData<Merger>(building).CurrentItem;
+        if (EntityManager.HasComponent<Splitter>(building))
+            return EntityManager.GetComponentData<Splitter>(building).CurrentItem;
+        return Entity.Null;
+    }
+
+    private Dictionary<PlayerId, Entity> BuildPlayerSnapshot()
+    {
+        Dictionary<PlayerId, Entity> players = new Dictionary<PlayerId, Entity>();
+        using NativeArray<Entity> entities =
+            playerQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<PlayerIdentity> identities =
+            playerQuery.ToComponentDataArray<PlayerIdentity>(Allocator.Temp);
+        for (int i = 0; i < entities.Length; i++)
+            players[identities[i].Value] = entities[i];
+        return players;
+    }
+
+    private static Entity GetPlayer(
+        PlayerId playerId,
+        Dictionary<PlayerId, Entity> players) =>
+        playerId.IsValid && players.TryGetValue(playerId, out Entity player)
+            ? player
+            : Entity.Null;
 
     private bool TryReturnToItemPool(
         Entity item,

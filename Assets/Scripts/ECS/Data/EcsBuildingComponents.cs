@@ -33,6 +33,7 @@ public enum GridBuildCommandType : byte
 public struct GridBuildCommand : IBufferElementData
 {
     public uint RequestId;
+    public PlayerId Player;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;
@@ -77,21 +78,30 @@ public enum ItemProcessStatus : byte
     OutputBlocked
 }
 
-[InternalBufferCapacity(4)]
-public struct ItemProcessInput : IBufferElementData
+public enum ProcessorSlotKind : byte
 {
-    public ItemId ItemType;
-    public int Count;
+    Input,
+    Output
+}
+
+[InternalBufferCapacity(8)]
+public struct ProcessorItemSlot : IBufferElementData
+{
+    public ItemId AcceptedItemType;
+    public ushort Count;
+    public ushort Capacity;
+    public ushort RequiredOrProducedCount;
+    public byte RecipeSlotIndex;
+    public ProcessorSlotKind Kind;
 }
 
 public struct ItemProcessState : IComponentData
 {
-    // Output remains logical until the transfer middleware accepts it.
-    public int PendingOutputCount;
     public int ElapsedTicks;
     public int DurationTicks;
     public int SelectedRecipeIndex;
     public int ActiveRecipeIndex;
+    public uint InventoryRevision;
     public ItemProcessStatus Status;
 }
 
@@ -99,13 +109,15 @@ public struct StorageState : IComponentData
 {
     public int TotalStored;
     public int Capacity;
+    public ushort SlotCount;
+    public uint Revision;
 }
 
-[InternalBufferCapacity(4)]
-public struct StoredItemCount : IBufferElementData
+[InternalBufferCapacity(24)]
+public struct InventorySlot : IBufferElementData
 {
     public ItemId ItemType;
-    public int Count;
+    public ushort Count;
 }
 
 public static class BuildingPrefabCatalogUtility
@@ -121,5 +133,15 @@ public static class BuildingPrefabCatalogUtility
                 return entry.Prefab;
         }
         return Entity.Null;
+    }
+}
+
+public static class ItemContainerRuntimeIdUtility
+{
+    public static ulong FromCell(int2 cell)
+    {
+        return 0x8000000000000000UL |
+               ((ulong)(uint)cell.x << 32) |
+               (uint)cell.y;
     }
 }

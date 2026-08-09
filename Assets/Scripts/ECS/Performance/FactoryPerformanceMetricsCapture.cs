@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Profiling;
 using Unity.Profiling.LowLevel.Unsafe;
@@ -286,6 +287,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 splitterEntities = entityCounts.splitters,
                 processorEntities = entityCounts.processors,
                 storageEntities = entityCounts.storages,
+                storageStoredItems = entityCounts.storageStoredItems,
                 itemEntities = entityCounts.items,
                 peakBeltEntities = definition.Scenario ==
                     FactoryPerformanceScenario.ContinuousBeltBuild
@@ -514,6 +516,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                     splitterEntities = report.splitterEntities,
                     processorEntities = report.processorEntities,
                     storageEntities = report.storageEntities,
+                    storageStoredItems = report.storageStoredItems,
                     itemEntities = report.itemEntities,
                     peakBeltEntities = report.peakBeltEntities,
                     warmupSeconds = report.warmupSeconds,
@@ -669,6 +672,10 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
             storages = storages.CalculateEntityCount(),
             items = items.CalculateEntityCount()
         };
+        using NativeArray<StorageState> storageStates =
+            storages.ToComponentDataArray<StorageState>(Allocator.Temp);
+        for (int i = 0; i < storageStates.Length; i++)
+            counts.storageStoredItems += storageStates[i].TotalStored;
         belts.Dispose();
         mergers.Dispose();
         splitters.Dispose();
@@ -811,6 +818,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         public int splitters;
         public int processors;
         public int storages;
+        public int storageStoredItems;
         public int items;
     }
 }
@@ -844,6 +852,7 @@ public sealed class FactoryPerformanceCaptureReport
     public int splitterEntities;
     public int processorEntities;
     public int storageEntities;
+    public int storageStoredItems;
     public int itemEntities;
     public int peakBeltEntities;
     public float warmupSeconds;
@@ -896,6 +905,7 @@ public sealed class FactoryPerformanceCompactReport
     public int splitterEntities;
     public int processorEntities;
     public int storageEntities;
+    public int storageStoredItems;
     public int itemEntities;
     public int peakBeltEntities;
     public float warmupSeconds;

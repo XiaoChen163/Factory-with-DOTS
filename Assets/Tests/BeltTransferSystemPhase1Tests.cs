@@ -85,6 +85,25 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void BuildingOutput_StackedAvailabilityTransfersOnlyOneItemPerTick()
+        {
+            CreateGrid();
+            CreateItemCatalog();
+            Entity belt = CreateBelt(new int2(0, 0), East);
+            Entity owner = CreateOutputOwner(new int2(0, 0), 64);
+
+            UpdateTransferTick();
+
+            Assert.That(
+                EntityManager.GetComponentData<BeltState>(belt).CurrentItem,
+                Is.Not.EqualTo(Entity.Null));
+            DynamicBuffer<ItemTransferReceiptNext> receipts =
+                EntityManager.GetBuffer<ItemTransferReceiptNext>(owner);
+            Assert.That(receipts.Length, Is.EqualTo(1));
+            Assert.That(receipts[0].Value.Count, Is.EqualTo(1));
+        }
+
+        [Test]
         public void BuildingOutput_WhenItemPrefabMissingItemComponent_StillInjectsItem()
         {
             CreateGrid();
@@ -217,7 +236,7 @@ namespace Factory.Tests
                 });
         }
 
-        private Entity CreateOutputOwner(int2 targetCell)
+        private Entity CreateOutputOwner(int2 targetCell, int availableCount = 1)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {
@@ -239,7 +258,7 @@ namespace Factory.Tests
                     Value = new ItemOutputPortSnapshot
                     {
                         ItemType = new ItemId { Value = 1 },
-                        AvailableCount = 1,
+                        AvailableCount = availableCount,
                         PortIndex = 0,
                         Enabled = 1
                     }

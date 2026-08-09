@@ -162,7 +162,8 @@ public static class FactoryDatabaseBakingUtility
             storageLevels[row.buildingLevelId] = new FactoryStorageLevelBlob
             {
                 LevelId = levelId,
-                Capacity = row.capacity
+                Capacity = row.capacity,
+                SlotCount = row.slotCount
             };
         }
 
@@ -298,6 +299,7 @@ public static class FactoryDatabaseBakingUtility
                 out FactoryBuildingLevelTableRow level);
             valid &= referenceValid && storageLevelIds.Add(storageLevel.buildingLevelId) &&
                      storageLevel.capacity > 0 &&
+                     storageLevel.slotCount > 0 &&
                      buildingsById[level.buildingId].behavior == FactoryBuildingBehavior.Storage;
         }
         foreach (FactoryBuildingLevelTableRow level in source.buildingLevels)
@@ -331,8 +333,7 @@ public static class FactoryDatabaseBakingUtility
         {
             valid &= recipe.id != 0 && recipeIds.Add(recipe.id) &&
                      recipe.machineTypeId != 0 && recipe.durationSeconds > 0f &&
-                     (recipe.inputs?.Length ?? 0) <= 1 &&
-                     (recipe.outputs?.Length ?? 0) == 1;
+                     (recipe.outputs?.Length ?? 0) > 0;
             foreach (FactoryRecipeIngredientTableRow ingredient in
                      recipe.inputs ?? Array.Empty<FactoryRecipeIngredientTableRow>())
                 valid &= itemIds.Contains(ingredient.itemId) && ingredient.count > 0;

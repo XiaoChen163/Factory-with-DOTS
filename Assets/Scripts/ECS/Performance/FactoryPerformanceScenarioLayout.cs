@@ -20,18 +20,21 @@ public readonly struct FactoryPerformancePlacement
         BuildingKind kind,
         BuildingLevelId buildingLevel,
         int2 cell,
-        byte quarterTurns)
+        byte quarterTurns,
+        string recipeKey = null)
     {
         Kind = kind;
         BuildingLevel = buildingLevel;
         Cell = cell;
         QuarterTurns = quarterTurns;
+        RecipeKey = recipeKey;
     }
 
     public BuildingKind Kind { get; }
     public BuildingLevelId BuildingLevel { get; }
     public int2 Cell { get; }
     public byte QuarterTurns { get; }
+    public string RecipeKey { get; }
 }
 
 public sealed class FactoryPerformanceScenarioDefinition
@@ -344,7 +347,8 @@ public static class FactoryPerformanceScenarioLayout
                 BuildingKind.Miner,
                 new int2(0, y),
                 new int2(1, 0),
-                MinerLevelId);
+                MinerLevelId,
+                "mine_iron");
 
             List<int2> oreRoute = new List<int2>(8);
             for (int x = 2; x <= 9; x++)
@@ -357,7 +361,8 @@ public static class FactoryPerformanceScenarioLayout
                 BuildingKind.Furnace,
                 new int2(10, y),
                 new int2(1, 0),
-                FurnaceLevelId);
+                FurnaceLevelId,
+                "smelt_iron");
 
             List<int2> ingotRoute = new List<int2>(8);
             for (int x = 12; x <= 19; x++)
@@ -657,7 +662,8 @@ public static class FactoryPerformanceScenarioLayout
             BuildingKind kind,
             int2 anchor,
             int2 direction,
-            ushort levelId)
+            ushort levelId,
+            string recipeKey)
         {
             if (kind != BuildingKind.Miner && kind != BuildingKind.Furnace)
             {
@@ -669,7 +675,8 @@ public static class FactoryPerformanceScenarioLayout
                 kind,
                 new BuildingLevelId { Value = levelId },
                 anchor,
-                EcsGridUtility.QuarterTurnsFromDirection(direction)));
+                EcsGridUtility.QuarterTurnsFromDirection(direction),
+                recipeKey));
         }
 
         public void AddStorage(int2 anchor, int2 inputDirection)

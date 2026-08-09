@@ -256,6 +256,7 @@ namespace Factory.Tests
             Assert.That(definition.StorageCount, Is.EqualTo(64));
             Assert.That(definition.InitialItemCells, Is.Empty);
             AssertUniquePlacementAnchors(definition);
+            AssertProducerConsumerRecipes(definition);
         }
 
         [Test]
@@ -276,6 +277,7 @@ namespace Factory.Tests
             Assert.That(definition.StorageCount, Is.EqualTo(4));
             Assert.That(definition.InitialItemCells, Is.Empty);
             AssertUniquePlacementAnchors(definition);
+            AssertProducerConsumerRecipes(definition);
         }
 
         [Test]
@@ -294,6 +296,7 @@ namespace Factory.Tests
             Assert.That(definition.ProcessorCount, Is.EqualTo(514));
             Assert.That(definition.StorageCount, Is.EqualTo(257));
             AssertUniquePlacementAnchors(definition);
+            AssertProducerConsumerRecipes(definition);
         }
 
         [Test]
@@ -344,6 +347,27 @@ namespace Factory.Tests
                     "Duplicate placement anchor at " + placement.Cell + ".");
                 Assert.That(placement.Cell.x, Is.InRange(0, definition.GridSize.x - 1));
                 Assert.That(placement.Cell.y, Is.InRange(0, definition.GridSize.y - 1));
+            }
+        }
+
+        private static void AssertProducerConsumerRecipes(
+            FactoryPerformanceScenarioDefinition definition)
+        {
+            for (int i = 0; i < definition.Placements.Length; i++)
+            {
+                FactoryPerformancePlacement placement = definition.Placements[i];
+                switch (placement.Kind)
+                {
+                    case BuildingKind.Miner:
+                        Assert.That(placement.RecipeKey, Is.EqualTo("mine_iron"));
+                        break;
+                    case BuildingKind.Furnace:
+                        Assert.That(placement.RecipeKey, Is.EqualTo("smelt_iron"));
+                        break;
+                    default:
+                        Assert.That(placement.RecipeKey, Is.Null);
+                        break;
+                }
             }
         }
 

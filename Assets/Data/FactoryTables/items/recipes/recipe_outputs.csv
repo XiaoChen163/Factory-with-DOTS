@@ -1,3 +1,5 @@
 recipe_key,item_key,count
 mine_iron,iron_ore,1
 smelt_iron,iron_ingot,1
+test_multi_io,iron_ore,1
+test_multi_io,iron_ingot,1

@@ -1,7 +1,7 @@
 # ECS 性能测试场景
 
 打开任意场景并进入 Play Mode。场景会以 Additive 方式加载共享的
-`Stage3Ecs` 场景，复用正式的 SubScene、数据库、建造系统、视觉 Prefab
+`Ecs` 场景，复用正式的 SubScene、数据库、建造系统、视觉 Prefab
 和运行时 ECS 系统。
 
 初始化完成后左上角显示 `READY - start Profiler capture now`，Console

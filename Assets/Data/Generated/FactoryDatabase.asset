@@ -21,6 +21,8 @@ MonoBehaviour:
     category: 1
     prefabKey: iron_ore
     prefab: {fileID: 210000, guid: c21f07a46487418a8bcd9bac9777ec26, type: 3}
+    iconKey: iron_ore
+    icon: {fileID: 21300000, guid: c9a7c18fe9d8e5d4792e93a332129a99, type: 3}
   - id: 2
     key: iron_ingot
     nameKey: item.iron_ingot
@@ -28,6 +30,8 @@ MonoBehaviour:
     category: 2
     prefabKey: iron_ingot
     prefab: {fileID: 220000, guid: d42df505a758468db0c476485424dffd, type: 3}
+    iconKey: iron_ingot
+    icon: {fileID: 21300000, guid: aafebab3a53944b4ea554efc6ca042a4, type: 3}
   machineTypes:
   - id: 1
     key: mining
@@ -177,6 +181,8 @@ MonoBehaviour:
     nameKey: building.belt.mk1
     visualPrefabKey: belt
     visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
+    iconKey: belt
+    icon: {fileID: 21300000, guid: 84f6d24af323254498b4a3bafb2dace4, type: 3}
     menuOrder: 100
   - id: 2
     key: belt_mk2
@@ -186,6 +192,8 @@ MonoBehaviour:
     nameKey: building.belt.mk2
     visualPrefabKey: belt_mk2
     visualPrefab: {fileID: 194256, guid: f0bf725215764e23aeb4dfd6bf746bc7, type: 3}
+    iconKey: belt_mk2
+    icon: {fileID: 21300000, guid: 9ae6dfb0b5de48140ba147aca9586de6, type: 3}
     menuOrder: 101
   - id: 3
     key: belt_mk3
@@ -195,6 +203,8 @@ MonoBehaviour:
     nameKey: building.belt.mk3
     visualPrefabKey: belt_mk3
     visualPrefab: {fileID: 143296, guid: ba623fa09eba45dfbba2b343f380e337, type: 3}
+    iconKey: belt_mk3
+    icon: {fileID: 21300000, guid: 0f0728b880970f544856851f4bd29305, type: 3}
     menuOrder: 102
   - id: 4
     key: belt_mk4
@@ -204,6 +214,8 @@ MonoBehaviour:
     nameKey: building.belt.mk4
     visualPrefabKey: belt_mk4
     visualPrefab: {fileID: 132144, guid: f729e0e61af447f9a16bbc93cdfaa2fc, type: 3}
+    iconKey: belt_mk4
+    icon: {fileID: 21300000, guid: 3ce66c5e5faf6594faf9875decc0f10b, type: 3}
     menuOrder: 103
   - id: 5
     key: miner_mk1
@@ -213,6 +225,8 @@ MonoBehaviour:
     nameKey: building.miner.mk1
     visualPrefabKey: miner
     visualPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
+    iconKey: miner
+    icon: {fileID: 21300000, guid: 78282980434a1d64a95c2b414aa9f52a, type: 3}
     menuOrder: 200
   - id: 6
     key: furnace_mk1
@@ -222,6 +236,8 @@ MonoBehaviour:
     nameKey: building.furnace.mk1
     visualPrefabKey: furnace
     visualPrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
+    iconKey: furnace
+    icon: {fileID: 21300000, guid: ab7866f7c6393c84e8b877287c2dc8b6, type: 3}
     menuOrder: 300
   - id: 7
     key: storage_mk1
@@ -231,6 +247,8 @@ MonoBehaviour:
     nameKey: building.storage.mk1
     visualPrefabKey: storage
     visualPrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
+    iconKey: storage
+    icon: {fileID: 21300000, guid: c5d890f56526d0f4c9da6c7d3631694f, type: 3}
     menuOrder: 400
   - id: 8
     key: merger_mk1
@@ -240,6 +258,8 @@ MonoBehaviour:
     nameKey: building.merger.mk1
     visualPrefabKey: merger
     visualPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
+    iconKey: merger
+    icon: {fileID: 21300000, guid: 9d0e06efb66c15a4eb48738129d6d16b, type: 3}
     menuOrder: 500
   - id: 9
     key: splitter_mk1
@@ -249,6 +269,8 @@ MonoBehaviour:
     nameKey: building.splitter.mk1
     visualPrefabKey: splitter
     visualPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
+    iconKey: splitter
+    icon: {fileID: 21300000, guid: 11bcb1e2fac0dc74184a00dd96351721, type: 3}
     menuOrder: 600
   beltLevels:
   - buildingLevelKey: belt_mk1
@@ -274,6 +296,7 @@ MonoBehaviour:
   - buildingLevelKey: storage_mk1
     buildingLevelId: 7
     capacity: 100
+    slotCount: 8
   recipes:
   - id: 1
     key: mine_iron
@@ -295,6 +318,25 @@ MonoBehaviour:
       itemId: 1
       count: 2
     outputs:
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+  - id: 3
+    key: test_multi_io
+    machineTypeKey: smelting
+    machineTypeId: 2
+    durationSeconds: 1
+    inputs:
+    - itemKey: iron_ore
+      itemId: 1
+      count: 1
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+    outputs:
+    - itemKey: iron_ore
+      itemId: 1
+      count: 1
     - itemKey: iron_ingot
       itemId: 2
       count: 1

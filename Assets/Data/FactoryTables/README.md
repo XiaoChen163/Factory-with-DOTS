@@ -3,7 +3,7 @@
 这些 CSV 是物品与配方的唯一编辑源。不要手工编辑
 `Assets/Data/Generated/FactoryDatabase.asset`。
 
-- `items.csv`：稳定 `ItemId`、显示 Key、堆叠、分类和 `prefab_key`。
+- `items.csv`：稳定 `ItemId`、显示 Key、堆叠、分类、`prefab_key` 和可选的 `icon_key`。
 - `machine_types.csv`：配方要求的加工能力 key。
 - `buildings.csv`：建筑类型、能力、占地和共享端口布局。
 - `building_levels.csv`：所有建筑共有的等级身份、表现 Prefab 和菜单顺序。
@@ -17,6 +17,13 @@
 
 保存 CSV 后，Unity 会自动重建生成资产。也可以执行菜单
 `Factory > Rebuild Static Database` 手动重建。
+
+物品和建筑图标由 Editor 自动从表现 Prefab 烘焙。默认图标 Key 与对应
+`prefab_key` / `visual_prefab_key` 相同，因此 CSV 可以省略 `icon_key`；只有
+需要让多个数据行共享另一张图标时才需要显式填写。输出目录分别是
+`Assets/Art/Icons/Items` 和 `Assets/Art/Icons/Buildings`。可以通过菜单
+`Factory > Icons > Bake All` 强制重建，或在
+`Factory > Icons > Create or Select Settings` 中调整视角、灯光和构图边距。
 
 CSV 之间使用稳定 key 关联；导入器会验证引用并在生成资产中解析为紧凑 ID。
 运行时 ID 和 Blob 数组下标不应写入长期存档，存档应保存 key。

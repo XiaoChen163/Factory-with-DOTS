@@ -148,9 +148,10 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             ushort id = ParseUShort(table.Get(row, "id"), "item id");
             string key = RequiredKey(table.Get(row, "key"), "item key");
             string prefabKey = RequiredKey(table.Get(row, "prefab_key"), "item prefab key");
-            string iconKey = table.TryGet(row, "icon_key", out string configuredIcon)
+            bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon);
+            string iconKey = hasConfiguredIcon
                 ? RequiredKey(configuredIcon, "item icon key")
-                : string.Empty;
+                : prefabKey;
             if (id == 0 || !ids.Add(id) || !keys.Add(key))
                 throw new InvalidDataException($"Duplicate or invalid item '{key}' ({id}).");
             GameObject prefab = ResolvePrefab(prefabs, prefabKey, ItemPrefabDirectory);
@@ -166,9 +167,9 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
                 prefabKey = prefabKey,
                 prefab = prefab,
                 iconKey = iconKey,
-                icon = string.IsNullOrEmpty(iconKey)
-                    ? null
-                    : ResolveSprite(icons, iconKey, ItemIconDirectory)
+                icon = hasConfiguredIcon
+                    ? ResolveSprite(icons, iconKey, ItemIconDirectory)
+                    : TryResolveSprite(icons, iconKey)
             });
         }
         result.Sort((a, b) => a.id.CompareTo(b.id));
@@ -299,9 +300,10 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             if (!buildingsByKey.TryGetValue(buildingKey, out FactoryBuildingTableRow building))
                 throw new InvalidDataException($"Building level '{key}' references unknown building '{buildingKey}'.");
             string prefabKey = RequiredKey(table.Get(row, "visual_prefab_key"), "building visual prefab key");
-            string iconKey = table.TryGet(row, "icon_key", out string configuredIcon)
+            bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon);
+            string iconKey = hasConfiguredIcon
                 ? RequiredKey(configuredIcon, "building icon key")
-                : string.Empty;
+                : prefabKey;
             GameObject prefab = ResolvePrefab(prefabs, prefabKey, BuildingPrefabDirectory);
             ValidateBuildingVisualPrefab(prefab, prefabKey);
             rows.Add(new FactoryBuildingLevelTableRow
@@ -314,9 +316,9 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
                 visualPrefabKey = prefabKey,
                 visualPrefab = prefab,
                 iconKey = iconKey,
-                icon = string.IsNullOrEmpty(iconKey)
-                    ? null
-                    : ResolveSprite(icons, iconKey, BuildingIconDirectory),
+                icon = hasConfiguredIcon
+                    ? ResolveSprite(icons, iconKey, BuildingIconDirectory)
+                    : TryResolveSprite(icons, iconKey),
                 menuOrder = ParseInt(table.Get(row, "menu_order"), "menu order")
             });
         }
@@ -680,6 +682,14 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
             return sprite;
         throw new InvalidDataException(
             $"Icon key '{key}' was not found in '{directory}'.");
+    }
+
+    private static Sprite TryResolveSprite(
+        Dictionary<string, Sprite> sprites,
+        string key)
+    {
+        sprites.TryGetValue(NormalizeKey(key), out Sprite sprite);
+        return sprite;
     }
 
     private static GameObject ResolvePrefab(

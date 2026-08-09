@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a12fd69b88f88d943971f707ae92080c, type: 3}
+  m_Name: FactoryIconBakeManifest
+  m_EditorClassIdentifier: Factory.Editor::FactoryIconBakeManifest
+  entries:
+  - prefabPath: Assets/Prefabs/Buildings/Belt.prefab
+    outputPath: Assets/Art/Icons/Buildings/Belt.png
+    hash: 42e4682851f80412c25ded408d2bdb93
+  - prefabPath: Assets/Prefabs/Buildings/BeltMk2.prefab
+    outputPath: Assets/Art/Icons/Buildings/BeltMk2.png
+    hash: 9f6ed0e09a104bbf2e21c05e170b5e8b
+  - prefabPath: Assets/Prefabs/Buildings/BeltMk3.prefab
+    outputPath: Assets/Art/Icons/Buildings/BeltMk3.png
+    hash: 3a3a3851419f408d0a0f378096ef5c8c
+  - prefabPath: Assets/Prefabs/Buildings/BeltMk4.prefab
+    outputPath: Assets/Art/Icons/Buildings/BeltMk4.png
+    hash: 00d43fde910e58b4cc4f8bb91301192b
+  - prefabPath: Assets/Prefabs/Buildings/Furnace.prefab
+    outputPath: Assets/Art/Icons/Buildings/Furnace.png
+    hash: 82a0d412173e186ca96142b531357aa0
+  - prefabPath: Assets/Prefabs/Buildings/Merger.prefab
+    outputPath: Assets/Art/Icons/Buildings/Merger.png
+    hash: 667e0b8ac7d4ad900bda0a11fdcdfa20
+  - prefabPath: Assets/Prefabs/Buildings/Miner.prefab
+    outputPath: Assets/Art/Icons/Buildings/Miner.png
+    hash: c2047dea342aa043cc2f6d267997807b
+  - prefabPath: Assets/Prefabs/Buildings/Splitter.prefab
+    outputPath: Assets/Art/Icons/Buildings/Splitter.png
+    hash: c81bff487643d203785a17f2a1ad8d49
+  - prefabPath: Assets/Prefabs/Buildings/Storage.prefab
+    outputPath: Assets/Art/Icons/Buildings/Storage.png
+    hash: 8f065d29e45f906c6049558d6164baaf
+  - prefabPath: Assets/Prefabs/Items/IronIngot.prefab
+    outputPath: Assets/Art/Icons/Items/IronIngot.png
+    hash: cf0c3769670417756f20590eeb4b3720
+  - prefabPath: Assets/Prefabs/Items/IronOre.prefab
+    outputPath: Assets/Art/Icons/Items/IronOre.png
+    hash: ffc5096710a42f9cbb91082ef1c2b0e6

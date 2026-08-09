@@ -82,7 +82,6 @@ public partial struct ItemPortAdapterSystem : ISystem
                         PublishProcessorOutput(
                             port.Index,
                             slot,
-                            process.Status,
                             currentOutputs,
                             receipts,
                             nextOutputs);
@@ -230,7 +229,6 @@ public partial struct ItemPortAdapterSystem : ISystem
     private static void PublishProcessorOutput(
         byte portIndex,
         in ProcessorItemSlot slot,
-        ItemProcessStatus status,
         in DynamicBuffer<ItemOutputPortSnapshot> current,
         in DynamicBuffer<ItemTransferReceiptNext> receipts,
         DynamicBuffer<ItemOutputPortSnapshot> next)
@@ -252,9 +250,7 @@ public partial struct ItemPortAdapterSystem : ISystem
                 applied,
                 GetOutputReservedCount(current, portIndex, slot.AcceptedItemType)),
             PortIndex = portIndex,
-            Enabled = status == ItemProcessStatus.OutputBlocked && slot.Count > 0
-                ? (byte)1
-                : (byte)0
+            Enabled = slot.Count > 0 ? (byte)1 : (byte)0
         });
     }
 

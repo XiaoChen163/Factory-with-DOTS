@@ -131,6 +131,35 @@ namespace Factory.Tests
                 Is.EqualTo(DisplayStyle.Flex));
         }
 
+        [Test]
+        public void BuildCatalog_ClickingSelectedBuildingConfirmsSelection()
+        {
+            VisualElement root = CreateBuildCatalogRoot();
+            BuildCatalogView view = new(root, null);
+            BuildingLevelId first = new BuildingLevelId { Value = 1 };
+            BuildingLevelId second = new BuildingLevelId { Value = 2 };
+            BuildingLevelId confirmed = default;
+            int confirmationCount = 0;
+            view.BuildingSelected += value =>
+            {
+                confirmed = value;
+                confirmationCount++;
+            };
+            view.Render(new BuildCatalogSnapshot(new[] { first, second }));
+
+            view.SelectBuilding(first);
+            Assert.That(view.SelectedBuildingLevel, Is.EqualTo(first));
+            Assert.That(confirmationCount, Is.Zero);
+
+            view.SelectBuilding(second);
+            Assert.That(view.SelectedBuildingLevel, Is.EqualTo(second));
+            Assert.That(confirmationCount, Is.Zero);
+
+            view.SelectBuilding(second);
+            Assert.That(confirmationCount, Is.EqualTo(1));
+            Assert.That(confirmed, Is.EqualTo(second));
+        }
+
         private static ItemSlotSnapshot Slot(ushort count) =>
             new(0, new ItemId { Value = 1 }, count, 100,
                 default, UiSlotAccess.InsertAndExtract);
@@ -167,6 +196,17 @@ namespace Factory.Tests
             root.Add(new ProgressBar { name = "processor-progress" });
             root.Add(new ScrollView { name = "recipe-list" });
             root.Add(new Button { name = "recipe-picker-back" });
+            return root;
+        }
+
+        private static VisualElement CreateBuildCatalogRoot()
+        {
+            VisualElement root = new();
+            root.Add(new VisualElement { name = "build-catalog-list" });
+            root.Add(new VisualElement { name = "catalog-detail-icon" });
+            root.Add(new Label { name = "catalog-detail-name" });
+            root.Add(new Label { name = "catalog-detail-description" });
+            root.Add(new Button { name = "build-catalog-confirm" });
             return root;
         }
     }

@@ -338,9 +338,20 @@ public sealed class BuildCatalogView
         card.clicked += () =>
         {
             if (card.userData is BuildingLevelId id)
-                SetSelected(id);
+                SelectBuilding(id);
         };
         return card;
+    }
+
+    /// <summary>Handles a catalog card activation, including repeat confirmation.</summary>
+    public void SelectBuilding(BuildingLevelId value)
+    {
+        if (value.IsValid && value == selected)
+        {
+            ConfirmSelection();
+            return;
+        }
+        SetSelected(value);
     }
 
     private void RefreshSelection()

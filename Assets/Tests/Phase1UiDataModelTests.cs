@@ -57,7 +57,7 @@ namespace Factory.Tests
                 Is.True);
             Assert.That(slots[2].Count, Is.EqualTo(2));
             Assert.That(slots[3].Count, Is.EqualTo(3));
-            Assert.That(process.Status, Is.EqualTo(ItemProcessStatus.OutputBlocked));
+            Assert.That(process.Status, Is.EqualTo(ItemProcessStatus.Idle));
         }
 
         [Test]
@@ -91,6 +91,162 @@ namespace Factory.Tests
                 0, 1000, blob.Recipes[0], slots, ref process), Is.False);
             Assert.That(slots[0].Count, Is.EqualTo(slots[0].RequiredOrProducedCount));
             Assert.That(slots[1].Count, Is.EqualTo(slots[1].RequiredOrProducedCount));
+        }
+
+        [Test]
+        public void RecipeChange_StopsProductionAndReturnsInputsToPlayerInventory()
+        {
+            database = CreateMultiRecipeDatabase();
+            Entity processor = EntityManager.CreateEntity();
+            EntityManager.AddBuffer<ProcessorItemSlot>(processor);
+            Entity player = CreateInventoryOwner(1, 2);
+            DynamicBuffer<ProcessorItemSlot> processorSlots =
+                EntityManager.GetBuffer<ProcessorItemSlot>(processor);
+            DynamicBuffer<InventorySlot> playerSlots =
+                EntityManager.GetBuffer<InventorySlot>(player);
+            playerSlots[0] = new InventorySlot
+            {
+                ItemType = new ItemId { Value = 1 },
+                Count = 63
+            };
+            playerSlots[1] = new InventorySlot
+            {
+                ItemType = new ItemId { Value = 2 },
+                Count = 64
+            };
+            PlayerInventory inventory = new PlayerInventory { SlotCount = 2 };
+            ItemProcessState process = new ItemProcessState
+            {
+                SelectedRecipeIndex = -1,
+                ActiveRecipeIndex = -1,
+                Status = ItemProcessStatus.Idle
+            };
+            ref FactoryDatabaseBlob blob = ref database.Value;
+            FactoryRecipeRangeBlob range = blob.RecipeRangesByMachine[1];
+            Assert.That(ItemProcessUtility.TrySelectRecipe(
+                0, range, ref blob, processorSlots, ref process), Is.True);
+
+            ProcessorItemSlot firstInput = processorSlots[0];
+            firstInput.Count = 5;
+            processorSlots[0] = firstInput;
+            ProcessorItemSlot secondInput = processorSlots[1];
+            secondInput.Count = 4;
+            processorSlots[1] = secondInput;
+            Assert.That(ItemProcessUtility.TryStart(
+                0, 1000, blob.Recipes[0], processorSlots, ref process), Is.True);
+
+            Assert.That(ItemProcessUtility.TryChangeRecipe(
+                1,
+                range,
+                ref blob,
+                processorSlots,
+                ref process,
+                playerSlots,
+                ref inventory), Is.True);
+
+            Assert.That(process.Status, Is.EqualTo(ItemProcessStatus.Idle));
+            Assert.That(process.ElapsedTicks, Is.Zero);
+            Assert.That(process.DurationTicks, Is.Zero);
+            Assert.That(process.ActiveRecipeIndex, Is.EqualTo(-1));
+            Assert.That(process.SelectedRecipeIndex, Is.EqualTo(1));
+            Assert.That(processorSlots.Length, Is.EqualTo(2));
+            Assert.That(processorSlots[0].Count, Is.Zero);
+            Assert.That(processorSlots[1].Count, Is.Zero);
+            Assert.That(SumItem(playerSlots, 1), Is.EqualTo(68));
+            Assert.That(SumItem(playerSlots, 2), Is.EqualTo(68));
+            Assert.That(inventory.Revision, Is.EqualTo(1));
+            Assert.That(inventory.SlotCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void RecipeChange_ReturnsCompletedOutputWithoutRefundingConsumedInputs()
+        {
+            database = CreateMultiRecipeDatabase();
+            Entity processor = EntityManager.CreateEntity();
+            EntityManager.AddBuffer<ProcessorItemSlot>(processor);
+            Entity player = CreateInventoryOwner(1, 2);
+            DynamicBuffer<ProcessorItemSlot> processorSlots =
+                EntityManager.GetBuffer<ProcessorItemSlot>(processor);
+            DynamicBuffer<InventorySlot> playerSlots =
+                EntityManager.GetBuffer<InventorySlot>(player);
+            PlayerInventory inventory = new PlayerInventory { SlotCount = 2 };
+            ItemProcessState process = new ItemProcessState
+            {
+                SelectedRecipeIndex = -1,
+                ActiveRecipeIndex = -1,
+                Status = ItemProcessStatus.Idle
+            };
+            ref FactoryDatabaseBlob blob = ref database.Value;
+            FactoryRecipeRangeBlob range = blob.RecipeRangesByMachine[1];
+            ItemProcessUtility.TrySelectRecipe(
+                0, range, ref blob, processorSlots, ref process);
+            for (int i = 0; i < 2; i++)
+            {
+                ProcessorItemSlot input = processorSlots[i];
+                input.Count = input.RequiredOrProducedCount;
+                processorSlots[i] = input;
+            }
+            ItemProcessUtility.TryStart(
+                0, 1000, blob.Recipes[0], processorSlots, ref process);
+            ItemProcessUtility.AdvanceOneTick(ref process);
+            ItemProcessUtility.PublishCompletedOutputs(processorSlots, ref process);
+
+            Assert.That(ItemProcessUtility.TryChangeRecipe(
+                1,
+                range,
+                ref blob,
+                processorSlots,
+                ref process,
+                playerSlots,
+                ref inventory), Is.True);
+
+            Assert.That(SumItem(playerSlots, 1), Is.EqualTo(2));
+            Assert.That(SumItem(playerSlots, 2), Is.EqualTo(3));
+            Assert.That(process.Status, Is.EqualTo(ItemProcessStatus.Idle));
+        }
+
+        [Test]
+        public void Processor_OnlyBlocksWhenOutputStackCannotFitAnotherBatch()
+        {
+            database = CreateMultiRecipeDatabase();
+            Entity processor = EntityManager.CreateEntity();
+            DynamicBuffer<ProcessorItemSlot> slots =
+                EntityManager.AddBuffer<ProcessorItemSlot>(processor);
+            ItemProcessState process = new ItemProcessState
+            {
+                SelectedRecipeIndex = -1,
+                ActiveRecipeIndex = -1,
+                Status = ItemProcessStatus.Idle
+            };
+            ref FactoryDatabaseBlob blob = ref database.Value;
+            FactoryRecipeRangeBlob range = blob.RecipeRangesByMachine[1];
+            Assert.That(ItemProcessUtility.TrySelectRecipe(
+                1, range, ref blob, slots, ref process), Is.True);
+
+            for (int batch = 0; batch < 64; batch++)
+            {
+                ProcessorItemSlot input = slots[0];
+                input.Count = input.RequiredOrProducedCount;
+                slots[0] = input;
+                Assert.That(ItemProcessUtility.TryStart(
+                    1, 1000, blob.Recipes[1], slots, ref process), Is.True);
+                while (!ItemProcessUtility.AdvanceOneTick(ref process))
+                {
+                }
+                Assert.That(ItemProcessUtility.PublishCompletedOutputs(
+                    slots, ref process), Is.True);
+                Assert.That(
+                    process.Status,
+                    Is.EqualTo(batch == 63
+                        ? ItemProcessStatus.OutputBlocked
+                        : ItemProcessStatus.Idle));
+            }
+
+            Assert.That(slots[1].Count, Is.EqualTo(64));
+            ItemProcessUtility.AcknowledgeOutput(
+                new ItemId { Value = 1 }, 1, slots, ref process);
+            Assert.That(slots[1].Count, Is.EqualTo(63));
+            Assert.That(process.Status, Is.EqualTo(ItemProcessStatus.Idle));
         }
 
         [Test]
@@ -268,7 +424,7 @@ namespace Factory.Tests
             builder.Allocate(ref root.BuildingLevelMenu, 0);
             builder.Allocate(ref root.BuildingPorts, 0);
             BlobBuilderArray<FactoryRecipeBlob> recipes =
-                builder.Allocate(ref root.Recipes, 1);
+                builder.Allocate(ref root.Recipes, 2);
             recipes[0] = new FactoryRecipeBlob
             {
                 Id = new RecipeId { Value = 1 },
@@ -279,8 +435,18 @@ namespace Factory.Tests
                 OutputStart = 0,
                 OutputCount = 2
             };
+            recipes[1] = new FactoryRecipeBlob
+            {
+                Id = new RecipeId { Value = 2 },
+                MachineType = new MachineTypeId { Value = 1 },
+                DurationTicks = 2,
+                InputStart = 2,
+                InputCount = 1,
+                OutputStart = 2,
+                OutputCount = 1
+            };
             BlobBuilderArray<FactoryRecipeIngredientBlob> inputs =
-                builder.Allocate(ref root.Inputs, 2);
+                builder.Allocate(ref root.Inputs, 3);
             inputs[0] = new FactoryRecipeIngredientBlob
             {
                 ItemId = new ItemId { Value = 1 }, Count = 1
@@ -289,8 +455,12 @@ namespace Factory.Tests
             {
                 ItemId = new ItemId { Value = 2 }, Count = 1
             };
+            inputs[2] = new FactoryRecipeIngredientBlob
+            {
+                ItemId = new ItemId { Value = 2 }, Count = 2
+            };
             BlobBuilderArray<FactoryRecipeIngredientBlob> outputs =
-                builder.Allocate(ref root.Outputs, 2);
+                builder.Allocate(ref root.Outputs, 3);
             outputs[0] = new FactoryRecipeIngredientBlob
             {
                 ItemId = new ItemId { Value = 1 }, Count = 2
@@ -299,11 +469,28 @@ namespace Factory.Tests
             {
                 ItemId = new ItemId { Value = 2 }, Count = 3
             };
+            outputs[2] = new FactoryRecipeIngredientBlob
+            {
+                ItemId = new ItemId { Value = 1 }, Count = 1
+            };
             BlobBuilderArray<FactoryRecipeRangeBlob> ranges =
                 builder.Allocate(ref root.RecipeRangesByMachine, 2);
-            ranges[1] = new FactoryRecipeRangeBlob { Start = 0, Count = 1 };
+            ranges[1] = new FactoryRecipeRangeBlob { Start = 0, Count = 2 };
             return builder.CreateBlobAssetReference<FactoryDatabaseBlob>(
                 Allocator.Persistent);
+        }
+
+        private static int SumItem(
+            in DynamicBuffer<InventorySlot> slots,
+            ushort itemId)
+        {
+            int total = 0;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i].ItemType.Value == itemId)
+                    total += slots[i].Count;
+            }
+            return total;
         }
     }
 }

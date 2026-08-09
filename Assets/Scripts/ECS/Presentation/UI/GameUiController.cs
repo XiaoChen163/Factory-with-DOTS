@@ -18,6 +18,7 @@ public sealed class GameUiController : MonoBehaviour
     private ItemSlotGridView backpackView;
     private BuildingWindowView buildingView;
     private BuildCatalogView buildCatalogView;
+    private BuildShortcutBarView buildShortcutBarView;
     private ItemDragController dragController;
     private PlayerCommandBus commandBus;
     private VisualElement notificationLayer;
@@ -25,6 +26,8 @@ public sealed class GameUiController : MonoBehaviour
     private ulong pendingRecipeRequest;
     private BuildingRuntimeId openBuildingId;
     private bool buildCatalogRendered;
+    private readonly BuildingLevelId[] buildShortcuts =
+        new BuildingLevelId[BuildShortcutBarView.SlotCount];
 
     public UiDataHub DataHub { get; private set; }
     public UiWindowManager Windows { get; private set; }
@@ -69,6 +72,9 @@ public sealed class GameUiController : MonoBehaviour
             Require(uiRoot, "backpack-slot-grid"), presentationCatalog);
         buildingView = new BuildingWindowView(uiRoot, presentationCatalog);
         buildCatalogView = new BuildCatalogView(uiRoot, presentationCatalog);
+        buildShortcutBarView = new BuildShortcutBarView(
+            Require(uiRoot, "build-shortcut-bar"),
+            presentationCatalog);
         buildCatalogView.BuildingSelected += OnBuildingSelected;
         attachedWorld = World.DefaultGameObjectInjectionWorld;
         commandBus = PlayerCommandRuntimeServices.GetOrCreateBus(
@@ -126,6 +132,7 @@ public sealed class GameUiController : MonoBehaviour
         demolitionModeHint = null;
         pendingRecipeRequest = 0;
         buildCatalogRendered = false;
+        buildShortcutBarView = null;
     }
 
     private void Update()
@@ -133,6 +140,9 @@ public sealed class GameUiController : MonoBehaviour
         commandBus?.PumpResults();
         if (inputMode == null || Windows == null)
             return;
+        int shortcutIndex = inputMode.BuildShortcutPressedThisFrame;
+        if (shortcutIndex >= 0)
+            HandleBuildShortcut(shortcutIndex);
         if (inputMode.BuildCatalogTogglePressedThisFrame)
             HandleBuildCatalogToggle();
         if (inputMode.DemolitionTogglePressedThisFrame)
@@ -143,6 +153,7 @@ public sealed class GameUiController : MonoBehaviour
             HandleCancel();
 
         UpdateDemolitionModeHint();
+        UpdateBuildShortcutBar();
 
         if (!inputMode.IsBuildMode &&
             !inputMode.IsDemolitionMode &&
@@ -168,6 +179,63 @@ public sealed class GameUiController : MonoBehaviour
 
     public void ConfirmCatalogBuildingSelection() =>
         buildCatalogView?.ConfirmSelection();
+
+    public BuildingLevelId GetBuildShortcut(int slotIndex) =>
+        slotIndex >= 0 && slotIndex < buildShortcuts.Length
+            ? buildShortcuts[slotIndex]
+            : default;
+
+    public void HandleBuildShortcut(int slotIndex)
+    {
+        if (slotIndex < 0 || slotIndex >= buildShortcuts.Length ||
+            inputMode == null || gridInteraction == null ||
+            inputMode.IsDemolitionMode)
+        {
+            return;
+        }
+
+        if (inputMode.IsBuildMode)
+        {
+            bool catalogOpen =
+                Windows != null && Windows.IsOpen(UiWindowId.BuildCatalog);
+            if (catalogOpen)
+            {
+                BuildingLevelId selected =
+                    buildCatalogView.SelectedBuildingLevel;
+                if (selected.IsValid)
+                    buildShortcuts[slotIndex] = selected;
+            }
+            else
+            {
+                BuildingLevelId assignedShortcut = buildShortcuts[slotIndex];
+                if (assignedShortcut.IsValid)
+                {
+                    gridInteraction.TrySelectBuildingLevel(assignedShortcut);
+                }
+                else
+                {
+                    BuildingLevelId selected =
+                        gridInteraction.SelectedBuildingLevel;
+                    if (selected.IsValid)
+                        buildShortcuts[slotIndex] = selected;
+                }
+            }
+            UpdateBuildShortcutBar();
+            return;
+        }
+
+        BuildingLevelId shortcut = buildShortcuts[slotIndex];
+        if (!shortcut.IsValid ||
+            !gridInteraction.TrySelectBuildingLevel(shortcut))
+        {
+            return;
+        }
+
+        CloseBuilding();
+        CloseBackpack();
+        inputMode.SetBuildMode(true);
+        UpdateBuildShortcutBar();
+    }
 
     public void HandleBuildCatalogToggle()
     {
@@ -352,6 +420,16 @@ public sealed class GameUiController : MonoBehaviour
                     ? DisplayStyle.Flex
                     : DisplayStyle.None;
         }
+    }
+
+    private void UpdateBuildShortcutBar()
+    {
+        buildShortcutBarView?.Render(
+            buildShortcuts,
+            gridInteraction != null
+                ? gridInteraction.SelectedBuildingLevel
+                : default,
+            inputMode != null && inputMode.IsBuildMode);
     }
 
     private static VisualElement Require(VisualElement root, string name) =>

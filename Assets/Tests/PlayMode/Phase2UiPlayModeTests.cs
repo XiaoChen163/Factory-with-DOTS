@@ -1,8 +1,10 @@
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
@@ -117,6 +119,93 @@ namespace Factory.Tests
             controller.HandleCancel();
             Assert.That(input.IsDemolitionMode, Is.False);
             Assert.That(hint.style.display.value, Is.EqualTo(DisplayStyle.None));
+        }
+
+        [UnityTest]
+        public IEnumerator Phase6_BuildShortcut_BindsSelectionAndReentersBatchBuildMode()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            GameUiController controller =
+                Object.FindFirstObjectByType<GameUiController>();
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            PlayerInputModeController input =
+                controller.GetComponent<PlayerInputModeController>();
+            InputActionAsset runtimeActions =
+                typeof(PlayerInputModeController).GetField(
+                    "runtimeActions",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(input) as InputActionAsset;
+            InputAction firstShortcut = runtimeActions?
+                .FindActionMap("UI", true)
+                .FindAction("BuildShortcut1", true);
+            Assert.That(firstShortcut.bindings.Any(
+                binding => binding.effectivePath == "<Keyboard>/1"), Is.True);
+            Keyboard keyboard = Keyboard.current;
+            bool addedKeyboard = keyboard == null;
+            if (addedKeyboard)
+                keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                Assert.That(firstShortcut.controls.Any(
+                    control => control.path.EndsWith("/1")), Is.True,
+                    "The main-row number binding must resolve to a real keyboard control.");
+                Assert.That(firstShortcut.enabled, Is.True);
+            }
+            finally
+            {
+                if (addedKeyboard)
+                    InputSystem.RemoveDevice(keyboard);
+            }
+
+            controller.HandleBuildCatalogToggle();
+            controller.CloseBuildCatalog();
+            for (int i = 0;
+                 i < 120 && !interaction.SelectedBuildingLevel.IsValid;
+                 i++)
+            {
+                yield return null;
+            }
+
+            BuildingLevelId selected = interaction.SelectedBuildingLevel;
+            Assert.That(selected.IsValid, Is.True);
+            controller.HandleBuildShortcut(2);
+            Assert.That(controller.GetBuildShortcut(2), Is.EqualTo(selected));
+
+            controller.HandleBuildCatalogToggle();
+            for (int i = 0;
+                 i < 120 && (controller.LatestBuildCatalog.Levels == null ||
+                             controller.LatestBuildCatalog.Levels.Length < 2);
+                 i++)
+            {
+                yield return null;
+            }
+            BuildingLevelId alternate =
+                controller.LatestBuildCatalog.Levels.First(
+                    value => value != selected);
+            controller.SelectCatalogBuildingLevel(alternate);
+            controller.HandleBuildShortcut(3);
+            controller.CloseBuildCatalog();
+            Assert.That(controller.GetBuildShortcut(3), Is.EqualTo(alternate));
+
+            controller.HandleBuildShortcut(3);
+            Assert.That(interaction.SelectedBuildingLevel, Is.EqualTo(alternate));
+            Assert.That(controller.GetBuildShortcut(2), Is.EqualTo(selected),
+                "Switching shortcuts must not overwrite another occupied slot.");
+            controller.HandleBuildShortcut(2);
+            Assert.That(interaction.SelectedBuildingLevel, Is.EqualTo(selected));
+            Assert.That(controller.GetBuildShortcut(3), Is.EqualTo(alternate));
+
+            controller.HandleCancel();
+            Assert.That(input.IsBuildMode, Is.False);
+            controller.HandleBuildShortcut(2);
+
+            Assert.That(input.IsBuildMode, Is.True);
+            Assert.That(interaction.SelectedBuildingLevel, Is.EqualTo(selected));
+            VisualElement bar = controller.GetComponent<UIDocument>()
+                .rootVisualElement.Q("build-shortcut-bar");
+            Assert.That(bar, Is.Not.Null);
+            Assert.That(bar.childCount, Is.EqualTo(9));
         }
 
         [UnityTest]

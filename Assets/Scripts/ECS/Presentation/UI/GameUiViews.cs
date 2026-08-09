@@ -383,3 +383,56 @@ public sealed class BuildCatalogView
             BuildingSelected?.Invoke(selected);
     }
 }
+
+public sealed class BuildShortcutBarView
+{
+    public const int SlotCount = 9;
+
+    private readonly VisualElement[] slots = new VisualElement[SlotCount];
+    private readonly FactoryPresentationCatalog catalog;
+
+    public BuildShortcutBarView(
+        VisualElement root,
+        FactoryPresentationCatalog catalog)
+    {
+        if (root == null)
+            throw new ArgumentNullException(nameof(root));
+        this.catalog = catalog;
+        for (int i = 0; i < SlotCount; i++)
+        {
+            VisualElement slot = root.Q($"build-shortcut-{i + 1}") ??
+                throw new InvalidOperationException(
+                    $"Missing UI element 'build-shortcut-{i + 1}'.");
+            slots[i] = slot;
+            slot.Q<Label>("key").text = (i + 1).ToString();
+        }
+    }
+
+    public void Render(
+        BuildingLevelId[] assignments,
+        BuildingLevelId activeBuilding,
+        bool isBuildMode)
+    {
+        for (int i = 0; i < SlotCount; i++)
+        {
+            BuildingLevelId assignment =
+                assignments != null && i < assignments.Length
+                    ? assignments[i]
+                    : default;
+            VisualElement slot = slots[i];
+            slot.Q("icon").style.backgroundImage = new StyleBackground(
+                assignment.IsValid
+                    ? catalog?.GetBuildingIcon(assignment)
+                    : null);
+            slot.Q<Label>("empty").style.display = assignment.IsValid
+                ? DisplayStyle.None
+                : DisplayStyle.Flex;
+            slot.tooltip = assignment.IsValid
+                ? $"{i + 1} · {catalog?.GetBuildingName(assignment) ?? $"建筑 {assignment.Value}"}"
+                : $"快捷栏 {i + 1} · 未绑定";
+            slot.EnableInClassList(
+                "build-shortcut-slot--active",
+                isBuildMode && assignment.IsValid && assignment == activeBuilding);
+        }
+    }
+}

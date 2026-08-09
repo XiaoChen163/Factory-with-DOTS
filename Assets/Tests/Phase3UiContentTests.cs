@@ -160,6 +160,27 @@ namespace Factory.Tests
             Assert.That(confirmed, Is.EqualTo(second));
         }
 
+        [Test]
+        public void BuildShortcutBar_RendersNineSlotsAndHighlightsActiveBuilding()
+        {
+            VisualElement root = CreateBuildShortcutRoot();
+            BuildShortcutBarView view = new(root, null);
+            BuildingLevelId assigned = new BuildingLevelId { Value = 3 };
+            BuildingLevelId[] assignments = new BuildingLevelId[9];
+            assignments[4] = assigned;
+
+            view.Render(assignments, assigned, true);
+
+            Assert.That(root.childCount, Is.EqualTo(9));
+            Assert.That(root[4].ClassListContains(
+                "build-shortcut-slot--active"), Is.True);
+            Assert.That(root[4].Q<Label>("empty").style.display.value,
+                Is.EqualTo(DisplayStyle.None));
+            Assert.That(root[0].Q<Label>("empty").style.display.value,
+                Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(root[8].Q<Label>("key").text, Is.EqualTo("9"));
+        }
+
         private static ItemSlotSnapshot Slot(ushort count) =>
             new(0, new ItemId { Value = 1 }, count, 100,
                 default, UiSlotAccess.InsertAndExtract);
@@ -207,6 +228,21 @@ namespace Factory.Tests
             root.Add(new Label { name = "catalog-detail-name" });
             root.Add(new Label { name = "catalog-detail-description" });
             root.Add(new Button { name = "build-catalog-confirm" });
+            return root;
+        }
+
+        private static VisualElement CreateBuildShortcutRoot()
+        {
+            VisualElement root = new();
+            for (int i = 0; i < BuildShortcutBarView.SlotCount; i++)
+            {
+                VisualElement slot = new()
+                    { name = $"build-shortcut-{i + 1}" };
+                slot.Add(new VisualElement { name = "icon" });
+                slot.Add(new Label { name = "empty" });
+                slot.Add(new Label { name = "key" });
+                root.Add(slot);
+            }
             return root;
         }
     }

@@ -31,6 +31,69 @@
     -unity-text-align: middle-center;
 }
 
+.build-shortcut-bar {
+    position: absolute;
+    bottom: 20px;
+    align-self: center;
+    flex-direction: row;
+    padding: 6px;
+    background-color: rgba(7, 12, 20, 0.90);
+    border-width: 1px;
+    border-color: rgba(139, 166, 202, 0.70);
+    border-radius: 6px;
+}
+
+.build-shortcut-slot {
+    width: 58px;
+    height: 58px;
+    margin-left: 3px;
+    margin-right: 3px;
+    background-color: rgba(19, 29, 44, 0.98);
+    border-width: 1px;
+    border-color: rgba(126, 151, 184, 0.72);
+    border-radius: 3px;
+}
+
+.build-shortcut-slot--active {
+    border-width: 2px;
+    border-color: rgb(83, 218, 255);
+    background-color: rgba(29, 67, 91, 0.98);
+}
+
+.build-shortcut-slot__icon {
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    top: 5px;
+    bottom: 5px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.build-shortcut-slot__empty {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    color: rgba(137, 158, 184, 0.58);
+    font-size: 24px;
+    -unity-text-align: middle-center;
+}
+
+.build-shortcut-slot__key {
+    position: absolute;
+    left: 3px;
+    top: 2px;
+    width: 18px;
+    height: 18px;
+    color: white;
+    background-color: rgba(4, 8, 14, 0.88);
+    border-radius: 2px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
 /* Normal play: the building/container and backpack form two equal, full-height columns. */
 .dock {
     position: absolute;

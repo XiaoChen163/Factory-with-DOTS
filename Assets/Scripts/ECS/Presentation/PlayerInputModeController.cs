@@ -22,6 +22,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
     private InputAction rotate;
     private InputAction remove;
     private InputAction cancel;
+    private readonly InputAction[] buildShortcuts = new InputAction[9];
 
     public bool IsBuildMode { get; private set; }
     public bool IsDemolitionMode { get; private set; }
@@ -50,6 +51,18 @@ public sealed class PlayerInputModeController : MonoBehaviour
     public bool RotatePressedThisFrame => WasPressed(rotate);
     public bool RemovePressedThisFrame => WasPressed(remove);
     public bool CancelPressedThisFrame => WasPressed(cancel);
+    public int BuildShortcutPressedThisFrame
+    {
+        get
+        {
+            for (int i = 0; i < buildShortcuts.Length; i++)
+            {
+                if (WasPressed(buildShortcuts[i]))
+                    return i;
+            }
+            return -1;
+        }
+    }
     public bool RemoveBeltLineModifierActive =>
         Keyboard.current != null &&
         (Keyboard.current.leftCtrlKey.isPressed ||
@@ -67,6 +80,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
                 runtimeActions.AddActionMap("Build");
         EnsureBuildActions(build);
         ui = runtimeActions.FindActionMap("UI", false);
+        EnsureBuildShortcutActions(ui);
         toggleBackpack = gameplay?.FindAction("ToggleBackpack", false);
         gameplayToggleBuildCatalog =
             gameplay?.FindAction("ToggleBuildCatalog", false);
@@ -80,6 +94,8 @@ public sealed class PlayerInputModeController : MonoBehaviour
         rotate = build?.FindAction("Rotate", false);
         remove = build?.FindAction("Remove", false);
         cancel = ui?.FindAction("Cancel", false);
+        for (int i = 0; i < buildShortcuts.Length; i++)
+            buildShortcuts[i] = ui?.FindAction($"BuildShortcut{i + 1}", false);
         if (cancel != null)
             cancel.performed += OnCancel;
         ApplyMode();
@@ -106,6 +122,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
         rotate = null;
         remove = null;
         cancel = null;
+        Array.Clear(buildShortcuts, 0, buildShortcuts.Length);
     }
 
     public void SetBuildMode(bool value)
@@ -198,6 +215,23 @@ public sealed class PlayerInputModeController : MonoBehaviour
         EnsureButton(map, "Rotate", "<Keyboard>/r");
         EnsureButton(map, "Cancel", "<Keyboard>/escape");
         EnsureButton(map, "Remove", "<Keyboard>/delete");
+    }
+
+    private static void EnsureBuildShortcutActions(InputActionMap map)
+    {
+        if (map == null)
+            return;
+        for (int i = 0; i < 9; i++)
+        {
+            string actionName = $"BuildShortcut{i + 1}";
+            if (map.FindAction(actionName, false) != null)
+                continue;
+            InputAction action = map.AddAction(
+                actionName,
+                InputActionType.Button);
+            action.AddBinding($"<Keyboard>/{i + 1}");
+            action.AddBinding($"<Keyboard>/numpad{i + 1}");
+        }
     }
 
     private static void EnsureButton(

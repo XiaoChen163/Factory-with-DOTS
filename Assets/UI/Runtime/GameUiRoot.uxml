@@ -55,7 +55,7 @@
             <ui:VisualElement name="build-catalog-window" class="factory-window build-catalog-window">
                 <ui:VisualElement class="window-header">
                     <ui:Label text="建筑界面" class="window-title catalog-window-title" />
-                    <ui:Label text="选择建筑后可连续建造 · Q 更换 · ESC 退出" class="window-subtitle" />
+                    <ui:Label text="选择建筑后按 1–9 绑定快捷栏 · Q 更换 · ESC 退出" class="window-subtitle" />
                     <ui:Button name="build-catalog-close" text="×" class="close-button" />
                 </ui:VisualElement>
                 <ui:VisualElement class="catalog-body">
@@ -82,6 +82,19 @@
                         <ui:Button name="build-catalog-confirm" text="确定" class="confirm-button" />
                     </ui:VisualElement>
                 </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shortcut-layer" class="ui-fill" picking-mode="Ignore">
+            <ui:VisualElement name="build-shortcut-bar" class="build-shortcut-bar" picking-mode="Ignore">
+                <ui:VisualElement name="build-shortcut-1" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="1" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-2" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="2" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-3" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="3" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-4" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="4" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-5" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="5" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-6" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="6" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-7" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="7" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-8" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="8" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
+                <ui:VisualElement name="build-shortcut-9" class="build-shortcut-slot" picking-mode="Ignore"><ui:VisualElement name="icon" class="build-shortcut-slot__icon" picking-mode="Ignore" /><ui:Label name="empty" text="+" class="build-shortcut-slot__empty" picking-mode="Ignore" /><ui:Label name="key" text="9" class="build-shortcut-slot__key" picking-mode="Ignore" /></ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="drag-layer" class="ui-fill" picking-mode="Ignore" />

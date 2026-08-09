@@ -2,7 +2,8 @@
     "name": "Factory.PlayModeTests",
     "rootNamespace": "Factory.Tests",
     "references": [
-        "Factory.Runtime"
+        "Factory.Runtime",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

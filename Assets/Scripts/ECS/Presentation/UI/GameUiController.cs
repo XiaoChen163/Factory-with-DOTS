@@ -21,6 +21,7 @@ public sealed class GameUiController : MonoBehaviour
     private ItemDragController dragController;
     private PlayerCommandBus commandBus;
     private VisualElement notificationLayer;
+    private VisualElement demolitionModeHint;
     private ulong pendingRecipeRequest;
     private BuildingRuntimeId openBuildingId;
     private bool buildCatalogRendered;
@@ -81,6 +82,8 @@ public sealed class GameUiController : MonoBehaviour
             SlotIndex = slot.SlotIndex
         });
         notificationLayer = Require(uiRoot, "notification-layer");
+        demolitionModeHint = Require(uiRoot, "demolition-mode-hint");
+        UpdateDemolitionModeHint();
         dragController = new ItemDragController(
             Require(uiRoot, "drag-layer"),
             notificationLayer,
@@ -120,6 +123,7 @@ public sealed class GameUiController : MonoBehaviour
         DataHub = null;
         commandBus = null;
         notificationLayer = null;
+        demolitionModeHint = null;
         pendingRecipeRequest = 0;
         buildCatalogRendered = false;
     }
@@ -131,12 +135,17 @@ public sealed class GameUiController : MonoBehaviour
             return;
         if (inputMode.BuildCatalogTogglePressedThisFrame)
             HandleBuildCatalogToggle();
+        if (inputMode.DemolitionTogglePressedThisFrame)
+            HandleDemolitionToggle();
         if (inputMode.BackpackTogglePressedThisFrame)
             HandleBackpackToggle();
         if (inputMode.CancelPressedThisFrame)
             HandleCancel();
 
+        UpdateDemolitionModeHint();
+
         if (!inputMode.IsBuildMode &&
+            !inputMode.IsDemolitionMode &&
             inputMode.PrimaryPointerPressedThisFrame &&
             !inputMode.BlocksWorldInput &&
             gridInteraction != null &&
@@ -162,7 +171,7 @@ public sealed class GameUiController : MonoBehaviour
 
     public void HandleBuildCatalogToggle()
     {
-        if (inputMode == null)
+        if (inputMode == null || inputMode.IsDemolitionMode)
             return;
         if (!inputMode.IsBuildMode)
         {
@@ -174,15 +183,34 @@ public sealed class GameUiController : MonoBehaviour
             OpenBuildCatalog();
     }
 
+    public void HandleDemolitionToggle()
+    {
+        if (inputMode == null)
+            return;
+        bool enter = !inputMode.IsDemolitionMode;
+        CloseBuildCatalog();
+        CloseBuilding();
+        CloseBackpack();
+        inputMode.SetDemolitionMode(enter);
+        UpdateDemolitionModeHint();
+    }
+
     public void HandleBackpackToggle()
     {
-        if (inputMode != null && inputMode.IsBuildMode)
+        if (inputMode != null &&
+            (inputMode.IsBuildMode || inputMode.IsDemolitionMode))
             return;
         ToggleBackpack(new PlayerId { Value = localPlayerId });
     }
 
     public void HandleCancel()
     {
+        if (inputMode != null && inputMode.IsDemolitionMode)
+        {
+            inputMode.SetDemolitionMode(false);
+            UpdateDemolitionModeHint();
+            return;
+        }
         if (inputMode != null && inputMode.IsBuildMode)
         {
             CloseBuildCatalog();
@@ -313,6 +341,17 @@ public sealed class GameUiController : MonoBehaviour
         buildCatalogView.SetSelected(id);
         CloseBuildCatalog();
         inputMode?.SetBuildMode(true);
+    }
+
+    private void UpdateDemolitionModeHint()
+    {
+        if (demolitionModeHint != null)
+        {
+            demolitionModeHint.style.display =
+                inputMode != null && inputMode.IsDemolitionMode
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+        }
     }
 
     private static VisualElement Require(VisualElement root, string name) =>

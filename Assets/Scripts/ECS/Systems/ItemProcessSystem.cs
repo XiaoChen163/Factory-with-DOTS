@@ -160,7 +160,7 @@ public static class ItemProcessUtility
                ingredient.Count > 0 && ingredient.Count <= ushort.MaxValue;
     }
 
-    private static void AddToInventory(
+    public static void AddToInventory(
         ItemId itemType,
         int count,
         ref FactoryDatabaseBlob database,

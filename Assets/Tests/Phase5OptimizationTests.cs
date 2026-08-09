@@ -321,6 +321,153 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void RemovingBeltLine_ReturnsEveryCarriedItemToInitiatingPlayer()
+        {
+            BlobAssetReference<FactoryDatabaseBlob> database = default;
+            try
+            {
+                database = CreateDatabase();
+                Entity grid = CreateBuildGrid();
+                Entity catalog = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(catalog, new BuildingPrefabCatalog());
+                EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog);
+                EntityManager.AddComponentData(
+                    catalog,
+                    new FactoryDatabase { Value = database });
+
+                PlayerId playerId = new PlayerId { Value = 7 };
+                Entity player = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(
+                    player,
+                    new PlayerIdentity { Value = playerId });
+                EntityManager.AddComponentData(
+                    player,
+                    new PlayerInventory { SlotCount = 2 });
+                DynamicBuffer<InventorySlot> inventory =
+                    EntityManager.AddBuffer<InventorySlot>(player);
+                inventory.ResizeUninitialized(2);
+                inventory[0] = default;
+                inventory[1] = default;
+
+                Entity first = CreateRemovableBelt(
+                    new int2(2, 2),
+                    CreateItem(1));
+                Entity second = CreateRemovableBelt(
+                    new int2(3, 2),
+                    CreateItem(1));
+
+                GridOccupancyIndexSystem occupancy =
+                    GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+                UpdateSystem(occupancy);
+
+                EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
+                    new GridBuildCommand
+                    {
+                        Player = playerId,
+                        Type = GridBuildCommandType.RemoveBeltLine,
+                        StartCell = new int2(2, 2)
+                    });
+                UpdateSystem(
+                    GetOrCreateManagedSystem<GridBuildCommandSystem>());
+
+                Assert.That(EntityManager.Exists(first), Is.False);
+                Assert.That(EntityManager.Exists(second), Is.False);
+                inventory = EntityManager.GetBuffer<InventorySlot>(player);
+                Assert.That(inventory[0].ItemType.Value, Is.EqualTo(1));
+                Assert.That(inventory[0].Count, Is.EqualTo(1));
+                Assert.That(inventory[1].ItemType.Value, Is.EqualTo(1));
+                Assert.That(inventory[1].Count, Is.EqualTo(1));
+                Assert.That(
+                    EntityManager.GetComponentData<PlayerInventory>(player).Revision,
+                    Is.EqualTo(2),
+                    "Each removed belt updates the shared inventory revision.");
+            }
+            finally
+            {
+                if (database.IsCreated)
+                    database.Dispose();
+            }
+        }
+
+        [Test]
+        public void RemovingStorage_ReturnsStoredItemsToInitiatingPlayer()
+        {
+            BlobAssetReference<FactoryDatabaseBlob> database = default;
+            try
+            {
+                database = CreateDatabase();
+                Entity grid = CreateBuildGrid();
+                Entity catalog = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(catalog, new BuildingPrefabCatalog());
+                EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog);
+                EntityManager.AddComponentData(
+                    catalog,
+                    new FactoryDatabase { Value = database });
+
+                PlayerId playerId = new PlayerId { Value = 8 };
+                Entity player = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(
+                    player,
+                    new PlayerIdentity { Value = playerId });
+                EntityManager.AddComponentData(
+                    player,
+                    new PlayerInventory { SlotCount = 1 });
+                EntityManager.AddBuffer<InventorySlot>(player).Add(default);
+
+                Entity storage = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(
+                    storage,
+                    new GridPlacement
+                    {
+                        AnchorCell = new int2(4, 4),
+                        FootprintSize = new int2(1, 1),
+                        Kind = BuildingKind.Storage
+                    });
+                EntityManager.AddBuffer<OccupiedCellOffset>(storage).Add(
+                    new OccupiedCellOffset { Value = int2.zero });
+                EntityManager.AddBuffer<BuildingPort>(storage);
+                DynamicBuffer<InventorySlot> stored =
+                    EntityManager.AddBuffer<InventorySlot>(storage);
+                stored.Add(new InventorySlot
+                {
+                    ItemType = new ItemId { Value = 1 },
+                    Count = 3
+                });
+
+                UpdateSystem(
+                    GetOrCreateManagedSystem<GridOccupancyIndexSystem>());
+                EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
+                    new GridBuildCommand
+                    {
+                        Player = playerId,
+                        Type = GridBuildCommandType.Remove,
+                        StartCell = new int2(4, 4)
+                    });
+                UpdateSystem(
+                    GetOrCreateManagedSystem<GridBuildCommandSystem>());
+
+                Assert.That(EntityManager.Exists(storage), Is.False);
+                DynamicBuffer<InventorySlot> inventory =
+                    EntityManager.GetBuffer<InventorySlot>(player);
+                int recovered = 0;
+                for (int i = 0; i < inventory.Length; i++)
+                {
+                    if (inventory[i].ItemType.Value == 1)
+                        recovered += inventory[i].Count;
+                }
+                Assert.That(recovered, Is.EqualTo(3));
+                Assert.That(
+                    EntityManager.GetComponentData<PlayerInventory>(player).Revision,
+                    Is.EqualTo(1));
+            }
+            finally
+            {
+                if (database.IsCreated)
+                    database.Dispose();
+            }
+        }
+
+        [Test]
         public void StorageAdapter_GenerationOneWritesCurrentBuffersWithoutSafetyError()
         {
             BlobAssetReference<FactoryDatabaseBlob> database = default;
@@ -524,6 +671,32 @@ namespace Factory.Tests
             EntityManager.AddBuffer<GridBuildCommand>(grid);
             EntityManager.AddBuffer<GridBuildResult>(grid);
             return grid;
+        }
+
+        private Entity CreateRemovableBelt(int2 cell, Entity item)
+        {
+            Entity belt = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(
+                belt,
+                new BeltState { CurrentItem = item });
+            EntityManager.AddComponentData(
+                belt,
+                new GridPlacement
+                {
+                    AnchorCell = cell,
+                    FootprintSize = new int2(1, 1),
+                    Kind = BuildingKind.Belt
+                });
+            EntityManager.AddBuffer<OccupiedCellOffset>(belt).Add(
+                new OccupiedCellOffset { Value = int2.zero });
+            EntityManager.AddBuffer<BuildingPort>(belt).Add(
+                new BuildingPort
+                {
+                    CellOffset = East,
+                    Direction = East,
+                    Type = BuildingPortType.Output
+                });
+            return belt;
         }
 
         private Entity CreateVisualBelt(

@@ -1,7 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="project://database/Assets/UI/Runtime/GameUiTheme.uss" />
     <ui:VisualElement name="game-ui-root" class="game-ui-root" picking-mode="Ignore">
-        <ui:VisualElement name="hud-layer" class="ui-fill" picking-mode="Ignore" />
+        <ui:VisualElement name="hud-layer" class="ui-fill" picking-mode="Ignore">
+            <ui:Label name="demolition-mode-hint" text="拆除模式" class="demolition-mode-hint" picking-mode="Ignore" />
+        </ui:VisualElement>
         <ui:VisualElement name="window-layer" class="ui-fill" picking-mode="Ignore">
             <ui:VisualElement name="left-dock" class="dock dock-left" picking-mode="Ignore">
                 <ui:VisualElement name="building-window" class="factory-window interaction-window building-interaction-window">

@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 
 namespace Factory.Tests
 {
@@ -87,6 +88,35 @@ namespace Factory.Tests
             Assert.That(controller.Windows.IsOpen(UiWindowId.Building), Is.False);
             Assert.That(controller.DataHub.Observations.PlayerCount, Is.Zero);
             Assert.That(controller.DataHub.Observations.BuildingCount, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator DemolitionMode_TogglesHintAndKeepsOtherModesClosed()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            GameUiController controller =
+                Object.FindFirstObjectByType<GameUiController>();
+            PlayerInputModeController input =
+                controller.GetComponent<PlayerInputModeController>();
+            Label hint = controller.GetComponent<UIDocument>()
+                .rootVisualElement.Q<Label>("demolition-mode-hint");
+
+            controller.HandleDemolitionToggle();
+            Assert.That(input.IsDemolitionMode, Is.True);
+            Assert.That(input.IsBuildMode, Is.False);
+            Assert.That(hint.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+
+            controller.HandleBuildCatalogToggle();
+            controller.HandleBackpackToggle();
+            Assert.That(input.IsDemolitionMode, Is.True);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.False);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False);
+
+            controller.HandleCancel();
+            Assert.That(input.IsDemolitionMode, Is.False);
+            Assert.That(hint.style.display.value, Is.EqualTo(DisplayStyle.None));
         }
 
         [UnityTest]

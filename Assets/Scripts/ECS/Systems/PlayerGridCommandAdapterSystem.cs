@@ -65,6 +65,7 @@ public partial struct PlayerGridCommandAdapterSystem : ISystem
             gridCommands.Add(new GridBuildCommand
             {
                 RequestId = gridRequestId,
+                Player = value.Header.Player,
                 Type = value.Type,
                 Kind = value.Kind,
                 BuildingLevel = value.BuildingLevel,

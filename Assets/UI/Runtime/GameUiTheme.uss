@@ -16,6 +16,21 @@
     bottom: 0;
 }
 
+.demolition-mode-hint {
+    display: none;
+    align-self: center;
+    margin-top: 24px;
+    padding: 8px 22px;
+    color: rgb(255, 236, 218);
+    background-color: rgba(139, 43, 31, 0.94);
+    border-width: 1px;
+    border-color: rgb(255, 132, 94);
+    border-radius: 4px;
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
 /* Normal play: the building/container and backpack form two equal, full-height columns. */
 .dock {
     position: absolute;

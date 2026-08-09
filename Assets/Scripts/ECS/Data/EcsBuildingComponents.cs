@@ -33,6 +33,7 @@ public enum GridBuildCommandType : byte
 public struct GridBuildCommand : IBufferElementData
 {
     public uint RequestId;
+    public PlayerId Player;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;

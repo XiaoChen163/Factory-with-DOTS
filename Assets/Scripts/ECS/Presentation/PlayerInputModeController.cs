@@ -15,13 +15,16 @@ public sealed class PlayerInputModeController : MonoBehaviour
     private InputActionMap ui;
     private InputAction toggleBackpack;
     private InputAction gameplayToggleBuildCatalog;
+    private InputAction gameplayToggleDemolition;
     private InputAction buildToggleBuildCatalog;
+    private InputAction buildToggleDemolition;
     private InputAction place;
     private InputAction rotate;
     private InputAction remove;
     private InputAction cancel;
 
     public bool IsBuildMode { get; private set; }
+    public bool IsDemolitionMode { get; private set; }
     public bool IsModalOpen { get; private set; }
     public bool IsDragging { get; private set; }
     public event Action CancelRequested;
@@ -35,6 +38,9 @@ public sealed class PlayerInputModeController : MonoBehaviour
     public bool BuildCatalogTogglePressedThisFrame =>
         WasPressed(gameplayToggleBuildCatalog) ||
         WasPressed(buildToggleBuildCatalog);
+    public bool DemolitionTogglePressedThisFrame =>
+        WasPressed(gameplayToggleDemolition) ||
+        WasPressed(buildToggleDemolition);
     public bool IsBuildCatalogToggleActionEnabled =>
         gameplayToggleBuildCatalog?.enabled == true ||
         buildToggleBuildCatalog?.enabled == true;
@@ -64,8 +70,12 @@ public sealed class PlayerInputModeController : MonoBehaviour
         toggleBackpack = gameplay?.FindAction("ToggleBackpack", false);
         gameplayToggleBuildCatalog =
             gameplay?.FindAction("ToggleBuildCatalog", false);
+        gameplayToggleDemolition =
+            gameplay?.FindAction("ToggleDemolition", false);
         buildToggleBuildCatalog =
             build?.FindAction("ToggleBuildCatalog", false);
+        buildToggleDemolition =
+            build?.FindAction("ToggleDemolition", false);
         place = build?.FindAction("Place", false);
         rotate = build?.FindAction("Rotate", false);
         remove = build?.FindAction("Remove", false);
@@ -89,7 +99,9 @@ public sealed class PlayerInputModeController : MonoBehaviour
         ui = null;
         toggleBackpack = null;
         gameplayToggleBuildCatalog = null;
+        gameplayToggleDemolition = null;
         buildToggleBuildCatalog = null;
+        buildToggleDemolition = null;
         place = null;
         rotate = null;
         remove = null;
@@ -99,6 +111,16 @@ public sealed class PlayerInputModeController : MonoBehaviour
     public void SetBuildMode(bool value)
     {
         IsBuildMode = value;
+        if (value)
+            IsDemolitionMode = false;
+        ApplyMode();
+    }
+
+    public void SetDemolitionMode(bool value)
+    {
+        IsDemolitionMode = value;
+        if (value)
+            IsBuildMode = false;
         ApplyMode();
     }
 
@@ -165,11 +187,13 @@ public sealed class PlayerInputModeController : MonoBehaviour
         if (map.FindAction("ToggleBuildCatalog", false) == null)
             map.AddAction("ToggleBuildCatalog", InputActionType.Button)
                 .AddBinding("<Keyboard>/q");
+        EnsureButton(map, "ToggleDemolition", "<Keyboard>/f");
     }
 
     private static void EnsureBuildActions(InputActionMap map)
     {
         EnsureButton(map, "ToggleBuildCatalog", "<Keyboard>/q");
+        EnsureButton(map, "ToggleDemolition", "<Keyboard>/f");
         EnsureButton(map, "Place", "<Mouse>/leftButton");
         EnsureButton(map, "Rotate", "<Keyboard>/r");
         EnsureButton(map, "Cancel", "<Keyboard>/escape");

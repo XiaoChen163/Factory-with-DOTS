@@ -72,6 +72,17 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private void Update()
     {
         ConsumeBuildResults();
+        if (inputMode != null && inputMode.IsDemolitionMode)
+        {
+            beltPathStarted = false;
+            HidePlacementPreview();
+            if (!inputMode.BlocksWorldInput &&
+                inputMode.PrimaryPointerPressedThisFrame)
+            {
+                HandleRemove(inputMode.RemoveBeltLineModifierActive);
+            }
+            return;
+        }
         if (inputMode != null && !inputMode.IsBuildMode)
         {
             beltPathStarted = false;
@@ -92,10 +103,6 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             HandlePrimaryClick();
         }
 
-        if (inputMode != null && inputMode.RemovePressedThisFrame)
-        {
-            HandleRemove(inputMode.RemoveBeltLineModifierActive);
-        }
     }
 
     private void OnDisable()

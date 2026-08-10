@@ -206,6 +206,60 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void RecipeSelectionCommand_NonPlayerOwner_ConfiguresProcessor()
+        {
+            database = CreateMultiRecipeDatabase();
+            Entity databaseEntity = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(
+                databaseEntity,
+                new FactoryDatabase { Value = database });
+
+            Entity processor = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(processor, new GridPlacement
+            {
+                AnchorCell = new Unity.Mathematics.int2(0, 0)
+            });
+            EntityManager.AddComponentData(processor, new ItemProcessor
+            {
+                MachineType = new MachineTypeId { Value = 1 },
+                WorkRatePermille = 1000
+            });
+            EntityManager.AddComponentData(processor, new ItemProcessState
+            {
+                SelectedRecipeIndex = -1,
+                ActiveRecipeIndex = -1,
+                Status = ItemProcessStatus.Idle
+            });
+            EntityManager.AddBuffer<ProcessorItemSlot>(processor);
+
+            Entity nonPlayerOwner = EntityManager.CreateEntity();
+            EntityManager.AddBuffer<RecipeSelectionResult>(nonPlayerOwner);
+            DynamicBuffer<RecipeSelectionCommand> commands =
+                EntityManager.AddBuffer<RecipeSelectionCommand>(nonPlayerOwner);
+            commands.Add(new RecipeSelectionCommand
+            {
+                BuildingCell = new Unity.Mathematics.int2(0, 0),
+                Recipe = new RecipeId { Value = 1 }
+            });
+
+            SystemHandle system =
+                TestWorld.GetOrCreateSystem<RecipeSelectionCommandSystem>();
+            system.Update(TestWorld.Unmanaged);
+            EntityManager.CompleteAllTrackedJobs();
+
+            DynamicBuffer<RecipeSelectionResult> results =
+                EntityManager.GetBuffer<RecipeSelectionResult>(nonPlayerOwner);
+            Assert.That(results.Length, Is.EqualTo(1));
+            Assert.That(results[0].Success, Is.EqualTo(1));
+            Assert.That(results[0].FailureReason,
+                Is.EqualTo(RecipeSelectionFailureReason.None));
+            Assert.That(
+                EntityManager.GetComponentData<ItemProcessState>(processor)
+                    .SelectedRecipeIndex,
+                Is.Zero);
+        }
+
+        [Test]
         public void Processor_OnlyBlocksWhenOutputStackCannotFitAnotherBatch()
         {
             database = CreateMultiRecipeDatabase();

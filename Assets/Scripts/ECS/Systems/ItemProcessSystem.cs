@@ -75,6 +75,38 @@ public static class ItemProcessUtility
             ref process);
     }
 
+    public static bool TryChangeRecipeWithoutPlayer(
+        int recipeIndex,
+        in FactoryRecipeRangeBlob range,
+        ref FactoryDatabaseBlob database,
+        DynamicBuffer<ProcessorItemSlot> processorSlots,
+        ref ItemProcessState process)
+    {
+        if (!CanConfigureRecipe(
+                recipeIndex,
+                range,
+                ref database))
+        {
+            return false;
+        }
+
+        // TODO: When dropped-item support exists, drop excess machine items
+        // on an empty cell beside the machine before clearing its slots.
+        processorSlots.Clear();
+        process.ElapsedTicks = 0;
+        process.DurationTicks = 0;
+        process.SelectedRecipeIndex = -1;
+        process.ActiveRecipeIndex = -1;
+        process.Status = ItemProcessStatus.Idle;
+
+        return TrySelectRecipe(
+            recipeIndex,
+            range,
+            ref database,
+            processorSlots,
+            ref process);
+    }
+
     public static bool TrySelectRecipe(
         int recipeIndex,
         in FactoryRecipeRangeBlob range,

@@ -92,7 +92,10 @@ public partial struct RecipeSelectionCommandSystem : ISystem
                     ItemProcessState>(processorEntity);
                 DynamicBuffer<ProcessorItemSlot> slots =
                     state.EntityManager.GetBuffer<ProcessorItemSlot>(processorEntity);
-                if (state.EntityManager.HasComponent<PlayerInventory>(envelope.Owner) &&
+                bool isPlayer = state.EntityManager.HasComponent<PlayerIdentity>(
+                    envelope.Owner);
+                if (isPlayer &&
+                    state.EntityManager.HasComponent<PlayerInventory>(envelope.Owner) &&
                     state.EntityManager.HasBuffer<InventorySlot>(envelope.Owner))
                 {
                     PlayerInventory inventory = state.EntityManager.GetComponentData<
@@ -113,6 +116,15 @@ public partial struct RecipeSelectionCommandSystem : ISystem
                             envelope.Owner,
                             inventory);
                     }
+                }
+                else if (!isPlayer)
+                {
+                    success = ItemProcessUtility.TryChangeRecipeWithoutPlayer(
+                        selectedIndex,
+                        range,
+                        ref database,
+                        slots,
+                        ref process);
                 }
                 if (success)
                 {

@@ -27,19 +27,19 @@ MonoBehaviour:
     hash: 00d43fde910e58b4cc4f8bb91301192b
   - prefabPath: Assets/Prefabs/Buildings/Furnace.prefab
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
-    hash: 82a0d412173e186ca96142b531357aa0
+    hash: b62e74693a86b660ea196af6d063126e
   - prefabPath: Assets/Prefabs/Buildings/Merger.prefab
     outputPath: Assets/Art/Icons/Buildings/Merger.png
-    hash: 667e0b8ac7d4ad900bda0a11fdcdfa20
+    hash: e69fd5ac9a24b6d5ef04a41d1cb9cbad
   - prefabPath: Assets/Prefabs/Buildings/Miner.prefab
     outputPath: Assets/Art/Icons/Buildings/Miner.png
-    hash: c2047dea342aa043cc2f6d267997807b
+    hash: 2018b0612e27c9b87c109b352beba270
   - prefabPath: Assets/Prefabs/Buildings/Splitter.prefab
     outputPath: Assets/Art/Icons/Buildings/Splitter.png
-    hash: c81bff487643d203785a17f2a1ad8d49
+    hash: c32ac01bab18c020edff0ea3bcdaf3b5
   - prefabPath: Assets/Prefabs/Buildings/Storage.prefab
     outputPath: Assets/Art/Icons/Buildings/Storage.png
-    hash: 8f065d29e45f906c6049558d6164baaf
+    hash: 6de2e583cff1ffd107bfa868e9fd0808
   - prefabPath: Assets/Prefabs/Items/IronIngot.prefab
     outputPath: Assets/Art/Icons/Items/IronIngot.png
     hash: cf0c3769670417756f20590eeb4b3720

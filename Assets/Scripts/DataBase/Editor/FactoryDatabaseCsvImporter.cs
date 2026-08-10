@@ -6,7 +6,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
+public static class FactoryDatabaseCsvImporter
 {
     private const string TableDirectory = "Assets/Data/FactoryTables";
     private const string ItemTableDirectory = TableDirectory + "/items";
@@ -31,50 +31,8 @@ public sealed class FactoryDatabaseCsvImporter : AssetPostprocessor
     private const string OutputDirectory = "Assets/Data/Generated";
     public const string DatabaseAssetPath = OutputDirectory + "/FactoryDatabase.asset";
 
-    private static bool rebuildQueued;
-
     [MenuItem("Factory/Rebuild Static Database")]
     public static void RebuildFromMenu() => Rebuild();
-
-    private static void OnPostprocessAllAssets(
-        string[] importedAssets,
-        string[] deletedAssets,
-        string[] movedAssets,
-        string[] movedFromAssetPaths)
-    {
-        if (!ContainsFactorySource(importedAssets) &&
-            !ContainsFactorySource(deletedAssets) &&
-            !ContainsFactorySource(movedAssets) &&
-            !ContainsFactorySource(movedFromAssetPaths))
-        {
-            return;
-        }
-
-        if (rebuildQueued)
-        {
-            return;
-        }
-
-        rebuildQueued = true;
-        EditorApplication.delayCall += () =>
-        {
-            rebuildQueued = false;
-            Rebuild();
-        };
-    }
-
-    private static bool ContainsFactorySource(IEnumerable<string> paths)
-    {
-        return paths.Any(path =>
-            (path.StartsWith(TableDirectory + "/", StringComparison.Ordinal) &&
-             path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) ||
-            (path.StartsWith(ItemPrefabDirectory + "/", StringComparison.Ordinal) &&
-             path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase)) ||
-            (path.StartsWith(BuildingPrefabDirectory + "/", StringComparison.Ordinal) &&
-             path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase)) ||
-            path.StartsWith(ItemIconDirectory + "/", StringComparison.Ordinal) ||
-            path.StartsWith(BuildingIconDirectory + "/", StringComparison.Ordinal));
-    }
 
     private static void Rebuild()
     {

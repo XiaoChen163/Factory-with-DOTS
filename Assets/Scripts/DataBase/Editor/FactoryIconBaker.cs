@@ -16,8 +16,6 @@ public static class FactoryIconBaker
         "Assets/Data/Generated/FactoryIconBakeManifest.asset";
 
     private const string BakerVersion = "1";
-    private static bool bakeQueued;
-
     public static bool IsBaking { get; private set; }
 
     [MenuItem("Factory/Icons/Bake All")]
@@ -32,20 +30,6 @@ public static class FactoryIconBaker
         FactoryIconBakeSettings settings = LoadOrCreateSettings();
         Selection.activeObject = settings;
         EditorGUIUtility.PingObject(settings);
-    }
-
-    public static void QueueIncrementalBake()
-    {
-        if (IsBaking || bakeQueued)
-            return;
-
-        bakeQueued = true;
-        EditorApplication.delayCall += () =>
-        {
-            bakeQueued = false;
-            if (!EditorApplication.isCompiling && !EditorApplication.isPlayingOrWillChangePlaymode)
-                BakeAll(false);
-        };
     }
 
     public static void BakeAll(bool force)

@@ -72,7 +72,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private void Update()
     {
         ConsumeBuildResults();
-        if (inputMode != null && inputMode.IsDemolitionMode)
+        bool usePlayerInput = !simulatedHoverActive;
+        if (usePlayerInput &&
+            inputMode != null &&
+            inputMode.IsDemolitionMode)
         {
             beltPathStarted = false;
             HidePlacementPreview();
@@ -83,22 +86,29 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             }
             return;
         }
-        if (inputMode != null && !inputMode.IsBuildMode)
+        if (usePlayerInput &&
+            inputMode != null &&
+            !inputMode.IsBuildMode)
         {
             beltPathStarted = false;
             HidePlacementPreview();
             return;
         }
         EnsureSelectedBuildingLevel();
-        HandleBuildActions();
-        if (inputMode != null && inputMode.BlocksWorldInput)
+        if (usePlayerInput)
+            HandleBuildActions();
+        if (usePlayerInput &&
+            inputMode != null &&
+            inputMode.BlocksWorldInput)
         {
             HidePlacementPreview();
             return;
         }
         UpdatePlacementPreview();
 
-        if (inputMode != null && inputMode.PlacePressedThisFrame)
+        if (usePlayerInput &&
+            inputMode != null &&
+            inputMode.PlacePressedThisFrame)
         {
             HandlePrimaryClick();
         }

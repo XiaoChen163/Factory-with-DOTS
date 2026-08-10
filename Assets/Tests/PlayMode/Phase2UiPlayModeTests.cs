@@ -7,6 +7,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
+using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Factory.Tests
 {
@@ -304,6 +306,60 @@ namespace Factory.Tests
 
             Assert.That(interaction.UsesHorizontalFirst, Is.Not.EqualTo(previous),
                 "R must change horizontal/vertical priority after a belt start.");
+        }
+
+        [UnityTest]
+        public IEnumerator SimulatedBuild_BypassesPlayerModeAndPlacesBeltPath()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            PlayerInputModeController input =
+                Object.FindFirstObjectByType<PlayerInputModeController>();
+            Assert.That(input.IsBuildMode, Is.False);
+
+            bool selected = false;
+            for (int i = 0; i < 240 && !selected; i++)
+            {
+                selected = interaction.TrySelectBuildingLevel(
+                    new BuildingLevelId { Value = 4 });
+                yield return null;
+            }
+            Assert.That(selected, Is.True,
+                "The Mk4 belt must become available after SubScene loading.");
+
+            interaction.SimulateHover(new int2(0, 0));
+            GameObject preview = null;
+            for (int i = 0; i < 240 && preview == null; i++)
+            {
+                yield return null;
+                preview = GameObject.Find("ECS Building Placement Preview");
+            }
+            Assert.That(preview, Is.Not.Null,
+                "Simulated hover must render without player build mode.");
+
+            interaction.SimulatePrimaryClick(new int2(0, 0));
+            yield return null;
+            Assert.That(interaction.IsBeltPathStarted, Is.True,
+                "Player-mode checks must not clear a simulated belt path.");
+
+            interaction.SimulateHover(new int2(1, 0));
+            yield return null;
+            interaction.SimulatePrimaryClick(new int2(1, 0));
+
+            World world = World.DefaultGameObjectInjectionWorld;
+            EntityQuery belts = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<BeltTopology>());
+            for (int i = 0;
+                 i < 120 && belts.CalculateEntityCount() < 2;
+                 i++)
+            {
+                yield return null;
+            }
+
+            Assert.That(belts.CalculateEntityCount(), Is.EqualTo(2));
+            belts.Dispose();
+            interaction.StopSimulatedHover();
         }
     }
 }

@@ -3,7 +3,10 @@
     "rootNamespace": "Factory.Tests",
     "references": [
         "Factory.Runtime",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.Entities",
+        "Unity.Mathematics",
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -89,8 +89,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
         {
             dirtyCells =
                 EntityManager.GetBuffer<BeltVisualDirtyCell>(gridEntity);
-            using NativeParallelHashSet<int2> dirtyCellSet =
-                new NativeParallelHashSet<int2>(
+            using NativeParallelHashSet<GridCell> dirtyCellSet =
+                new NativeParallelHashSet<GridCell>(
                     math.max(16, dirtyCells.Length * 2),
                     Allocator.Temp);
             for (int i = 0; i < dirtyCells.Length; i++)
@@ -98,7 +98,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 dirtyCellSet.Add(dirtyCells[i].Value);
             }
 
-            foreach (int2 cell in dirtyCellSet)
+            foreach (GridCell cell in dirtyCellSet)
             {
                 if (!occupancySystem.TryGetOccupant(
                         cell,
@@ -222,7 +222,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private bool TryFindIncomingDirection(
-        int2 targetCell,
+        GridCell targetCell,
         int2 targetDirection,
         GridOccupancyIndexSystem occupancySystem,
         out int2 incomingDirection)
@@ -262,11 +262,11 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private bool HasIncomingFromDirection(
-        int2 targetCell,
+        GridCell targetCell,
         int2 travelDirection,
         GridOccupancyIndexSystem occupancySystem)
     {
-        int2 sourceCell = targetCell - travelDirection;
+        GridCell sourceCell = targetCell - travelDirection;
         if (!occupancySystem.TryGetOccupant(
                 sourceCell,
                 out Entity source) ||
@@ -288,13 +288,13 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 continue;
             }
 
-            int2 outputCell = EcsGridUtility.GetBuildingCell(
+            GridCell outputCell = EcsGridUtility.GetBuildingCell(
                 sourcePlacement,
                 port.CellOffset);
             int2 outputDirection = EcsGridUtility.Rotate(
                 port.Direction,
                 sourcePlacement.QuarterTurns);
-            if (math.all(outputCell == targetCell) &&
+            if (outputCell == targetCell &&
                 math.all(outputDirection == travelDirection))
             {
                 return true;
@@ -308,7 +308,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
         in BeltTopology belt,
         GridOccupancyIndexSystem occupancySystem)
     {
-        int2 targetCell = belt.Cell + belt.Direction;
+        GridCell targetCell = belt.Cell + belt.Direction;
         if (!occupancySystem.TryGetOccupant(
                 targetCell,
                 out Entity target) ||
@@ -343,13 +343,13 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 continue;
             }
 
-            int2 sourceCell = EcsGridUtility.GetBuildingCell(
+            GridCell sourceCell = EcsGridUtility.GetBuildingCell(
                 targetPlacement,
                 port.CellOffset);
             int2 travelDirection = EcsGridUtility.Rotate(
                 port.Direction,
                 targetPlacement.QuarterTurns);
-            if (math.all(sourceCell == belt.Cell) &&
+            if (sourceCell == belt.Cell &&
                 math.all(travelDirection == belt.Direction))
             {
                 return true;

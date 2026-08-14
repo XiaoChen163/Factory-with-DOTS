@@ -7,6 +7,8 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
 {
     [SerializeField] private Vector2Int size = new Vector2Int(32, 32);
     [SerializeField] private Vector3 origin = Vector3.zero;
+    [SerializeField, Min(0.01f)] private float layerHeight =
+        EcsGridUtility.DefaultLayerHeight;
 
     private void OnValidate()
     {
@@ -17,6 +19,7 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
         // lines when one grid cell is exactly one Unity unit.
         origin.x = Mathf.Round(origin.x);
         origin.z = Mathf.Round(origin.z);
+        layerHeight = Mathf.Max(0.01f, layerHeight);
     }
 
     private sealed class GridDefinitionBaker
@@ -38,6 +41,19 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                     Mathf.Round(configuredOrigin.z)),
                 CellSize = EcsGridUtility.DefaultCellSize,
                 Revision = 1
+            });
+            AddComponent(entity, new WorldGridConfig
+            {
+                CellSize = EcsGridUtility.DefaultCellSize,
+                LayerHeight = Mathf.Max(0.01f, authoring.layerHeight),
+                Origin = new float3(
+                    Mathf.Round(configuredOrigin.x),
+                    configuredOrigin.y,
+                    Mathf.Round(configuredOrigin.z))
+            });
+            AddComponent(entity, new BuildingRuntimeIdAllocator
+            {
+                NextValue = 0x8000000000000000UL
             });
             AddBuffer<GridBuildCommand>(entity);
             AddBuffer<PlayerGridCommandPending>(entity);

@@ -6,7 +6,7 @@ using UnityEngine;
 [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
 public partial class GridOccupancyIndexSystem : SystemBase
 {
-    private NativeParallelHashMap<int2, Entity> occupancy;
+    private NativeParallelHashMap<GridCell, Entity> occupancy;
     private EntityQuery gridQuery;
     private EntityQuery placementQuery;
     private EntityQuery pendingAddQuery;
@@ -16,7 +16,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
     private bool reportedInvalidGridDefinition;
     private bool hasIncrementalChange;
 
-    public NativeParallelHashMap<int2, Entity>.ReadOnly Occupancy =>
+    public NativeParallelHashMap<GridCell, Entity>.ReadOnly Occupancy =>
         occupancy.AsReadOnly();
 
     public bool IsReady { get; private set; }
@@ -26,7 +26,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
 
     protected override void OnCreate()
     {
-        occupancy = new NativeParallelHashMap<int2, Entity>(
+        occupancy = new NativeParallelHashMap<GridCell, Entity>(
             16,
             Allocator.Persistent);
         gridQuery = GetEntityQuery(
@@ -100,7 +100,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
         IsReady = true;
     }
 
-    public void RemoveOccupant(int2 cell, Entity entity)
+    public void RemoveOccupant(GridCell cell, Entity entity)
     {
         if (!occupancy.IsCreated ||
             !occupancy.TryGetValue(cell, out Entity current) ||
@@ -137,7 +137,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
                  cellIndex < offsets.Length;
                  cellIndex++)
             {
-                int2 cell = EcsGridUtility.GetBuildingCell(
+                GridCell cell = EcsGridUtility.GetBuildingCell(
                     placement,
                     offsets[cellIndex].Value);
                 if (!EcsGridUtility.Contains(grid, cell) ||
@@ -157,7 +157,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
         return true;
     }
 
-    public bool TryGetOccupant(int2 cell, out Entity entity)
+    public bool TryGetOccupant(GridCell cell, out Entity entity)
     {
         if (!occupancy.IsCreated)
         {
@@ -211,7 +211,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
                  cellIndex < occupiedCells.Length;
                  cellIndex++)
             {
-                int2 cell = EcsGridUtility.GetBuildingCell(
+                GridCell cell = EcsGridUtility.GetBuildingCell(
                     placement,
                     occupiedCells[cellIndex].Value);
 

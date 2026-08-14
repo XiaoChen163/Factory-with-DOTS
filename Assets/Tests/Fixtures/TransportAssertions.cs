@@ -8,7 +8,7 @@ namespace Factory.Tests
     {
         public static TransportNodeSnapshot NodeAt(
             TransportStateSnapshot snapshot,
-            Unity.Mathematics.int2 cell)
+            GridCell cell)
         {
             for (int i = 0; i < snapshot.Nodes.Length; i++)
             {

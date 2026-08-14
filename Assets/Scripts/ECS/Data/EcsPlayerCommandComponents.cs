@@ -41,7 +41,7 @@ public enum PlayerCommandFailureReason : byte
 public struct RecipeSelectionCommand : IBufferElementData
 {
     public PlayerCommandHeader Header;
-    public int2 BuildingCell;
+    public GridCell BuildingCell;
     public RecipeId Recipe;
 }
 
@@ -57,7 +57,7 @@ public enum RecipeSelectionFailureReason : byte
 public struct RecipeSelectionResult : IBufferElementData
 {
     public PlayerCommandHeader Header;
-    public int2 BuildingCell;
+    public GridCell BuildingCell;
     public RecipeId Recipe;
     public byte Success;
     public RecipeSelectionFailureReason FailureReason;
@@ -120,8 +120,8 @@ public struct GridBuildPlayerCommand : IBufferElementData
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;
-    public int2 StartCell;
-    public int2 EndCell;
+    public GridCell StartCell;
+    public GridCell EndCell;
     public byte QuarterTurns;
     public byte HorizontalFirst;
 }

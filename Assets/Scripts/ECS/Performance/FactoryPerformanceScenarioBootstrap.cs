@@ -546,12 +546,12 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             splitterQuery.ToEntityArray(Allocator.Temp);
         using NativeArray<Splitter> splitters =
             splitterQuery.ToComponentDataArray<Splitter>(Allocator.Temp);
-        Dictionary<int2, int> beltIndexByCell =
-            new Dictionary<int2, int>(beltTopologies.Length);
-        Dictionary<int2, int> mergerIndexByCell =
-            new Dictionary<int2, int>(mergers.Length);
-        Dictionary<int2, int> splitterIndexByCell =
-            new Dictionary<int2, int>(splitters.Length);
+        Dictionary<GridCell, int> beltIndexByCell =
+            new Dictionary<GridCell, int>(beltTopologies.Length);
+        Dictionary<GridCell, int> mergerIndexByCell =
+            new Dictionary<GridCell, int>(mergers.Length);
+        Dictionary<GridCell, int> splitterIndexByCell =
+            new Dictionary<GridCell, int>(splitters.Length);
         for (int i = 0; i < beltTopologies.Length; i++)
         {
             beltIndexByCell.Add(beltTopologies[i].Cell, i);
@@ -570,7 +570,7 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             entityManager.GetComponentData<LocalTransform>(itemPrefab);
         for (int i = 0; i < definition.InitialItemCells.Length; i++)
         {
-            int2 cell = definition.InitialItemCells[i];
+            GridCell cell = definition.InitialItemCells[i];
             bool isBelt = beltIndexByCell.TryGetValue(cell, out int beltIndex);
             bool isMerger = mergerIndexByCell.TryGetValue(cell, out int mergerIndex);
             bool isSplitter = splitterIndexByCell.TryGetValue(
@@ -586,9 +586,9 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
             Entity item = ecb.Instantiate(itemPrefab);
             float3 position = new float3(
-                cell.x + 0.5f,
+                cell.X + 0.5f,
                 0.535f,
-                cell.y + 0.5f);
+                cell.Z + 0.5f);
             ecb.SetComponent(item, new Item
             {
                 ItemType = itemType

@@ -25,7 +25,7 @@ public static class FactoryTransferResolver
         public Entity Entity;
         public NodeKind Kind;
         public int SourceIndex;
-        public int2 Cell;
+        public GridCell Cell;
         public int2 Direction;
         public Entity CurrentItem;
         public float Progress;
@@ -64,8 +64,8 @@ public static class FactoryTransferResolver
         int splitterCount = splitters.Length;
         Node[] nodes = new Node[
             beltCount + mergerCount + splitterCount];
-        Dictionary<int2, int> indexByCell =
-            new Dictionary<int2, int>(nodes.Length);
+        Dictionary<GridCell, int> indexByCell =
+            new Dictionary<GridCell, int>(nodes.Length);
 
         int nodeIndex = 0;
         for (int i = 0; i < beltCount; i++, nodeIndex++)
@@ -171,7 +171,7 @@ public static class FactoryTransferResolver
 
     private static int BuildOutgoingRequests(
         Node[] nodes,
-        Dictionary<int2, int> indexByCell,
+        Dictionary<GridCell, int> indexByCell,
         HashSet<Entity> processedJunctions)
     {
         int readyCount = 0;
@@ -223,7 +223,7 @@ public static class FactoryTransferResolver
     private static void SelectSplitterOutput(
         int sourceIndex,
         Node[] nodes,
-        Dictionary<int2, int> indexByCell)
+        Dictionary<GridCell, int> indexByCell)
     {
         Node source = nodes[sourceIndex];
         int fallbackOutput = -1;
@@ -235,7 +235,7 @@ public static class FactoryTransferResolver
             int2 outputDirection = GetSplitterOutputDirection(
                 source.Direction,
                 outputIndex);
-            int2 targetCell = source.Cell + outputDirection;
+            GridCell targetCell = source.Cell + outputDirection;
             if (!indexByCell.TryGetValue(
                     targetCell,
                     out int targetIndex) ||
@@ -283,10 +283,10 @@ public static class FactoryTransferResolver
         int outputIndex,
         int2 outputDirection,
         Node[] nodes,
-        Dictionary<int2, int> indexByCell)
+        Dictionary<GridCell, int> indexByCell)
     {
         Node source = nodes[sourceIndex];
-        int2 targetCell = source.Cell + outputDirection;
+        GridCell targetCell = source.Cell + outputDirection;
         if (!indexByCell.TryGetValue(
                 targetCell,
                 out int targetIndex) ||
@@ -309,12 +309,12 @@ public static class FactoryTransferResolver
 
     private static bool CanAcceptInput(
         Node target,
-        int2 sourceCell,
+        GridCell sourceCell,
         int2 travelDirection,
         Node[] nodes,
-        Dictionary<int2, int> indexByCell)
+        Dictionary<GridCell, int> indexByCell)
     {
-        if (!math.all(sourceCell + travelDirection == target.Cell))
+        if (sourceCell + travelDirection != target.Cell)
         {
             return false;
         }
@@ -342,7 +342,7 @@ public static class FactoryTransferResolver
         Node target,
         int2 travelDirection,
         Node[] nodes,
-        Dictionary<int2, int> indexByCell)
+        Dictionary<GridCell, int> indexByCell)
     {
         // The output face is never an input. Of the remaining three faces,
         // keep one stable connection by preferring straight, then right, then
@@ -378,12 +378,12 @@ public static class FactoryTransferResolver
     }
 
     private static bool HasOutputToward(
-        int2 targetCell,
+        GridCell targetCell,
         int2 travelDirection,
         Node[] nodes,
-        Dictionary<int2, int> indexByCell)
+        Dictionary<GridCell, int> indexByCell)
     {
-        int2 sourceCell = targetCell - travelDirection;
+        GridCell sourceCell = targetCell - travelDirection;
         if (!indexByCell.TryGetValue(sourceCell, out int sourceIndex))
         {
             return false;
@@ -632,7 +632,7 @@ public static class FactoryTransferResolver
 
     private static int MarkBeltLoops(
         Node[] nodes,
-        Dictionary<int2, int> indexByCell)
+        Dictionary<GridCell, int> indexByCell)
     {
         byte[] visitState = new byte[nodes.Length];
         int[] pathIndex = new int[nodes.Length];
@@ -658,7 +658,7 @@ public static class FactoryTransferResolver
                 pathIndex[current] = path.Count;
                 path.Add(current);
 
-                int2 nextCell =
+                GridCell nextCell =
                     nodes[current].Cell + nodes[current].Direction;
                 current = indexByCell.TryGetValue(
                     nextCell,
@@ -750,13 +750,19 @@ public static class FactoryTransferResolver
 
     private static int CompareNodes(Node left, Node right)
     {
-        int x = left.Cell.x.CompareTo(right.Cell.x);
+        int level = left.Cell.Level.CompareTo(right.Cell.Level);
+        if (level != 0)
+        {
+            return level;
+        }
+
+        int x = left.Cell.X.CompareTo(right.Cell.X);
         if (x != 0)
         {
             return x;
         }
 
-        int y = left.Cell.y.CompareTo(right.Cell.y);
+        int y = left.Cell.Z.CompareTo(right.Cell.Z);
         return y != 0
             ? y
             : left.Entity.Index.CompareTo(right.Entity.Index);

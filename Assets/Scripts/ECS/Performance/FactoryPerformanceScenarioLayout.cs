@@ -19,7 +19,7 @@ public readonly struct FactoryPerformancePlacement
     public FactoryPerformancePlacement(
         BuildingKind kind,
         BuildingLevelId buildingLevel,
-        int2 cell,
+        GridCell cell,
         byte quarterTurns,
         string recipeKey = null)
     {
@@ -32,7 +32,7 @@ public readonly struct FactoryPerformancePlacement
 
     public BuildingKind Kind { get; }
     public BuildingLevelId BuildingLevel { get; }
-    public int2 Cell { get; }
+    public GridCell Cell { get; }
     public byte QuarterTurns { get; }
     public string RecipeKey { get; }
 }
@@ -45,7 +45,7 @@ public sealed class FactoryPerformanceScenarioDefinition
         string description,
         int2 gridSize,
         FactoryPerformancePlacement[] placements,
-        int2[] initialItemCells,
+        GridCell[] initialItemCells,
         int[] branchLengths,
         int scale,
         string scaleUnit)
@@ -104,7 +104,7 @@ public sealed class FactoryPerformanceScenarioDefinition
     public string Description { get; }
     public int2 GridSize { get; }
     public FactoryPerformancePlacement[] Placements { get; }
-    public int2[] InitialItemCells { get; }
+    public GridCell[] InitialItemCells { get; }
     public int[] BranchLengths { get; }
     public int Scale { get; }
     public string ScaleUnit { get; }
@@ -590,10 +590,10 @@ public static class FactoryPerformanceScenarioLayout
         private readonly int2 gridSize;
         private readonly List<FactoryPerformancePlacement> placements =
             new List<FactoryPerformancePlacement>();
-        private readonly List<int2> initialItemCells = new List<int2>();
-        private readonly HashSet<int2> occupiedCells = new HashSet<int2>();
-        private readonly HashSet<int2> transportCells = new HashSet<int2>();
-        private readonly List<int2> orderedTransportCells = new List<int2>();
+        private readonly List<GridCell> initialItemCells = new List<GridCell>();
+        private readonly HashSet<GridCell> occupiedCells = new HashSet<GridCell>();
+        private readonly HashSet<GridCell> transportCells = new HashSet<GridCell>();
+        private readonly List<GridCell> orderedTransportCells = new List<GridCell>();
 
         public Builder(int2 gridSize)
         {
@@ -690,7 +690,7 @@ public static class FactoryPerformanceScenarioLayout
                 EcsGridUtility.QuarterTurnsFromDirection(inputDirection)));
         }
 
-        public void AddInitialItem(int2 cell)
+        public void AddInitialItem(GridCell cell)
         {
             if (!transportCells.Contains(cell))
             {
@@ -735,10 +735,10 @@ public static class FactoryPerformanceScenarioLayout
                 scaleUnit);
         }
 
-        private void ReserveCell(int2 cell, BuildingKind kind)
+        private void ReserveCell(GridCell cell, BuildingKind kind)
         {
-            if (cell.x < 0 || cell.y < 0 ||
-                cell.x >= gridSize.x || cell.y >= gridSize.y)
+            if (cell.Level != 0 || cell.X < 0 || cell.Z < 0 ||
+                cell.X >= gridSize.x || cell.Z >= gridSize.y)
             {
                 throw new InvalidOperationException(
                     kind + " lies outside the performance grid at " + cell + ".");
@@ -751,7 +751,7 @@ public static class FactoryPerformanceScenarioLayout
             }
         }
 
-        private void AddTransportCell(int2 cell)
+        private void AddTransportCell(GridCell cell)
         {
             transportCells.Add(cell);
             orderedTransportCells.Add(cell);

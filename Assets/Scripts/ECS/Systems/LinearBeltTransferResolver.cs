@@ -63,7 +63,7 @@ internal struct TransportTopologyNode
     public Entity Entity;
     public FactoryTransportKind Kind;
     public int SourceIndex;
-    public int2 Cell;
+    public GridCell Cell;
     public int2 Direction;
     public int Input0;
     public int Input1;
@@ -235,7 +235,7 @@ internal static class TransportTopologyAccess
 /// </summary>
 public sealed class FactoryLinearTransferResolver : IDisposable
 {
-    private NativeParallelHashMap<int2, int> indexByCell;
+    private NativeParallelHashMap<GridCell, int> indexByCell;
     private NativeList<TransportTopologyNode> topology;
     private NativeList<byte> loopVisitState;
     private NativeList<int> loopPathIndex;
@@ -264,7 +264,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
 
     public FactoryLinearTransferResolver()
     {
-        indexByCell = new NativeParallelHashMap<int2, int>(
+        indexByCell = new NativeParallelHashMap<GridCell, int>(
             16,
             Allocator.Persistent);
         topology = new NativeList<TransportTopologyNode>(
@@ -505,7 +505,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         Entity entity,
         FactoryTransportKind kind,
         int sourceIndex,
-        int2 cell,
+        GridCell cell,
         int2 direction)
     {
         topology[nodeIndex] = new TransportTopologyNode
@@ -591,7 +591,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         int2 travelDirection)
     {
         TransportTopologyNode target = topology[targetIndex];
-        int2 sourceCell = target.Cell - travelDirection;
+        GridCell sourceCell = target.Cell - travelDirection;
         if (!indexByCell.TryGetValue(
                 sourceCell,
                 out int sourceIndex))
@@ -823,7 +823,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
     }
 
     [ReadOnly]
-    internal NativeParallelHashMap<int2, int> IndexByCell;
+    internal NativeParallelHashMap<GridCell, int> IndexByCell;
     [ReadOnly]
     internal NativeList<TransportTopologyNode> Topology;
 
@@ -1103,7 +1103,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
                     continue;
                 }
 
-                int2 sourceCell = EcsGridUtility.GetBuildingCell(
+                GridCell sourceCell = EcsGridUtility.GetBuildingCell(
                     placement,
                     geometry.CellOffset);
                 int2 direction = EcsGridUtility.Rotate(
@@ -1205,7 +1205,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
                     continue;
                 }
 
-                int2 targetCell = EcsGridUtility.GetBuildingCell(
+                GridCell targetCell = EcsGridUtility.GetBuildingCell(
                     placement,
                     geometry.CellOffset);
                 int2 direction = EcsGridUtility.Rotate(
@@ -1234,9 +1234,9 @@ public partial struct FactoryTransferArbitrationJob : IJob
                 ReservedTargets.Add(targetEntity);
 
                 float3 position = new float3(
-                    targetCell.x + 0.5f,
+                    targetCell.X + 0.5f,
                     0.535f,
-                    targetCell.y + 0.5f);
+                    targetCell.Z + 0.5f);
                 bool reused = TryGetPooledItem(
                     port.ItemType,
                     out Entity item);
@@ -1642,14 +1642,19 @@ public partial struct FactoryTransferArbitrationJob : IJob
     {
         TransportTopologyNode left = Topology[leftIndex];
         TransportTopologyNode right = Topology[rightIndex];
-        if (left.Cell.x != right.Cell.x)
+        if (left.Cell.Level != right.Cell.Level)
         {
-            return left.Cell.x < right.Cell.x ? -1 : 1;
+            return left.Cell.Level < right.Cell.Level ? -1 : 1;
         }
 
-        if (left.Cell.y != right.Cell.y)
+        if (left.Cell.X != right.Cell.X)
         {
-            return left.Cell.y < right.Cell.y ? -1 : 1;
+            return left.Cell.X < right.Cell.X ? -1 : 1;
+        }
+
+        if (left.Cell.Z != right.Cell.Z)
+        {
+            return left.Cell.Z < right.Cell.Z ? -1 : 1;
         }
 
         if (left.Entity.Index != right.Entity.Index)

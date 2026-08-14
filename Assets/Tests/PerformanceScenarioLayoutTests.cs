@@ -336,7 +336,7 @@ namespace Factory.Tests
         private static void AssertUniquePlacementAnchors(
             FactoryPerformanceScenarioDefinition definition)
         {
-            HashSet<int2> cells = new HashSet<int2>();
+            HashSet<GridCell> cells = new HashSet<GridCell>();
             for (int i = 0; i < definition.Placements.Length; i++)
             {
                 FactoryPerformancePlacement placement =
@@ -345,8 +345,9 @@ namespace Factory.Tests
                     cells.Add(placement.Cell),
                     Is.True,
                     "Duplicate placement anchor at " + placement.Cell + ".");
-                Assert.That(placement.Cell.x, Is.InRange(0, definition.GridSize.x - 1));
-                Assert.That(placement.Cell.y, Is.InRange(0, definition.GridSize.y - 1));
+                Assert.That(placement.Cell.Level, Is.Zero);
+                Assert.That(placement.Cell.X, Is.InRange(0, definition.GridSize.x - 1));
+                Assert.That(placement.Cell.Z, Is.InRange(0, definition.GridSize.y - 1));
             }
         }
 
@@ -380,21 +381,21 @@ namespace Factory.Tests
         private static void AssertInitialItemsUseTransportCells(
             FactoryPerformanceScenarioDefinition definition)
         {
-            HashSet<int2> transportCells = GetTransportCells(definition);
+            HashSet<GridCell> transportCells = GetTransportCells(definition);
 
-            HashSet<int2> itemCells = new HashSet<int2>();
+            HashSet<GridCell> itemCells = new HashSet<GridCell>();
             for (int i = 0; i < definition.InitialItemCells.Length; i++)
             {
-                int2 cell = definition.InitialItemCells[i];
+                GridCell cell = definition.InitialItemCells[i];
                 Assert.That(transportCells.Contains(cell), Is.True);
                 Assert.That(itemCells.Add(cell), Is.True);
             }
         }
 
-        private static HashSet<int2> GetTransportCells(
+        private static HashSet<GridCell> GetTransportCells(
             FactoryPerformanceScenarioDefinition definition)
         {
-            HashSet<int2> result = new HashSet<int2>();
+            HashSet<GridCell> result = new HashSet<GridCell>();
             for (int i = 0; i < definition.Placements.Length; i++)
             {
                 FactoryPerformancePlacement placement = definition.Placements[i];
@@ -412,7 +413,7 @@ namespace Factory.Tests
         private static void AssertTransportOutputsStayInsideNetwork(
             FactoryPerformanceScenarioDefinition definition)
         {
-            HashSet<int2> transportCells = GetTransportCells(definition);
+            HashSet<GridCell> transportCells = GetTransportCells(definition);
             for (int i = 0; i < definition.Placements.Length; i++)
             {
                 FactoryPerformancePlacement placement = definition.Placements[i];

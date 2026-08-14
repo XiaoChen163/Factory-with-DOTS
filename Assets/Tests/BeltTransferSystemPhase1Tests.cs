@@ -236,7 +236,7 @@ namespace Factory.Tests
                 });
         }
 
-        private Entity CreateOutputOwner(int2 targetCell, int availableCount = 1)
+        private Entity CreateOutputOwner(GridCell targetCell, int availableCount = 1)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {

@@ -37,8 +37,8 @@ public struct GridBuildCommand : IBufferElementData
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;
-    public int2 StartCell;
-    public int2 EndCell;
+    public GridCell StartCell;
+    public GridCell EndCell;
     public byte QuarterTurns;
     public byte HorizontalFirst;
 }
@@ -64,7 +64,7 @@ public struct GridBuildResult : IBufferElementData
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;
-    public int2 Cell;
+    public GridCell Cell;
     public byte Success;
     public int AffectedCount;
     public GridBuildFailureReason FailureReason;
@@ -136,12 +136,23 @@ public static class BuildingPrefabCatalogUtility
     }
 }
 
-public static class ItemContainerRuntimeIdUtility
+public struct BuildingRuntimeIdAllocator : IComponentData
 {
-    public static ulong FromCell(int2 cell)
+    public ulong NextValue;
+
+    public ulong Allocate()
     {
-        return 0x8000000000000000UL |
-               ((ulong)(uint)cell.x << 32) |
-               (uint)cell.y;
+        if (NextValue < 0x8000000000000000UL)
+        {
+            NextValue = 0x8000000000000000UL;
+        }
+
+        if (NextValue == ulong.MaxValue)
+        {
+            throw new System.InvalidOperationException(
+                "Building runtime ID space is exhausted.");
+        }
+
+        return NextValue++;
     }
 }

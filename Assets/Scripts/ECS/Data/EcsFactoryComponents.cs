@@ -8,7 +8,7 @@ using Unity.Mathematics;
 public struct BeltTopology : IComponentData
 {
     public float CellsPerSecond;
-    public int2 Cell;
+    public GridCell Cell;
     public int2 Direction;
 }
 
@@ -33,7 +33,7 @@ public struct BeltVisualParts : IComponentData
 
 public struct Merger : IComponentData
 {
-    public int2 Cell;
+    public GridCell Cell;
     public int2 Direction;
     public Entity CurrentItem;
     public int NextInputIndex;
@@ -41,7 +41,7 @@ public struct Merger : IComponentData
 
 public struct Splitter : IComponentData
 {
-    public int2 Cell;
+    public GridCell Cell;
     public int2 Direction;
     public Entity CurrentItem;
     public int NextOutputIndex;

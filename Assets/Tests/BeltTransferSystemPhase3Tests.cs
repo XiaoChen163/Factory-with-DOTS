@@ -27,7 +27,7 @@ namespace Factory.Tests
                 Is.True);
             Assert.That(
                 EntityManager.GetComponentData<BeltTopology>(belt).Cell,
-                Is.EqualTo(int2.zero));
+                Is.EqualTo(GridCell.LevelZero(int2.zero)));
             Assert.That(
                 EntityManager.GetComponentData<BeltTopology>(belt).Direction,
                 Is.EqualTo(East));
@@ -180,7 +180,7 @@ namespace Factory.Tests
                 });
         }
 
-        private Entity CreateOutputOwner(int2 targetCell)
+        private Entity CreateOutputOwner(GridCell targetCell)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {

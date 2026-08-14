@@ -43,7 +43,7 @@ namespace Factory.Tests
         }
 
         protected Entity CreateBelt(
-            int2 cell,
+            GridCell cell,
             int2 direction,
             Entity item = default,
             float progress = 0f)

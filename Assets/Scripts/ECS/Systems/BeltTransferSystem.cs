@@ -342,15 +342,22 @@ public partial class BeltTransferSystem : SystemBase
                 EntityManager.GetComponentData<GridPlacement>(left);
             GridPlacement rightPlacement =
                 EntityManager.GetComponentData<GridPlacement>(right);
-            int x = leftPlacement.AnchorCell.x.CompareTo(
-                rightPlacement.AnchorCell.x);
+            int level = leftPlacement.AnchorCell.Level.CompareTo(
+                rightPlacement.AnchorCell.Level);
+            if (level != 0)
+            {
+                return level;
+            }
+
+            int x = leftPlacement.AnchorCell.X.CompareTo(
+                rightPlacement.AnchorCell.X);
             if (x != 0)
             {
                 return x;
             }
 
-            int y = leftPlacement.AnchorCell.y.CompareTo(
-                rightPlacement.AnchorCell.y);
+            int y = leftPlacement.AnchorCell.Z.CompareTo(
+                rightPlacement.AnchorCell.Z);
             return y != 0 ? y : left.Index.CompareTo(right.Index);
         });
 

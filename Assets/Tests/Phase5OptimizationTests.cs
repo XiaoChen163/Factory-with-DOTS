@@ -679,7 +679,7 @@ namespace Factory.Tests
             return grid;
         }
 
-        private Entity CreateRemovableBelt(int2 cell, Entity item)
+        private Entity CreateRemovableBelt(GridCell cell, Entity item)
         {
             Entity belt = EntityManager.CreateEntity();
             EntityManager.AddComponentData(
@@ -706,7 +706,7 @@ namespace Factory.Tests
         }
 
         private Entity CreateVisualBelt(
-            int2 cell,
+            GridCell cell,
             int2 direction,
             BuildingPortType portType)
         {

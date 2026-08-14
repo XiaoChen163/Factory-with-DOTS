@@ -16,16 +16,16 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private static readonly Color OutputPortPreviewColor =
         new Color(0.12f, 0.9f, 0.28f, 0.95f);
 
-    private readonly List<int2> previewCells =
-        new List<int2>(64);
+    private readonly List<GridCell> previewCells =
+        new List<GridCell>(64);
     private readonly List<GameObject> previewCellObjects =
         new List<GameObject>(64);
     private readonly List<Transform> previewTriangles =
         new List<Transform>(64);
     private readonly List<int2> previewDisplayDirections =
         new List<int2>(64);
-    private readonly List<int2> previewPortCells =
-        new List<int2>(8);
+    private readonly List<GridCell> previewPortCells =
+        new List<GridCell>(8);
     private readonly List<int2> previewPortDirections =
         new List<int2>(8);
     private readonly List<BuildingPortType> previewPortTypes =
@@ -44,9 +44,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private byte quarterTurns;
     private bool beltPathStarted;
     private bool horizontalFirst = true;
-    private int2 beltPathStart;
+    private GridCell beltPathStart;
     private bool simulatedHoverActive;
-    private int2 simulatedHoverCell;
+    private GridCell simulatedHoverCell;
     private World cachedWorld;
     private EntityQuery gridQuery;
     private EntityQuery databaseQuery;
@@ -170,7 +170,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     {
         World world;
         GridDefinition grid;
-        int2 hoveredCell;
+        GridCell hoveredCell;
         if (simulatedHoverActive)
         {
             if (!TryGetGrid(out world, out _, out grid))
@@ -205,7 +205,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
         for (int i = 0; i < previewCells.Count; i++)
         {
-            int2 cell = previewCells[i];
+            GridCell cell = previewCells[i];
             if (!EcsGridUtility.Contains(grid, cell) ||
                 occupancySystem == null ||
                 occupancySystem.TryGetOccupant(cell, out _))
@@ -217,7 +217,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         ShowPlacementPreview(grid, canPlace);
     }
 
-    private void BuildPreviewCells(int2 hoveredCell)
+    private void BuildPreviewCells(GridCell hoveredCell)
     {
         previewCells.Clear();
         previewDisplayDirections.Clear();
@@ -227,9 +227,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         if (SelectedKind == BuildingKind.Belt &&
             beltPathStarted)
         {
-            int2 corner = horizontalFirst
-                ? new int2(hoveredCell.x, beltPathStart.y)
-                : new int2(beltPathStart.x, hoveredCell.y);
+            GridCell corner = horizontalFirst
+                ? new GridCell(hoveredCell.X, hoveredCell.Level, beltPathStart.Z)
+                : new GridCell(beltPathStart.X, hoveredCell.Level, hoveredCell.Z);
             AppendPreviewSegment(
                 beltPathStart,
                 corner,
@@ -279,7 +279,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     }
 
     private void BuildPortPreview(
-        int2 anchorCell,
+        GridCell anchorCell,
         int2 footprintSize,
         in FactoryBuildingBlob building)
     {
@@ -307,11 +307,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     }
 
     private void AppendPreviewSegment(
-        int2 from,
-        int2 to,
+        GridCell from,
+        GridCell to,
         bool includeStart)
     {
-        int2 delta = to - from;
+        int2 delta = to.Horizontal - from.Horizontal;
         int2 step = new int2(
             delta.x == 0 ? 0 : delta.x > 0 ? 1 : -1,
             delta.y == 0 ? 0 : delta.y > 0 ? 1 : -1);
@@ -334,7 +334,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             if (i < previewCells.Count - 1)
             {
                 outputDirection =
-                    previewCells[i + 1] - previewCells[i];
+                    previewCells[i + 1].Horizontal -
+                    previewCells[i].Horizontal;
                 fallbackDirection = outputDirection;
             }
             else
@@ -346,7 +347,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             if (i > 0)
             {
                 int2 incomingDirection =
-                    previewCells[i] - previewCells[i - 1];
+                    previewCells[i].Horizontal -
+                    previewCells[i - 1].Horizontal;
                 if (!math.all(
                         incomingDirection == outputDirection))
                 {
@@ -719,7 +721,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out World world,
                 out _,
                 out _,
-                out int2 cell,
+                out GridCell cell,
                 out _,
                 out _,
                 true))
@@ -732,13 +734,13 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public void SimulatePrimaryClick(int2 cell)
     {
-        HandlePrimaryClickAtCell(cell);
+        HandlePrimaryClickAtCell(GridCell.LevelZero(cell));
     }
 
     public bool TryGetHoveredBuilding(out BuildingRuntimeId runtimeId)
     {
         runtimeId = default;
-        if (!TryRaycastGrid(out World world, out _, out _, out int2 cell,
+        if (!TryRaycastGrid(out World world, out _, out _, out GridCell cell,
                 out _, out bool isInside, false) || !isInside)
             return false;
         GridOccupancyIndexSystem occupancy =
@@ -753,7 +755,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         return runtimeId.IsValid;
     }
 
-    private void HandlePrimaryClickAtCell(int2 cell)
+    private void HandlePrimaryClickAtCell(GridCell cell)
     {
         if (!TryGetGrid(
                 out World world,
@@ -776,7 +778,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out occupant);
 
         Debug.Log(
-            "[ECS Grid Raycast] Cell=(" + cell.x + ", " + cell.y + ")" +
+            "[ECS Grid Raycast] Cell=(" + cell.X + ", L" + cell.Level +
+            ", " + cell.Z + ")" +
             ", Inside=" + isInside +
             ", Occupied=" + isOccupied +
             (isOccupied ? ", Entity=" + occupant : string.Empty) +
@@ -846,7 +849,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out World world,
                 out _,
                 out _,
-                out int2 cell,
+                out GridCell cell,
                 out _,
                 out bool isInside,
                 false) ||
@@ -860,11 +863,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public void SimulateRemove(int2 cell, bool removeBeltLine)
     {
-        HandleRemoveAtCell(cell, removeBeltLine);
+        HandleRemoveAtCell(GridCell.LevelZero(cell), removeBeltLine);
     }
 
     private void HandleRemoveAtCell(
-        int2 cell,
+        GridCell cell,
         bool removeBeltLine)
     {
         if (!TryGetGrid(
@@ -899,7 +902,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     public void SimulateHover(int2 cell)
     {
         simulatedHoverActive = true;
-        simulatedHoverCell = cell;
+        simulatedHoverCell = GridCell.LevelZero(cell);
     }
 
     public void StopSimulatedHover()
@@ -916,7 +919,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         out World world,
         out GridDefinition grid,
         out Entity gridEntity,
-        out int2 cell,
+        out GridCell cell,
         out Vector3 hitPoint,
         out bool isInside,
         bool logFailure)

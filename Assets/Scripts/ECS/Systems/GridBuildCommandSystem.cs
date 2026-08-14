@@ -22,7 +22,7 @@ public partial class GridBuildCommandSystem : SystemBase
     {
         public Entity Entity;
         public GridPlacement Placement;
-        public int2[] OccupiedCells;
+        public GridCell[] OccupiedCells;
         public BuildingPort[] Ports;
     }
 
@@ -31,6 +31,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private EntityQuery placementQuery;
     private EntityQuery itemPoolQuery;
     private EntityQuery playerQuery;
+    private BuildingRuntimeIdAllocator runtimeIdAllocator;
 
     public ulong DiagnosticBatchCount { get; private set; }
     public int LastBatchPlacementScanCount { get; private set; }
@@ -71,12 +72,22 @@ public partial class GridBuildCommandSystem : SystemBase
         }
 
         Entity gridEntity = gridQuery.GetSingletonEntity();
-        DynamicBuffer<GridBuildCommand> commands =
-            EntityManager.GetBuffer<GridBuildCommand>(gridEntity);
-        if (commands.IsEmpty)
+        if (EntityManager.GetBuffer<GridBuildCommand>(gridEntity).IsEmpty)
         {
             return;
         }
+
+        runtimeIdAllocator = EntityManager.HasComponent<BuildingRuntimeIdAllocator>(
+            gridEntity)
+            ? EntityManager.GetComponentData<BuildingRuntimeIdAllocator>(gridEntity)
+            : CreateRuntimeIdAllocator();
+        if (!EntityManager.HasComponent<BuildingRuntimeIdAllocator>(gridEntity))
+        {
+            EntityManager.AddComponentData(gridEntity, runtimeIdAllocator);
+        }
+
+        DynamicBuffer<GridBuildCommand> commands =
+            EntityManager.GetBuffer<GridBuildCommand>(gridEntity);
 
         BeginDiagnosticBatch();
 
@@ -125,13 +136,13 @@ public partial class GridBuildCommandSystem : SystemBase
         BuildSnapshot(
             occupancySystem,
             out List<PlacementRecord> records,
-            out Dictionary<int2, PlacementRecord> occupantByCell);
+            out Dictionary<GridCell, PlacementRecord> occupantByCell);
         Dictionary<PlayerId, Entity> players = BuildPlayerSnapshot();
 
         EntityCommandBuffer ecb =
             new EntityCommandBuffer(Allocator.Temp);
         bool gridChanged = false;
-        HashSet<int2> dirtyCells = new HashSet<int2>();
+        HashSet<GridCell> dirtyCells = new HashSet<GridCell>();
 
         for (int commandIndex = 0;
              commandIndex < commands.Length;
@@ -225,6 +236,7 @@ public partial class GridBuildCommandSystem : SystemBase
         commands.Clear();
         ecb.Playback(EntityManager);
         ecb.Dispose();
+        EntityManager.SetComponentData(gridEntity, runtimeIdAllocator);
 
         if (gridChanged)
         {
@@ -240,7 +252,7 @@ public partial class GridBuildCommandSystem : SystemBase
             DynamicBuffer<BeltVisualDirtyCell> dirtyBuffer =
                 EntityManager.GetBuffer<BeltVisualDirtyCell>(
                     gridEntity);
-            foreach (int2 cell in dirtyCells)
+            foreach (GridCell cell in dirtyCells)
             {
                 dirtyBuffer.Add(new BeltVisualDirtyCell
                 {
@@ -279,7 +291,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private void BuildSnapshot(
         GridOccupancyIndexSystem occupancySystem,
         out List<PlacementRecord> records,
-        out Dictionary<int2, PlacementRecord> occupantByCell)
+        out Dictionary<GridCell, PlacementRecord> occupantByCell)
     {
         using NativeArray<Entity> entities =
             placementQuery.ToEntityArray(Allocator.Temp);
@@ -315,7 +327,7 @@ public partial class GridBuildCommandSystem : SystemBase
         }
 
         occupantByCell =
-            new Dictionary<int2, PlacementRecord>(
+            new Dictionary<GridCell, PlacementRecord>(
                 occupancySystem.OccupiedCellCount);
         foreach (var pair in occupancySystem.Occupancy)
         {
@@ -330,15 +342,15 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryPlaceSingle(
         BuildingLevelId buildingLevelId,
-        int2 anchor,
+        GridCell anchor,
         byte quarterTurns,
         in GridDefinition grid,
         in BuildingPrefabCatalog catalog,
         in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell,
-        HashSet<int2> dirtyCells,
+        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        HashSet<GridCell> dirtyCells,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
@@ -399,8 +411,8 @@ public partial class GridBuildCommandSystem : SystemBase
         in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell,
-        HashSet<int2> dirtyCells,
+        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        HashSet<GridCell> dirtyCells,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
@@ -502,12 +514,12 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private bool TryRemove(
-        int2 cell,
+        GridCell cell,
         Entity player,
         ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell,
-        HashSet<int2> dirtyCells,
+        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        HashSet<GridCell> dirtyCells,
         GridOccupancyIndexSystem occupancySystem,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
@@ -532,12 +544,12 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private bool TryRemoveBeltLine(
-        int2 cell,
+        GridCell cell,
         Entity player,
         ref FactoryDatabaseBlob database,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell,
-        HashSet<int2> dirtyCells,
+        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        HashSet<GridCell> dirtyCells,
         GridOccupancyIndexSystem occupancySystem,
         ref EntityCommandBuffer ecb,
         out int removedCount,
@@ -610,12 +622,12 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private static void MarkCellsDirty(
-        int2[] cells,
-        HashSet<int2> dirtyCells)
+        GridCell[] cells,
+        HashSet<GridCell> dirtyCells)
     {
         for (int i = 0; i < cells.Length; i++)
         {
-            int2 cell = cells[i];
+            GridCell cell = cells[i];
             dirtyCells.Add(cell);
             dirtyCells.Add(cell + new int2(1, 0));
             dirtyCells.Add(cell + new int2(-1, 0));
@@ -626,11 +638,11 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static void TryEnqueueOutputBelt(
         PlacementRecord source,
-        Dictionary<int2, PlacementRecord> occupantByCell,
+        Dictionary<GridCell, PlacementRecord> occupantByCell,
         HashSet<PlacementRecord> connectedBelts,
         Queue<PlacementRecord> pending)
     {
-        if (!TryGetBeltOutputCell(source, out int2 outputCell) ||
+        if (!TryGetBeltOutputCell(source, out GridCell outputCell) ||
             !occupantByCell.TryGetValue(
                 outputCell,
                 out PlacementRecord target) ||
@@ -645,14 +657,14 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static void TryEnqueueIncomingBelts(
         PlacementRecord target,
-        Dictionary<int2, PlacementRecord> occupantByCell,
+        Dictionary<GridCell, PlacementRecord> occupantByCell,
         HashSet<PlacementRecord> connectedBelts,
         Queue<PlacementRecord> pending)
     {
-        int2 targetCell = target.Placement.AnchorCell;
+        GridCell targetCell = target.Placement.AnchorCell;
         for (int i = 0; i < CardinalDirections.Length; i++)
         {
-            int2 sourceCell =
+            GridCell sourceCell =
                 targetCell - CardinalDirections[i];
             if (!occupantByCell.TryGetValue(
                     sourceCell,
@@ -660,8 +672,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 source.Placement.Kind != BuildingKind.Belt ||
                 !TryGetBeltOutputCell(
                     source,
-                    out int2 outputCell) ||
-                !math.all(outputCell == targetCell) ||
+                    out GridCell outputCell) ||
+                outputCell != targetCell ||
                 !connectedBelts.Add(source))
             {
                 continue;
@@ -673,7 +685,7 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static bool TryGetBeltOutputCell(
         PlacementRecord belt,
-        out int2 outputCell)
+        out GridCell outputCell)
     {
         for (int i = 0; i < belt.Ports.Length; i++)
         {
@@ -689,7 +701,7 @@ public partial class GridBuildCommandSystem : SystemBase
             return true;
         }
 
-        outputCell = int2.zero;
+        outputCell = default;
         return false;
     }
 
@@ -697,14 +709,14 @@ public partial class GridBuildCommandSystem : SystemBase
         PlacementRecord candidate,
         in GridDefinition grid,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell,
+        Dictionary<GridCell, PlacementRecord> occupantByCell,
         out GridBuildFailureReason failureReason)
     {
         for (int i = 0;
              i < candidate.OccupiedCells.Length;
              i++)
         {
-            int2 cell = candidate.OccupiedCells[i];
+            GridCell cell = candidate.OccupiedCells[i];
             if (!EcsGridUtility.Contains(grid, cell))
             {
                 failureReason =
@@ -773,11 +785,11 @@ public partial class GridBuildCommandSystem : SystemBase
             }
         }
 
-        List<(int2 Cell, int2 Direction)> outputs =
+        List<(GridCell Cell, int2 Direction)> outputs =
             GetOutputs(candidate);
         for (int i = 0; i < outputs.Count; i++)
         {
-            (int2 outputCell, int2 outputDirection) =
+            (GridCell outputCell, int2 outputDirection) =
                 outputs[i];
             if (!occupantByCell.TryGetValue(
                     outputCell,
@@ -819,7 +831,7 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryCreateStagedRecord(
         BuildingLevelId levelId,
-        int2 anchor,
+        GridCell anchor,
         byte quarterTurns,
         ref FactoryDatabaseBlob database,
         out FactoryBuildingLevelBlob level,
@@ -895,7 +907,7 @@ public partial class GridBuildCommandSystem : SystemBase
         ref FactoryDatabaseBlob database)
     {
         int occupiedCount = building.FootprintWidth * building.FootprintHeight;
-        int2[] occupiedCells = new int2[occupiedCount];
+        GridCell[] occupiedCells = new GridCell[occupiedCount];
         int cursor = 0;
         for (int y = 0; y < building.FootprintHeight; y++)
         for (int x = 0; x < building.FootprintWidth; x++)
@@ -934,8 +946,8 @@ public partial class GridBuildCommandSystem : SystemBase
         DynamicBuffer<OccupiedCellOffset> occupiedOffsets,
         DynamicBuffer<BuildingPort> ports)
     {
-        int2[] occupiedCells =
-            new int2[occupiedOffsets.Length];
+        GridCell[] occupiedCells =
+            new GridCell[occupiedOffsets.Length];
         for (int i = 0; i < occupiedOffsets.Length; i++)
         {
             occupiedCells[i] = EcsGridUtility.GetBuildingCell(
@@ -1053,7 +1065,7 @@ public partial class GridBuildCommandSystem : SystemBase
             ref ecb);
     }
 
-    private static void AddLogicComponents(
+    private void AddLogicComponents(
         Entity instance,
         in FactoryBuildingBlob building,
         in FactoryBuildingLevelBlob level,
@@ -1117,8 +1129,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 });
                 ecb.AddComponent(instance, new ItemContainerIdentity
                 {
-                    RuntimeId = ItemContainerRuntimeIdUtility.FromCell(
-                        placement.AnchorCell)
+                    RuntimeId = runtimeIdAllocator.Allocate()
                 });
                 AddItemPortBuffers(instance, ref ecb);
                 break;
@@ -1140,12 +1151,29 @@ public partial class GridBuildCommandSystem : SystemBase
                 }
                 ecb.AddComponent(instance, new ItemContainerIdentity
                 {
-                    RuntimeId = ItemContainerRuntimeIdUtility.FromCell(
-                        placement.AnchorCell)
+                    RuntimeId = runtimeIdAllocator.Allocate()
                 });
                 AddItemPortBuffers(instance, ref ecb);
                 break;
         }
+    }
+
+    private BuildingRuntimeIdAllocator CreateRuntimeIdAllocator()
+    {
+        ulong next = 0x8000000000000000UL;
+        using EntityQuery identities = EntityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<ItemContainerIdentity>());
+        using NativeArray<ItemContainerIdentity> values =
+            identities.ToComponentDataArray<ItemContainerIdentity>(Allocator.Temp);
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (values[i].RuntimeId >= next && values[i].RuntimeId != ulong.MaxValue)
+            {
+                next = values[i].RuntimeId + 1;
+            }
+        }
+
+        return new BuildingRuntimeIdAllocator { NextValue = next };
     }
 
     private static void AddItemPortBuffers(
@@ -1189,7 +1217,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 continue;
             }
 
-            int2 portCell = EcsGridUtility.GetBuildingCell(
+            GridCell portCell = EcsGridUtility.GetBuildingCell(
                 placement,
                 port.CellOffset);
             int2 direction = EcsGridUtility.Rotate(
@@ -1441,7 +1469,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private static void AddRecord(
         PlacementRecord record,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell)
+        Dictionary<GridCell, PlacementRecord> occupantByCell)
     {
         records.Add(record);
         for (int i = 0; i < record.OccupiedCells.Length; i++)
@@ -1453,7 +1481,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private static void RemoveRecord(
         PlacementRecord record,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell)
+        Dictionary<GridCell, PlacementRecord> occupantByCell)
     {
         records.Remove(record);
         for (int i = 0; i < record.OccupiedCells.Length; i++)
@@ -1465,7 +1493,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private static void RollBackStaged(
         List<PlacementRecord> staged,
         List<PlacementRecord> records,
-        Dictionary<int2, PlacementRecord> occupantByCell)
+        Dictionary<GridCell, PlacementRecord> occupantByCell)
     {
         for (int i = staged.Count - 1; i >= 0; i--)
         {
@@ -1473,11 +1501,11 @@ public partial class GridBuildCommandSystem : SystemBase
         }
     }
 
-    private static List<(int2 Cell, int2 Direction)> GetOutputs(
+    private static List<(GridCell Cell, int2 Direction)> GetOutputs(
         PlacementRecord record)
     {
-        List<(int2, int2)> outputs =
-            new List<(int2, int2)>(3);
+        List<(GridCell, int2)> outputs =
+            new List<(GridCell, int2)>(3);
         for (int i = 0; i < record.Ports.Length; i++)
         {
             BuildingPort port = record.Ports[i];
@@ -1499,21 +1527,19 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private static int CountOutputsTo(
-        int2 targetCell,
+        GridCell targetCell,
         List<PlacementRecord> records)
     {
         int count = 0;
         for (int i = 0; i < records.Count; i++)
         {
-            List<(int2 Cell, int2 Direction)> outputs =
+            List<(GridCell Cell, int2 Direction)> outputs =
                 GetOutputs(records[i]);
             for (int outputIndex = 0;
                  outputIndex < outputs.Count;
                  outputIndex++)
             {
-                if (math.all(
-                        outputs[outputIndex].Cell ==
-                        targetCell))
+                if (outputs[outputIndex].Cell == targetCell)
                 {
                     count++;
                 }
@@ -1524,21 +1550,19 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private static List<int2> GetIncomingDirections(
-        int2 targetCell,
+        GridCell targetCell,
         List<PlacementRecord> records)
     {
         List<int2> directions = new List<int2>(4);
         for (int i = 0; i < records.Count; i++)
         {
-            List<(int2 Cell, int2 Direction)> outputs =
+            List<(GridCell Cell, int2 Direction)> outputs =
                 GetOutputs(records[i]);
             for (int outputIndex = 0;
                  outputIndex < outputs.Count;
                  outputIndex++)
             {
-                if (math.all(
-                        outputs[outputIndex].Cell ==
-                        targetCell))
+                if (outputs[outputIndex].Cell == targetCell)
                 {
                     directions.Add(
                         outputs[outputIndex].Direction);
@@ -1550,7 +1574,7 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private static bool TryGetOnlyIncomingDirection(
-        int2 targetCell,
+        GridCell targetCell,
         List<PlacementRecord> records,
         out int2 direction)
     {

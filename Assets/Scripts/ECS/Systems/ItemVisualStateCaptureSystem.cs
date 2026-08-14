@@ -58,9 +58,9 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
             Capture(
                 state.CurrentItem,
                 new float3(
-                    topology.Cell.x + 0.5f,
+                    topology.Cell.X + 0.5f,
                     0.535f,
-                    topology.Cell.y + 0.5f),
+                    topology.Cell.Z + 0.5f),
                 state.Progress);
         }
 
@@ -104,9 +104,9 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
             Capture(
                 merger.CurrentItem,
                 new float3(
-                    merger.Cell.x + 0.5f,
+                    merger.Cell.X + 0.5f,
                     0.535f,
-                    merger.Cell.y + 0.5f),
+                    merger.Cell.Z + 0.5f),
                 1f);
         }
 
@@ -150,9 +150,9 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
             Capture(
                 splitter.CurrentItem,
                 new float3(
-                    splitter.Cell.x + 0.5f,
+                    splitter.Cell.X + 0.5f,
                     0.535f,
-                    splitter.Cell.y + 0.5f),
+                    splitter.Cell.Z + 0.5f),
                 1f);
         }
 

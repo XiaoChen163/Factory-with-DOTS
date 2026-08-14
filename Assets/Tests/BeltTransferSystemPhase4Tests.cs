@@ -289,7 +289,7 @@ namespace Factory.Tests
             return pool;
         }
 
-        private Entity CreateInputOwner(int2 sourceCell)
+        private Entity CreateInputOwner(GridCell sourceCell)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {
@@ -320,7 +320,7 @@ namespace Factory.Tests
             return owner;
         }
 
-        private Entity CreateOutputOwner(int2 targetCell)
+        private Entity CreateOutputOwner(GridCell targetCell)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -55,6 +56,18 @@ public struct BuildingPortVisual : IComponentData
     public Entity Owner;
     public BuildingPortType Type;
     public byte PortIndex;
+}
+
+public readonly struct BeltPathCell
+{
+    public BeltPathCell(int2 cell, int2 direction)
+    {
+        Cell = cell;
+        Direction = direction;
+    }
+
+    public int2 Cell { get; }
+    public int2 Direction { get; }
 }
 
 public static class EcsGridUtility
@@ -175,11 +188,26 @@ public static class EcsGridUtility
         int2 footprintSize,
         int quarterTurns)
     {
-        float2 center = GetVisualCenterOffset(footprintSize);
-        float2 rotated = center + Rotate(
-            new float2(cellOffset.x, cellOffset.y) - center,
-            quarterTurns);
-        return (int2)math.round(rotated);
+        // Keep footprint rotation entirely in integer space. Rotating around
+        // a half-cell center and rounding collapses cells for even-by-odd
+        // footprints (for example 2x3 at 90 degrees).
+        switch (NormalizeQuarterTurns(quarterTurns))
+        {
+            case 0:
+                return cellOffset;
+            case 1:
+                return new int2(
+                    footprintSize.y - 1 - cellOffset.y,
+                    cellOffset.x);
+            case 2:
+                return new int2(
+                    footprintSize.x - 1 - cellOffset.x,
+                    footprintSize.y - 1 - cellOffset.y);
+            default:
+                return new int2(
+                    cellOffset.y,
+                    footprintSize.x - 1 - cellOffset.x);
+        }
     }
 
     public static int2 GetBuildingCell(
@@ -197,6 +225,60 @@ public static class EcsGridUtility
         return quaternion.RotateY(
             -NormalizeQuarterTurns(quarterTurns) *
             (math.PI * 0.5f));
+    }
+
+    public static List<BeltPathCell> BuildBeltPath(
+        int2 start,
+        int2 end,
+        bool horizontalFirst,
+        int2 initialDirection)
+    {
+        List<int2> cells = new List<int2>();
+        int2 corner = horizontalFirst
+            ? new int2(end.x, start.y)
+            : new int2(start.x, end.y);
+
+        AppendSegment(cells, start, corner, true);
+        AppendSegment(cells, corner, end, false);
+
+        List<BeltPathCell> path =
+            new List<BeltPathCell>(cells.Count);
+        int2 fallbackDirection = SanitizeDirection(initialDirection);
+        for (int i = 0; i < cells.Count; i++)
+        {
+            int2 direction;
+            if (i < cells.Count - 1)
+            {
+                direction = cells[i + 1] - cells[i];
+                fallbackDirection = direction;
+            }
+            else
+            {
+                direction = fallbackDirection;
+            }
+
+            path.Add(new BeltPathCell(cells[i], direction));
+        }
+
+        return path;
+    }
+
+    private static void AppendSegment(
+        List<int2> cells,
+        int2 from,
+        int2 to,
+        bool includeStart)
+    {
+        int2 delta = to - from;
+        int2 step = new int2(
+            delta.x == 0 ? 0 : delta.x > 0 ? 1 : -1,
+            delta.y == 0 ? 0 : delta.y > 0 ? 1 : -1);
+        int length = math.abs(delta.x) + math.abs(delta.y);
+        int first = includeStart ? 0 : 1;
+        for (int i = first; i <= length; i++)
+        {
+            cells.Add(from + step * i);
+        }
     }
 
     private static int NormalizeQuarterTurns(int quarterTurns)

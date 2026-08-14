@@ -26,23 +26,19 @@ public partial class GridBuildCommandSystem : SystemBase
         public BuildingPort[] Ports;
     }
 
-    private readonly struct PathCell
-    {
-        public PathCell(int2 cell, int2 direction)
-        {
-            Cell = cell;
-            Direction = direction;
-        }
-
-        public int2 Cell { get; }
-        public int2 Direction { get; }
-    }
-
     private EntityQuery gridQuery;
     private EntityQuery catalogQuery;
     private EntityQuery placementQuery;
     private EntityQuery itemPoolQuery;
     private EntityQuery playerQuery;
+
+    public ulong DiagnosticBatchCount { get; private set; }
+    public int LastBatchPlacementScanCount { get; private set; }
+    public int LastBatchTemporaryRecordCount { get; private set; }
+    public int LastBatchPathValidationCellCount { get; private set; }
+    public ulong TotalPlacementScanCount { get; private set; }
+    public ulong TotalTemporaryRecordCount { get; private set; }
+    public ulong TotalPathValidationCellCount { get; private set; }
 
     protected override void OnCreate()
     {
@@ -81,6 +77,8 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             return;
         }
+
+        BeginDiagnosticBatch();
 
         DynamicBuffer<GridBuildResult> results =
             EntityManager.GetBuffer<GridBuildResult>(gridEntity);
@@ -252,6 +250,32 @@ public partial class GridBuildCommandSystem : SystemBase
         }
     }
 
+    private void BeginDiagnosticBatch()
+    {
+        DiagnosticBatchCount++;
+        LastBatchPlacementScanCount = 0;
+        LastBatchTemporaryRecordCount = 0;
+        LastBatchPathValidationCellCount = 0;
+    }
+
+    private void RecordPlacementScan(int count)
+    {
+        LastBatchPlacementScanCount += count;
+        TotalPlacementScanCount += (ulong)count;
+    }
+
+    private void RecordTemporaryRecords(int count)
+    {
+        LastBatchTemporaryRecordCount += count;
+        TotalTemporaryRecordCount += (ulong)count;
+    }
+
+    private void RecordPathValidationCells(int count)
+    {
+        LastBatchPathValidationCellCount += count;
+        TotalPathValidationCellCount += (ulong)count;
+    }
+
     private void BuildSnapshot(
         GridOccupancyIndexSystem occupancySystem,
         out List<PlacementRecord> records,
@@ -262,6 +286,9 @@ public partial class GridBuildCommandSystem : SystemBase
         using NativeArray<GridPlacement> placements =
             placementQuery.ToComponentDataArray<GridPlacement>(
                 Allocator.Temp);
+
+        RecordPlacementScan(entities.Length);
+        RecordTemporaryRecords(entities.Length);
 
         records = new List<PlacementRecord>(entities.Length);
         Dictionary<Entity, PlacementRecord> recordsByEntity =
@@ -328,6 +355,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 GridBuildFailureReason.MissingPrefab;
             return false;
         }
+
+        RecordTemporaryRecords(1);
 
         if (!CanPlace(
                 candidate,
@@ -399,7 +428,7 @@ public partial class GridBuildCommandSystem : SystemBase
             return false;
         }
 
-        List<PathCell> path = BuildBeltPath(
+        List<BeltPathCell> path = EcsGridUtility.BuildBeltPath(
             command.StartCell,
             command.EndCell,
             command.HorizontalFirst != 0,
@@ -417,7 +446,7 @@ public partial class GridBuildCommandSystem : SystemBase
             new List<PlacementRecord>(path.Count);
         for (int i = 0; i < path.Count; i++)
         {
-            PathCell pathCell = path[i];
+            BeltPathCell pathCell = path[i];
             GridPlacement placement = new GridPlacement
             {
                 AnchorCell = pathCell.Cell,
@@ -433,6 +462,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 beltBuilding,
                 placement,
                 ref database);
+            RecordTemporaryRecords(1);
+            RecordPathValidationCells(candidate.OccupiedCells.Length);
 
             if (!CanPlace(
                     candidate,
@@ -1533,61 +1564,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
         direction = int2.zero;
         return false;
-    }
-
-    private static List<PathCell> BuildBeltPath(
-        int2 start,
-        int2 end,
-        bool horizontalFirst,
-        int2 initialDirection)
-    {
-        List<int2> cells = new List<int2>();
-        int2 corner = horizontalFirst
-            ? new int2(end.x, start.y)
-            : new int2(start.x, end.y);
-
-        AppendSegment(cells, start, corner, true);
-        AppendSegment(cells, corner, end, false);
-
-        List<PathCell> path =
-            new List<PathCell>(cells.Count);
-        int2 fallbackDirection =
-            EcsGridUtility.SanitizeDirection(initialDirection);
-        for (int i = 0; i < cells.Count; i++)
-        {
-            int2 direction;
-            if (i < cells.Count - 1)
-            {
-                direction = cells[i + 1] - cells[i];
-                fallbackDirection = direction;
-            }
-            else
-            {
-                direction = fallbackDirection;
-            }
-
-            path.Add(new PathCell(cells[i], direction));
-        }
-
-        return path;
-    }
-
-    private static void AppendSegment(
-        List<int2> cells,
-        int2 from,
-        int2 to,
-        bool includeStart)
-    {
-        int2 delta = to - from;
-        int2 step = new int2(
-            delta.x == 0 ? 0 : delta.x > 0 ? 1 : -1,
-            delta.y == 0 ? 0 : delta.y > 0 ? 1 : -1);
-        int length = math.abs(delta.x) + math.abs(delta.y);
-        int first = includeStart ? 0 : 1;
-        for (int i = first; i <= length; i++)
-        {
-            cells.Add(from + step * i);
-        }
     }
 
     private static void RejectAll(

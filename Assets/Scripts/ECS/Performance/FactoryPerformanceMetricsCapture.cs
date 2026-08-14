@@ -33,7 +33,10 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         new MetricTarget("total_used_memory", "Total Used Memory"),
         new MetricTarget("total_reserved_memory", "Total Reserved Memory"),
         new MetricTarget("gc_reserved_memory", "GC Reserved Memory"),
+        new MetricTarget("gc_used_memory", "GC Used Memory"),
         new MetricTarget("system_used_memory", "System Used Memory"),
+        new MetricTarget("render_thread", "Render Thread"),
+        new MetricTarget("draw_calls", "Draw Calls Count"),
         new MetricTarget("fixed_step", "FixedStepSimulationSystemGroup"),
         new MetricTarget("belt_transfer", "BeltTransferSystem"),
         new MetricTarget("belt_progress", "BeltProgressSystem"),
@@ -256,7 +259,9 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         ulong readyDelta = finalStats.TotalReadyRequestCount -
                            initialStats.TotalReadyRequestCount;
         ulong acceptedDelta = finalStats.TotalAcceptedTransferCount -
-                              initialStats.TotalAcceptedTransferCount;
+                               initialStats.TotalAcceptedTransferCount;
+        DiagnosticCounts diagnostics = ReadDiagnosticCounts(
+            World.DefaultGameObjectInjectionWorld);
 
         FactoryPerformanceCaptureReport report =
             new FactoryPerformanceCaptureReport
@@ -334,6 +339,23 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 managedMemoryAfterBytes = managedMemoryAfter,
                 managedMemoryDeltaBytes = managedMemoryAfter -
                                           managedMemoryBefore,
+                gridBuildBatchCount = diagnostics.gridBuildBatchCount,
+                gridBuildPlacementScanCount =
+                    diagnostics.gridBuildPlacementScanCount,
+                gridBuildTemporaryRecordCount =
+                    diagnostics.gridBuildTemporaryRecordCount,
+                gridBuildPathValidationCellCount =
+                    diagnostics.gridBuildPathValidationCellCount,
+                transportTopologyRebuildCount =
+                    diagnostics.transportTopologyRebuildCount,
+                transportTopologyNodeCount =
+                    diagnostics.transportTopologyNodeCount,
+                lastTransportTopologyRebuildNodeCount =
+                    diagnostics.lastTransportTopologyRebuildNodeCount,
+                lastTransportTopologyRebuildMilliseconds =
+                    diagnostics.lastTransportTopologyRebuildMilliseconds,
+                totalTransportTopologyRebuildMilliseconds =
+                    diagnostics.totalTransportTopologyRebuildMilliseconds,
                 metrics = new List<ProfilerMetricSummary>(),
                 unresolvedMetrics = MetricTargets
                     .Where(target => recorders.All(
@@ -418,6 +440,11 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                     : 0.0
             });
         }
+
+        report.persistentNativeMemoryEstimateBytes = Math.Max(
+            0.0,
+            MetricP50(report, "total_reserved_memory") -
+            MetricP50(report, "gc_reserved_memory"));
 
         return report;
     }
@@ -543,6 +570,25 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                         report.acceptedTransfersPerSecond,
                     acceptedTransfersPerTick = report.acceptedTransfersPerTick,
                     managedMemoryDeltaBytes = report.managedMemoryDeltaBytes,
+                    persistentNativeMemoryEstimateBytes =
+                        report.persistentNativeMemoryEstimateBytes,
+                    gridBuildBatchCount = report.gridBuildBatchCount,
+                    gridBuildPlacementScanCount =
+                        report.gridBuildPlacementScanCount,
+                    gridBuildTemporaryRecordCount =
+                        report.gridBuildTemporaryRecordCount,
+                    gridBuildPathValidationCellCount =
+                        report.gridBuildPathValidationCellCount,
+                    transportTopologyRebuildCount =
+                        report.transportTopologyRebuildCount,
+                    transportTopologyNodeCount =
+                        report.transportTopologyNodeCount,
+                    lastTransportTopologyRebuildNodeCount =
+                        report.lastTransportTopologyRebuildNodeCount,
+                    lastTransportTopologyRebuildMilliseconds =
+                        report.lastTransportTopologyRebuildMilliseconds,
+                    totalTransportTopologyRebuildMilliseconds =
+                        report.totalTransportTopologyRebuildMilliseconds,
                     fixedStepPerTickMilliseconds = MetricPerTick(
                         report,
                         "fixed_step"),
@@ -566,6 +612,21 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
             if (report.metrics[i].key == key)
             {
                 return report.metrics[i].perTick;
+            }
+        }
+
+        return 0.0;
+    }
+
+    private static double MetricP50(
+        FactoryPerformanceCaptureReport report,
+        string key)
+    {
+        for (int i = 0; i < report.metrics.Count; i++)
+        {
+            if (report.metrics[i].key == key)
+            {
+                return report.metrics[i].p50;
             }
         }
 
@@ -646,6 +707,39 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
             : default;
         query.Dispose();
         return stats;
+    }
+
+    private static DiagnosticCounts ReadDiagnosticCounts(World world)
+    {
+        if (world == null || !world.IsCreated)
+        {
+            return default;
+        }
+
+        GridBuildCommandSystem build =
+            world.GetExistingSystemManaged<GridBuildCommandSystem>();
+        BeltTransferSystem transfer =
+            world.GetExistingSystemManaged<BeltTransferSystem>();
+        return new DiagnosticCounts
+        {
+            gridBuildBatchCount = build?.DiagnosticBatchCount ?? 0,
+            gridBuildPlacementScanCount =
+                build?.TotalPlacementScanCount ?? 0,
+            gridBuildTemporaryRecordCount =
+                build?.TotalTemporaryRecordCount ?? 0,
+            gridBuildPathValidationCellCount =
+                build?.TotalPathValidationCellCount ?? 0,
+            transportTopologyRebuildCount =
+                transfer?.TransportTopologyRebuildCount ?? 0,
+            transportTopologyNodeCount =
+                transfer?.TransportTopologyNodeCount ?? 0,
+            lastTransportTopologyRebuildNodeCount =
+                transfer?.LastTransportTopologyRebuildNodeCount ?? 0,
+            lastTransportTopologyRebuildMilliseconds =
+                transfer?.LastTransportTopologyRebuildMilliseconds ?? 0.0,
+            totalTransportTopologyRebuildMilliseconds =
+                transfer?.TotalTransportTopologyRebuildMilliseconds ?? 0.0
+        };
     }
 
     private static EntityCounts ReadEntityCounts(World world)
@@ -821,6 +915,19 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         public int storageStoredItems;
         public int items;
     }
+
+    private struct DiagnosticCounts
+    {
+        public ulong gridBuildBatchCount;
+        public ulong gridBuildPlacementScanCount;
+        public ulong gridBuildTemporaryRecordCount;
+        public ulong gridBuildPathValidationCellCount;
+        public int transportTopologyRebuildCount;
+        public int transportTopologyNodeCount;
+        public int lastTransportTopologyRebuildNodeCount;
+        public double lastTransportTopologyRebuildMilliseconds;
+        public double totalTransportTopologyRebuildMilliseconds;
+    }
 }
 
 [Serializable]
@@ -881,6 +988,16 @@ public sealed class FactoryPerformanceCaptureReport
     public long managedMemoryBeforeBytes;
     public long managedMemoryAfterBytes;
     public long managedMemoryDeltaBytes;
+    public double persistentNativeMemoryEstimateBytes;
+    public ulong gridBuildBatchCount;
+    public ulong gridBuildPlacementScanCount;
+    public ulong gridBuildTemporaryRecordCount;
+    public ulong gridBuildPathValidationCellCount;
+    public int transportTopologyRebuildCount;
+    public int transportTopologyNodeCount;
+    public int lastTransportTopologyRebuildNodeCount;
+    public double lastTransportTopologyRebuildMilliseconds;
+    public double totalTransportTopologyRebuildMilliseconds;
     public List<ProfilerMetricSummary> metrics;
     public List<string> unresolvedMetrics;
 }
@@ -931,6 +1048,16 @@ public sealed class FactoryPerformanceCompactReport
     public double acceptedTransfersPerSecond;
     public double acceptedTransfersPerTick;
     public long managedMemoryDeltaBytes;
+    public double persistentNativeMemoryEstimateBytes;
+    public ulong gridBuildBatchCount;
+    public ulong gridBuildPlacementScanCount;
+    public ulong gridBuildTemporaryRecordCount;
+    public ulong gridBuildPathValidationCellCount;
+    public int transportTopologyRebuildCount;
+    public int transportTopologyNodeCount;
+    public int lastTransportTopologyRebuildNodeCount;
+    public double lastTransportTopologyRebuildMilliseconds;
+    public double totalTransportTopologyRebuildMilliseconds;
     public double fixedStepPerTickMilliseconds;
     public double beltTransferPerTickMilliseconds;
     public double gcAllocatedBytesPerTick;

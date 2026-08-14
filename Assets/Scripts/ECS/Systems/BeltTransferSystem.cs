@@ -38,6 +38,14 @@ public partial class BeltTransferSystem : SystemBase
 
     public int TransportTopologyRebuildCount =>
         transferResolver?.TopologyRebuildCount ?? 0;
+    public int TransportTopologyNodeCount =>
+        transferResolver?.NodeCount ?? 0;
+    public int LastTransportTopologyRebuildNodeCount =>
+        transferResolver?.LastTopologyRebuildNodeCount ?? 0;
+    public double LastTransportTopologyRebuildMilliseconds =>
+        transferResolver?.LastTopologyRebuildMilliseconds ?? 0.0;
+    public double TotalTransportTopologyRebuildMilliseconds =>
+        transferResolver?.TotalTopologyRebuildMilliseconds ?? 0.0;
 
     protected override void OnCreate()
     {

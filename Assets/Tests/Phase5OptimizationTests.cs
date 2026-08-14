@@ -295,8 +295,14 @@ namespace Factory.Tests
                         Type = GridBuildCommandType.Remove,
                         StartCell = int2.zero
                     });
-                UpdateSystem(
-                    GetOrCreateManagedSystem<GridBuildCommandSystem>());
+                GridBuildCommandSystem build =
+                    GetOrCreateManagedSystem<GridBuildCommandSystem>();
+                UpdateSystem(build);
+
+                Assert.That(build.DiagnosticBatchCount, Is.EqualTo(1));
+                Assert.That(build.LastBatchPlacementScanCount, Is.EqualTo(1));
+                Assert.That(build.LastBatchTemporaryRecordCount, Is.EqualTo(1));
+                Assert.That(build.LastBatchPathValidationCellCount, Is.Zero);
 
                 Assert.That(EntityManager.Exists(item), Is.True);
                 Assert.That(

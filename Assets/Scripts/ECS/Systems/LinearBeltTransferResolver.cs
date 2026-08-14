@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -306,6 +307,9 @@ public sealed class FactoryLinearTransferResolver : IDisposable
 
     public int TopologyRebuildCount { get; private set; }
     public int NodeCount => topology.IsCreated ? topology.Length : 0;
+    public int LastTopologyRebuildNodeCount { get; private set; }
+    public double LastTopologyRebuildMilliseconds { get; private set; }
+    public double TotalTopologyRebuildMilliseconds { get; private set; }
     public int LoopCount { get; private set; }
     public int LastCandidateInspectionCount =>
         candidateInspectionRef.IsCreated
@@ -434,6 +438,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         NativeArray<Entity> splitterEntities,
         NativeArray<Splitter> splitters)
     {
+        long rebuildStarted = Stopwatch.GetTimestamp();
         int nodeCount =
             beltTopologies.Length + mergers.Length + splitters.Length;
         EnsureCapacity(nodeCount);
@@ -487,6 +492,12 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         cachedSplitterCount = splitters.Length;
         hasCachedRevision = true;
         TopologyRebuildCount++;
+        LastTopologyRebuildNodeCount = nodeCount;
+        LastTopologyRebuildMilliseconds =
+            (Stopwatch.GetTimestamp() - rebuildStarted) * 1000.0 /
+            Stopwatch.Frequency;
+        TotalTopologyRebuildMilliseconds +=
+            LastTopologyRebuildMilliseconds;
     }
 
     private void SetTopologyNode(

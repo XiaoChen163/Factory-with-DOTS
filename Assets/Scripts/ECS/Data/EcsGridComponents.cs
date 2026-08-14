@@ -59,6 +59,35 @@ public struct BuildingPortVisual : IComponentData
     public byte PortIndex;
 }
 
+public struct SurfaceTopologyRevision : IComponentData
+{
+    public uint Value;
+}
+
+public struct BuildingOccupancyRevision : IComponentData
+{
+    public uint Value;
+}
+
+public struct TransportTopologyRevision : IComponentData
+{
+    public uint Value;
+}
+
+public struct TransportVisualRevision : IComponentData
+{
+    public uint Value;
+}
+
+/// <summary>
+/// Explicit opt-in for realigning an existing placement after an editor or
+/// repair operation. Runtime-created buildings receive their final transform
+/// at creation time and never need this marker.
+/// </summary>
+public struct GridTransformDirty : IComponentData
+{
+}
+
 [Serializable]
 public struct GridCell : IEquatable<GridCell>
 {

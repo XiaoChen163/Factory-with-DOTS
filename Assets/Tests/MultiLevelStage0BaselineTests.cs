@@ -332,7 +332,7 @@ namespace Factory.Tests
                 Entity grid = EntityManager.CreateEntity();
                 EntityManager.AddComponentData(grid, new GridDefinition
                 {
-                    Size = new int2(8, 8),
+                    Size = new int2(128, 16),
                     CellSize = 1f,
                     Revision = 1
                 });
@@ -378,6 +378,22 @@ namespace Factory.Tests
                     new OccupiedCellOffset { Value = int2.zero });
                 EntityManager.AddBuffer<BuildingPort>(blocker);
 
+                // Far-away placements must remain outside the command batch's
+                // materialized working set.
+                for (int i = 0; i < 64; i++)
+                {
+                    Entity far = EntityManager.CreateEntity();
+                    EntityManager.AddComponentData(far, new GridPlacement
+                    {
+                        AnchorCell = new GridCell(32 + i, 0, 7),
+                        FootprintSize = new int2(1, 1),
+                        Kind = BuildingKind.Storage
+                    });
+                    EntityManager.AddBuffer<OccupiedCellOffset>(far).Add(
+                        new OccupiedCellOffset { Value = int2.zero });
+                    EntityManager.AddBuffer<BuildingPort>(far);
+                }
+
                 GridOccupancyIndexSystem occupancy =
                     GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
                 UpdateSystem(occupancy);
@@ -395,7 +411,7 @@ namespace Factory.Tests
 
                 EntityQuery placements = EntityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<GridPlacement>());
-                Assert.That(placements.CalculateEntityCount(), Is.EqualTo(1));
+                Assert.That(placements.CalculateEntityCount(), Is.EqualTo(65));
                 placements.Dispose();
                 Assert.That(build.LastBatchPlacementScanCount, Is.EqualTo(1));
                 Assert.That(build.LastBatchTemporaryRecordCount, Is.EqualTo(4));

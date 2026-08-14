@@ -175,6 +175,13 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         grid.CellSize = EcsGridUtility.DefaultCellSize;
         grid.Revision++;
         entityManager.SetComponentData(gridEntity, grid);
+        if (entityManager.HasComponent<TransportTopologyRevision>(gridEntity))
+        {
+            TransportTopologyRevision revision = entityManager
+                .GetComponentData<TransportTopologyRevision>(gridEntity);
+            revision.Value++;
+            entityManager.SetComponentData(gridEntity, revision);
+        }
 
         EntityQuery placementQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<GridPlacement>());

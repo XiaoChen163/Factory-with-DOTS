@@ -51,6 +51,10 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                     configuredOrigin.y,
                     Mathf.Round(configuredOrigin.z))
             });
+            AddComponent(entity, new SurfaceTopologyRevision { Value = 1 });
+            AddComponent(entity, new BuildingOccupancyRevision { Value = 1 });
+            AddComponent(entity, new TransportTopologyRevision { Value = 1 });
+            AddComponent(entity, new TransportVisualRevision { Value = 1 });
             AddComponent(entity, new BuildingRuntimeIdAllocator
             {
                 NextValue = 0x8000000000000000UL

@@ -12,7 +12,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
     private EntityQuery pendingAddQuery;
     private int lastPlacementOrderVersion = -1;
     private int lastPlacementCount = -1;
-    private uint lastGridRevision = uint.MaxValue;
+    private uint lastOccupancyRevision = uint.MaxValue;
     private bool reportedInvalidGridDefinition;
     private bool hasIncrementalChange;
 
@@ -69,13 +69,14 @@ public partial class GridOccupancyIndexSystem : SystemBase
         reportedInvalidGridDefinition = false;
         GridDefinition grid =
             gridQuery.GetSingleton<GridDefinition>();
+        uint occupancyRevision = GetOccupancyRevision();
         bool appliedPending = ApplyPendingAdds(grid);
         if (appliedPending || hasIncrementalChange)
         {
             lastPlacementCount = placementQuery.CalculateEntityCount();
             lastPlacementOrderVersion =
                 EntityManager.GetComponentOrderVersion<GridPlacement>();
-            lastGridRevision = grid.Revision;
+            lastOccupancyRevision = occupancyRevision;
             hasIncrementalChange = false;
             IsReady = true;
             return;
@@ -88,7 +89,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
         if (IsReady &&
             placementCount == lastPlacementCount &&
             placementOrderVersion == lastPlacementOrderVersion &&
-            grid.Revision == lastGridRevision)
+            occupancyRevision == lastOccupancyRevision)
         {
             return;
         }
@@ -96,8 +97,18 @@ public partial class GridOccupancyIndexSystem : SystemBase
         Rebuild(grid, placementCount);
         lastPlacementCount = placementCount;
         lastPlacementOrderVersion = placementOrderVersion;
-        lastGridRevision = grid.Revision;
+        lastOccupancyRevision = occupancyRevision;
         IsReady = true;
+    }
+
+    private uint GetOccupancyRevision()
+    {
+        Entity gridEntity = gridQuery.GetSingletonEntity();
+        return EntityManager.HasComponent<BuildingOccupancyRevision>(gridEntity)
+            ? EntityManager
+                .GetComponentData<BuildingOccupancyRevision>(gridEntity)
+                .Value
+            : 0;
     }
 
     public void RemoveOccupant(GridCell cell, Entity entity)
@@ -125,6 +136,18 @@ public partial class GridOccupancyIndexSystem : SystemBase
         using NativeArray<GridPlacement> placements =
             pendingAddQuery.ToComponentDataArray<GridPlacement>(
                 Allocator.Temp);
+        int requiredCapacity = occupancy.Count();
+        for (int i = 0; i < entities.Length; i++)
+        {
+            requiredCapacity += EntityManager
+                .GetBuffer<OccupiedCellOffset>(entities[i], true)
+                .Length;
+        }
+        if (occupancy.Capacity < requiredCapacity)
+        {
+            occupancy.Capacity = math.max(16, requiredCapacity);
+        }
+
         ConflictCount = 0;
         for (int i = 0; i < entities.Length; i++)
         {
@@ -251,6 +274,6 @@ public partial class GridOccupancyIndexSystem : SystemBase
         ConflictCount = 0;
         lastPlacementCount = -1;
         lastPlacementOrderVersion = -1;
-        lastGridRevision = uint.MaxValue;
+        lastOccupancyRevision = uint.MaxValue;
     }
 }

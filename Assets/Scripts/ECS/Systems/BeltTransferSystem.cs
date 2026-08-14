@@ -19,6 +19,8 @@ public partial class BeltTransferSystem : SystemBase
     private EntityQuery outputPortQuery;
     private EntityQuery itemCatalogQuery;
     private EntityQuery gridQuery;
+    private EntityQuery transportRevisionQuery;
+    private EntityQuery occupancyRevisionQuery;
     private EntityQuery itemPoolQuery;
     private TransferCommandBufferSystem transferEcbSystem;
     private Entity statsEntity;
@@ -33,8 +35,10 @@ public partial class BeltTransferSystem : SystemBase
         itemPrefabVisualInfo;
     private int cachedItemPoolCount = -1;
     private Entity cachedItemPrefabVisualCatalog = Entity.Null;
-    private uint cachedGridRevision;
-    private bool hasCachedGridRevision;
+    private uint cachedTopologyRevision;
+    private bool hasCachedTopologyRevision;
+    private uint cachedPortOwnerRevision;
+    private bool hasCachedPortOwnerRevision;
 
     public int TransportTopologyRebuildCount =>
         transferResolver?.TopologyRebuildCount ?? 0;
@@ -80,6 +84,10 @@ public partial class BeltTransferSystem : SystemBase
             ComponentType.ReadOnly<ItemPrefabEntry>());
         gridQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridDefinition>());
+        transportRevisionQuery = GetEntityQuery(
+            ComponentType.ReadOnly<TransportTopologyRevision>());
+        occupancyRevisionQuery = GetEntityQuery(
+            ComponentType.ReadOnly<BuildingOccupancyRevision>());
         itemPoolQuery = GetEntityQuery(
             ComponentType.ReadOnly<ItemPool>(),
             ComponentType.ReadOnly<ItemPoolEntry>());
@@ -136,16 +144,31 @@ public partial class BeltTransferSystem : SystemBase
     protected override void OnUpdate()
     {
         bool hasGrid = gridQuery.CalculateEntityCount() == 1;
-        uint gridRevision = hasGrid
-            ? gridQuery.GetSingleton<GridDefinition>().Revision
-            : 0;
-        if (!hasCachedGridRevision || gridRevision != cachedGridRevision)
+        uint topologyRevision = transportRevisionQuery.CalculateEntityCount() == 1
+            ? transportRevisionQuery.GetSingleton<TransportTopologyRevision>().Value
+            : hasGrid
+                ? gridQuery.GetSingleton<GridDefinition>().Revision
+                : 0;
+        uint portOwnerRevision = occupancyRevisionQuery.CalculateEntityCount() == 1
+            ? occupancyRevisionQuery.GetSingleton<BuildingOccupancyRevision>().Value
+            : hasGrid
+                ? gridQuery.GetSingleton<GridDefinition>().Revision
+                : 0;
+        if (!hasCachedTopologyRevision ||
+            topologyRevision != cachedTopologyRevision)
         {
             Dependency.Complete();
-            RefreshTopology(gridRevision, hasGrid);
+            RefreshTopology(topologyRevision, hasGrid);
+            hasCachedTopologyRevision = true;
+            cachedTopologyRevision = topologyRevision;
+        }
+        if (!hasCachedPortOwnerRevision ||
+            portOwnerRevision != cachedPortOwnerRevision)
+        {
+            Dependency.Complete();
             RefreshPortOwnerCache();
-            hasCachedGridRevision = true;
-            cachedGridRevision = gridRevision;
+            hasCachedPortOwnerRevision = true;
+            cachedPortOwnerRevision = portOwnerRevision;
         }
 
         RefreshItemCatalog();

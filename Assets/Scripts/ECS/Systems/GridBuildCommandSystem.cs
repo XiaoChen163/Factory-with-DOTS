@@ -26,12 +26,108 @@ public partial class GridBuildCommandSystem : SystemBase
         public BuildingPort[] Ports;
     }
 
+    /// <summary>
+    /// A command batch overlays its not-yet-played-back additions/removals on
+    /// the persistent occupancy index. Existing ECS records are materialized
+    /// only when a command touches one of their cells.
+    /// </summary>
+    private sealed class BatchPlacementState
+    {
+        private readonly GridBuildCommandSystem owner;
+        private GridOccupancyIndexSystem occupancy;
+        private readonly Dictionary<Entity, PlacementRecord> recordsByEntity =
+            new Dictionary<Entity, PlacementRecord>();
+        private readonly Dictionary<GridCell, PlacementRecord> recordsByCell =
+            new Dictionary<GridCell, PlacementRecord>();
+        private readonly HashSet<Entity> removedEntities =
+            new HashSet<Entity>();
+
+        public BatchPlacementState(GridBuildCommandSystem owner)
+        {
+            this.owner = owner;
+        }
+
+        public void Begin(GridOccupancyIndexSystem occupancySystem)
+        {
+            occupancy = occupancySystem;
+            recordsByEntity.Clear();
+            recordsByCell.Clear();
+            removedEntities.Clear();
+        }
+
+        public bool TryGet(GridCell cell, out PlacementRecord record)
+        {
+            if (recordsByCell.TryGetValue(cell, out record))
+            {
+                return record.Entity == Entity.Null ||
+                       !removedEntities.Contains(record.Entity);
+            }
+
+            if (!occupancy.TryGetOccupant(cell, out Entity entity) ||
+                removedEntities.Contains(entity) ||
+                !owner.EntityManager.Exists(entity) ||
+                !owner.EntityManager.HasComponent<GridPlacement>(entity) ||
+                !owner.EntityManager.HasBuffer<OccupiedCellOffset>(entity) ||
+                !owner.EntityManager.HasBuffer<BuildingPort>(entity))
+            {
+                record = null;
+                return false;
+            }
+
+            if (!recordsByEntity.TryGetValue(entity, out record))
+            {
+                record = CreateRecord(
+                    entity,
+                    owner.EntityManager.GetComponentData<GridPlacement>(entity),
+                    owner.EntityManager.GetBuffer<OccupiedCellOffset>(entity, true),
+                    owner.EntityManager.GetBuffer<BuildingPort>(entity, true));
+                recordsByEntity.Add(entity, record);
+                owner.RecordPlacementScan(1);
+                owner.RecordTemporaryRecords(1);
+                for (int i = 0; i < record.OccupiedCells.Length; i++)
+                {
+                    recordsByCell[record.OccupiedCells[i]] = record;
+                }
+            }
+
+            return true;
+        }
+
+        public void Add(PlacementRecord record)
+        {
+            for (int i = 0; i < record.OccupiedCells.Length; i++)
+            {
+                recordsByCell.Add(record.OccupiedCells[i], record);
+            }
+        }
+
+        public void Remove(PlacementRecord record)
+        {
+            if (record.Entity != Entity.Null)
+            {
+                removedEntities.Add(record.Entity);
+            }
+            for (int i = 0; i < record.OccupiedCells.Length; i++)
+            {
+                recordsByCell.Remove(record.OccupiedCells[i]);
+            }
+        }
+
+        public void RollBack(PlacementRecord record)
+        {
+            for (int i = 0; i < record.OccupiedCells.Length; i++)
+            {
+                recordsByCell.Remove(record.OccupiedCells[i]);
+            }
+        }
+    }
+
     private EntityQuery gridQuery;
     private EntityQuery catalogQuery;
-    private EntityQuery placementQuery;
     private EntityQuery itemPoolQuery;
     private EntityQuery playerQuery;
     private BuildingRuntimeIdAllocator runtimeIdAllocator;
+    private BatchPlacementState batchPlacements;
 
     public ulong DiagnosticBatchCount { get; private set; }
     public int LastBatchPlacementScanCount { get; private set; }
@@ -51,10 +147,6 @@ public partial class GridBuildCommandSystem : SystemBase
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
             ComponentType.ReadOnly<BuildingVisualPrefabEntry>(),
             ComponentType.ReadOnly<FactoryDatabase>());
-        placementQuery = GetEntityQuery(
-            ComponentType.ReadOnly<GridPlacement>(),
-            ComponentType.ReadOnly<OccupiedCellOffset>(),
-            ComponentType.ReadOnly<BuildingPort>());
         itemPoolQuery = GetEntityQuery(
             ComponentType.ReadOnly<ItemPool>(),
             ComponentType.ReadOnly<ItemPoolEntry>());
@@ -62,6 +154,7 @@ public partial class GridBuildCommandSystem : SystemBase
             ComponentType.ReadOnly<PlayerIdentity>(),
             ComponentType.ReadWrite<PlayerInventory>(),
             ComponentType.ReadWrite<InventorySlot>());
+        batchPlacements = new BatchPlacementState(this);
     }
 
     protected override void OnUpdate()
@@ -133,15 +226,14 @@ public partial class GridBuildCommandSystem : SystemBase
             catalogQuery.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref databaseReference.Value;
 
-        BuildSnapshot(
-            occupancySystem,
-            out List<PlacementRecord> records,
-            out Dictionary<GridCell, PlacementRecord> occupantByCell);
+        batchPlacements.Begin(occupancySystem);
+        BatchPlacementState placements = batchPlacements;
         Dictionary<PlayerId, Entity> players = BuildPlayerSnapshot();
 
         EntityCommandBuffer ecb =
             new EntityCommandBuffer(Allocator.Temp);
         bool gridChanged = false;
+        bool transportChanged = false;
         HashSet<GridCell> dirtyCells = new HashSet<GridCell>();
 
         for (int commandIndex = 0;
@@ -160,10 +252,10 @@ public partial class GridBuildCommandSystem : SystemBase
                         command.StartCell,
                         GetPlayer(command.Player, players),
                         ref database,
-                        records,
-                        occupantByCell,
+                        placements,
                         dirtyCells,
                         occupancySystem,
+                        ref transportChanged,
                         ref ecb,
                         out failureReason);
                     affectedCount = success ? 1 : 0;
@@ -174,10 +266,10 @@ public partial class GridBuildCommandSystem : SystemBase
                         command.StartCell,
                         GetPlayer(command.Player, players),
                         ref database,
-                        records,
-                        occupantByCell,
+                        placements,
                         dirtyCells,
                         occupancySystem,
+                        ref transportChanged,
                         ref ecb,
                         out affectedCount,
                         out failureReason);
@@ -190,9 +282,9 @@ public partial class GridBuildCommandSystem : SystemBase
                         catalog,
                         visualPrefabs,
                         ref database,
-                        records,
-                        occupantByCell,
+                        placements,
                         dirtyCells,
+                        ref transportChanged,
                         ref ecb,
                         out failureReason);
                     affectedCount = success ? 1 : 0;
@@ -207,9 +299,9 @@ public partial class GridBuildCommandSystem : SystemBase
                         catalog,
                         visualPrefabs,
                         ref database,
-                        records,
-                        occupantByCell,
+                        placements,
                         dirtyCells,
+                        ref transportChanged,
                         ref ecb,
                         out failureReason);
                     affectedCount = success ? 1 : 0;
@@ -240,8 +332,12 @@ public partial class GridBuildCommandSystem : SystemBase
 
         if (gridChanged)
         {
-            grid.Revision++;
-            EntityManager.SetComponentData(gridEntity, grid);
+            IncrementBuildingOccupancyRevision(gridEntity);
+            if (transportChanged)
+            {
+                IncrementTransportTopologyRevision(gridEntity);
+                IncrementTransportVisualRevision(gridEntity);
+            }
             if (!EntityManager.HasBuffer<BeltVisualDirtyCell>(
                     gridEntity))
             {
@@ -288,56 +384,46 @@ public partial class GridBuildCommandSystem : SystemBase
         TotalPathValidationCellCount += (ulong)count;
     }
 
-    private void BuildSnapshot(
-        GridOccupancyIndexSystem occupancySystem,
-        out List<PlacementRecord> records,
-        out Dictionary<GridCell, PlacementRecord> occupantByCell)
+    private void IncrementBuildingOccupancyRevision(Entity gridEntity)
     {
-        using NativeArray<Entity> entities =
-            placementQuery.ToEntityArray(Allocator.Temp);
-        using NativeArray<GridPlacement> placements =
-            placementQuery.ToComponentDataArray<GridPlacement>(
-                Allocator.Temp);
+        bool exists = EntityManager.HasComponent<BuildingOccupancyRevision>(
+            gridEntity);
+        BuildingOccupancyRevision value = exists
+            ? EntityManager.GetComponentData<BuildingOccupancyRevision>(gridEntity)
+            : default;
+        value.Value++;
+        if (exists)
+            EntityManager.SetComponentData(gridEntity, value);
+        else
+            EntityManager.AddComponentData(gridEntity, value);
+    }
 
-        RecordPlacementScan(entities.Length);
-        RecordTemporaryRecords(entities.Length);
+    private void IncrementTransportTopologyRevision(Entity gridEntity)
+    {
+        bool exists = EntityManager.HasComponent<TransportTopologyRevision>(
+            gridEntity);
+        TransportTopologyRevision value = exists
+            ? EntityManager.GetComponentData<TransportTopologyRevision>(gridEntity)
+            : default;
+        value.Value++;
+        if (exists)
+            EntityManager.SetComponentData(gridEntity, value);
+        else
+            EntityManager.AddComponentData(gridEntity, value);
+    }
 
-        records = new List<PlacementRecord>(entities.Length);
-        Dictionary<Entity, PlacementRecord> recordsByEntity =
-            new Dictionary<Entity, PlacementRecord>(entities.Length);
-
-        for (int i = 0; i < entities.Length; i++)
-        {
-            Entity entity = entities[i];
-            DynamicBuffer<OccupiedCellOffset> occupiedOffsets =
-                EntityManager.GetBuffer<OccupiedCellOffset>(
-                    entity,
-                    true);
-            DynamicBuffer<BuildingPort> ports =
-                EntityManager.GetBuffer<BuildingPort>(
-                    entity,
-                    true);
-            PlacementRecord record = CreateRecord(
-                entity,
-                placements[i],
-                occupiedOffsets,
-                ports);
-            records.Add(record);
-            recordsByEntity.Add(entity, record);
-        }
-
-        occupantByCell =
-            new Dictionary<GridCell, PlacementRecord>(
-                occupancySystem.OccupiedCellCount);
-        foreach (var pair in occupancySystem.Occupancy)
-        {
-            if (recordsByEntity.TryGetValue(
-                    pair.Value,
-                    out PlacementRecord record))
-            {
-                occupantByCell[pair.Key] = record;
-            }
-        }
+    private void IncrementTransportVisualRevision(Entity gridEntity)
+    {
+        bool exists = EntityManager.HasComponent<TransportVisualRevision>(
+            gridEntity);
+        TransportVisualRevision value = exists
+            ? EntityManager.GetComponentData<TransportVisualRevision>(gridEntity)
+            : default;
+        value.Value++;
+        if (exists)
+            EntityManager.SetComponentData(gridEntity, value);
+        else
+            EntityManager.AddComponentData(gridEntity, value);
     }
 
     private bool TryPlaceSingle(
@@ -348,9 +434,9 @@ public partial class GridBuildCommandSystem : SystemBase
         in BuildingPrefabCatalog catalog,
         in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
+        ref bool transportChanged,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
@@ -373,20 +459,19 @@ public partial class GridBuildCommandSystem : SystemBase
         if (!CanPlace(
                 candidate,
                 grid,
-                records,
-                occupantByCell,
+                placements,
                 out failureReason))
         {
             return false;
         }
 
-        AddRecord(candidate, records, occupantByCell);
+        placements.Add(candidate);
         Entity visualPrefab = BuildingPrefabCatalogUtility.GetPrefab(
             visualPrefabs,
             buildingLevelId);
         if (!IsValidVisualPrefab(visualPrefab))
         {
-            RemoveRecord(candidate, records, occupantByCell);
+            placements.RollBack(candidate);
             failureReason = GridBuildFailureReason.MissingPrefab;
             return false;
         }
@@ -400,6 +485,7 @@ public partial class GridBuildCommandSystem : SystemBase
             ref database,
             ref ecb);
         MarkCellsDirty(candidate.OccupiedCells, dirtyCells);
+        transportChanged |= UsesTransportTopology(candidate);
         failureReason = GridBuildFailureReason.None;
         return true;
     }
@@ -410,9 +496,9 @@ public partial class GridBuildCommandSystem : SystemBase
         in BuildingPrefabCatalog catalog,
         in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
+        ref bool transportChanged,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
@@ -480,18 +566,16 @@ public partial class GridBuildCommandSystem : SystemBase
             if (!CanPlace(
                     candidate,
                     grid,
-                    records,
-                    occupantByCell,
+                    placements,
                     out failureReason))
             {
                 RollBackStaged(
                     staged,
-                    records,
-                    occupantByCell);
+                    placements);
                 return false;
             }
 
-            AddRecord(candidate, records, occupantByCell);
+            placements.Add(candidate);
             staged.Add(candidate);
         }
 
@@ -509,6 +593,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 ref ecb);
         }
 
+        transportChanged = true;
         failureReason = GridBuildFailureReason.None;
         return true;
     }
@@ -517,16 +602,14 @@ public partial class GridBuildCommandSystem : SystemBase
         GridCell cell,
         Entity player,
         ref FactoryDatabaseBlob database,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
         GridOccupancyIndexSystem occupancySystem,
+        ref bool transportChanged,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
-        if (!occupantByCell.TryGetValue(
-                cell,
-                out PlacementRecord record) ||
+        if (!placements.TryGet(cell, out PlacementRecord record) ||
             record.Entity == Entity.Null)
         {
             failureReason =
@@ -534,11 +617,12 @@ public partial class GridBuildCommandSystem : SystemBase
             return false;
         }
 
-        RemoveRecord(record, records, occupantByCell);
+        placements.Remove(record);
         RemoveOccupancy(record, occupancySystem);
         MarkCellsDirty(record.OccupiedCells, dirtyCells);
         RecoverOwnedItems(record.Entity, player, ref database, ref ecb);
         ecb.DestroyEntity(record.Entity);
+        transportChanged |= UsesTransportTopology(record);
         failureReason = GridBuildFailureReason.None;
         return true;
     }
@@ -547,18 +631,16 @@ public partial class GridBuildCommandSystem : SystemBase
         GridCell cell,
         Entity player,
         ref FactoryDatabaseBlob database,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
         GridOccupancyIndexSystem occupancySystem,
+        ref bool transportChanged,
         ref EntityCommandBuffer ecb,
         out int removedCount,
         out GridBuildFailureReason failureReason)
     {
         removedCount = 0;
-        if (!occupantByCell.TryGetValue(
-                cell,
-                out PlacementRecord start) ||
+        if (!placements.TryGet(cell, out PlacementRecord start) ||
             start.Entity == Entity.Null)
         {
             failureReason =
@@ -585,19 +667,19 @@ public partial class GridBuildCommandSystem : SystemBase
             PlacementRecord current = pending.Dequeue();
             TryEnqueueOutputBelt(
                 current,
-                occupantByCell,
+                placements,
                 connectedBelts,
                 pending);
             TryEnqueueIncomingBelts(
                 current,
-                occupantByCell,
+                placements,
                 connectedBelts,
                 pending);
         }
 
         foreach (PlacementRecord belt in connectedBelts)
         {
-            RemoveRecord(belt, records, occupantByCell);
+            placements.Remove(belt);
             RemoveOccupancy(belt, occupancySystem);
             MarkCellsDirty(belt.OccupiedCells, dirtyCells);
             RecoverOwnedItems(belt.Entity, player, ref database, ref ecb);
@@ -605,6 +687,7 @@ public partial class GridBuildCommandSystem : SystemBase
             removedCount++;
         }
 
+        transportChanged |= removedCount > 0;
         failureReason = GridBuildFailureReason.None;
         return removedCount > 0;
     }
@@ -638,14 +721,12 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static void TryEnqueueOutputBelt(
         PlacementRecord source,
-        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        BatchPlacementState placements,
         HashSet<PlacementRecord> connectedBelts,
         Queue<PlacementRecord> pending)
     {
         if (!TryGetBeltOutputCell(source, out GridCell outputCell) ||
-            !occupantByCell.TryGetValue(
-                outputCell,
-                out PlacementRecord target) ||
+            !placements.TryGet(outputCell, out PlacementRecord target) ||
             target.Placement.Kind != BuildingKind.Belt ||
             !connectedBelts.Add(target))
         {
@@ -657,7 +738,7 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static void TryEnqueueIncomingBelts(
         PlacementRecord target,
-        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        BatchPlacementState placements,
         HashSet<PlacementRecord> connectedBelts,
         Queue<PlacementRecord> pending)
     {
@@ -666,9 +747,7 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             GridCell sourceCell =
                 targetCell - CardinalDirections[i];
-            if (!occupantByCell.TryGetValue(
-                    sourceCell,
-                    out PlacementRecord source) ||
+            if (!placements.TryGet(sourceCell, out PlacementRecord source) ||
                 source.Placement.Kind != BuildingKind.Belt ||
                 !TryGetBeltOutputCell(
                     source,
@@ -708,8 +787,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private bool CanPlace(
         PlacementRecord candidate,
         in GridDefinition grid,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell,
+        BatchPlacementState placements,
         out GridBuildFailureReason failureReason)
     {
         for (int i = 0;
@@ -724,7 +802,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 return false;
             }
 
-            if (occupantByCell.ContainsKey(cell))
+            if (placements.TryGet(cell, out _))
             {
                 failureReason =
                     GridBuildFailureReason.CellOccupied;
@@ -740,7 +818,7 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             int incomingCount = CountOutputsTo(
                 candidate.Placement.AnchorCell,
-                records);
+                placements);
             if (incomingCount > 1)
             {
                 failureReason =
@@ -751,7 +829,7 @@ public partial class GridBuildCommandSystem : SystemBase
             if (incomingCount == 1 &&
                 (!TryGetOnlyIncomingDirection(
                      candidate.Placement.AnchorCell,
-                     records,
+                     placements,
                      out int2 incomingDirection) ||
                  !math.all(
                      incomingDirection == candidateDirection)))
@@ -768,7 +846,7 @@ public partial class GridBuildCommandSystem : SystemBase
             List<int2> incomingDirections =
                 GetIncomingDirections(
                     candidate.Placement.AnchorCell,
-                    records);
+                    placements);
             for (int i = 0;
                  i < incomingDirections.Count;
                  i++)
@@ -791,7 +869,7 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             (GridCell outputCell, int2 outputDirection) =
                 outputs[i];
-            if (!occupantByCell.TryGetValue(
+            if (!placements.TryGet(
                     outputCell,
                     out PlacementRecord target))
             {
@@ -803,7 +881,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 target.Placement.QuarterTurns);
             if (target.Placement.Kind == BuildingKind.Splitter)
             {
-                if (CountOutputsTo(outputCell, records) >= 1 ||
+                if (CountOutputsTo(outputCell, placements) >= 1 ||
                     !math.all(
                         outputDirection == targetDirection))
                 {
@@ -1466,39 +1544,21 @@ public partial class GridBuildCommandSystem : SystemBase
         return false;
     }
 
-    private static void AddRecord(
-        PlacementRecord record,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell)
-    {
-        records.Add(record);
-        for (int i = 0; i < record.OccupiedCells.Length; i++)
-        {
-            occupantByCell.Add(record.OccupiedCells[i], record);
-        }
-    }
-
-    private static void RemoveRecord(
-        PlacementRecord record,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell)
-    {
-        records.Remove(record);
-        for (int i = 0; i < record.OccupiedCells.Length; i++)
-        {
-            occupantByCell.Remove(record.OccupiedCells[i]);
-        }
-    }
-
     private static void RollBackStaged(
         List<PlacementRecord> staged,
-        List<PlacementRecord> records,
-        Dictionary<GridCell, PlacementRecord> occupantByCell)
+        BatchPlacementState placements)
     {
         for (int i = staged.Count - 1; i >= 0; i--)
         {
-            RemoveRecord(staged[i], records, occupantByCell);
+            placements.RollBack(staged[i]);
         }
+    }
+
+    private static bool UsesTransportTopology(PlacementRecord record)
+    {
+        return record.Placement.Kind == BuildingKind.Belt ||
+               record.Placement.Kind == BuildingKind.Merger ||
+               record.Placement.Kind == BuildingKind.Splitter;
     }
 
     private static List<(GridCell Cell, int2 Direction)> GetOutputs(
@@ -1528,13 +1588,21 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static int CountOutputsTo(
         GridCell targetCell,
-        List<PlacementRecord> records)
+        BatchPlacementState placements)
     {
         int count = 0;
-        for (int i = 0; i < records.Count; i++)
+        HashSet<PlacementRecord> visited = new HashSet<PlacementRecord>();
+        for (int i = 0; i < CardinalDirections.Length; i++)
         {
+            if (!placements.TryGet(
+                    targetCell - CardinalDirections[i],
+                    out PlacementRecord record) ||
+                !visited.Add(record))
+            {
+                continue;
+            }
             List<(GridCell Cell, int2 Direction)> outputs =
-                GetOutputs(records[i]);
+                GetOutputs(record);
             for (int outputIndex = 0;
                  outputIndex < outputs.Count;
                  outputIndex++)
@@ -1551,13 +1619,21 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static List<int2> GetIncomingDirections(
         GridCell targetCell,
-        List<PlacementRecord> records)
+        BatchPlacementState placements)
     {
         List<int2> directions = new List<int2>(4);
-        for (int i = 0; i < records.Count; i++)
+        HashSet<PlacementRecord> visited = new HashSet<PlacementRecord>();
+        for (int i = 0; i < CardinalDirections.Length; i++)
         {
+            if (!placements.TryGet(
+                    targetCell - CardinalDirections[i],
+                    out PlacementRecord record) ||
+                !visited.Add(record))
+            {
+                continue;
+            }
             List<(GridCell Cell, int2 Direction)> outputs =
-                GetOutputs(records[i]);
+                GetOutputs(record);
             for (int outputIndex = 0;
                  outputIndex < outputs.Count;
                  outputIndex++)
@@ -1575,11 +1651,11 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static bool TryGetOnlyIncomingDirection(
         GridCell targetCell,
-        List<PlacementRecord> records,
+        BatchPlacementState placements,
         out int2 direction)
     {
         List<int2> directions =
-            GetIncomingDirections(targetCell, records);
+            GetIncomingDirections(targetCell, placements);
         if (directions.Count == 1)
         {
             direction = directions[0];

@@ -6,14 +6,17 @@ using Unity.Transforms;
 [UpdateBefore(typeof(GridOccupancyIndexSystem))]
 public partial struct GridPlacementTransformSystem : ISystem
 {
-    private uint lastGridRevision;
-    private bool hasAlignedRevision;
+    private EntityQuery dirtyQuery;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<GridDefinition>();
-        state.RequireForUpdate<GridPlacement>();
+        state.RequireForUpdate<GridTransformDirty>();
+        dirtyQuery = state.GetEntityQuery(
+            ComponentType.ReadOnly<GridPlacement>(),
+            ComponentType.ReadWrite<LocalTransform>(),
+            ComponentType.ReadOnly<GridTransformDirty>());
     }
 
     [BurstCompile]
@@ -21,17 +24,12 @@ public partial struct GridPlacementTransformSystem : ISystem
     {
         GridDefinition grid =
             SystemAPI.GetSingleton<GridDefinition>();
-        if (hasAlignedRevision && grid.Revision == lastGridRevision)
-        {
-            return;
-        }
-
-        lastGridRevision = grid.Revision;
-        hasAlignedRevision = true;
         state.Dependency = new AlignToGridJob
         {
             Grid = grid
         }.ScheduleParallel(state.Dependency);
+        state.Dependency.Complete();
+        state.EntityManager.RemoveComponent<GridTransformDirty>(dirtyQuery);
     }
 
     [BurstCompile]
@@ -41,7 +39,8 @@ public partial struct GridPlacementTransformSystem : ISystem
 
         private void Execute(
             ref LocalTransform transform,
-            in GridPlacement placement)
+            in GridPlacement placement,
+            in GridTransformDirty dirty)
         {
             Unity.Mathematics.float3 center =
                 EcsGridUtility.CellToWorldCenter(

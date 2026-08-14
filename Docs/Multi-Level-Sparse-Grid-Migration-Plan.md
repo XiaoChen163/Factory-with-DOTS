@@ -20,6 +20,7 @@
 
 - Unity `6000.3.19f1`
 - Entities `1.4.8`
+- Unity Physics (`com.unity.physics`) `1.4.7`
 - 固定模拟频率：`60 Tick/s`
 - 正式运行时程序集：`Factory.Runtime`
 - 测试程序集：`Factory.Tests`
@@ -423,60 +424,292 @@ Merger/Splitter round-robin。
 
 ## 8. 阶段 3：单层稀疏表面和非矩形地基
 
-### 8.1 目标
+### 8.1 目标和本阶段固定契约
 
 在 `Level = 0` 上用稀疏表面替代完整矩形 `Contains()`，实现玩家通过地基逐格扩展可建造
-区域。此阶段先不开放多层和坡道。
+区域。此阶段先不开放多层和坡道，但地基体积、网格生成和碰撞生成接口必须能直接扩展到
+阶段 4 的垂直堆叠，不得在阶段 4 再引入第二套地基表示。
 
-### 8.2 Surface Chunk
+本阶段开始前固定以下契约：
+
+- 标准地基是轴对齐、实心、不透明的 `1 × 1 × 1` 立方体，不允许通过 Transform Scale
+  改变其物理尺寸。
+- `WorldGridConfig.CellSize = 1`，`WorldGridConfig.LayerHeight = 1`；如果未来允许其他值，
+  标准地基尺寸始终为 `CellSize × LayerHeight × CellSize`，所有系统只从统一配置读取。
+- `GridCell` 表示地基提供的顶面和建筑放置平面。其世界高度为
+  `SurfaceY = Origin.y + Level * LayerHeight`；地基中心高度为
+  `SurfaceY - LayerHeight * 0.5`，体积范围为 `[SurfaceY - LayerHeight, SurfaceY]`。
+- 每格地基继续拥有独立玩法实体和稳定身份，但该实体不拥有独立 Renderer 或
+  `PhysicsCollider`。渲染和碰撞都是可丢弃、可重建的区块缓存。
+- 地基可以拥有不同的视觉材质 `VisualMaterialId`，但所有地基固定使用同一种全局
+  `FoundationPhysicsMaterial` 和同一组 Foundation `CollisionFilter`。不为单格保存
+  `PhysicsMaterialId`，不按物理材质分支或拆分 Collider。
+
+### 8.2 稀疏表面和地基数据
 
 实现：
 
 - `SurfaceChunkKey -> Chunk Entity/Data` 的持久索引；
 - 表面存在位图；
 - `AllowsBuildings`、`AllowsBelts` 等权限；
-- 表面格到地基所有者的可选映射；
-- 局部 Revision 和脏区块队列；
+- `LocalCellIndex -> Foundation Entity` 所有者映射；
+- 每个已占用格子的 `VisualMaterialId` 和面遮挡属性；
+- 局部 `SurfaceChunkRevision`、渲染脏队列和物理脏队列；
 - 负坐标区块换算测试；
 - 跨区块 footprint 查询。
 
-初始区块尺寸使用配置常量，第一版推荐 `16 × 16`，不要把尺寸散落硬编码在多个系统中。
+初始 X/Z 区块尺寸固定通过一个配置常量提供，第一版使用 `16 × 16`，不要把尺寸散落硬编码
+在多个系统中。`SurfaceChunkKey` 仍为 `(ChunkX, Level, ChunkZ)`，空区块不创建。
 
-### 8.3 地基命令
+表面查询和地基体积查询第一版可以读取同一份占用数据，但 API 必须区分：
 
-新增专门的地基放置/拆除命令，或在现有建造命令中增加明确类型。地基操作应当以事务方式：
+```text
+HasSurface(GridCell)
+HasFoundationVoxel(GridCell)
+IsOpaqueFoundationVoxel(GridCell)
+```
 
-1. 验证目标表面是否允许创建；
+这能避免阶段 4 出现“下层表面仍存在，但已被上层地基体积占据”时，把表面存在误当成建筑
+一定可放置。普通建筑的最终放置验证仍需检查其体积净空。
+
+### 8.3 地基建造命令和局部失效
+
+地基建造是现有 `GridBuildCommand` 的一种，不新增平行的 Foundation Command、命令 Buffer、
+Command Bus 或独立命令处理系统。在 `GridBuildCommandType` 中增加明确的
+`PlaceFoundation` 和 `RemoveFoundation`，并继续复用现有的 RequestId、Player、命令提交、
+结果回传和确定性批处理管线。`GridBuildCommandSystem` 内部可以把地基分支拆成私有方法或纯
+Utility，但事务边界和命令顺序仍由同一个建造命令系统控制。
+
+`PlaceFoundation`/`RemoveFoundation` 操作应当以事务方式：
+
+1. 验证目标地基体积和顶面是否允许创建；
 2. 验证结构或地形支撑规则；
-3. 创建地基实体；
-4. 向 Surface Registry 登记其提供的格子；
-5. 标记对应区块及边界邻区块 dirty；
-6. 更新 Surface Revision；
-7. 重建受影响区块的视觉和 Collider。
+3. 创建只承载玩法数据的地基实体；
+4. 向 Surface Registry 登记顶面、体积、所有者和视觉材质 ID；
+5. 更新 `SurfaceChunkRevision` 和全局 `SurfaceTopologyRevision`；
+6. 将所属渲染区块加入 dirty 队列；若修改发生在 X/Z 区块边界，同时标记对应邻区块；
+7. 将所属物理区块加入 dirty 队列；
+8. 由后续重建系统批量更新区块 Mesh 和 `PhysicsCollider`，命令执行过程不逐格创建表现对象。
 
 第一版地基拆除规则固定为：地基提供的任意表面格上存在普通建筑时拒绝拆除。级联拆除如果
 以后需要，必须作为明确命令并先计算完整影响集合，不能隐式执行。
 
-### 8.4 旧场景兼容
+### 8.4 区块渲染网格和相邻面剔除
 
-旧 `GridDefinition.Size` 在 Baking 或启动初始化时生成一组完整矩形的 Surface Chunk，
-使所有旧场景仍然可用。完成迁移后，运行时放置判断只读取 Surface Registry，不再同时读取
-矩形 `Contains()`。
+地基视觉使用体素外表面提取，不为每个地基实例化完整立方体 Mesh。对每个地基体素检查
+`-X/+X/-Y/+Y/-Z/+Z` 六个相邻位置：
 
-### 8.5 表现
+```text
+相邻位置存在不透明、完整地基体素 -> 不生成当前方向的面
+相邻位置为空或不遮挡当前面       -> 生成当前方向的四边形
+```
 
-- 地基格可以继续保留独立玩法实体。
-- 表面网格线、静态地基顶面和 Collider 按区块合并。
-- 禁止每个表面格创建独立调试 GameObject 和独立 Collider。
-- 修改边界格时同时重建邻区块，避免边缘接缝。
+阶段 3 只有 `Level = 0`，但生成器和测试使用完整六方向接口。阶段 4 增加上、下层后，低层
+地基的顶面和高层地基的底面自动按同一规则剔除。
 
-### 8.6 验收标准
+两个相邻立方体原本共有 12 个单位面，接触处的两个面均不生成，结果为 10 个单位四边形、
+20 个三角形。可在正确性稳定后增加 Greedy Meshing，把连续、共面且视觉材质/UV 规则相同
+的面合并；上述两个立方体最终可化为 6 个四边形、12 个三角形。
 
-- 支持凹形、环形、分离岛屿和跨区块地基。
-- 建筑 footprint 只要有一个格子缺少表面就整体失败。
-- 地基相邻不会触发 Grid 合并或建筑坐标重写。
-- 拆除桥接地基不会修改两侧建筑身份。
-- 单次地基修改只重建受影响区块和必要邻区块。
+渲染重建还必须满足：
+
+- X/Z 区块边缘的相邻测试查询真实邻区块，不能把区块外无条件视为空；
+- 修改边界格时重建当前渲染区块和必要邻区块，避免重复面和裂缝；
+- 两个视觉材质不同但都不透明的地基相邻时，接触面仍然剔除；
+- 透明、非完整方块等未来类型通过显式 `OccludesFaces`/面遮挡规则决定是否遮挡；
+- 不根据当前摄像机逐帧重建 Mesh。CPU 只移除永远不可见的内部面，摄像机视锥、遮挡和
+  背面剔除继续由渲染管线按区块处理。
+
+### 8.5 视觉材质保留
+
+第一版区块 Render Mesh 按 `VisualMaterialId` 生成 SubMesh。Entities Graphics 1.4 的正式
+落地方式是：区块 Render Entity 使用一个区块 Mesh、一个包含本区块实际材质的
+`RenderMeshArray`，并为每个 SubMesh 建立对应的 `MaterialMeshIndex`；
+`MaterialMeshInfo.FromMaterialMeshIndexRange(...)` 选择整段材质/Mesh/SubMesh 组合，使一个
+区块 Render Entity 发出所需的多材质 Draw Command。不得套用传统 GameObject
+`MeshRenderer.sharedMaterials` 作为正式运行时路径，也不得为每个地基创建 Render Entity。
+
+地基实体删除独立 Renderer 后，其 `VisualMaterialId` 仍必须保存在 Surface 数据或可 O(1)
+查询的地基所有者数据中，以便被遮挡面重新暴露时恢复正确材质。
+
+面合并只能跨越视觉材质、Shader 变体和 UV 规则都相同的面。SubMesh 数量等于该区块实际
+使用的视觉材质数量，而不是全局材质数量。若压力测试发现材质切换或 Draw Call 超过预算，
+再迁移到纹理图集或 Texture Array；不得通过丢失逐地基材质来换取单一 SubMesh。
+
+### 8.6 Unity Physics 碰撞架构
+
+本阶段正式使用 `com.unity.physics 1.4.7`，并给 `Factory.Runtime`、`Factory.Tests` 和需要
+物理查询的 PlayMode 测试程序集增加 `Unity.Physics` 引用。
+
+禁止每个地基实体拥有一个 `PhysicsCollider`。每个物理区块创建一个无 Parent 的静态物理
+实体，至少包含：
+
+```text
+FoundationPhysicsChunk
+LocalTransform
+LocalToWorld
+PhysicsWorldIndex(Value = 0)
+PhysicsCollider
+```
+
+该实体不包含 `PhysicsVelocity` 或 `PhysicsMass`，因此作为无限质量静态体参与默认物理世界。
+创建区块实体时预先添加 `PhysicsCollider { Value = default }`，后续重建只替换 Collider Blob，
+避免每次地基变化都增加/删除组件。
+
+第一版 Collider 生成固定使用“Greedy Box + CompoundCollider”：
+
+1. 从物理区块内的 `int3` 地基体素集合生成互不重叠的轴对齐长方体；固定按
+   `(Level, Z, X)` 选择最小未消费体素，并按 `+X`、`+Z`、`+Level` 顺序扩展，保证相同输入
+   产生相同结果；目标是稳定压缩，不要求求解全局最少 Box；
+2. 所有相邻地基体素都使用统一的 Foundation `CollisionFilter` 和
+   `FoundationPhysicsMaterial`，因此 Greedy 合并不读取视觉材质，也没有物理材质分组分支；
+3. 每个长方体创建一个 `Unity.Physics.BoxCollider`，`BevelRadius = 0`；
+4. 所有 Box 作为 `CompoundCollider.ColliderBlobInstance` 子项；
+5. `CompoundCollider.Create()` 生成一个持久 Blob，并赋给区块实体唯一的 `PhysicsCollider`；
+6. Compound 创建完成后立即释放临时子 Box Blob，因为 Compound 已复制子 Collider 数据。
+
+这表示“一整个区块是一个静态刚体和一个 `PhysicsCollider` Blob”，但内部仍保留少量 Box
+叶节点。所有叶节点都写入同一份 `FoundationPhysicsMaterial` 配置。视觉材质完全不参与
+碰撞合并，因此不同视觉材质的相邻地基仍可合并成同一个 Box child。
+
+阶段 3 的物理区块只含 `Level = 0`，可以与 `SurfaceChunkKey` 一一对应。碰撞生成器从第一版
+起必须接收 `int3` 体素而不是二维矩形专用输入。阶段 4 开放垂直堆叠前，引入独立的有限高度
+分带键：
+
+```text
+FoundationPhysicsChunkKey = (ChunkX, LevelBand, ChunkZ)
+LevelBand = FloorDiv(Level, PhysicsLevelBandSize)
+```
+
+`PhysicsLevelBandSize` 使用统一配置，初始建议为 `8`。同一物理区块内上下堆叠的立方体可被
+三维 Greedy 合并成一个 Box 或一个 Compound；高度分带用于避免单个静态体的 AABB 跨越过多
+空层，也避免任意高度修改重建整根世界柱。分带边界与 X/Z 区块边界一样是缓存边界，不改变
+地基身份或全局坐标。
+
+`Unity.Physics.MeshCollider` 不作为阶段 3 默认方案。只有性能实测证明外表面 Mesh Collider
+比 Greedy Box Compound 更合适时，才允许以报告和回归测试为依据替换实现；单一物理材质
+约束保持不变。
+
+### 8.7 Collider 更新时序和 Blob 生命周期
+
+物理重建系统运行在 `BeforePhysicsSystemGroup`，只消费物理 dirty 队列。不得在
+`PhysicsInitializeGroup` 与当次物理管线结束之间增加、删除或替换物理实体组件。
+
+每个运行时创建的 Collider Blob 都必须有唯一、明确的所有者：
+
+- 区块记录当前拥有的 Compound Blob；
+- 替换前完成或串联所有可能读取旧 Blob 的 Job 依赖；
+- 新 Blob 写入 `PhysicsCollider` 后，安全释放旧 Blob；
+- 区块变空、实体销毁或 World 退出时，通过 Cleanup 组件/专用释放系统回收最后一个 Blob；
+- 禁止把运行时唯一 Blob 注册为多个区块共享后再由单一区块释放；
+- 持续建造、拆除测试必须验证 Blob 数和 Persistent Native 内存不会单调增长。
+
+渲染 dirty 与物理 dirty 分开处理。边界面变化通常要求邻渲染区块重建，但固定分区内的
+Compound Box 不需要为了尝试跨区块合并而重建邻物理区块；Box 只在自己的物理区块内合并。
+
+### 8.8 物理查询和地基身份恢复
+
+本阶段完成合并 Collider 的查询契约、解析函数和自动化测试；玩家输入从旧无限 Plane 正式
+切换到实际地基 Collider 仍属于阶段 4。所有使用地基 Collider 的查询统一读取
+`PhysicsWorldSingleton`，并使用集中定义的 `CollisionFilter`。禁止在调用点散落 `~0u`
+掩码；至少为地基、建筑、运输物和查询射线定义稳定的碰撞类别。
+
+区块合并后，Raycast 命中的 `Entity` 是物理区块实体，不一定是独立地基实体。删除或选择
+地基时按以下流程恢复身份：
+
+1. 使用 `hit.Position - hit.SurfaceNormal * Epsilon` 得到碰撞体内部一点；
+2. 由该点换算 `GridCell`/地基体素地址；
+3. 在 Surface Registry 中 O(1) 查询 `Foundation Entity`；
+4. 使用 `hit.SurfaceNormal` 区分顶面、底面和侧面，侧面命中不得错误解析成相邻空格。
+
+`ColliderKey` 和 Compound child 的 `Entity` 字段可用于调试或未合并的一对一形状，但不得
+作为持久地基 ID。Greedy 结果每次重建都可能改变 child 顺序和 `ColliderKey`。
+
+### 8.9 旧场景兼容
+
+旧 `GridDefinition.Size` 在 Baking 或启动初始化时生成一组完整矩形的 Surface Chunk、地基
+所有者/材质数据以及对应的渲染和物理 dirty 请求，使所有旧场景仍然可用。完成迁移后，运行
+时放置判断只读取 Surface Registry，不再同时读取矩形 `Contains()`。
+
+旧矩形初始化不得为每格创建 Renderer、GameObject Collider 或独立 `PhysicsCollider`。它与
+玩家逐格放置最终必须进入相同的区块 Mesh 和 CompoundCollider 重建路径。
+
+### 8.10 实施顺序和交付物
+
+阶段 3 按以下顺序实施，每一步保持项目可编译、可运行：
+
+1. 给 `Factory.Runtime`、`Factory.Tests` 和相关 PlayMode asmdef 增加 `Unity.Physics` 引用，
+   建立集中维护的 Foundation Collision Category、Filter 和唯一
+   `FoundationPhysicsMaterial` 配置。
+2. 新增地基实体、Surface Chunk、材质 ID、所有者映射、局部 Revision 和独立 dirty 队列
+   数据类型；补齐坐标、负区块和 `1 × 1 × 1` 体积单元测试。
+3. 实现 Surface Registry 和旧矩形场景初始化，先让所有旧放置验证只读新 Registry，再移除
+   运行时 `GridDefinition.Contains()` 双读。
+4. 给现有 `GridBuildCommandType`、命令适配器和 `GridBuildCommandSystem` 增加
+   `PlaceFoundation`/`RemoveFoundation` 分支，实现事务式放置、拆除和承载建筑拒拆规则；
+   此时可先使用调试表现，但不得创建逐格 Collider 或独立地基命令队列。
+5. 实现六方向外表面提取、跨区块邻居查询、SubMesh 分组和确定性 Greedy 面合并测试。
+6. 实现托管表现提交系统：消费生成结果，更新 Unity Mesh、`RenderMeshArray`、
+   `MaterialMeshIndex` 范围和渲染 Bounds；回收被替换的旧运行时 Mesh。
+7. 实现确定性 Greedy Box 生成、统一 Foundation Filter/Material 和 Compound Blob Builder。
+8. 实现 `BeforePhysicsSystemGroup` 中的物理区块创建/替换/清理系统，以及 Collider Blob
+   所有权、依赖和退出清理测试。
+9. 实现基于 `PhysicsWorldSingleton` 的地基查询解析函数和自动化测试；正式玩家输入切换留到
+   阶段 4。
+10. 运行完整 EditMode/PlayMode 回归和新增压力场景，记录渲染、Collider 重建、静态 Body、
+    Blob 内存和连续建造尖峰后再宣布阶段完成。
+
+推荐新增或拆分的职责名称如下，最终文件名可按现有程序集约定调整：
+
+```text
+FoundationSurfaceComponents
+SurfaceChunkUtility
+SurfaceRegistrySystem
+GridBuildCommandSystem（扩展现有系统）
+SurfaceChunkMeshBuildSystem
+SurfaceChunkRenderApplySystem
+FoundationGreedyBoxUtility
+FoundationPhysicsRebuildSystem
+FoundationColliderBlobCleanupSystem
+FoundationPhysicsHitResolver
+```
+
+Mesh 顶点/索引、Greedy 面和 Greedy Box 的纯数据计算应尽量在 Burst Job 中完成；
+`UnityEngine.Mesh` 创建/更新、Entities Graphics 托管对象注册和需要 EntityManager 结构变更的
+部分集中在提交阶段，不进入每个 Fixed Tick 的稳态热路径。
+
+### 8.11 测试和验收标准
+
+功能验收：
+
+- 支持凹形、环形、分离岛屿和跨区块地基；
+- 建筑 footprint 只要有一个格子缺少表面就整体失败；
+- 地基相邻不会触发 Grid 合并或建筑坐标重写；
+- 拆除桥接地基不会修改两侧建筑身份；
+- 单次地基修改只重建受影响区块和必要邻渲染区块；
+- 地基逻辑实体无独立 Renderer 和 `PhysicsCollider`；每个非空物理区块恰有一个静态
+  `PhysicsCollider`；
+- 两个水平相邻地基的普通表面提取结果为 10 个单位四边形，启用 Greedy 后为 6 个四边形；
+- 两个相邻地基无论视觉材质是否相同，都生成一个 `2 × 1 × 1` Box child，并且所有 child
+  使用唯一的 `FoundationPhysicsMaterial`；
+- 地基放置和拆除只通过 `GridBuildCommandType.PlaceFoundation`/
+  `GridBuildCommandType.RemoveFoundation` 进入现有命令管线，不存在第二套地基命令 Buffer
+  或独立命令处理系统；
+- 不同视觉材质在区块 Mesh 中保持正确，拆除邻格后新暴露面恢复所属地基材质；
+- 跨区块相邻地基不生成重复渲染面，区块边缘不出现裂缝；
+- Raycast 顶面和四个侧面均能恢复正确 `GridCell` 和地基所有者；
+- 空区块删除、反复替换 Collider 和 World 销毁后不存在 Collider Blob 泄漏。
+
+为阶段 4 提前固定但暂不开放给玩家的测试：两个垂直相邻的 `int3` 体素在同一物理高度分带
+内可合并成一个 `1 × 2 × 1` Box，六方向表面提取会剔除它们之间的两个面。
+
+性能报告除原有指标外增加：
+
+- 每个区块的外露 Quad、三角形和 SubMesh 数；
+- 每个物理区块的输入体素数、Greedy Box child 数和压缩率；
+- Render Mesh 重建耗时、Compound Blob 创建耗时和旧 Blob 释放数；
+- Physics 静态 Body 数、Collider Blob 持久内存和建造操作同步点耗时；
+- 连续放置/拆除时的主线程尖峰、GC Alloc 和 Persistent Native 内存趋势。
 
 ## 9. 阶段 4：多高度平面和实际表面拾取
 
@@ -726,7 +959,8 @@ Interval = [BottomLevel, TopLevel]
 - `Assets/Scripts/ECS/Systems/PlayerGridCommandAdapterSystem.cs`
 - `Assets/Scripts/ECS/Systems/GridPlacementTransformSystem.cs`
 
-主要工作：三维地址、持久索引、地基命令、事务式表面修改、局部脏标记和 Transform 增量更新。
+主要工作：三维地址、持久索引、在现有 `GridBuildCommand` 中增加地基命令类型、事务式表面
+修改、局部脏标记和 Transform 增量更新；不得建立独立地基命令管线。
 
 ### 14.4 输入和表现
 

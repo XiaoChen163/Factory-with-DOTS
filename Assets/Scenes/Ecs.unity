@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 10cae6e794026814aa78a15d397ed757, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Factory.Runtime::PlayerInputModeController
   actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   uiDocument: {fileID: 148152072}
@@ -162,10 +162,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: af3beda7e46bf2747bb33d23018e5549, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Factory.Runtime::GameUiController
   rootTree: {fileID: 9197481963319205126, guid: 1bb52409315061847a4dd8aa6229781f, type: 3}
   presentationCatalog: {fileID: 11400000, guid: 184499a7c08690b438114e3da7994a5d, type: 2}
+  localPlayerId: 1
 --- !u!114 &148152072
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -176,7 +177,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
   m_PanelSettings: {fileID: 11400000, guid: 5e291de545fb85044a77858315e2714b, type: 2}
   m_ParentUI: {fileID: 0}
@@ -382,6 +383,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66da847af1454c1683a586dc0bfe4c50, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EcsGridInteractionController
+  localPlayerId: 1
 --- !u!114 &674081812
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -532,8 +534,8 @@ Transform:
   m_GameObject: {fileID: 1274671681}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 16, y: -0.1, z: 16}
-  m_LocalScale: {x: 32, y: 0.2, z: 32}
+  m_LocalPosition: {x: 16, y: -0.5, z: 16}
+  m_LocalScale: {x: 32, y: 1, z: 32}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}

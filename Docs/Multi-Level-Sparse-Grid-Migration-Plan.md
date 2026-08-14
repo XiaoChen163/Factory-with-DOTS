@@ -1,0 +1,897 @@
+# 多层稀疏网格建造系统分阶段改造方案
+
+## 1. 文档目的
+
+本文档定义把当前“唯一、单层、完整矩形网格”改造成“统一整数坐标、稀疏非矩形表面、
+多高度平面和特殊跨层连接器”的实施方案。
+
+方案覆盖：
+
+- 数据地址和 ECS 组件迁移；
+- 地基提供可建造表面的规则；
+- 建筑占用、放置验证和输入拾取；
+- 平面传送带、坡道传送带和垂直传送带；
+- 区块存储、拓扑失效和局部更新；
+- 自动化回归、性能门槛、存档兼容和旧代码退役。
+
+本文档是 `Future-Plan.md` 中“多层建造、多网格区块、垂直运输”条目的详细实施依据。
+
+当前技术基线：
+
+- Unity `6000.3.19f1`
+- Entities `1.4.8`
+- 固定模拟频率：`60 Tick/s`
+- 正式运行时程序集：`Factory.Runtime`
+- 测试程序集：`Factory.Tests`
+
+## 2. 已确定的架构决策
+
+### 2.1 不创建需要合并、分裂的独立网格坐标系
+
+本项目中的固定地基满足以下条件：
+
+- 所有平面使用相同格子尺寸；
+- X/Z 轴方向一致；
+- 平面原点位于整数格；
+- 平面高度差是统一层高的整数倍。
+
+因此固定世界只使用一套全局整数坐标，不为每块地基创建独立 `Grid Entity`，也不在
+相邻地基接触时执行坐标系合并。
+
+统一空间地址为：
+
+```text
+GridCell = (X, Level, Z)
+```
+
+其中 `Level` 是离散高度层，不是普通建筑 footprint 的第三个尺寸。普通建筑仍然只在
+同一 `Level` 上用二维偏移占格。
+
+只有未来出现以下需求时，才新增真正独立的 `GridSpaceId + LocalCell`：
+
+- 可旋转网格；
+- 可移动平台或载具；
+- 不同格子尺寸；
+- 不能映射到统一世界整数格的局部空间。
+
+这些需求不在本轮改造范围内。
+
+### 2.2 区块是存储单位，不是逻辑网格身份
+
+场景按固定 X/Z 尺寸切分区块，推荐初始值为 `16 × 16`。每个高度层分别保存表面数据，
+区块键可表达为：
+
+```text
+SurfaceChunkKey = (ChunkX, Level, ChunkZ)
+```
+
+空区块不创建。区块负责：
+
+- 稀疏表面存在性和表面权限；
+- 局部 Revision；
+- 局部 Mesh、Collider 和调试网格；
+- 存档、加载和未来的流式管理。
+
+区块边界不代表地基连通边界。跨区块的相邻表面仍然属于同一个世界坐标体系。
+
+### 2.3 连通区域是派生缓存，不是永久身份
+
+当玩法确实需要判断地基是否连通时，可以生成 `SurfaceRegionId`，但它必须满足：
+
+- 可被重新计算；
+- 不进入建筑永久 ID；
+- 不进入存档引用；
+- 区域合并或分裂时不修改建筑坐标；
+- 删除桥接地基时允许分帧重算。
+
+第一版如果没有供电、结构强度或区域归属等消费者，不实现连通区域系统。
+
+### 2.4 表面、建筑占用和连接器占用相互独立
+
+至少拆分以下空间索引：
+
+```text
+SurfaceRegistry
+    表示哪些平面格存在地基，以及允许放置什么。
+
+BuildingOccupancy
+    表示普通机器、平面传送带等占用了哪些平面格。
+
+RampConnectorOccupancy
+    表示坡道上的一维传送带槽。
+
+VerticalConnectorOccupancy
+    表示同一 X/Z 柱中的垂直运输区间。
+```
+
+地基是建筑的承载表面，不与地基上方建筑争用同一个 `BuildingOccupancy`。
+
+### 2.5 Revision 按职责拆分
+
+不得继续使用一次普通建造就使所有缓存失效的单一 `GridDefinition.Revision`。目标 Revision
+至少分为：
+
+```text
+SurfaceTopologyRevision
+BuildingOccupancyRevision
+TransportTopologyRevision
+TransportVisualRevision
+```
+
+区块还应拥有局部 `SurfaceChunkRevision`。普通地基变化不能无条件重建全世界传送带拓扑，
+普通机器变化也不能触发全部建筑重新对齐。
+
+## 3. 目标数据模型
+
+以下类型名称是推荐命名，实施时可以根据程序集现状微调，但职责不得重新混合。
+
+### 3.1 全局坐标配置
+
+```csharp
+public struct WorldGridConfig : IComponentData
+{
+    public float CellSize;
+    public float LayerHeight;
+    public float3 Origin;
+}
+
+public struct GridCell : IEquatable<GridCell>
+{
+    public int X;
+    public int Level;
+    public int Z;
+}
+```
+
+统一换算规则：
+
+```text
+worldX = Origin.x + (X + 0.5) * CellSize
+worldY = Origin.y + Level * LayerHeight
+worldZ = Origin.z + (Z + 0.5) * CellSize
+```
+
+`WorldGridConfig` 在 Authoring/Baking 阶段必须验证：`CellSize > 0`、`LayerHeight > 0`，
+并保证固定世界的 Origin 与项目整数坐标约束对齐。任意一块连通或不连通的平面区域都直接
+使用全局格坐标，因此其可选“局部原点”天然位于整数格，不再保存另一套浮点原点。
+
+坐标负数区域的区块除法必须使用 floor division，不能直接依赖 C# 对负数的截断除法。
+
+### 3.2 普通建筑占格
+
+```csharp
+public struct GridPlacement : IComponentData
+{
+    public GridCell AnchorCell;
+    public int2 FootprintSize;
+    public byte QuarterTurns;
+    public BuildingKind Kind;
+}
+```
+
+以下数据继续保持二维：
+
+- `OccupiedCellOffset.Value : int2`
+- `BuildingPort.CellOffset : int2`
+- `BuildingPort.Direction : int2`
+- 建筑旋转：绕 Y 轴四个直角方向
+- 建筑 footprint：只覆盖 Anchor 所在高度层
+
+建筑占格计算规则为：
+
+```text
+occupied.X     = Anchor.X + rotatedOffset.x
+occupied.Level = Anchor.Level
+occupied.Z     = Anchor.Z + rotatedOffset.y
+```
+
+### 3.3 稀疏表面
+
+表面至少需要表达：
+
+```csharp
+[Flags]
+public enum SurfaceFlags : byte
+{
+    None = 0,
+    Flat = 1 << 0,
+    AllowsBuildings = 1 << 1,
+    AllowsBelts = 1 << 2
+}
+```
+
+建议每个 `SurfaceChunkKey` 对应一个区块层实体或持久 Native 数据块。`16 × 16` 区块的表面
+存在性可用 256 bit 位图表达；表面权限使用附加位图或紧凑数组。
+
+需要追踪地基所有者时，单独维护局部索引：
+
+```text
+LocalCellIndex -> Foundation Entity
+```
+
+不得通过每次查询 ECS 世界中的全部地基实体来判断表面是否存在。
+
+### 3.4 特殊连接器
+
+坡道地基连接两个整数层端点，中间位置不成为普通平面格：
+
+```csharp
+public struct RampFoundation : IComponentData
+{
+    public GridCell StartCell;
+    public GridCell EndCell;
+    public int2 HorizontalDirection;
+    public ushort Run;
+    public ushort Rise;
+}
+
+public struct RampSlot : IBufferElementData
+{
+    public ushort Index;
+    public Entity Belt;
+}
+```
+
+垂直传送带连接相同 X/Z 的两个整数层端点：
+
+```csharp
+public struct VerticalBelt : IComponentData
+{
+    public GridCell BottomCell;
+    public GridCell TopCell;
+}
+```
+
+垂直区间与地基表面使用不同占用通道，因此允许穿过中间地基。垂直带之间的冲突通过
+`(X, Z) + [BottomLevel, TopLevel]` 区间相交判断处理。
+
+### 3.5 运输拓扑
+
+平面运输节点至少把 `Cell` 从 `int2` 迁移到 `GridCell`。坡道和垂直带不依赖
+`cell + direction` 隐式跨层，而是产生显式拓扑边。
+
+目标关系为：
+
+```text
+平面带：同层相邻 GridCell 自动推导边
+坡道带：Ramp Connector 显式连接两端和内部槽
+垂直带：Vertical Connector 显式连接上下端点
+Merger/Splitter：继续使用确定性的有限输入/输出端口
+```
+
+运输模拟仍保持现有不变量：单节点单物品、固定 Tick、确定性仲裁、满环原子移动和
+Merger/Splitter round-robin。
+
+## 4. 分阶段实施总览
+
+| 阶段 | 目标 | 对玩家可见变化 |
+|---:|---|---|
+| 0 | 冻结基线、补齐回归和性能采样 | 无 |
+| 1 | 全链路迁移到统一 `GridCell`，旧场景固定 `Level=0` | 无 |
+| 2 | 持久空间索引和 Revision 解耦 | 无，建造尖峰应下降 |
+| 3 | 稀疏区块表面和地基规则，先支持单层非矩形 | 可自由扩展非矩形地基 |
+| 4 | 多高度平面、实际表面拾取和跨层 UI | 可在多个整数高度层建造 |
+| 5 | 运输拓扑地址升级和显式连接边基础设施 | 平面传送带行为不变 |
+| 6 | 坡度地基及坡道专用传送带槽 | 支持 `1`、`1/2`、`1/4` 坡道 |
+| 7 | 垂直传送带和竖直区间占用 | 支持上下层直接运输 |
+| 8 | 连通缓存、区块流式、存档定稿和旧代码退役 | 大规模世界稳定化 |
+
+不得同时跳过阶段 1、2，直接在现有 `int2` 单例网格上增加多个 Grid Entity。阶段 3～7
+可以按可玩内容优先级调整，但阶段 5 必须先于坡道和垂直运输。
+
+## 5. 阶段 0：冻结行为与性能基线
+
+### 5.1 目标
+
+在改变空间地址前，把当前单层行为固定为可自动验证的契约，并采集后续比较所需基线。
+
+### 5.2 工作项
+
+1. 补齐现有网格行为测试：
+   - 世界坐标与格子坐标双向换算；
+   - 四个方向的建筑 footprint 旋转；
+   - 越界、占用冲突、放置和拆除；
+   - 单格和多格建筑；
+   - L 形传送带 X 优先和 Z 优先；
+   - 路径任意格失败时整条回滚；
+   - Belt、Merger、Splitter、端口、满环和阻塞行为。
+2. 为 `GridBuildCommandSystem` 增加诊断计数：
+   - 每批命令扫描的 Placement 数；
+   - 创建的临时记录数；
+   - 路径验证格数。
+3. 为拓扑系统记录：
+   - 重建次数；
+   - 重建节点数；
+   - 重建耗时。
+4. 采集当前 32×32 场景和现有压力场景的：
+   - Fixed Tick CPU；
+   - 建造操作主线程耗时；
+   - GC Alloc；
+   - Persistent Native 内存；
+   - 渲染帧耗时和 Draw Call。
+5. 明确当前是否已有正式存档；如果存在，固定旧版本号和迁移样本。
+
+### 5.3 验收标准
+
+- 所有现有自动化测试通过。
+- 性能报告可重复采集，并记录运行机器、Unity 版本、场景和采样参数。
+- 后续阶段可以判断回归来自坐标迁移、空间索引还是新增玩法。
+
+## 6. 阶段 1：统一三维地址，保持单层玩法
+
+### 6.1 目标
+
+把所有具有“世界格位置”语义的数据迁移到 `GridCell`，但旧场景和旧建造操作全部使用
+`Level = 0`。本阶段不引入地基表面，不改变矩形边界规则。
+
+### 6.2 数据迁移范围
+
+必须检查并迁移：
+
+- `GridPlacement.AnchorCell`
+- `GridBuildCommand.StartCell/EndCell`
+- `GridBuildPlayerCommand.StartCell/EndCell`
+- `GridBuildResult.Cell`
+- `RecipeSelectionCommand.BuildingCell` 及结果
+- `BeltTopology.Cell`
+- `Merger.Cell`
+- `Splitter.Cell`
+- `BeltVisualDirtyCell`
+- Occupancy、Build Snapshot、Transport Resolver 中的坐标 HashMap/Dictionary
+- UI Snapshot、悬停建筑查询和调试输出
+- 性能场景、测试 Fixture 和测试断言
+
+以下类型暂不迁移为三维：
+
+- 建筑局部占格偏移；
+- 建筑端口偏移和方向；
+- 平面路径方向；
+- footprint 宽高。
+
+### 6.3 运行时 ID
+
+停止使用只从 `int2 cell` 生成容器 ID 的逻辑。优先采用独立、单调分配并可持久化的
+`BuildingRuntimeId`。如果阶段 1 暂时保留坐标派生 ID，必须包含 Level、明确位宽范围并有
+碰撞测试；该过渡方案不得进入最终存档格式。
+
+### 6.4 兼容方式
+
+- `GridDefinitionAuthoring` 继续生成旧矩形范围。
+- `WorldGridConfig` 可以先与旧定义并存，但坐标换算只能有一个实现入口。
+- 所有旧内容自动映射到 `Level = 0`。
+- 禁止长期维护 `int2` 和 `GridCell` 两套并行建造逻辑。
+
+### 6.5 验收标准
+
+- 原场景的建筑位置、方向、端口和运输行为像素级/逻辑级不变。
+- 所有旧测试改用 `Level = 0` 后通过。
+- 在相同 32×32 基线下稳态 Fixed Tick 无持续 GC。
+- 坐标迁移本身的稳态 CPU 回归以阶段 0 基线为准，暂定中位数不超过 5%；超出时必须
+  先定位 HashMap、组件尺寸或 Burst 退化原因。
+
+## 7. 阶段 2：持久索引和失效范围解耦
+
+### 7.1 目标
+
+在世界规模扩大前消除现有全局扫描和不必要的全局缓存失效。
+
+### 7.2 Building Occupancy
+
+将现有增量 Occupancy 扩展为 `GridCell -> Entity` 的持久 Native 索引，保留：
+
+- 创建建筑时增量添加；
+- 拆除时增量移除；
+- 冲突检测和开发期全量校验；
+- 只读 Job 访问接口。
+
+`GridBuildCommandSystem` 不再为每批命令构造全世界 `List<PlacementRecord>` 和
+`Dictionary<GridCell, PlacementRecord>`。候选建筑只查询：
+
+- 自己的占格；
+- 端口和特殊建筑规则需要的有限邻居；
+- 当前命令批次内尚未 Playback 的暂存变更。
+
+批次内暂存可以使用可复用 Native 容器或生命周期明确的临时容器，不得为世界中的每栋
+建筑创建托管对象。
+
+### 7.3 Revision 拆分
+
+新增独立 Revision，并迁移消费者：
+
+| Revision | 写入者 | 消费者 |
+|---|---|---|
+| `SurfaceTopologyRevision` | 地基/表面变化 | Surface Mesh、Collider、连通缓存 |
+| `BuildingOccupancyRevision` | 普通建筑占用变化 | 查询缓存、UI Snapshot |
+| `TransportTopologyRevision` | 运输节点/方向变化 | Belt Transfer Resolver |
+| `TransportVisualRevision` 或 Dirty Cells | 运输外观变化 | Belt Topology Visual |
+
+普通机器、地基或 UI 变化不得触发运输拓扑全量重建。
+
+### 7.4 Transform 更新
+
+- 新建筑在创建时直接得到最终 Transform。
+- 固定世界的 `WorldGridConfig` 不因普通建造而变化。
+- 移除“任意 Grid Revision 变化就重新对齐所有 `GridPlacement`”的依赖。
+- 如果需要修复或编辑器强制重对齐，使用显式 `GridTransformDirty` 标记。
+
+### 7.5 验收标准
+
+- 在远处增加普通建筑时，扫描的既有 Placement 数不随全世界建筑数线性增长。
+- 普通地基或非运输建筑变化不增加 `TransportTopologyRebuildCount`。
+- 新增一个建筑不会重写全部建筑 Transform。
+- 相同基线场景的建造操作无新增托管 GC；稳态 Tick 保持无持续 GC。
+
+## 8. 阶段 3：单层稀疏表面和非矩形地基
+
+### 8.1 目标
+
+在 `Level = 0` 上用稀疏表面替代完整矩形 `Contains()`，实现玩家通过地基逐格扩展可建造
+区域。此阶段先不开放多层和坡道。
+
+### 8.2 Surface Chunk
+
+实现：
+
+- `SurfaceChunkKey -> Chunk Entity/Data` 的持久索引；
+- 表面存在位图；
+- `AllowsBuildings`、`AllowsBelts` 等权限；
+- 表面格到地基所有者的可选映射；
+- 局部 Revision 和脏区块队列；
+- 负坐标区块换算测试；
+- 跨区块 footprint 查询。
+
+初始区块尺寸使用配置常量，第一版推荐 `16 × 16`，不要把尺寸散落硬编码在多个系统中。
+
+### 8.3 地基命令
+
+新增专门的地基放置/拆除命令，或在现有建造命令中增加明确类型。地基操作应当以事务方式：
+
+1. 验证目标表面是否允许创建；
+2. 验证结构或地形支撑规则；
+3. 创建地基实体；
+4. 向 Surface Registry 登记其提供的格子；
+5. 标记对应区块及边界邻区块 dirty；
+6. 更新 Surface Revision；
+7. 重建受影响区块的视觉和 Collider。
+
+第一版地基拆除规则固定为：地基提供的任意表面格上存在普通建筑时拒绝拆除。级联拆除如果
+以后需要，必须作为明确命令并先计算完整影响集合，不能隐式执行。
+
+### 8.4 旧场景兼容
+
+旧 `GridDefinition.Size` 在 Baking 或启动初始化时生成一组完整矩形的 Surface Chunk，
+使所有旧场景仍然可用。完成迁移后，运行时放置判断只读取 Surface Registry，不再同时读取
+矩形 `Contains()`。
+
+### 8.5 表现
+
+- 地基格可以继续保留独立玩法实体。
+- 表面网格线、静态地基顶面和 Collider 按区块合并。
+- 禁止每个表面格创建独立调试 GameObject 和独立 Collider。
+- 修改边界格时同时重建邻区块，避免边缘接缝。
+
+### 8.6 验收标准
+
+- 支持凹形、环形、分离岛屿和跨区块地基。
+- 建筑 footprint 只要有一个格子缺少表面就整体失败。
+- 地基相邻不会触发 Grid 合并或建筑坐标重写。
+- 拆除桥接地基不会修改两侧建筑身份。
+- 单次地基修改只重建受影响区块和必要邻区块。
+
+## 9. 阶段 4：多高度平面和实际表面拾取
+
+### 9.1 目标
+
+允许相同 X/Z 上存在不同整数 `Level` 的平面表面，并保持普通建筑完全二维占格。
+
+### 9.2 放置验证
+
+对普通建筑 footprint 的每个格子检查：
+
+```text
+SurfaceCell 存在
+SurfaceCell 是 Flat
+SurfaceCell 允许该建筑类型
+所有占格与 Anchor.Level 相同
+BuildingOccupancy 为空
+```
+
+不得因为 footprint 覆盖多个 X/Z 就自动跨层寻找“最近表面”。建筑只能使用明确选中的
+Anchor Level。
+
+### 9.3 输入拾取
+
+替换当前唯一无限水平 Plane：
+
+- 射线命中实际地基/区块 Collider；
+- 命中信息解析为 `GridCell`；
+- 同一 X/Z 多层时选择射线首先命中的实际表面；
+- 从空地创建第一块地基时，使用地形命中或明确的建造工作平面；
+- 提供当前选中层的 UI/调试显示，必要时支持层过滤。
+
+不得每帧遍历所有 Grid 或所有 Level 分别做 Plane Raycast。
+
+### 9.4 视觉和相机
+
+- 放置预览使用 Anchor Level 计算 Y。
+- 被上层遮挡时提供隐藏上层、切层或透明化入口；具体交互可后续迭代，但数据接口必须支持。
+- Grid Debug View 只生成可见区块和选中层附近内容。
+
+### 9.5 验收标准
+
+- 同一 X/Z 的两层可以分别放置建筑且不发生 Occupancy 冲突。
+- 普通建筑不能跨层占格。
+- 射线可以稳定选中上下层表面，不依赖 Grid 创建顺序。
+- 层高换算在正负 Level 上保持可逆并通过边界测试。
+
+## 10. 阶段 5：运输拓扑三维地址和显式连接边
+
+### 10.1 目标
+
+先让现有平面传送带在多层环境中完全正确，再为坡道和垂直带提供统一连接接口。
+
+### 10.2 平面运输迁移
+
+- `BeltTopology.Cell`、`Merger.Cell`、`Splitter.Cell` 使用 `GridCell`。
+- `Cell -> NodeIndex` 索引使用包含 Level 的键。
+- 平面邻居只在相同 Level 上通过 X/Z 方向查找。
+- 现有 L 形路径第一版限定在同一 Level；起点和终点层不同返回明确失败原因。
+- 旧的确定性输入选择、回路检测和仲裁语义保持不变。
+
+### 10.3 显式连接边
+
+为特殊运输结构提供由拓扑构建阶段写入的连接描述。平面节点仍可自动推导相邻边，坡道和
+垂直节点通过 Connector 注册边。Fixed Tick 只读取已经构建好的连续拓扑数据，不在每 Tick
+查询 Surface Registry 或执行三维寻路。
+
+建议将拓扑失效限制到：
+
+- 变化节点所在 Transport Region；或
+- 第一版先全局重建运输节点，但只由 `TransportTopologyRevision` 触发。
+
+### 10.4 路径命令演进
+
+当前 `StartCell + EndCell + HorizontalFirst` 可以继续服务同层 L 形路径。跨层路径不得把
+坡道和垂直连接隐式编码成分数坐标。后续有两种可选接口：
+
+1. 客户端提交明确的 Route Segment 列表，服务端逐段验证；
+2. 服务端在平面邻接和 Connector Edge 组成的图上寻路。
+
+第一版坡道和垂直带采用明确放置特殊段，不在本阶段实现自动跨层寻路。
+
+### 10.5 验收标准
+
+- 同一 X/Z 不同 Level 的传送节点不会在索引中覆盖。
+- 多层平面运输网络互不串线。
+- 平面直线、转弯、合流、分流、建筑端口和满环测试全部通过。
+- 普通非运输建筑和地基变化不触发 Transport Topology 重建。
+
+## 11. 阶段 6：坡度地基和坡道传送带
+
+### 11.1 目标
+
+实现连接不同整数层的坡道地基，初始允许斜率：
+
+```text
+1/1
+1/2
+1/4
+```
+
+坡道上禁止普通建筑，只允许坡道传送带。
+
+### 11.2 放置参数与验证
+
+坡道放置必须明确：
+
+- 起点 `GridCell`；
+- 水平轴向方向；
+- Rise；
+- Run；
+- 上升或下降方向。
+
+验证规则：
+
+- 两端落在整数层；
+- `Run/Rise` 属于允许的斜率集合；
+- 水平投影不与不允许穿越的建筑体积冲突；
+- 两端接口存在或满足新建规则；
+- Ramp Connector Occupancy 没有冲突。
+
+### 11.3 坡道槽和视觉
+
+- 中间坡道位置使用 `RampSlot`，不注册为 `Flat SurfaceCell`。
+- 普通建造工具不能选择 Ramp Slot。
+- 传送带视觉 Y 按 `slotIndex / run` 插值。
+- 坡道地基 Mesh 和 Collider 按 connector 生成，可按区块或实例合批。
+
+### 11.4 运输接入
+
+- 每个坡道槽可以对应一个运输节点，保持与现有每格传送带进度语义一致。
+- 两端通过显式边连接对应平面节点。
+- 运输方向、速度、反向放置和拆除必须确定性处理。
+- 第一版不允许普通分流器、合流器位于坡道槽上。
+
+### 11.5 验收标准
+
+- 三种斜率上下行均可正确放置和拆除。
+- 普通建筑无法放置在坡道上。
+- 物品可以从平面进入坡道、通过坡道并进入目标层。
+- 坡道中间高度不需要成为全局分数格坐标。
+- 拆除坡道或任一坡道带后拓扑无悬空边和物品丢失。
+
+## 12. 阶段 7：垂直传送带
+
+### 12.1 目标
+
+实现相同 X/Z 上整数高度层之间的直接运输，并允许垂直段穿过中间地基。
+
+### 12.2 空间占用
+
+垂直带使用独立柱状区间索引：
+
+```text
+Column = (X, Z)
+Interval = [BottomLevel, TopLevel]
+```
+
+规则：
+
+- 中间地基表面不构成冲突；
+- 起点和终点接口必须满足传送方向规则；
+- 两条不允许重叠的垂直带进行区间相交检查；
+- 是否允许穿过普通建筑体积由建筑碰撞阶段另行定义，第一版至少禁止与明确占用竖井的建筑冲突。
+
+### 12.3 运输和物品表现
+
+- 垂直带向运输拓扑注册上下端显式边。
+- 逻辑进度仍在 Fixed Tick 推进。
+- 物品表现根据 Bottom/Top 世界位置插值，不改变逻辑地址。
+- 拆除时明确处理带内物品：拒绝拆除、返还或销毁必须采用项目统一规则，不得静默丢失。
+
+### 12.4 验收标准
+
+- 可跨一个或多个整数层运输。
+- 中间层地基不阻止垂直带。
+- 同柱冲突检测稳定，边界相接不被误判为重叠。
+- 上行、下行、阻塞、满载和与平面带交接测试通过。
+
+## 13. 阶段 8：规模化、连通缓存和旧系统退役
+
+### 13.1 可选连通区域
+
+只有出现实际消费者后才实现：
+
+- 新增地基通过四邻接做增量合并；
+- 删除地基将受影响 Region 标记 dirty；
+- 区块级图先判断大范围连通，局部格子 flood fill 精化；
+- 大区域分裂允许分帧预算；
+- Region 重算期间消费者获得明确的 Pending 状态。
+
+### 13.2 区块流式和存档
+
+- 存档以全局 `GridCell`、Chunk Key 和独立 Building Runtime ID 为稳定地址。
+- 不保存临时 Region ID、NodeIndex、HashMap bucket 或 Entity Index。
+- 保存地基提供的表面、普通建筑、Ramp Connector 和 Vertical Connector。
+- 加载顺序为：World Config → Surface Chunks/Foundation → Building Occupancy → Transport Nodes → Topology Rebuild。
+- 远处区块卸载前处理跨区块运输边和带内物品状态。
+
+### 13.3 旧代码退役
+
+完成所有场景迁移后删除：
+
+- 运行时矩形 `GridDefinition.Size` 边界判定；
+- “必须恰好一个可建造矩形 GridDefinition”的错误路径；
+- `int2` 世界格地址重载；
+- 从格子坐标派生永久容器 ID 的兼容逻辑；
+- 依赖全局 Grid Revision 的 Transform 和 Transport 失效；
+- 旧的无限单平面拾取路径。
+
+### 13.4 验收标准
+
+- 旧场景和新多层场景都通过自动化测试。
+- 运行时不存在双写的旧/新空间状态。
+- 存档加载后重建的拓扑与保存前逻辑等价。
+- 大规模地基、建筑和运输压力场景满足第 16 节性能门槛。
+
+## 14. 系统改动清单
+
+### 14.1 数据层
+
+重点文件：
+
+- `Assets/Scripts/ECS/Data/EcsGridComponents.cs`
+- `Assets/Scripts/ECS/Data/EcsBuildingComponents.cs`
+- `Assets/Scripts/ECS/Data/EcsFactoryComponents.cs`
+- `Assets/Scripts/ECS/Data/EcsPlayerCommandComponents.cs`
+- `Assets/Scripts/ECS/Data/EcsPlayerComponents.cs`
+
+主要工作：引入 `GridCell`、拆分 Revision、增加 Surface/Connector 数据，并保持建筑局部二维偏移。
+
+### 14.2 Authoring 和 Baking
+
+重点文件：
+
+- `Assets/Scripts/ECS/Authoring/GridDefinitionAuthoring.cs`
+
+主要工作：从烘焙唯一矩形网格改为烘焙 `WorldGridConfig` 和初始 Surface Chunk。旧矩形参数在
+迁移期只作为生成初始完整表面的 Authoring 输入。
+
+### 14.3 建造与索引
+
+重点文件：
+
+- `Assets/Scripts/ECS/Systems/GridOccupancyIndexSystem.cs`
+- `Assets/Scripts/ECS/Systems/GridBuildCommandSystem.cs`
+- `Assets/Scripts/ECS/Systems/PlayerGridCommandAdapterSystem.cs`
+- `Assets/Scripts/ECS/Systems/GridPlacementTransformSystem.cs`
+
+主要工作：三维地址、持久索引、地基命令、事务式表面修改、局部脏标记和 Transform 增量更新。
+
+### 14.4 输入和表现
+
+重点文件：
+
+- `Assets/Scripts/ECS/Presentation/EcsGridInteractionController.cs`
+- `Assets/Scripts/Prototype/Presentation/GridDebugView.cs` 及后续正式 ECS 替代实现
+- `Assets/Scripts/ECS/Systems/BeltTopologyVisualSystem.cs`
+
+主要工作：实际表面拾取、多层预览、区块网格显示、坡道/垂直预览和局部视觉刷新。
+
+### 14.5 运输
+
+重点文件：
+
+- `Assets/Scripts/ECS/Systems/BeltTransferSystem.cs`
+- `Assets/Scripts/ECS/Systems/LinearBeltTransferResolver.cs`
+- `Assets/Scripts/ECS/Systems/BeltTopologyVisualSystem.cs`
+
+主要工作：三维节点地址、独立 Transport Revision、显式 Connector Edge、局部或受控全局重建。
+
+### 14.6 测试和性能
+
+重点目录：
+
+- `Assets/Tests`
+- `Assets/Scripts/ECS/Performance`
+- `Assets/Scenes/Performance`
+- `PerformanceReports`
+
+不得把正式实现放入 `Assets/Scripts/Prototype`。Prototype 只能作为行为参考，不能成为新空间
+系统的状态来源。
+
+## 15. 自动化测试矩阵
+
+### 15.1 坐标测试
+
+- X/Z/Level 正负边界；
+- World ↔ Cell 往返；
+- 区块边界 `15/16`、`-1/0`、`-16/-17`；
+- 不同 LayerHeight；
+- 大坐标哈希稳定性。
+
+### 15.2 表面和占用测试
+
+- 单地基、相邻地基、凹形、环形、孤岛；
+- 跨区块 footprint；
+- 同 X/Z 不同 Level；
+- 缺一格表面时多格建筑整体失败；
+- 地基与上方建筑使用不同占用通道；
+- 有建筑时拒绝拆除承载地基；
+- 批次内多个命令的冲突和回滚。
+
+### 15.3 输入测试
+
+- 射线首先命中上层；
+- 上层缺口可以命中下层；
+- 地基侧面不会错误解析为顶面格；
+- 从地形创建首块地基；
+- 层过滤和预览高度。
+
+### 15.4 运输测试
+
+- 同层直线和 L 形；
+- 不同层相同 X/Z 不串线；
+- 坡道三种斜率、上下行、阻塞和拆除；
+- 垂直带上下行、跨多层和穿地基；
+- 平面—坡道—平面组合；
+- 平面—垂直—平面组合；
+- 跨区块和跨层满环；
+- Merger/Splitter round-robin 确定性；
+- 相同输入命令在不同 Job 调度顺序下结果一致。
+
+### 15.5 存档测试
+
+- 旧单层矩形场景迁移；
+- 多层建筑 ID 稳定；
+- 区块卸载/加载；
+- Connector 拓扑重建；
+- 保存前后带内物品和处理器状态一致。
+
+## 16. 性能验证方案
+
+阶段 0 完成后根据实测基线确认最终数值。以下为初始门槛：
+
+1. 旧 32×32 场景在阶段 1 后 Fixed Tick 中位数回归不超过 5%。
+2. 稳态 Fixed Tick 不产生持续托管 GC 分配。
+3. 单个普通建筑放置检查不扫描远处无关建筑。
+4. 单块地基修改只使有限区块进入 dirty 队列。
+5. 非运输建筑和地基变化不重建运输拓扑。
+6. 单个运输节点变化的工作量不得与地基总格数相关。
+7. 相同 X/Z 面积下增加空高度层不应增加稳态模拟成本。
+8. Surface 数据内存应与实际存在的区块/格子相关，而不是与世界包围盒体积相关。
+
+压力场景至少覆盖：
+
+| 场景 | 目的 |
+|---|---|
+| 单层密集地基 | 测试 Surface 位图、Mesh 和 Collider 重建 |
+| 大范围稀疏岛屿 | 验证内存不随包围盒膨胀 |
+| 同 X/Z 多层堆叠 | 验证多层索引和拾取 |
+| 跨区块长传送带 | 验证边界拓扑和局部失效 |
+| 大量短独立运输网络 | 验证 Transport Region 管理 |
+| 坡道/垂直混合网络 | 验证特殊边和物品插值 |
+| 删除桥接地基 | 测试最坏连通分裂尖峰 |
+
+报告除帧时间外还要记录：
+
+- Occupied Cell 数；
+- Surface Chunk 数和实际表面格数；
+- Transport Node/Edge 数；
+- 每次操作触碰的 Chunk 数；
+- Topology Rebuild 节点数和次数；
+- Persistent Native 内存；
+- Mesh/Collider 重建次数；
+- 主线程等待 Job 的时间。
+
+## 17. 迁移纪律与提交边界
+
+每个阶段应拆成可审查的提交，推荐顺序：
+
+```text
+测试和诊断
+→ 数据类型
+→ 索引/系统
+→ 输入和表现
+→ 场景与 Authoring
+→ 性能报告
+→ 删除兼容路径
+```
+
+执行规则：
+
+- 一个提交不得同时引入新空间地址、坡道玩法和存档格式三类变化。
+- 先迁移消费者并通过测试，再删除旧字段。
+- 临时兼容字段必须标注删除阶段。
+- 不把 Entity Index、Region ID 或 Transport NodeIndex 当作永久 ID。
+- 所有 Native 容器明确创建、Dependency 完成和 Dispose 生命周期。
+- Fixed Tick 中禁止引入托管 Dictionary/List 分配。
+- HashMap 枚举顺序不得影响命令结果和运输仲裁。
+- 区块尺寸、层高和允许坡度由统一配置定义。
+
+## 18. 需要在实施前确认的玩法决策
+
+以下问题不阻塞阶段 0～2，但必须在对应功能阶段开始前定稿：
+
+1. 地基是否需要结构支撑，还是允许悬空扩展。
+2. 拆除承载建筑的地基是拒绝还是显式级联拆除；当前方案默认拒绝。
+3. 坡道是否允许跨越普通建筑体积，以及其碰撞包围盒规则。
+4. 坡道传送带是否按每个 Ramp Slot 收费和拆除。
+5. 垂直带内有物品时的拆除规则。
+6. 玩家如何在被上层遮挡时选择下层：层过滤、隐藏上层或相机模式。
+7. 自动传送带路径是否需要跨层寻路；第一版默认手动放置 Connector。
+8. 是否有实际玩法依赖地基连通 Region；没有消费者时不实现。
+
+## 19. 完成定义
+
+本轮多层稀疏网格改造在满足以下条件时完成：
+
+- 固定世界使用唯一全局整数 `GridCell` 坐标规则；
+- 可建造表面由稀疏区块表达，不依赖完整矩形边界；
+- 普通建筑保持二维 footprint，并可在任意整数 Level 放置；
+- 地基、普通建筑、坡道和垂直连接使用独立占用通道；
+- 平面、坡道和垂直运输统一进入确定性运输拓扑；
+- 不存在地基相邻时合并 Grid、拆除时重写全部建筑 GridId 的流程；
+- 建造和表现更新局限于候选格、相关节点和受影响区块；
+- 旧单层场景行为、自动化回归、存档迁移和性能门槛全部通过；
+- 旧的单矩形、单平面、`int2` 世界地址兼容代码已经退役。

@@ -34,11 +34,12 @@
 
 ```text
 GridAddress
-├─ RegionId：稳定区块 ID
 └─ GlobalCell：int3 整数世界格坐标
 ```
 
-每个网格区块保存整数原点和“有效格子集合/分块位图”，而不是只保存矩形宽高。建筑、传送带、端口、矿点和占用索引都使用 `GridAddress`。垂直传送带则应当是运输拓扑中的一种三维连接，不要做成绕过拓扑系统的特殊机器。
+每个网格区块保存“有效格子集合/分块位图”，而不是只保存矩形宽高。区块只是存储和性能单位，不进入建筑永久身份；地基连通 `RegionId` 如有需要，应作为可重建缓存。建筑、传送带、端口、矿点和占用索引都使用统一 `GlobalCell`。垂直传送带则应当是运输拓扑中的一种三维连接，不要做成绕过拓扑系统的特殊机器。
+
+详细的数据模型、实施顺序、测试矩阵和性能门槛见 [多层稀疏网格建造系统分阶段改造方案](Multi-Level-Sparse-Grid-Migration-Plan.md)。
 
 这是当前最主要的返工风险：现有 [EcsGridComponents.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/ECS/Data/EcsGridComponents.cs:4) 使用二维格子，而 [GridOccupancyIndexSystem.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/ECS/Systems/GridOccupancyIndexSystem.cs:61) 明确要求世界中只能有一个 `GridDefinition`。
 

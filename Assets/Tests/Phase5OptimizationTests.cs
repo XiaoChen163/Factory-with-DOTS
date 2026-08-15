@@ -390,6 +390,55 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void BeltTopologyRefresh_UsesConnectedGridCellsForExplicitEdges()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(0, 1) });
+
+            Entity source = CreateVisualBelt(
+                new int2(0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new int2(0, 1), East, BuildingPortType.Input);
+            BeltTopology sourceTopology =
+                EntityManager.GetComponentData<BeltTopology>(source);
+            sourceTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(source, sourceTopology);
+            BeltTopology targetTopology =
+                EntityManager.GetComponentData<BeltTopology>(target);
+            targetTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(target, targetTopology);
+            EntityManager.AddBuffer<TransportExplicitEdge>(grid).Add(
+                new TransportExplicitEdge
+                {
+                    Source = source,
+                    Target = target
+                });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.NorthEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.SouthEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.False);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.False);
+        }
+
+        [Test]
         public void RemovingBelt_ReturnsItemToPoolAndHidesRendering()
         {
             BlobAssetReference<FactoryDatabaseBlob> database = default;

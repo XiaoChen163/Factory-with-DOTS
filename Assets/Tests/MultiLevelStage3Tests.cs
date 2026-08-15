@@ -188,6 +188,31 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void FoundationPlacement_OffsetsToCellAdjacentToHitFace()
+        {
+            GridCell foundation = new GridCell(4, 3, 7);
+
+            Assert.That(FoundationQueryUtility.ResolveAdjacentCell(
+                    foundation, new float3(1, 0, 0)),
+                Is.EqualTo(new GridCell(5, 3, 7)));
+            Assert.That(FoundationQueryUtility.ResolveAdjacentCell(
+                    foundation, new float3(-1, 0, 0)),
+                Is.EqualTo(new GridCell(3, 3, 7)));
+            Assert.That(FoundationQueryUtility.ResolveAdjacentCell(
+                    foundation, new float3(0, 1, 0)),
+                Is.EqualTo(new GridCell(4, 4, 7)));
+            Assert.That(FoundationQueryUtility.ResolveAdjacentCell(
+                    foundation, new float3(0, -1, 0)),
+                Is.EqualTo(new GridCell(4, 2, 7)));
+            Assert.That(FoundationQueryUtility.ResolveAdjacentCell(
+                    foundation, new float3(0, 0, 1)),
+                Is.EqualTo(new GridCell(4, 3, 8)));
+            Assert.That(FoundationQueryUtility.ResolveAdjacentCell(
+                    foundation, new float3(0, 0, -1)),
+                Is.EqualTo(new GridCell(4, 3, 6)));
+        }
+
+        [Test]
         public void PhysicsDirtyChunk_BuildsOneStaticCompoundBody()
         {
             CreateGrid(new int2(2, 1));

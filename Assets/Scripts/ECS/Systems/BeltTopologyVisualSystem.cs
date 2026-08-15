@@ -85,8 +85,10 @@ public partial class BeltTopologyVisualSystem : SystemBase
 
         Dependency.Complete();
         Dictionary<GridCell, Entity> beltsByCell = BuildBeltCellLookup();
-        HashSet<Entity> explicitInputs = new HashSet<Entity>();
-        HashSet<Entity> explicitOutputs = new HashSet<Entity>();
+        Dictionary<Entity, Entity> explicitInputs =
+            new Dictionary<Entity, Entity>();
+        Dictionary<Entity, Entity> explicitOutputs =
+            new Dictionary<Entity, Entity>();
         if (EntityManager.HasBuffer<TransportExplicitEdge>(gridEntity))
         {
             DynamicBuffer<TransportExplicitEdge> explicitEdges =
@@ -96,8 +98,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
             for (int i = 0; i < explicitEdges.Length; i++)
             {
                 TransportExplicitEdge edge = explicitEdges[i];
-                explicitOutputs.Add(edge.Source);
-                explicitInputs.Add(edge.Target);
+                explicitOutputs[edge.Source] = edge.Target;
+                explicitInputs[edge.Target] = edge.Source;
             }
         }
         pendingVisualEcb = new EntityCommandBuffer(Allocator.Temp);
@@ -205,8 +207,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
         in BeltVisualParts visual,
         GridOccupancyIndexSystem occupancySystem,
         Dictionary<GridCell, Entity> beltsByCell,
-        HashSet<Entity> explicitInputs,
-        HashSet<Entity> explicitOutputs)
+        Dictionary<Entity, Entity> explicitInputs,
+        Dictionary<Entity, Entity> explicitOutputs)
     {
         SetAllEdgesVisible(visual, true);
         bool isRampBelt = EntityManager.HasComponent<RampBelt>(entity);
@@ -217,8 +219,12 @@ public partial class BeltTopologyVisualSystem : SystemBase
             SetVisible(visual.EastEdge, false);
             SetVisible(visual.WestEdge, false);
         }
-        bool hasExplicitInput = explicitInputs.Contains(entity);
-        bool hasExplicitOutput = explicitOutputs.Contains(entity);
+        bool hasExplicitInput = explicitInputs.TryGetValue(
+            entity,
+            out Entity inputBelt);
+        bool hasExplicitOutput = explicitOutputs.TryGetValue(
+            entity,
+            out Entity outputBelt);
         int2 incomingDirection = belt.Direction;
         bool hasPlanarInput = RampUtility.AllowsPlanarInput(
             belt.ConnectionMode) &&
@@ -231,27 +237,57 @@ public partial class BeltTopologyVisualSystem : SystemBase
         bool hasInput = hasExplicitInput || hasPlanarInput;
         if (hasInput)
         {
-            SetWorldEdgeVisible(
-                visual,
-                -incomingDirection,
-                placement.QuarterTurns,
-                false);
+            if (!hasExplicitInput)
+            {
+                beltsByCell.TryGetValue(
+                    belt.Cell - incomingDirection,
+                    out inputBelt);
+            }
+
+            if (!TrySetConnectedBeltEdgeVisible(
+                    visual,
+                    belt.Cell,
+                    inputBelt,
+                    placement.QuarterTurns,
+                    false))
+            {
+                SetWorldEdgeVisible(
+                    visual,
+                    -incomingDirection,
+                    placement.QuarterTurns,
+                    false);
+            }
         }
 
-        bool hasOutput = hasExplicitOutput ||
-                         RampUtility.AllowsPlanarOutput(
-                             belt.ConnectionMode) &&
-                         HasOutputConnection(
-                             belt,
-                             occupancySystem,
-                             beltsByCell);
+        bool hasPlanarOutput = RampUtility.AllowsPlanarOutput(
+                                   belt.ConnectionMode) &&
+                               HasOutputConnection(
+                                   belt,
+                                   occupancySystem,
+                                   beltsByCell);
+        bool hasOutput = hasExplicitOutput || hasPlanarOutput;
         if (hasOutput)
         {
-            SetWorldEdgeVisible(
-                visual,
-                belt.Direction,
-                placement.QuarterTurns,
-                false);
+            if (!hasExplicitOutput)
+            {
+                beltsByCell.TryGetValue(
+                    belt.Cell + belt.Direction,
+                    out outputBelt);
+            }
+
+            if (!TrySetConnectedBeltEdgeVisible(
+                    visual,
+                    belt.Cell,
+                    outputBelt,
+                    placement.QuarterTurns,
+                    false))
+            {
+                SetWorldEdgeVisible(
+                    visual,
+                    belt.Direction,
+                    placement.QuarterTurns,
+                    false);
+            }
         }
 
         int2 displayDirection = belt.Direction;
@@ -489,6 +525,44 @@ public partial class BeltTopologyVisualSystem : SystemBase
         {
             SetVisible(visual.SouthEdge, visible);
         }
+    }
+
+    private bool TrySetConnectedBeltEdgeVisible(
+        in BeltVisualParts visual,
+        GridCell currentCell,
+        Entity connectedBelt,
+        int quarterTurns,
+        bool visible)
+    {
+        if (connectedBelt == Entity.Null ||
+            !beltTopologyLookup.HasComponent(connectedBelt))
+        {
+            return false;
+        }
+
+        GridCell connectedCell = beltTopologyLookup[connectedBelt].Cell;
+        int deltaX = connectedCell.X - currentCell.X;
+        int deltaZ = connectedCell.Z - currentCell.Z;
+        int2 edgeDirection;
+        if (deltaX != 0 && deltaZ == 0)
+        {
+            edgeDirection = new int2(deltaX > 0 ? 1 : -1, 0);
+        }
+        else if (deltaZ != 0 && deltaX == 0)
+        {
+            edgeDirection = new int2(0, deltaZ > 0 ? 1 : -1);
+        }
+        else
+        {
+            return false;
+        }
+
+        SetWorldEdgeVisible(
+            visual,
+            edgeDirection,
+            quarterTurns,
+            visible);
+        return true;
     }
 
     private void SetVisible(Entity visualEntity, bool visible)

@@ -195,6 +195,30 @@ public static class FoundationQueryUtility
 {
     public const float DefaultInsideEpsilon = 0.001f;
 
+    public static GridCell ResolveAdjacentCell(
+        GridCell foundationCell,
+        float3 surfaceNormal)
+    {
+        float3 absoluteNormal = math.abs(surfaceNormal);
+        if (absoluteNormal.x >= absoluteNormal.y &&
+            absoluteNormal.x >= absoluteNormal.z &&
+            absoluteNormal.x > math.EPSILON)
+        {
+            foundationCell.X += surfaceNormal.x > 0f ? 1 : -1;
+        }
+        else if (absoluteNormal.y >= absoluteNormal.z &&
+                 absoluteNormal.y > math.EPSILON)
+        {
+            foundationCell.Level += surfaceNormal.y > 0f ? 1 : -1;
+        }
+        else if (absoluteNormal.z > math.EPSILON)
+        {
+            foundationCell.Z += surfaceNormal.z > 0f ? 1 : -1;
+        }
+
+        return foundationCell;
+    }
+
     public static GridCell ResolveVoxelCell(
         float3 hitPosition,
         float3 surfaceNormal,

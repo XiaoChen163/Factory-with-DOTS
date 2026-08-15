@@ -1568,15 +1568,13 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out hitPoint,
                 out float3 surfaceNormal))
         {
-            bool placeFlatFoundationAbove =
+            bool placeFlatFoundationAdjacent =
                 foundationPlacement &&
-                SelectedKind == BuildingKind.Foundation &&
-                surfaceNormal.y > 0.5f;
-            cell = placeFlatFoundationAbove
-                ? new GridCell(
-                    foundationCell.X,
-                    foundationCell.Level + 1,
-                    foundationCell.Z)
+                SelectedKind == BuildingKind.Foundation;
+            cell = placeFlatFoundationAdjacent
+                ? FoundationQueryUtility.ResolveAdjacentCell(
+                    foundationCell,
+                    surfaceNormal)
                 : foundationCell;
             isInside = foundationPlacement || HasSurface(world, grid, cell) ||
                        TryGetRamp(world, cell, out _);

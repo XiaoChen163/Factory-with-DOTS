@@ -62,6 +62,8 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
 
     private static string DisplayName(string nameKey, string fallback)
     {
+        if (string.Equals(nameKey, "building.foundation.mk1", StringComparison.Ordinal))
+            return "地基";
         string value = string.IsNullOrWhiteSpace(nameKey) ? fallback : nameKey;
         return string.IsNullOrWhiteSpace(value) ? "未命名" : value.Replace('_', ' ');
     }

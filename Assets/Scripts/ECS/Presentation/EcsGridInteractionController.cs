@@ -43,8 +43,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private PlayerCommandBus commandBus;
     private byte quarterTurns;
     private bool beltPathStarted;
+    private bool foundationAreaStarted;
     private bool horizontalFirst = true;
     private GridCell beltPathStart;
+    private GridCell foundationAreaStart;
     private bool simulatedHoverActive;
     private GridCell simulatedHoverCell;
     private World cachedWorld;
@@ -61,6 +63,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         BuildingKind.Belt;
     public BuildingLevelId SelectedBuildingLevel { get; private set; }
     public bool IsBeltPathStarted => beltPathStarted;
+    public bool IsFoundationAreaStarted => foundationAreaStarted;
     public bool UsesHorizontalFirst => horizontalFirst;
 
     private void Awake()
@@ -77,7 +80,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             inputMode != null &&
             inputMode.IsDemolitionMode)
         {
-            beltPathStarted = false;
+            CancelPlacementGesture();
             HidePlacementPreview();
             if (!inputMode.BlocksWorldInput &&
                 inputMode.PrimaryPointerPressedThisFrame)
@@ -90,7 +93,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             inputMode != null &&
             !inputMode.IsBuildMode)
         {
-            beltPathStarted = false;
+            CancelPlacementGesture();
             HidePlacementPreview();
             return;
         }
@@ -152,6 +155,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void HandleBuildActions()
     {
+        if (inputMode != null && inputMode.CancelPressedThisFrame)
+        {
+            CancelPlacementGesture();
+            return;
+        }
         if (inputMode != null && inputMode.RotatePressedThisFrame)
         {
             RotateSelectionOrToggleBeltPathOrder();
@@ -160,6 +168,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public void RotateSelectionOrToggleBeltPathOrder()
     {
+        if (SelectedKind == BuildingKind.Foundation)
+            return;
         if (SelectedKind == BuildingKind.Belt && beltPathStarted)
             horizontalFirst = !horizontalFirst;
         else
@@ -198,15 +208,23 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
-        bool canPlace =
-            occupancySystem != null &&
-            occupancySystem.IsReady &&
-            occupancySystem.ConflictCount == 0;
-
+        SurfaceRegistrySystem surfaceRegistry =
+            world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        bool canPlace = SelectedKind == BuildingKind.Foundation
+            ? surfaceRegistry != null && surfaceRegistry.IsReady
+            : occupancySystem != null && occupancySystem.IsReady &&
+              occupancySystem.ConflictCount == 0;
         for (int i = 0; i < previewCells.Count; i++)
         {
             GridCell cell = previewCells[i];
-            if (!HasSurface(world, grid, cell) ||
+            if (SelectedKind == BuildingKind.Foundation)
+            {
+                if (cell.Level != 0 || surfaceRegistry == null ||
+                    !surfaceRegistry.IsReady ||
+                    surfaceRegistry.HasFoundationVoxel(cell))
+                    canPlace = false;
+            }
+            else if (!HasSurface(world, grid, cell) ||
                 occupancySystem == null ||
                 occupancySystem.TryGetOccupant(cell, out _))
             {
@@ -224,6 +242,24 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         previewPortCells.Clear();
         previewPortDirections.Clear();
         previewPortTypes.Clear();
+        if (SelectedKind == BuildingKind.Foundation)
+        {
+            GridCell start = foundationAreaStarted
+                ? foundationAreaStart
+                : hoveredCell;
+            int minX = math.min(start.X, hoveredCell.X);
+            int maxX = math.max(start.X, hoveredCell.X);
+            int minZ = math.min(start.Z, hoveredCell.Z);
+            int maxZ = math.max(start.Z, hoveredCell.Z);
+            long count = ((long)maxX - minX + 1L) *
+                         ((long)maxZ - minZ + 1L);
+            if (count > GridBuildCommandSystem.MaxFoundationAreaCells)
+                return;
+            for (long z = minZ; z <= maxZ; z++)
+            for (long x = minX; x <= maxX; x++)
+                previewCells.Add(new GridCell((int)x, 0, (int)z));
+            return;
+        }
         if (SelectedKind == BuildingKind.Belt &&
             beltPathStarted)
         {
@@ -769,7 +805,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
-        bool isInside = HasSurface(world, grid, cell);
+        bool isInside = SelectedKind == BuildingKind.Foundation
+            ? cell.Level == 0
+            : HasSurface(world, grid, cell);
         bool isOccupied =
             isInside &&
             occupancySystem != null &&
@@ -787,6 +825,30 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
         if (!isInside)
         {
+            return;
+        }
+
+        if (SelectedKind == BuildingKind.Foundation)
+        {
+            if (!foundationAreaStarted)
+            {
+                foundationAreaStart = cell;
+                foundationAreaStarted = true;
+                return;
+            }
+            Enqueue(
+                world,
+                gridEntity,
+                new GridBuildCommand
+                {
+                    RequestId = 0,
+                    Type = GridBuildCommandType.PlaceFoundationArea,
+                    Kind = BuildingKind.Foundation,
+                    BuildingLevel = SelectedBuildingLevel,
+                    StartCell = foundationAreaStart,
+                    EndCell = cell
+                });
+            foundationAreaStarted = false;
             return;
         }
 
@@ -887,7 +949,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 RequestId = 0,
                 Type = removeBeltLine
                     ? GridBuildCommandType.RemoveBeltLine
-                    : GridBuildCommandType.Remove,
+                    : SelectedKind == BuildingKind.Foundation
+                        ? GridBuildCommandType.RemoveFoundation
+                        : GridBuildCommandType.Remove,
                 Kind = removeBeltLine
                     ? BuildingKind.Belt
                     : SelectedKind,
@@ -913,6 +977,12 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     public void CancelBeltPath()
     {
         beltPathStarted = false;
+    }
+
+    public void CancelPlacementGesture()
+    {
+        beltPathStarted = false;
+        foundationAreaStarted = false;
     }
 
     private bool TryRaycastGrid(
@@ -1043,6 +1113,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return;
         SelectedBuildingLevel = id;
         SelectedKind = building.Kind;
+        CancelPlacementGesture();
     }
 
     private bool TryGetSelectedBuilding(out FactoryBuildingBlob building)

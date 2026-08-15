@@ -84,6 +84,19 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void FoundationFaces_WindingMatchesDeclaredOutwardNormals()
+        {
+            List<FoundationVoxel> voxels = new()
+            {
+                new FoundationVoxel(new GridCell(0, 0, 0), 1)
+            };
+            AssertFaceWinding(
+                FoundationMeshGenerator.ExtractVisibleFaces(voxels));
+            AssertFaceWinding(FoundationMeshGenerator.MergeCoplanarFaces(
+                FoundationMeshGenerator.ExtractVisibleFaces(voxels)));
+        }
+
+        [Test]
         public void GreedyBoxes_ExpandXThenZThenLevelDeterministically()
         {
             List<int3> voxels = new();
@@ -285,10 +298,30 @@ namespace Factory.Tests
                 Origin = float3.zero
             });
             EntityManager.AddComponentData(grid, new SurfaceTopologyRevision { Value = 1 });
+            EntityManager.AddComponentData(grid, new InitialSurfaceSettings
+            {
+                Mode = InitialSurfaceMode.LegacyRectangle
+            });
             EntityManager.AddComponentData(grid, new BuildingOccupancyRevision { Value = 1 });
             EntityManager.AddBuffer<GridBuildCommand>(grid);
             EntityManager.AddBuffer<GridBuildResult>(grid);
             return grid;
+        }
+
+        private static void AssertFaceWinding(
+            IReadOnlyList<FoundationQuad> faces)
+        {
+            Assert.That(faces.Count, Is.EqualTo(6));
+            for (int i = 0; i < faces.Count; i++)
+            {
+                FoundationQuad face = faces[i];
+                float3 windingNormal = math.normalize(math.cross(
+                    face.B - face.A,
+                    face.C - face.A));
+                Assert.That(math.dot(windingNormal, face.Normal),
+                    Is.GreaterThan(0.999f),
+                    $"{face.Direction} triangle winding faces inward.");
+            }
         }
     }
 }

@@ -6,6 +6,12 @@ public struct FoundationVisualMaterial : IBufferElementData
     public UnityObjectRef<Material> Value;
 }
 
+public struct FoundationLevelMaterial : IBufferElementData
+{
+    public BuildingLevelId BuildingLevel;
+    public ushort VisualMaterialId;
+}
+
 [DisallowMultipleComponent]
 public sealed class FoundationMaterialCatalogAuthoring : MonoBehaviour
 {
@@ -15,15 +21,9 @@ public sealed class FoundationMaterialCatalogAuthoring : MonoBehaviour
     {
         public override void Bake(FoundationMaterialCatalogAuthoring authoring)
         {
-            Entity entity = GetEntity(TransformUsageFlags.None);
-            DynamicBuffer<FoundationVisualMaterial> buffer =
-                AddBuffer<FoundationVisualMaterial>(entity);
-            if (authoring.materials == null) return;
-            for (int i = 0; i < authoring.materials.Length; i++)
-                buffer.Add(new FoundationVisualMaterial
-                {
-                    Value = (UnityObjectRef<Material>)authoring.materials[i]
-                });
+            // Legacy scene component retained for serialized-scene compatibility.
+            // Foundation materials are now derived from database level prefabs by
+            // BuildingPrefabCatalogAuthoring so level and material IDs cannot drift.
         }
     }
 }

@@ -132,6 +132,7 @@ public static class FactoryPerformanceScenarioLayout
     public const ushort StorageLevelId = 7;
     public const ushort MergerLevelId = 8;
     public const ushort SplitterLevelId = 9;
+    public const ushort FoundationLevelId = 10;
 
     public static FactoryPerformanceScenarioDefinition Create(
         FactoryPerformanceScenario scenario,

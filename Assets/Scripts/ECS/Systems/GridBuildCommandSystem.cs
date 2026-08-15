@@ -10,6 +10,7 @@ using Unity.Transforms;
 [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
 public partial class GridBuildCommandSystem : SystemBase
 {
+    public const int MaxFoundationAreaCells = 16384;
     private static readonly int2[] CardinalDirections =
     {
         new int2(1, 0),
@@ -225,6 +226,13 @@ public partial class GridBuildCommandSystem : SystemBase
                 catalogQuery.GetSingletonEntity(), true);
         using NativeArray<BuildingVisualPrefabEntry> visualPrefabSnapshot =
             visualPrefabs.ToNativeArray(Allocator.Temp);
+        using NativeArray<FoundationLevelMaterial> foundationMaterialSnapshot =
+            EntityManager.HasBuffer<FoundationLevelMaterial>(
+                catalogQuery.GetSingletonEntity())
+                ? EntityManager.GetBuffer<FoundationLevelMaterial>(
+                    catalogQuery.GetSingletonEntity(), true)
+                    .ToNativeArray(Allocator.Temp)
+                : new NativeArray<FoundationLevelMaterial>(0, Allocator.Temp);
         BlobAssetReference<FactoryDatabaseBlob> databaseReference =
             catalogQuery.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref databaseReference.Value;
@@ -255,6 +263,18 @@ public partial class GridBuildCommandSystem : SystemBase
 
             switch (command.Type)
             {
+                case GridBuildCommandType.PlaceFoundationArea:
+                    changesBuildingOccupancy = false;
+                    success = TryPlaceFoundationArea(
+                        gridEntity,
+                        command,
+                        surfaceRegistry,
+                        foundationMaterialSnapshot,
+                        ref database,
+                        out affectedCount,
+                        out failureReason);
+                    break;
+
                 case GridBuildCommandType.PlaceFoundation:
                     changesBuildingOccupancy = false;
                     success = TryPlaceFoundation(
@@ -484,6 +504,100 @@ public partial class GridBuildCommandSystem : SystemBase
         return true;
     }
 
+    private bool TryPlaceFoundationArea(
+        Entity grid,
+        in GridBuildCommand command,
+        SurfaceRegistrySystem registry,
+        in NativeArray<FoundationLevelMaterial> materialMappings,
+        ref FactoryDatabaseBlob database,
+        out int affectedCount,
+        out GridBuildFailureReason failure)
+    {
+        affectedCount = 0;
+        if (registry == null || !registry.IsReady)
+        {
+            failure = GridBuildFailureReason.GridNotReady;
+            return false;
+        }
+        if (command.StartCell.Level != 0 ||
+            command.EndCell.Level != 0 ||
+            command.StartCell.Level != command.EndCell.Level)
+        {
+            failure = GridBuildFailureReason.FoundationUnsupported;
+            return false;
+        }
+        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                ref database,
+                command.BuildingLevel,
+                out _,
+                out FactoryBuildingBlob building) ||
+            building.Kind != BuildingKind.Foundation ||
+            !TryResolveFoundationMaterial(
+                command.BuildingLevel,
+                materialMappings,
+                out ushort visualMaterialId))
+        {
+            failure = GridBuildFailureReason.InvalidFoundationLevel;
+            return false;
+        }
+
+        int minX = math.min(command.StartCell.X, command.EndCell.X);
+        int maxX = math.max(command.StartCell.X, command.EndCell.X);
+        int minZ = math.min(command.StartCell.Z, command.EndCell.Z);
+        int maxZ = math.max(command.StartCell.Z, command.EndCell.Z);
+        long width = (long)maxX - minX + 1L;
+        long depth = (long)maxZ - minZ + 1L;
+        long count = width * depth;
+        if (width <= 0 || depth <= 0 ||
+            count <= 0 || count > MaxFoundationAreaCells)
+        {
+            failure = GridBuildFailureReason.FoundationAreaTooLarge;
+            return false;
+        }
+
+        List<GridCell> cells = new List<GridCell>((int)count);
+        for (long z = minZ; z <= maxZ; z++)
+        for (long x = minX; x <= maxX; x++)
+        {
+            GridCell cell = new GridCell((int)x, 0, (int)z);
+            if (registry.HasFoundationVoxel(cell))
+            {
+                failure = GridBuildFailureReason.FoundationAlreadyExists;
+                return false;
+            }
+            cells.Add(cell);
+        }
+
+        affectedCount = registry.AddFoundationArea(
+            grid,
+            cells,
+            visualMaterialId,
+            SurfacePermission.All,
+            true);
+        failure = affectedCount == cells.Count
+            ? GridBuildFailureReason.None
+            : GridBuildFailureReason.GridNotReady;
+        if (failure != GridBuildFailureReason.None)
+            affectedCount = 0;
+        return failure == GridBuildFailureReason.None;
+    }
+
+    private static bool TryResolveFoundationMaterial(
+        BuildingLevelId level,
+        in NativeArray<FoundationLevelMaterial> mappings,
+        out ushort materialId)
+    {
+        for (int i = 0; i < mappings.Length; i++)
+        {
+            if (mappings[i].BuildingLevel != level)
+                continue;
+            materialId = mappings[i].VisualMaterialId;
+            return true;
+        }
+        materialId = 0;
+        return false;
+    }
+
     private bool TryRemoveFoundation(
         Entity grid,
         GridCell cell,
@@ -616,6 +730,11 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             failureReason =
                 GridBuildFailureReason.MissingPrefab;
+            return false;
+        }
+        if (building.Kind == BuildingKind.Foundation)
+        {
+            failureReason = GridBuildFailureReason.InvalidFoundationLevel;
             return false;
         }
 

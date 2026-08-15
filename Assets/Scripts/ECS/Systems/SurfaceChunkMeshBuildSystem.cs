@@ -16,7 +16,14 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
         public Mesh Mesh;
     }
 
+    private sealed class RetiredMesh
+    {
+        public Mesh Mesh;
+        public int FramesRemaining;
+    }
+
     private readonly Dictionary<SurfaceChunkKey, RuntimeChunk> runtimeChunks = new();
+    private readonly List<RetiredMesh> retiredMeshes = new();
     private EntityQuery gridQuery;
     private EntityQuery materialQuery;
 
@@ -32,11 +39,15 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
     {
         foreach (RuntimeChunk chunk in runtimeChunks.Values)
             if (chunk.Mesh != null) Object.Destroy(chunk.Mesh);
+        for (int i = 0; i < retiredMeshes.Count; i++)
+            if (retiredMeshes[i].Mesh != null) Object.Destroy(retiredMeshes[i].Mesh);
         runtimeChunks.Clear();
+        retiredMeshes.Clear();
     }
 
     protected override void OnUpdate()
     {
+        ReleaseRetiredMeshes();
         if (gridQuery.CalculateEntityCount() != 1 ||
             materialQuery.CalculateEntityCount() != 1) return;
         Entity grid = gridQuery.GetSingletonEntity();
@@ -95,7 +106,13 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
 
         SortedDictionary<ushort, List<FoundationQuad>> groups =
             FoundationMeshGenerator.GroupByMaterial(faces);
-        Mesh mesh = BuildMesh(key, groups);
+        bool reuse = runtimeChunks.TryGetValue(key, out RuntimeChunk runtime) &&
+                     runtime.Mesh != null &&
+                     EntityManager.Exists(runtime.Entity);
+        Mesh mesh = reuse
+            ? runtime.Mesh
+            : new Mesh { name = $"FoundationChunk_{key.ChunkX}_{key.Level}_{key.ChunkZ}" };
+        BuildMesh(mesh, groups);
         Material[] materials = new Material[groups.Count];
         MaterialMeshIndex[] indices = new MaterialMeshIndex[groups.Count];
         int materialIndex = 0;
@@ -111,7 +128,17 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
             materialIndex++;
         }
 
-        DestroyRuntimeChunk(key);
+        RenderMeshArray renderMeshArray =
+            new RenderMeshArray(materials, new[] { mesh }, indices);
+        MaterialMeshInfo meshInfo =
+            MaterialMeshInfo.FromMaterialMeshIndexRange(0, groups.Count);
+        if (reuse)
+        {
+            EntityManager.SetSharedComponentManaged(runtime.Entity, renderMeshArray);
+            EntityManager.SetComponentData(runtime.Entity, meshInfo);
+            return;
+        }
+
         Entity renderEntity = EntityManager.CreateEntity();
         EntityManager.AddComponentData(renderEntity, new FoundationRenderChunk { Key = key });
         EntityManager.AddComponentData(renderEntity, LocalTransform.FromPosition(config.Origin));
@@ -120,21 +147,20 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
             Value = float4x4.Translate(config.Origin)
         });
         EntityManager.AddComponent<Static>(renderEntity);
-        RenderMeshArray renderMeshArray = new RenderMeshArray(materials, new[] { mesh }, indices);
         RenderMeshUtility.AddComponents(
             renderEntity,
             EntityManager,
             new RenderMeshDescription(ShadowCastingMode.On, true),
             renderMeshArray,
-            MaterialMeshInfo.FromMaterialMeshIndexRange(0, groups.Count));
+            meshInfo);
         runtimeChunks[key] = new RuntimeChunk { Entity = renderEntity, Mesh = mesh };
     }
 
-    private static Mesh BuildMesh(
-        SurfaceChunkKey key,
+    private static void BuildMesh(
+        Mesh mesh,
         SortedDictionary<ushort, List<FoundationQuad>> groups)
     {
-        Mesh mesh = new Mesh { name = $"FoundationChunk_{key.ChunkX}_{key.Level}_{key.ChunkZ}" };
+        mesh.Clear();
         int quadCount = 0;
         foreach (List<FoundationQuad> group in groups.Values) quadCount += group.Count;
         if (quadCount * 4 > ushort.MaxValue) mesh.indexFormat = IndexFormat.UInt32;
@@ -164,7 +190,6 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
         mesh.subMeshCount = triangles.Count;
         for (int i = 0; i < triangles.Count; i++) mesh.SetTriangles(triangles[i], i, false);
         mesh.RecalculateBounds();
-        return mesh;
     }
 
     private static void AddOpaqueBorderNeighbors(
@@ -203,7 +228,26 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
     {
         if (!runtimeChunks.TryGetValue(key, out RuntimeChunk runtime)) return;
         if (EntityManager.Exists(runtime.Entity)) EntityManager.DestroyEntity(runtime.Entity);
-        if (runtime.Mesh != null) Object.Destroy(runtime.Mesh);
+        if (runtime.Mesh != null)
+            retiredMeshes.Add(new RetiredMesh
+            {
+                Mesh = runtime.Mesh,
+                FramesRemaining = 4
+            });
         runtimeChunks.Remove(key);
+    }
+
+    private void ReleaseRetiredMeshes()
+    {
+        for (int i = retiredMeshes.Count - 1; i >= 0; i--)
+        {
+            RetiredMesh retired = retiredMeshes[i];
+            retired.FramesRemaining--;
+            if (retired.FramesRemaining > 0)
+                continue;
+            if (retired.Mesh != null)
+                Object.Destroy(retired.Mesh);
+            retiredMeshes.RemoveAt(i);
+        }
     }
 }

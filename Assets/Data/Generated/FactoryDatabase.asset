@@ -172,7 +172,29 @@ MonoBehaviour:
       index: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
+  - id: 7
+    key: foundation
+    nameKey: building.foundation
+    behavior: 6
+    kind: 7
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: 
+    footprintWidth: 1
+    footprintHeight: 1
+    ports: []
   buildingLevels:
+  - id: 10
+    key: foundation_mk1
+    buildingKey: foundation
+    buildingId: 7
+    level: 1
+    nameKey: building.foundation.mk1
+    visualPrefabKey: foundation
+    visualPrefab: {fileID: 170000, guid: 5d3a5f2ec5f94c6397b21e2e0f57d3b5, type: 3}
+    iconKey: foundation
+    icon: {fileID: 21300000, guid: 8001c504d5b02c145a8fc159c117b521, type: 3}
+    menuOrder: 50
   - id: 1
     key: belt_mk1
     buildingKey: belt

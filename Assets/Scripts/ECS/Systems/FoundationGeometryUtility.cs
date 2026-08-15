@@ -224,13 +224,13 @@ public static class FoundationMeshGenerator
                     key.V, key.U);
                 if (key.Direction == FoundationFaceDirection.NegativeX)
                 {
-                    a = new float3(key.Plane,y0,z1); b = new float3(key.Plane,y0,z0);
-                    c = new float3(key.Plane,y1,z0); d = new float3(key.Plane,y1,z1); normal = new float3(-1,0,0);
+                    a = new float3(key.Plane,y0,z0); b = new float3(key.Plane,y0,z1);
+                    c = new float3(key.Plane,y1,z1); d = new float3(key.Plane,y1,z0); normal = new float3(-1,0,0);
                 }
                 else
                 {
-                    a = new float3(key.Plane,y0,z0); b = new float3(key.Plane,y0,z1);
-                    c = new float3(key.Plane,y1,z1); d = new float3(key.Plane,y1,z0); normal = new float3(1,0,0);
+                    a = new float3(key.Plane,y0,z1); b = new float3(key.Plane,y0,z0);
+                    c = new float3(key.Plane,y1,z0); d = new float3(key.Plane,y1,z1); normal = new float3(1,0,0);
                 }
                 break;
             }
@@ -288,9 +288,9 @@ public static class FoundationMeshGenerator
         switch (face)
         {
             case FoundationFaceDirection.NegativeX:
-                return new FoundationQuad(new float3(x0,y0,z1), new float3(x0,y0,z0), new float3(x0,y1,z0), new float3(x0,y1,z1), new float3(-1,0,0), material, face, voxel.Cell);
+                return new FoundationQuad(new float3(x0,y0,z0), new float3(x0,y0,z1), new float3(x0,y1,z1), new float3(x0,y1,z0), new float3(-1,0,0), material, face, voxel.Cell);
             case FoundationFaceDirection.PositiveX:
-                return new FoundationQuad(new float3(x1,y0,z0), new float3(x1,y0,z1), new float3(x1,y1,z1), new float3(x1,y1,z0), new float3(1,0,0), material, face, voxel.Cell);
+                return new FoundationQuad(new float3(x1,y0,z1), new float3(x1,y0,z0), new float3(x1,y1,z0), new float3(x1,y1,z1), new float3(1,0,0), material, face, voxel.Cell);
             case FoundationFaceDirection.NegativeY:
                 return new FoundationQuad(new float3(x0,y0,z0), new float3(x1,y0,z0), new float3(x1,y0,z1), new float3(x0,y0,z1), new float3(0,-1,0), material, face, voxel.Cell);
             case FoundationFaceDirection.PositiveY:

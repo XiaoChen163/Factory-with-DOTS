@@ -149,7 +149,8 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             ComponentType.ReadWrite<GridBuildResult>());
         EntityQuery catalogQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
-            ComponentType.ReadOnly<ItemPrefabEntry>());
+            ComponentType.ReadOnly<ItemPrefabEntry>(),
+            ComponentType.ReadOnly<FactoryDatabase>());
 
         while ((gridQuery.CalculateEntityCount() != 1 ||
                 catalogQuery.CalculateEntityCount() != 1) &&
@@ -194,6 +195,81 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             yield break;
         }
         placementQuery.Dispose();
+
+        GridOccupancyIndexSystem occupancy =
+            world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+        while ((occupancy == null || !occupancy.IsReady ||
+                occupancy.ConflictCount > 0) &&
+               Time.realtimeSinceStartup < deadline)
+        {
+            occupancy =
+                world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+            yield return null;
+        }
+        if (occupancy == null || !occupancy.IsReady ||
+            occupancy.ConflictCount > 0)
+        {
+            gridQuery.Dispose();
+            catalogQuery.Dispose();
+            Fail("Grid occupancy did not become ready before foundation setup.");
+            yield break;
+        }
+
+        int foundationCommandCount = QueueFoundationCommands(
+            entityManager.GetBuffer<GridBuildCommand>(gridEntity),
+            definition.GridSize);
+        int foundationCellCount = definition.GridSize.x * definition.GridSize.y;
+        status = "Building " + foundationCellCount +
+                 " foundation cells through " + foundationCommandCount +
+                 " unified commands...";
+        SurfaceRegistrySystem surfaceRegistry =
+            world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        while ((surfaceRegistry == null || !surfaceRegistry.IsReady ||
+                surfaceRegistry.SurfaceCount != foundationCellCount) &&
+               Time.realtimeSinceStartup < deadline)
+        {
+            surfaceRegistry =
+                world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            DynamicBuffer<GridBuildResult> pendingResults =
+                entityManager.GetBuffer<GridBuildResult>(gridEntity);
+            if (pendingResults.Length >= foundationCommandCount)
+            {
+                for (int i = 0; i < pendingResults.Length; i++)
+                {
+                    if (pendingResults[i].Success != 0)
+                        continue;
+                    GridBuildFailureReason reason =
+                        pendingResults[i].FailureReason;
+                    gridQuery.Dispose();
+                    catalogQuery.Dispose();
+                    Fail("A performance foundation command was rejected: " +
+                         reason + ".");
+                    yield break;
+                }
+            }
+            yield return null;
+        }
+        if (surfaceRegistry == null ||
+            surfaceRegistry.SurfaceCount != foundationCellCount)
+        {
+            gridQuery.Dispose();
+            catalogQuery.Dispose();
+            Fail("Timed out while building the performance foundation surface.");
+            yield break;
+        }
+        DynamicBuffer<GridBuildResult> foundationResults =
+            entityManager.GetBuffer<GridBuildResult>(gridEntity);
+        for (int i = 0; i < foundationResults.Length; i++)
+        {
+            if (foundationResults[i].Success != 0)
+                continue;
+            gridQuery.Dispose();
+            catalogQuery.Dispose();
+            Fail("A performance foundation command was rejected: " +
+                 foundationResults[i].FailureReason + ".");
+            yield break;
+        }
+        foundationResults.Clear();
 
         status = "Submitting " + definition.Placements.Length +
                  " build commands...";
@@ -410,6 +486,35 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         FactoryPerformanceMetricsCapture.StartIfRequested(
             definition,
             driver);
+    }
+
+    private static int QueueFoundationCommands(
+        DynamicBuffer<GridBuildCommand> commands,
+        int2 size)
+    {
+        int rowsPerCommand = math.max(
+            1,
+            GridBuildCommandSystem.MaxFoundationAreaCells /
+            math.max(1, size.x));
+        int commandCount = 0;
+        for (int startZ = 0; startZ < size.y; startZ += rowsPerCommand)
+        {
+            int endZ = math.min(size.y - 1, startZ + rowsPerCommand - 1);
+            commands.Add(new GridBuildCommand
+            {
+                RequestId = (uint)(0x40000000 + commandCount),
+                Type = GridBuildCommandType.PlaceFoundationArea,
+                Kind = BuildingKind.Foundation,
+                BuildingLevel = new BuildingLevelId
+                {
+                    Value = FactoryPerformanceScenarioLayout.FoundationLevelId
+                },
+                StartCell = new GridCell(0, 0, startZ),
+                EndCell = new GridCell(size.x - 1, 0, endZ)
+            });
+            commandCount++;
+        }
+        return commandCount;
     }
 
     private bool TrySubmitRecipeSelections(

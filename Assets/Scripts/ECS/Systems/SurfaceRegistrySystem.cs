@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -48,7 +49,10 @@ public partial class SurfaceRegistrySystem : SystemBase
         Dependency.Complete();
         Entity grid = gridQuery.GetSingletonEntity();
         EnsureGridState(grid);
-        if (!EntityManager.HasComponent<LegacySurfaceInitialized>(grid))
+        if (EntityManager.HasComponent<InitialSurfaceSettings>(grid) &&
+            EntityManager.GetComponentData<InitialSurfaceSettings>(grid).Mode ==
+                InitialSurfaceMode.LegacyRectangle &&
+            !EntityManager.HasComponent<LegacySurfaceInitialized>(grid))
             InitializeLegacyRectangle(grid);
 
         uint revision = EntityManager.GetComponentData<SurfaceTopologyRevision>(grid).Value;
@@ -121,6 +125,64 @@ public partial class SurfaceRegistrySystem : SystemBase
         });
         RegisterFoundation(grid, foundation, EntityManager.GetComponentData<Foundation>(foundation));
         return foundation;
+    }
+
+    public int AddFoundationArea(
+        Entity grid,
+        IReadOnlyList<GridCell> cells,
+        ushort visualMaterialId,
+        SurfacePermission permissions,
+        bool occludesFaces)
+    {
+        if (cells == null || cells.Count == 0)
+            return 0;
+        EnsureSurfaceCapacity(surfaces.Count() + cells.Count);
+        HashSet<SurfaceChunkKey> changedChunks = new HashSet<SurfaceChunkKey>();
+        byte occlusion = occludesFaces ? (byte)1 : (byte)0;
+        for (int i = 0; i < cells.Count; i++)
+        {
+            GridCell cell = cells[i];
+            Entity foundation = EntityManager.CreateEntity();
+            Foundation data = new Foundation
+            {
+                Cell = cell,
+                VisualMaterialId = visualMaterialId,
+                Permissions = permissions,
+                OccludesFaces = occlusion
+            };
+            EntityManager.AddComponentData(foundation, data);
+            SurfaceChunkKey key = SurfaceChunkUtility.GetChunkKey(cell);
+            Entity chunk = GetOrCreateChunk(key);
+            int localIndex = SurfaceChunkUtility.GetLocalCellIndex(cell);
+            SurfaceChunkOccupancy occupancy =
+                EntityManager.GetComponentData<SurfaceChunkOccupancy>(chunk);
+            occupancy.Set(localIndex, true);
+            EntityManager.SetComponentData(chunk, occupancy);
+            EntityManager.GetBuffer<SurfaceCellData>(chunk).Add(new SurfaceCellData
+            {
+                LocalCellIndex = (ushort)localIndex,
+                VisualMaterialId = visualMaterialId,
+                Permissions = permissions,
+                OccludesFaces = occlusion,
+                Foundation = foundation
+            });
+            surfaces[cell] = new SurfaceRecord
+            {
+                Foundation = foundation,
+                Chunk = chunk,
+                VisualMaterialId = visualMaterialId,
+                Permissions = permissions,
+                OccludesFaces = occlusion
+            };
+            changedChunks.Add(key);
+            MarkDirty(grid, cell);
+        }
+        foreach (SurfaceChunkKey key in changedChunks)
+            if (chunks.TryGetValue(key, out Entity chunk))
+                IncrementChunkRevision(chunk);
+        IncrementTopologyRevision(grid);
+        indexedRevision = EntityManager.GetComponentData<SurfaceTopologyRevision>(grid).Value;
+        return cells.Count;
     }
 
     public bool RemoveFoundation(Entity grid, GridCell cell, out Entity foundation)

@@ -9,6 +9,8 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
     [SerializeField] private Vector3 origin = Vector3.zero;
     [SerializeField, Min(0.01f)] private float layerHeight =
         EcsGridUtility.DefaultLayerHeight;
+    [SerializeField] private InitialSurfaceMode initialSurfaceMode =
+        InitialSurfaceMode.Empty;
 
     private void OnValidate()
     {
@@ -52,6 +54,10 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                     Mathf.Round(configuredOrigin.z))
             });
             AddComponent(entity, new SurfaceTopologyRevision { Value = 1 });
+            AddComponent(entity, new InitialSurfaceSettings
+            {
+                Mode = authoring.initialSurfaceMode
+            });
             AddComponent(entity, new BuildingOccupancyRevision { Value = 1 });
             AddComponent(entity, new TransportTopologyRevision { Value = 1 });
             AddComponent(entity, new TransportVisualRevision { Value = 1 });

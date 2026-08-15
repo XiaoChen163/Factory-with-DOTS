@@ -159,12 +159,14 @@ public static class FactoryDatabaseCsvImporter
         Dictionary<string, List<FactoryBuildingPortTableRow>> ports = ReadBuildingPorts();
         CsvTable table = CsvTable.Read(BuildingTablePath);
         List<FactoryBuildingTableRow> rows = new List<FactoryBuildingTableRow>(table.RowCount);
+        HashSet<ushort> ids = new HashSet<ushort>();
         HashSet<string> keys = NewKeySet();
         for (int row = 0; row < table.RowCount; row++)
         {
+            ushort id = ParseUShort(table.Get(row, "id"), "building id");
             string key = RequiredKey(table.Get(row, "key"), "building key");
-            if (!keys.Add(key))
-                throw new InvalidDataException($"Duplicate building key '{key}'.");
+            if (id == 0 || !ids.Add(id) || !keys.Add(key))
+                throw new InvalidDataException($"Duplicate or invalid building '{key}' ({id}).");
             string machineKey = table.Get(row, "machine_type_key");
             ushort machineId = 0;
             if (!string.IsNullOrWhiteSpace(machineKey))
@@ -174,14 +176,24 @@ public static class FactoryDatabaseCsvImporter
                     throw new InvalidDataException($"Building '{key}' references unknown machine type '{machineKey}'.");
                 machineId = machine.id;
             }
-            string layoutKey = RequiredKey(table.Get(row, "port_layout_key"), "port layout key");
-            if (!ports.TryGetValue(layoutKey, out List<FactoryBuildingPortTableRow> buildingPorts))
-                throw new InvalidDataException($"Building '{key}' references unknown port layout '{layoutKey}'.");
+            FactoryBuildingBehavior behavior = ParseEnum<FactoryBuildingBehavior>(
+                table.Get(row, "behavior"), "building behavior");
+            string layoutKey = table.Get(row, "port_layout_key").Trim();
+            List<FactoryBuildingPortTableRow> buildingPorts;
+            if (string.IsNullOrEmpty(layoutKey) && behavior == FactoryBuildingBehavior.Foundation)
+                buildingPorts = new List<FactoryBuildingPortTableRow>();
+            else
+            {
+                layoutKey = RequiredKey(layoutKey, "port layout key");
+                if (!ports.TryGetValue(layoutKey, out buildingPorts))
+                    throw new InvalidDataException($"Building '{key}' references unknown port layout '{layoutKey}'.");
+            }
             rows.Add(new FactoryBuildingTableRow
             {
+                id = id,
                 key = key,
                 nameKey = table.Get(row, "name_key"),
-                behavior = ParseEnum<FactoryBuildingBehavior>(table.Get(row, "behavior"), "building behavior"),
+                behavior = behavior,
                 kind = ParseEnum<BuildingKind>(table.Get(row, "kind"), "building kind"),
                 machineTypeKey = machineKey,
                 machineTypeId = machineId,
@@ -191,11 +203,10 @@ public static class FactoryDatabaseCsvImporter
                 ports = buildingPorts.ToArray()
             });
         }
-        rows.Sort((a, b) => string.CompareOrdinal(a.key, b.key));
+        rows.Sort((a, b) => a.id.CompareTo(b.id));
         for (int i = 0; i < rows.Count; i++)
         {
             FactoryBuildingTableRow value = rows[i];
-            value.id = CheckedId(i + 1, "building");
             ValidateBuilding(value);
             rows[i] = value;
         }
@@ -246,14 +257,17 @@ public static class FactoryDatabaseCsvImporter
         Dictionary<string, GameObject> prefabs = BuildPrefabIndex(BuildingPrefabDirectory);
         Dictionary<string, Sprite> icons = BuildSpriteIndex(BuildingIconDirectory);
         List<FactoryBuildingLevelTableRow> rows = new List<FactoryBuildingLevelTableRow>(table.RowCount);
+        HashSet<ushort> ids = new HashSet<ushort>();
         HashSet<string> keys = NewKeySet();
         HashSet<string> buildingLevels = NewKeySet();
         for (int row = 0; row < table.RowCount; row++)
         {
+            ushort id = ParseUShort(table.Get(row, "id"), "building level id");
             string key = RequiredKey(table.Get(row, "key"), "building level key");
             string buildingKey = RequiredKey(table.Get(row, "building_key"), "building key");
             byte level = ParseByte(table.Get(row, "level"), "building level");
-            if (!keys.Add(key) || level == 0 || !buildingLevels.Add(buildingKey + ":" + level))
+            if (id == 0 || !ids.Add(id) || !keys.Add(key) || level == 0 ||
+                !buildingLevels.Add(buildingKey + ":" + level))
                 throw new InvalidDataException($"Duplicate or invalid building level '{key}'.");
             if (!buildingsByKey.TryGetValue(buildingKey, out FactoryBuildingTableRow building))
                 throw new InvalidDataException($"Building level '{key}' references unknown building '{buildingKey}'.");
@@ -266,6 +280,7 @@ public static class FactoryDatabaseCsvImporter
             ValidateBuildingVisualPrefab(prefab, prefabKey);
             rows.Add(new FactoryBuildingLevelTableRow
             {
+                id = id,
                 key = key,
                 buildingKey = buildingKey,
                 buildingId = building.id,
@@ -283,12 +298,6 @@ public static class FactoryDatabaseCsvImporter
         rows.Sort((a, b) => a.menuOrder != b.menuOrder
             ? a.menuOrder.CompareTo(b.menuOrder)
             : string.CompareOrdinal(a.key, b.key));
-        for (int i = 0; i < rows.Count; i++)
-        {
-            FactoryBuildingLevelTableRow value = rows[i];
-            value.id = CheckedId(i + 1, "building level");
-            rows[i] = value;
-        }
         return rows.ToArray();
     }
 
@@ -569,6 +578,8 @@ public static class FactoryDatabaseCsvImporter
             row.behavior == FactoryBuildingBehavior.Storage && row.kind == BuildingKind.Storage ||
             row.behavior == FactoryBuildingBehavior.Merger && row.kind == BuildingKind.Merger ||
             row.behavior == FactoryBuildingBehavior.Splitter && row.kind == BuildingKind.Splitter;
+        behaviorMatchesKind |= row.behavior == FactoryBuildingBehavior.Foundation &&
+                               row.kind == BuildingKind.Foundation;
         if (!behaviorMatchesKind)
             throw new InvalidDataException(
                 $"Building '{row.key}' behavior '{row.behavior}' does not match kind '{row.kind}'.");
@@ -578,6 +589,8 @@ public static class FactoryDatabaseCsvImporter
             throw new InvalidDataException($"Non-processor building '{row.key}' cannot declare a machine type.");
         if (row.behavior == FactoryBuildingBehavior.Processor && row.ports.All(port => port.type != BuildingPortType.Output))
             throw new InvalidDataException($"Processor building '{row.key}' requires an output port.");
+        if (row.behavior == FactoryBuildingBehavior.Foundation && row.ports.Length != 0)
+            throw new InvalidDataException($"Foundation building '{row.key}' cannot declare ports.");
     }
 
     private static void ValidateBuildingVisualPrefab(GameObject prefab, string prefabKey)

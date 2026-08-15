@@ -5,5 +5,6 @@ public enum BuildingKind
     Furnace = 3,
     Storage = 4,
     Merger = 5,
-    Splitter = 6
+    Splitter = 6,
+    Foundation = 7
 }

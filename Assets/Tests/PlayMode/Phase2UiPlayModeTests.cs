@@ -322,11 +322,11 @@ namespace Factory.Tests
             for (int i = 0; i < 240 && !selected; i++)
             {
                 selected = interaction.TrySelectBuildingLevel(
-                    new BuildingLevelId { Value = 4 });
+                    new BuildingLevelId { Value = 10 });
                 yield return null;
             }
             Assert.That(selected, Is.True,
-                "The Mk4 belt must become available after SubScene loading.");
+                "Foundation must become available after SubScene loading.");
 
             interaction.SimulateHover(new int2(0, 0));
             GameObject preview = null;
@@ -339,6 +339,27 @@ namespace Factory.Tests
                 "Simulated hover must render without player build mode.");
 
             interaction.SimulatePrimaryClick(new int2(0, 0));
+            interaction.SimulatePrimaryClick(new int2(1, 0));
+            World world = World.DefaultGameObjectInjectionWorld;
+            SurfaceRegistrySystem registry =
+                world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            int surfaceCountBeforeBuild = registry?.SurfaceCount ?? 0;
+            for (int i = 0;
+                 i < 120 && (registry == null ||
+                             registry.SurfaceCount < surfaceCountBeforeBuild + 2);
+                 i++)
+            {
+                yield return null;
+                registry = world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            }
+            Assert.That(registry?.SurfaceCount,
+                Is.EqualTo(surfaceCountBeforeBuild + 2));
+
+            Assert.That(interaction.TrySelectBuildingLevel(
+                new BuildingLevelId { Value = 4 }), Is.True,
+                "The Mk4 belt must remain available after foundation placement.");
+
+            interaction.SimulatePrimaryClick(new int2(0, 0));
             yield return null;
             Assert.That(interaction.IsBeltPathStarted, Is.True,
                 "Player-mode checks must not clear a simulated belt path.");
@@ -347,7 +368,6 @@ namespace Factory.Tests
             yield return null;
             interaction.SimulatePrimaryClick(new int2(1, 0));
 
-            World world = World.DefaultGameObjectInjectionWorld;
             EntityQuery belts = world.EntityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<BeltTopology>());
             for (int i = 0;
@@ -360,6 +380,57 @@ namespace Factory.Tests
             Assert.That(belts.CalculateEntityCount(), Is.EqualTo(2));
             belts.Dispose();
             interaction.StopSimulatedHover();
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalFoundationBatches_ReuseValidChunkRenderMesh()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            bool selected = false;
+            for (int i = 0; i < 240 && !selected; i++)
+            {
+                selected = interaction.TrySelectBuildingLevel(
+                    new BuildingLevelId { Value = 10 });
+                yield return null;
+            }
+            Assert.That(selected, Is.True);
+
+            World world = World.DefaultGameObjectInjectionWorld;
+            SurfaceRegistrySystem registry =
+                world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            int initialSurfaceCount = registry?.SurfaceCount ?? 0;
+            EntityQuery initialChunks = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<FoundationRenderChunk>());
+            int initialChunkCount = initialChunks.CalculateEntityCount();
+            initialChunks.Dispose();
+            for (int x = 0; x < 8; x++)
+            {
+                int2 cell = new int2(100 + x, 100);
+                interaction.SimulatePrimaryClick(cell);
+                interaction.SimulatePrimaryClick(cell);
+                for (int frame = 0;
+                     frame < 120 &&
+                     (registry == null ||
+                      registry.SurfaceCount < initialSurfaceCount + x + 1);
+                     frame++)
+                {
+                    yield return null;
+                    registry = world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+                }
+                Assert.That(registry?.SurfaceCount,
+                    Is.EqualTo(initialSurfaceCount + x + 1));
+                yield return null;
+                yield return null;
+            }
+
+            EntityQuery chunks = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<FoundationRenderChunk>());
+            Assert.That(chunks.CalculateEntityCount(),
+                Is.EqualTo(initialChunkCount + 1),
+                "Rebuilding one chunk must reuse one render entity.");
+            chunks.Dispose();
         }
     }
 }

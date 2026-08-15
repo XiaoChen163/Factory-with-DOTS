@@ -90,6 +90,17 @@ public struct SurfacePhysicsDirtyChunk : IBufferElementData
 
 public struct LegacySurfaceInitialized : IComponentData { }
 
+public enum InitialSurfaceMode : byte
+{
+    Empty,
+    LegacyRectangle
+}
+
+public struct InitialSurfaceSettings : IComponentData
+{
+    public InitialSurfaceMode Mode;
+}
+
 public struct FoundationPhysicsChunk : IComponentData
 {
     public SurfaceChunkKey Key;

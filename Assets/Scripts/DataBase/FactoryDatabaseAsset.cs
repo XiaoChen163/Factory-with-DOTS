@@ -15,7 +15,8 @@ public enum FactoryBuildingBehavior : byte
     Processor = 2,
     Storage = 3,
     Merger = 4,
-    Splitter = 5
+    Splitter = 5,
+    Foundation = 6
 }
 
 [Serializable]

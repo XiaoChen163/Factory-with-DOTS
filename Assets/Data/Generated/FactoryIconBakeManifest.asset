@@ -25,6 +25,9 @@ MonoBehaviour:
   - prefabPath: Assets/Prefabs/Buildings/BeltMk4.prefab
     outputPath: Assets/Art/Icons/Buildings/BeltMk4.png
     hash: 00d43fde910e58b4cc4f8bb91301192b
+  - prefabPath: Assets/Prefabs/Buildings/Foundation.prefab
+    outputPath: Assets/Art/Icons/Buildings/Foundation.png
+    hash: 5990eb6c23bc609e642c30d7965b54d6
   - prefabPath: Assets/Prefabs/Buildings/Furnace.prefab
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
     hash: b62e74693a86b660ea196af6d063126e

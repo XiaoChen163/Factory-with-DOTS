@@ -67,6 +67,10 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
 
             DynamicBuffer<BuildingVisualPrefabEntry> buildingPrefabs =
                 AddBuffer<BuildingVisualPrefabEntry>(entity);
+            DynamicBuffer<FoundationVisualMaterial> foundationMaterials =
+                AddBuffer<FoundationVisualMaterial>(entity);
+            DynamicBuffer<FoundationLevelMaterial> foundationLevelMaterials =
+                AddBuffer<FoundationLevelMaterial>(entity);
             DynamicBuffer<BeltVisualPartsBakingData> beltVisualParts =
                 AddBuffer<BeltVisualPartsBakingData>(entity);
             HashSet<GameObject> configuredBeltVisuals =
@@ -82,6 +86,35 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                     BuildingLevel = new BuildingLevelId { Value = level.id },
                     Prefab = visualPrefab
                 });
+
+                if (TryGetBuildingKind(
+                        authoring.database,
+                        level.buildingId,
+                        out BuildingKind levelKind) &&
+                    levelKind == BuildingKind.Foundation)
+                {
+                    MeshRenderer[] renderers =
+                        level.visualPrefab.GetComponentsInChildren<MeshRenderer>(true);
+                    if (renderers.Length != 1 ||
+                        renderers[0].sharedMaterials.Length != 1 ||
+                        renderers[0].sharedMaterial == null)
+                    {
+                        Debug.LogError(
+                            $"Foundation level '{level.key}' must use exactly one visual material.",
+                            authoring);
+                        return;
+                    }
+                    ushort materialId = (ushort)foundationMaterials.Length;
+                    foundationMaterials.Add(new FoundationVisualMaterial
+                    {
+                        Value = (UnityObjectRef<Material>)renderers[0].sharedMaterial
+                    });
+                    foundationLevelMaterials.Add(new FoundationLevelMaterial
+                    {
+                        BuildingLevel = new BuildingLevelId { Value = level.id },
+                        VisualMaterialId = materialId
+                    });
+                }
 
                 if (TryGetBuildingKind(
                         authoring.database,

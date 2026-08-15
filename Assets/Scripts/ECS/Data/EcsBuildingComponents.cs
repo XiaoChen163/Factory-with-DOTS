@@ -30,7 +30,8 @@ public enum GridBuildCommandType : byte
     PlaceBeltPath,
     RemoveBeltLine,
     PlaceFoundation,
-    RemoveFoundation
+    RemoveFoundation,
+    PlaceFoundationArea
 }
 
 public struct GridBuildCommand : IBufferElementData
@@ -63,7 +64,9 @@ public enum GridBuildFailureReason : byte
     SurfaceMissing,
     FoundationAlreadyExists,
     FoundationUnsupported,
-    FoundationSupportsBuilding
+    FoundationSupportsBuilding,
+    InvalidFoundationLevel,
+    FoundationAreaTooLarge
 }
 
 public struct GridBuildResult : IBufferElementData

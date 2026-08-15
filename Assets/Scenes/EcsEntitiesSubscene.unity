@@ -182,6 +182,7 @@ MonoBehaviour:
   database: {fileID: 11400000, guid: b1b2c3d4e5f6478899aabbccddeeff01, type: 2}
   inputPortVisualPrefab: {fileID: 410000, guid: c1b2c3d4e5f6478899aabbccddeeff01, type: 3}
   outputPortVisualPrefab: {fileID: 420000, guid: c1b2c3d4e5f6478899aabbccddeeff02, type: 3}
+  rampFoundationVisualPrefab: {fileID: 180000, guid: e2787148eed64483b8d83433a7ec9501, type: 3}
 --- !u!114 &100004
 MonoBehaviour:
   m_ObjectHideFlags: 0

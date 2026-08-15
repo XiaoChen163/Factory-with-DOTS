@@ -176,6 +176,14 @@ public partial class BeltTopologyVisualSystem : SystemBase
         GridOccupancyIndexSystem occupancySystem)
     {
         SetAllEdgesVisible(visual, true);
+        if (belt.ConnectionMode == TransportConnectionMode.ExplicitOnly)
+        {
+            SetTriangleDirection(
+                visual.DirectionTriangle,
+                belt.Direction,
+                placement.QuarterTurns);
+            return;
+        }
 
         bool hasInput = TryFindIncomingDirection(
             belt.Cell,

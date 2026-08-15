@@ -116,7 +116,8 @@ public static class FactoryDatabaseBakingUtility
                 MenuOrder = row.menuOrder,
                 Key = new FixedString64Bytes(row.key),
                 NameKey = new FixedString64Bytes(row.nameKey),
-                VisualPrefabKey = new FixedString64Bytes(row.visualPrefabKey)
+                VisualPrefabKey = new FixedString64Bytes(row.visualPrefabKey),
+                RampRiseHeightUnits = row.rampRiseHeightUnits
             };
             menu[i] = id;
         }

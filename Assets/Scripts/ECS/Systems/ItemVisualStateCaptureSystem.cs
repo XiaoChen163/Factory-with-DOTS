@@ -44,6 +44,13 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
         }.ScheduleParallel(state.Dependency);
+        state.Dependency = new CaptureRampBeltVisualStateJob
+        {
+            WorldGrid = worldGrid,
+            ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
+            VisualStateLookup =
+                SystemAPI.GetComponentLookup<ItemVisualState>(false)
+        }.ScheduleParallel(state.Dependency);
         state.Dependency = new CaptureSplitterVisualStateJob
         {
             WorldGrid = worldGrid,
@@ -184,6 +191,40 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
             }
             visualState.Progress = math.saturate(progress);
             VisualStateLookup[item] = visualState;
+        }
+    }
+
+    [BurstCompile]
+    private partial struct CaptureRampBeltVisualStateJob : IJobEntity
+    {
+        public WorldGridConfig WorldGrid;
+        [ReadOnly] public ComponentLookup<Item> ItemLookup;
+        [NativeDisableParallelForRestriction]
+        public ComponentLookup<ItemVisualState> VisualStateLookup;
+
+        private void Execute(
+            in BeltTopology topology,
+            in BeltState state,
+            in RampBelt ramp)
+        {
+            Entity item = state.CurrentItem;
+            if (item == Entity.Null ||
+                !ItemLookup.HasComponent(item) ||
+                !ItemLookup.IsComponentEnabled(item) ||
+                !VisualStateLookup.HasComponent(item))
+                return;
+
+            float3 target = EcsGridUtility.CellToWorldCenter(topology.Cell, WorldGrid);
+            target.y = (ramp.EntryHeight.ToWorldY(WorldGrid) +
+                        ramp.ExitHeight.ToWorldY(WorldGrid)) * 0.5f + 0.535f;
+            ItemVisualState visual = VisualStateLookup[item];
+            if (math.distance(visual.ToPosition, target) > 0.0001f)
+            {
+                visual.FromPosition = visual.ToPosition;
+                visual.ToPosition = target;
+            }
+            visual.Progress = math.saturate(state.Progress);
+            VisualStateLookup[item] = visual;
         }
     }
 

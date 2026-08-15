@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Physics;
 using Unity.Rendering;
 using Unity.Transforms;
 
@@ -191,6 +192,8 @@ public partial class GridBuildCommandSystem : SystemBase
 
         SurfaceRegistrySystem surfaceRegistry =
             World.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        RampRegistrySystem rampRegistry =
+            World.GetOrCreateSystemManaged<RampRegistrySystem>();
         if (catalogQuery.CalculateEntityCount() != 1)
         {
             ProcessFoundationOnlyBatch(
@@ -264,6 +267,60 @@ public partial class GridBuildCommandSystem : SystemBase
 
             switch (command.Type)
             {
+                case GridBuildCommandType.PlaceRampFoundation:
+                    changesBuildingOccupancy = false;
+                    success = TryPlaceRampFoundation(
+                        command,
+                        grid,
+                        worldGrid,
+                        catalog,
+                        rampRegistry,
+                        placements,
+                        out failureReason);
+                    affectedCount = success ? 1 : 0;
+                    break;
+
+                case GridBuildCommandType.RemoveRampFoundation:
+                    changesBuildingOccupancy = false;
+                    success = TryRemoveRampFoundation(
+                        command.StartCell,
+                        rampRegistry,
+                        out failureReason);
+                    affectedCount = success ? 1 : 0;
+                    break;
+
+                case GridBuildCommandType.PlaceRampBelt:
+                    success = TryPlaceRampBelt(
+                        command,
+                        grid,
+                        worldGrid,
+                        catalog,
+                        visualPrefabSnapshot,
+                        ref database,
+                        rampRegistry,
+                        placements,
+                        dirtyCells,
+                        ref transportChanged,
+                        ref ecb,
+                        out failureReason);
+                    affectedCount = success ? 1 : 0;
+                    break;
+
+                case GridBuildCommandType.RemoveRampBelt:
+                    success = TryRemoveRampBelt(
+                        command.StartCell,
+                        GetPlayer(command.Player, players),
+                        ref database,
+                        rampRegistry,
+                        placements,
+                        dirtyCells,
+                        occupancySystem,
+                        ref transportChanged,
+                        ref ecb,
+                        out failureReason);
+                    affectedCount = success ? 1 : 0;
+                    break;
+
                 case GridBuildCommandType.PlaceFoundationArea:
                     changesBuildingOccupancy = false;
                     success = TryPlaceFoundationArea(
@@ -412,6 +469,11 @@ public partial class GridBuildCommandSystem : SystemBase
                 });
             }
         }
+        else if (transportChanged)
+        {
+            IncrementTransportTopologyRevision(gridEntity);
+            IncrementTransportVisualRevision(gridEntity);
+        }
     }
 
     private void ProcessFoundationOnlyBatch(
@@ -480,6 +542,13 @@ public partial class GridBuildCommandSystem : SystemBase
         if (registry.HasFoundationVoxel(cell))
         {
             failure = GridBuildFailureReason.FoundationAlreadyExists;
+            return false;
+        }
+        RampRegistrySystem rampRegistry =
+            World.GetExistingSystemManaged<RampRegistrySystem>();
+        if (rampRegistry != null && rampRegistry.ContainsCell(cell))
+        {
+            failure = GridBuildFailureReason.RampOccupied;
             return false;
         }
 
@@ -560,6 +629,13 @@ public partial class GridBuildCommandSystem : SystemBase
             if (registry.HasFoundationVoxel(cell))
             {
                 failure = GridBuildFailureReason.FoundationAlreadyExists;
+                return false;
+            }
+            RampRegistrySystem rampRegistry =
+                World.GetExistingSystemManaged<RampRegistrySystem>();
+            if (rampRegistry != null && rampRegistry.ContainsCell(cell))
+            {
+                failure = GridBuildFailureReason.RampOccupied;
                 return false;
             }
             cells.Add(cell);
@@ -716,6 +792,254 @@ public partial class GridBuildCommandSystem : SystemBase
             EntityManager.AddComponentData(gridEntity, value);
     }
 
+    private bool TryPlaceRampFoundation(
+        in GridBuildCommand command,
+        in GridDefinition grid,
+        in WorldGridConfig worldGrid,
+        in BuildingPrefabCatalog catalog,
+        RampRegistrySystem rampRegistry,
+        BatchPlacementState placements,
+        out GridBuildFailureReason failure)
+    {
+        if (rampRegistry == null ||
+            !RampUtility.IsAllowedRise(command.RampRiseHeightUnits))
+        {
+            failure = GridBuildFailureReason.InvalidRampSlope;
+            return false;
+        }
+        GridCell cell = command.StartCell;
+        if (rampRegistry.ContainsCell(cell) ||
+            placements.TryGet(cell, out _))
+        {
+            failure = GridBuildFailureReason.RampOccupied;
+            return false;
+        }
+        if (!IsValidVisualPrefab(catalog.RampFoundationVisual))
+        {
+            failure = GridBuildFailureReason.MissingPrefab;
+            return false;
+        }
+
+        int2 commandDirection = EcsGridUtility.Rotate(
+            new int2(1, 0), command.QuarterTurns);
+        int startUnits = command.RampStartHeightUnits;
+        int signedRise = command.RampRiseHeightUnits;
+        int2 uphill = signedRise > 0 ? commandDirection : -commandDirection;
+        GridHeight low = new GridHeight(math.min(startUnits, startUnits + signedRise));
+        GridHeight high = new GridHeight(math.max(startUnits, startUnits + signedRise));
+        RampConnector connector = new RampConnector
+        {
+            Cell = cell,
+            LowHeight = low,
+            HighHeight = high,
+            UphillDirection = uphill,
+            VisualMaterialId = command.VisualMaterialId
+        };
+
+        Entity entity = EntityManager.CreateEntity();
+        EntityManager.AddComponentData(entity, connector);
+        float3 position = EcsGridUtility.CellToWorldCenter(cell, worldGrid);
+        position.y = low.ToWorldY(worldGrid);
+        quaternion rotation = RampUtility.GetFoundationVisualRotation(uphill);
+        float cellSize = math.max(math.EPSILON, grid.CellSize);
+        EntityManager.AddComponentData(entity,
+            LocalTransform.FromPositionRotationScale(position, rotation, cellSize));
+        EntityManager.AddComponentData(entity, new LocalToWorld
+        {
+            Value = float4x4.TRS(position, rotation, new float3(cellSize))
+        });
+        float riseWorld = high.ToWorldY(worldGrid) - low.ToWorldY(worldGrid);
+        EntityManager.AddComponentData(entity, new PostTransformMatrix
+        {
+            Value = float4x4.Scale(new float3(1f, riseWorld / cellSize, 1f))
+        });
+        BlobAssetReference<Unity.Physics.Collider> rampCollider = World
+            .GetOrCreateSystemManaged<RampPhysicsColliderCacheSystem>()
+            .GetOrCreate(riseWorld / cellSize);
+        EntityManager.AddComponentData(entity, new PhysicsCollider
+        {
+            Value = rampCollider
+        });
+        EntityManager.AddSharedComponentManaged(entity,
+            new PhysicsWorldIndex { Value = 0 });
+        DynamicBuffer<LinkedEntityGroup> linked =
+            EntityManager.AddBuffer<LinkedEntityGroup>(entity);
+        linked.Add(new LinkedEntityGroup { Value = entity });
+        Entity visual = EntityManager.Instantiate(catalog.RampFoundationVisual);
+        EntityManager.AddComponentData(visual, new Parent { Value = entity });
+        linked = EntityManager.GetBuffer<LinkedEntityGroup>(entity);
+        linked.Add(new LinkedEntityGroup { Value = visual });
+        rampRegistry.Register(entity, connector);
+        failure = GridBuildFailureReason.None;
+        return true;
+    }
+
+    private bool TryRemoveRampFoundation(
+        GridCell cell,
+        RampRegistrySystem rampRegistry,
+        out GridBuildFailureReason failure)
+    {
+        if (rampRegistry == null || !rampRegistry.TryGet(cell, out RampRegistrySystem.Record record))
+        {
+            failure = GridBuildFailureReason.RampMissing;
+            return false;
+        }
+        if (record.BeltEntity != Entity.Null)
+        {
+            failure = GridBuildFailureReason.RampHasBelt;
+            return false;
+        }
+        rampRegistry.Unregister(cell, record.ConnectorEntity);
+        if (EntityManager.Exists(record.ConnectorEntity))
+            EntityManager.DestroyEntity(record.ConnectorEntity);
+        failure = GridBuildFailureReason.None;
+        return true;
+    }
+
+    private bool TryPlaceRampBelt(
+        in GridBuildCommand command,
+        in GridDefinition grid,
+        in WorldGridConfig worldGrid,
+        in BuildingPrefabCatalog catalog,
+        in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
+        ref FactoryDatabaseBlob database,
+        RampRegistrySystem rampRegistry,
+        BatchPlacementState placements,
+        HashSet<GridCell> dirtyCells,
+        ref bool transportChanged,
+        ref EntityCommandBuffer ecb,
+        out GridBuildFailureReason failure)
+    {
+        if (rampRegistry == null ||
+            !rampRegistry.TryGet(command.StartCell, out RampRegistrySystem.Record record))
+        {
+            failure = GridBuildFailureReason.RampMissing;
+            return false;
+        }
+        if (record.BeltEntity != Entity.Null || placements.TryGet(command.StartCell, out _))
+        {
+            failure = GridBuildFailureReason.RampOccupied;
+            return false;
+        }
+        int2 travel = EcsGridUtility.Rotate(new int2(1, 0), command.QuarterTurns);
+        if (!RampUtility.IsTravelDirectionAllowed(record.Connector, travel))
+        {
+            failure = GridBuildFailureReason.RampDirectionInvalid;
+            return false;
+        }
+        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                ref database, command.BuildingLevel,
+                out FactoryBuildingLevelBlob level,
+            out FactoryBuildingBlob building) ||
+            building.Kind != BuildingKind.Belt ||
+            !FactoryDatabaseUtility.TryGetBeltLevel(
+                ref database,
+                command.BuildingLevel,
+                out FactoryBeltLevelBlob beltStats) ||
+            !IsValidVisualPrefab(BuildingPrefabCatalogUtility.GetPrefab(
+                visualPrefabs, command.BuildingLevel)))
+        {
+            failure = GridBuildFailureReason.MissingPrefab;
+            return false;
+        }
+
+        GridPlacement placement = new GridPlacement
+        {
+            AnchorCell = command.StartCell,
+            FootprintSize = new int2(1),
+            QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(travel),
+            Kind = BuildingKind.Belt
+        };
+        PlacementRecord candidate = CreateRecordFromDefinition(building, placement, ref database);
+        placements.Add(candidate);
+        Entity prefab = BuildingPrefabCatalogUtility.GetPrefab(
+            visualPrefabs, command.BuildingLevel);
+        Entity instance = Instantiate(
+            prefab, building, level, placement, grid, worldGrid,
+            catalog, ref database, ref ecb);
+        bool uphill = math.all(travel == record.Connector.UphillDirection);
+        GridHeight entry = uphill ? record.Connector.LowHeight : record.Connector.HighHeight;
+        GridHeight exit = uphill ? record.Connector.HighHeight : record.Connector.LowHeight;
+        ecb.AddComponent(instance, new RampBelt
+        {
+            Connector = record.ConnectorEntity,
+            TravelDirection = travel,
+            EntryHeight = entry,
+            ExitHeight = exit
+        });
+        ecb.SetComponent(instance, new BeltTopology
+        {
+            CellsPerSecond = beltStats.CellsPerSecond,
+            Cell = command.StartCell,
+            Direction = travel,
+            ConnectionMode = TransportConnectionMode.ExplicitOnly
+        });
+
+        float3 center = RampUtility.GetSurfaceCenter(record.Connector, worldGrid);
+        float rise = exit.ToWorldY(worldGrid) - entry.ToWorldY(worldGrid);
+        float angle = math.atan2(rise, math.max(math.EPSILON, grid.CellSize));
+        quaternion rotation = math.mul(
+            EcsGridUtility.RotationFromQuarterTurns(placement.QuarterTurns),
+            quaternion.RotateZ(angle));
+        float lengthScale = RampUtility.GetSlopeLength(record.Connector, worldGrid) /
+                            math.max(math.EPSILON, grid.CellSize);
+        ecb.SetComponent(instance,
+            LocalTransform.FromPositionRotationScale(center, rotation, 1f));
+        ecb.SetComponent(instance, new LocalToWorld
+        {
+            Value = float4x4.TRS(center, rotation, new float3(1f))
+        });
+        ecb.AddComponent(instance, new PostTransformMatrix
+        {
+            Value = float4x4.Scale(new float3(lengthScale, 1f, 1f))
+        });
+        // The instantiated belt is still an EntityCommandBuffer placeholder.
+        // RampRegistrySystem rebuilds on the next frame after playback, so do
+        // not expose the deferred entity through the managed registry.
+        MarkCellsDirty(candidate.OccupiedCells, dirtyCells);
+        transportChanged = true;
+        failure = GridBuildFailureReason.None;
+        return true;
+    }
+
+    private bool TryRemoveRampBelt(
+        GridCell cell,
+        Entity player,
+        ref FactoryDatabaseBlob database,
+        RampRegistrySystem rampRegistry,
+        BatchPlacementState placements,
+        HashSet<GridCell> dirtyCells,
+        GridOccupancyIndexSystem occupancySystem,
+        ref bool transportChanged,
+        ref EntityCommandBuffer ecb,
+        out GridBuildFailureReason failure)
+    {
+        if (rampRegistry == null ||
+            !rampRegistry.TryGet(cell, out RampRegistrySystem.Record ramp) ||
+            ramp.BeltEntity == Entity.Null ||
+            !EntityManager.Exists(ramp.BeltEntity))
+        {
+            failure = GridBuildFailureReason.RampMissing;
+            return false;
+        }
+        Entity belt = ramp.BeltEntity;
+        GridPlacement placement = EntityManager.GetComponentData<GridPlacement>(belt);
+        PlacementRecord record = CreateRecord(
+            belt,
+            placement,
+            EntityManager.GetBuffer<OccupiedCellOffset>(belt, true),
+            EntityManager.GetBuffer<BuildingPort>(belt, true));
+        placements.Remove(record);
+        RemoveOccupancy(record, occupancySystem);
+        MarkCellsDirty(record.OccupiedCells, dirtyCells);
+        RecoverOwnedItems(belt, player, ref database, ref ecb);
+        ecb.DestroyEntity(belt);
+        rampRegistry.UnregisterBelt(cell, belt);
+        transportChanged = true;
+        failure = GridBuildFailureReason.None;
+        return true;
+    }
+
     private bool TryPlaceSingle(
         BuildingLevelId buildingLevelId,
         GridCell anchor,
@@ -744,7 +1068,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 GridBuildFailureReason.MissingPrefab;
             return false;
         }
-        if (building.Kind == BuildingKind.Foundation)
+        if (building.Kind == BuildingKind.Foundation ||
+            building.Kind == BuildingKind.RampFoundation)
         {
             failureReason = GridBuildFailureReason.InvalidFoundationLevel;
             return false;
@@ -919,6 +1244,7 @@ public partial class GridBuildCommandSystem : SystemBase
         placements.Remove(record);
         RemoveOccupancy(record, occupancySystem);
         MarkCellsDirty(record.OccupiedCells, dirtyCells);
+        UnregisterRampBelt(record.Entity);
         RecoverOwnedItems(record.Entity, player, ref database, ref ecb);
         ecb.DestroyEntity(record.Entity);
         transportChanged |= UsesTransportTopology(record);
@@ -981,6 +1307,7 @@ public partial class GridBuildCommandSystem : SystemBase
             placements.Remove(belt);
             RemoveOccupancy(belt, occupancySystem);
             MarkCellsDirty(belt.OccupiedCells, dirtyCells);
+            UnregisterRampBelt(belt.Entity);
             RecoverOwnedItems(belt.Entity, player, ref database, ref ecb);
             ecb.DestroyEntity(belt.Entity);
             removedCount++;
@@ -1094,6 +1421,13 @@ public partial class GridBuildCommandSystem : SystemBase
              i++)
         {
             GridCell cell = candidate.OccupiedCells[i];
+            RampRegistrySystem rampRegistry =
+                World.GetExistingSystemManaged<RampRegistrySystem>();
+            if (rampRegistry != null && rampRegistry.ContainsCell(cell))
+            {
+                failureReason = GridBuildFailureReason.CellOccupied;
+                return false;
+            }
             SurfaceRegistrySystem registry =
                 World.GetExistingSystemManaged<SurfaceRegistrySystem>();
             if (cell.Level != candidate.Placement.AnchorCell.Level)
@@ -1362,7 +1696,7 @@ public partial class GridBuildCommandSystem : SystemBase
         };
     }
 
-    private void Instantiate(
+    private Entity Instantiate(
         Entity visualPrefab,
         in FactoryBuildingBlob building,
         in FactoryBuildingLevelBlob level,
@@ -1455,6 +1789,22 @@ public partial class GridBuildCommandSystem : SystemBase
             worldGrid,
             catalog,
             ref ecb);
+        return instance;
+    }
+
+    private void UnregisterRampBelt(Entity entity)
+    {
+        if (!EntityManager.Exists(entity) ||
+            !EntityManager.HasComponent<RampBelt>(entity))
+            return;
+        RampBelt belt = EntityManager.GetComponentData<RampBelt>(entity);
+        if (!EntityManager.Exists(belt.Connector) ||
+            !EntityManager.HasComponent<RampConnector>(belt.Connector))
+            return;
+        GridCell cell = EntityManager
+            .GetComponentData<RampConnector>(belt.Connector).Cell;
+        World.GetExistingSystemManaged<RampRegistrySystem>()
+            ?.UnregisterBelt(cell, entity);
     }
 
     private void AddLogicComponents(

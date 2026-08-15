@@ -6,3 +6,6 @@ id,key,name_key,behavior,kind,machine_type_key,port_layout_key,footprint_width,f
 3,merger,building.merger,Merger,Merger,,merger_ports,1,1
 5,splitter,building.splitter,Splitter,Splitter,,splitter_ports,1,1
 7,foundation,building.foundation,Foundation,Foundation,,,1,1
+8,ramp_foundation_1_1,building.ramp_foundation_1_1,Foundation,RampFoundation,,,1,1
+9,ramp_foundation_1_2,building.ramp_foundation_1_2,Foundation,RampFoundation,,,1,1
+10,ramp_foundation_1_4,building.ramp_foundation_1_4,Foundation,RampFoundation,,,1,1

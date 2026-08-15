@@ -183,6 +183,39 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     ports: []
+  - id: 8
+    key: ramp_foundation_1_1
+    nameKey: building.ramp_foundation_1_1
+    behavior: 6
+    kind: 8
+    machineTypeKey:
+    machineTypeId: 0
+    portLayoutKey:
+    footprintWidth: 1
+    footprintHeight: 1
+    ports: []
+  - id: 9
+    key: ramp_foundation_1_2
+    nameKey: building.ramp_foundation_1_2
+    behavior: 6
+    kind: 8
+    machineTypeKey:
+    machineTypeId: 0
+    portLayoutKey:
+    footprintWidth: 1
+    footprintHeight: 1
+    ports: []
+  - id: 10
+    key: ramp_foundation_1_4
+    nameKey: building.ramp_foundation_1_4
+    behavior: 6
+    kind: 8
+    machineTypeKey:
+    machineTypeId: 0
+    portLayoutKey:
+    footprintWidth: 1
+    footprintHeight: 1
+    ports: []
   buildingLevels:
   - id: 10
     key: foundation_mk1
@@ -195,6 +228,43 @@ MonoBehaviour:
     iconKey: foundation
     icon: {fileID: 21300000, guid: 8001c504d5b02c145a8fc159c117b521, type: 3}
     menuOrder: 50
+    rampRiseHeightUnits: 0
+  - id: 11
+    key: ramp_foundation_1_1_mk1
+    buildingKey: ramp_foundation_1_1
+    buildingId: 8
+    level: 1
+    nameKey: building.ramp_foundation_1_1
+    visualPrefabKey: ramp_foundation
+    visualPrefab: {fileID: 180000, guid: e2787148eed64483b8d83433a7ec9501, type: 3}
+    iconKey: ramp_foundation
+    icon: {fileID: 21300000, guid: 5612dd97c6f2408438dc2e6fdb403d8f, type: 3}
+    menuOrder: 51
+    rampRiseHeightUnits: 8
+  - id: 12
+    key: ramp_foundation_1_2_mk1
+    buildingKey: ramp_foundation_1_2
+    buildingId: 9
+    level: 1
+    nameKey: building.ramp_foundation_1_2
+    visualPrefabKey: ramp_foundation_half
+    visualPrefab: {fileID: 9170977669439321830, guid: eb1209f8468ce2041b268eccb98c3d67, type: 3}
+    iconKey: ramp_foundation_half
+    icon: {fileID: 21300000, guid: 7c13d3c6e2b65f04b9cb34bddb1af855, type: 3}
+    menuOrder: 52
+    rampRiseHeightUnits: 4
+  - id: 13
+    key: ramp_foundation_1_4_mk1
+    buildingKey: ramp_foundation_1_4
+    buildingId: 10
+    level: 1
+    nameKey: building.ramp_foundation_1_4
+    visualPrefabKey: ramp_foundation_quarter
+    visualPrefab: {fileID: 5424966742386246050, guid: 75ceaac5cd7168c4ca3654a9adc594b9, type: 3}
+    iconKey: ramp_foundation_quarter
+    icon: {fileID: 21300000, guid: 7bb5b0d9ca85eec488473324854dc75c, type: 3}
+    menuOrder: 53
+    rampRiseHeightUnits: 2
   - id: 1
     key: belt_mk1
     buildingKey: belt
@@ -206,6 +276,7 @@ MonoBehaviour:
     iconKey: belt
     icon: {fileID: 21300000, guid: 84f6d24af323254498b4a3bafb2dace4, type: 3}
     menuOrder: 100
+    rampRiseHeightUnits: 0
   - id: 2
     key: belt_mk2
     buildingKey: belt
@@ -217,6 +288,7 @@ MonoBehaviour:
     iconKey: belt_mk2
     icon: {fileID: 21300000, guid: 9ae6dfb0b5de48140ba147aca9586de6, type: 3}
     menuOrder: 101
+    rampRiseHeightUnits: 0
   - id: 3
     key: belt_mk3
     buildingKey: belt
@@ -228,6 +300,7 @@ MonoBehaviour:
     iconKey: belt_mk3
     icon: {fileID: 21300000, guid: 0f0728b880970f544856851f4bd29305, type: 3}
     menuOrder: 102
+    rampRiseHeightUnits: 0
   - id: 4
     key: belt_mk4
     buildingKey: belt
@@ -239,6 +312,7 @@ MonoBehaviour:
     iconKey: belt_mk4
     icon: {fileID: 21300000, guid: 3ce66c5e5faf6594faf9875decc0f10b, type: 3}
     menuOrder: 103
+    rampRiseHeightUnits: 0
   - id: 5
     key: miner_mk1
     buildingKey: miner
@@ -250,6 +324,7 @@ MonoBehaviour:
     iconKey: miner
     icon: {fileID: 21300000, guid: 78282980434a1d64a95c2b414aa9f52a, type: 3}
     menuOrder: 200
+    rampRiseHeightUnits: 0
   - id: 6
     key: furnace_mk1
     buildingKey: furnace
@@ -261,6 +336,7 @@ MonoBehaviour:
     iconKey: furnace
     icon: {fileID: 21300000, guid: ab7866f7c6393c84e8b877287c2dc8b6, type: 3}
     menuOrder: 300
+    rampRiseHeightUnits: 0
   - id: 7
     key: storage_mk1
     buildingKey: storage
@@ -272,6 +348,7 @@ MonoBehaviour:
     iconKey: storage
     icon: {fileID: 21300000, guid: c5d890f56526d0f4c9da6c7d3631694f, type: 3}
     menuOrder: 400
+    rampRiseHeightUnits: 0
   - id: 8
     key: merger_mk1
     buildingKey: merger
@@ -283,6 +360,7 @@ MonoBehaviour:
     iconKey: merger
     icon: {fileID: 21300000, guid: 9d0e06efb66c15a4eb48738129d6d16b, type: 3}
     menuOrder: 500
+    rampRiseHeightUnits: 0
   - id: 9
     key: splitter_mk1
     buildingKey: splitter
@@ -294,6 +372,7 @@ MonoBehaviour:
     iconKey: splitter
     icon: {fileID: 21300000, guid: 11bcb1e2fac0dc74184a00dd96351721, type: 3}
     menuOrder: 600
+    rampRiseHeightUnits: 0
   beltLevels:
   - buildingLevelKey: belt_mk1
     buildingLevelId: 1

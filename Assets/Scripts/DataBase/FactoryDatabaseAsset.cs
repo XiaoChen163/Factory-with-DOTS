@@ -99,6 +99,7 @@ public struct FactoryBuildingLevelTableRow
     public string iconKey;
     public Sprite icon;
     public int menuOrder;
+    public sbyte rampRiseHeightUnits;
 }
 
 [Serializable]

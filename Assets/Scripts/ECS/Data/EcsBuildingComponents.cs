@@ -6,6 +6,7 @@ public struct BuildingPrefabCatalog : IComponentData
 {
     public Entity InputPortVisual;
     public Entity OutputPortVisual;
+    public Entity RampFoundationVisual;
 }
 
 public struct BuildingVisualPrefabEntry : IBufferElementData
@@ -31,7 +32,11 @@ public enum GridBuildCommandType : byte
     RemoveBeltLine,
     PlaceFoundation,
     RemoveFoundation,
-    PlaceFoundationArea
+    PlaceFoundationArea,
+    PlaceRampFoundation,
+    RemoveRampFoundation,
+    PlaceRampBelt,
+    RemoveRampBelt
 }
 
 public struct GridBuildCommand : IBufferElementData
@@ -46,6 +51,11 @@ public struct GridBuildCommand : IBufferElementData
     public byte QuarterTurns;
     public byte HorizontalFirst;
     public ushort VisualMaterialId;
+    // Ramp heights use fixed eighth-layer units. StartCell.Level remains the
+    // address of a flat grid plane and is deliberately not overloaded with a
+    // fractional meaning.
+    public int RampStartHeightUnits;
+    public sbyte RampRiseHeightUnits;
 }
 
 public enum GridBuildFailureReason : byte
@@ -66,7 +76,12 @@ public enum GridBuildFailureReason : byte
     FoundationUnsupported,
     FoundationSupportsBuilding,
     InvalidFoundationLevel,
-    FoundationAreaTooLarge
+    FoundationAreaTooLarge,
+    InvalidRampSlope,
+    RampOccupied,
+    RampMissing,
+    RampHasBelt,
+    RampDirectionInvalid
 }
 
 public struct GridBuildResult : IBufferElementData

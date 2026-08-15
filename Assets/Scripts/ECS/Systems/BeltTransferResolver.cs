@@ -34,6 +34,7 @@ public static class FactoryTransferResolver
         public int OutputIndex;
         public int2 OutputDirection;
         public bool IsReady;
+        public TransportConnectionMode ConnectionMode;
     }
 
     public static void Resolve(
@@ -81,9 +82,11 @@ public static class FactoryTransferResolver
                 CurrentItem = beltStates[i].CurrentItem,
                 Progress = beltStates[i].Progress,
                 TargetIndex = -1,
-                OutputIndex = -1
+                OutputIndex = -1,
+                ConnectionMode = belt.ConnectionMode
             };
-            indexByCell[belt.Cell] = nodeIndex;
+            if (belt.ConnectionMode == TransportConnectionMode.Planar)
+                indexByCell[belt.Cell] = nodeIndex;
         }
 
         for (int i = 0; i < mergerCount; i++, nodeIndex++)
@@ -181,6 +184,8 @@ public static class FactoryTransferResolver
         {
             Node source = nodes[sourceIndex];
             if (source.CurrentItem == Entity.Null ||
+                (source.Kind == NodeKind.Belt &&
+                 source.ConnectionMode == TransportConnectionMode.ExplicitOnly) ||
                 (source.Kind == NodeKind.Belt &&
                  source.Progress < 1f) ||
                 (source.Kind != NodeKind.Belt &&

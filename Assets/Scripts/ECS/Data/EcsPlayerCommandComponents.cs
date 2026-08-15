@@ -125,6 +125,8 @@ public struct GridBuildPlayerCommand : IBufferElementData
     public byte QuarterTurns;
     public byte HorizontalFirst;
     public ushort VisualMaterialId;
+    public int RampStartHeightUnits;
+    public sbyte RampRiseHeightUnits;
 }
 
 public struct GridBuildPlayerResult : IBufferElementData

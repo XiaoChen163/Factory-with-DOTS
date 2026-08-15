@@ -73,7 +73,9 @@ public partial struct PlayerGridCommandAdapterSystem : ISystem
                 EndCell = value.EndCell,
                 QuarterTurns = value.QuarterTurns,
                 HorizontalFirst = value.HorizontalFirst,
-                VisualMaterialId = value.VisualMaterialId
+                VisualMaterialId = value.VisualMaterialId,
+                RampStartHeightUnits = value.RampStartHeightUnits,
+                RampRiseHeightUnits = value.RampRiseHeightUnits
             });
         }
         state.EntityManager.SetComponentData(grid, adapter);

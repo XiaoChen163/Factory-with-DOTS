@@ -277,7 +277,27 @@ public static class FactoryDatabaseCsvImporter
                 ? RequiredKey(configuredIcon, "building icon key")
                 : prefabKey;
             GameObject prefab = ResolvePrefab(prefabs, prefabKey, BuildingPrefabDirectory);
-            ValidateBuildingVisualPrefab(prefab, prefabKey);
+            ValidateBuildingVisualPrefab(prefab, prefabKey, building.kind);
+            sbyte rampRiseHeightUnits = table.TryGet(
+                row,
+                "ramp_rise_height_units",
+                out string configuredRampRise) &&
+                !string.IsNullOrWhiteSpace(configuredRampRise)
+                ? checked((sbyte)ParseInt(
+                    configuredRampRise,
+                    "ramp rise height units"))
+                : (sbyte)0;
+            if (building.kind == BuildingKind.RampFoundation)
+            {
+                if (!RampUtility.IsAllowedRise(rampRiseHeightUnits))
+                    throw new InvalidDataException(
+                        $"Ramp building level '{key}' must use rise 2, 4, or 8 height units.");
+            }
+            else if (rampRiseHeightUnits != 0)
+            {
+                throw new InvalidDataException(
+                    $"Non-ramp building level '{key}' cannot declare a ramp rise.");
+            }
             rows.Add(new FactoryBuildingLevelTableRow
             {
                 id = id,
@@ -292,7 +312,8 @@ public static class FactoryDatabaseCsvImporter
                 icon = hasConfiguredIcon
                     ? ResolveSprite(icons, iconKey, BuildingIconDirectory)
                     : TryResolveSprite(icons, iconKey),
-                menuOrder = ParseInt(table.Get(row, "menu_order"), "menu order")
+                menuOrder = ParseInt(table.Get(row, "menu_order"), "menu order"),
+                rampRiseHeightUnits = rampRiseHeightUnits
             });
         }
         rows.Sort((a, b) => a.menuOrder != b.menuOrder
@@ -579,7 +600,8 @@ public static class FactoryDatabaseCsvImporter
             row.behavior == FactoryBuildingBehavior.Merger && row.kind == BuildingKind.Merger ||
             row.behavior == FactoryBuildingBehavior.Splitter && row.kind == BuildingKind.Splitter;
         behaviorMatchesKind |= row.behavior == FactoryBuildingBehavior.Foundation &&
-                               row.kind == BuildingKind.Foundation;
+                               (row.kind == BuildingKind.Foundation ||
+                                row.kind == BuildingKind.RampFoundation);
         if (!behaviorMatchesKind)
             throw new InvalidDataException(
                 $"Building '{row.key}' behavior '{row.behavior}' does not match kind '{row.kind}'.");
@@ -593,13 +615,17 @@ public static class FactoryDatabaseCsvImporter
             throw new InvalidDataException($"Foundation building '{row.key}' cannot declare ports.");
     }
 
-    private static void ValidateBuildingVisualPrefab(GameObject prefab, string prefabKey)
+    private static void ValidateBuildingVisualPrefab(
+        GameObject prefab,
+        string prefabKey,
+        BuildingKind kind)
     {
         if (prefab.GetComponentInChildren<MeshRenderer>(true) == null)
             throw new InvalidDataException($"Building visual prefab '{prefabKey}' has no MeshRenderer.");
         foreach (Component component in prefab.GetComponentsInChildren<Component>(true))
         {
-            if (component is Transform || component is MeshFilter || component is MeshRenderer)
+            if (component is Transform || component is MeshFilter || component is MeshRenderer ||
+                kind == BuildingKind.RampFoundation && component is MeshCollider)
                 continue;
             throw new InvalidDataException(
                 $"Building visual prefab '{prefabKey}' contains non-rendering component " +

@@ -6,5 +6,6 @@ public enum BuildingKind
     Storage = 4,
     Merger = 5,
     Splitter = 6,
-    Foundation = 7
+    Foundation = 7,
+    RampFoundation = 8
 }

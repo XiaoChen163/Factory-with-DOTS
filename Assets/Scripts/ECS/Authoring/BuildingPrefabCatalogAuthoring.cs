@@ -8,6 +8,7 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
     public FactoryDatabaseAsset database;
     public GameObject inputPortVisualPrefab;
     public GameObject outputPortVisualPrefab;
+    public GameObject rampFoundationVisualPrefab;
 
     private sealed class BuildingPrefabCatalogBaker
         : Baker<BuildingPrefabCatalogAuthoring>
@@ -39,6 +40,8 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             DependsOn(authoring.database);
             DependsOn(authoring.inputPortVisualPrefab);
             DependsOn(authoring.outputPortVisualPrefab);
+            if (authoring.rampFoundationVisualPrefab != null)
+                DependsOn(authoring.rampFoundationVisualPrefab);
             if (!ValidateItemPrefabBindings(authoring))
             {
                 return;
@@ -62,7 +65,9 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                 InputPortVisual = GetPrefabEntity(
                     authoring.inputPortVisualPrefab),
                 OutputPortVisual = GetPrefabEntity(
-                    authoring.outputPortVisualPrefab)
+                    authoring.outputPortVisualPrefab),
+                RampFoundationVisual = GetPrefabEntity(
+                    authoring.rampFoundationVisualPrefab)
             });
 
             DynamicBuffer<BuildingVisualPrefabEntry> buildingPrefabs =

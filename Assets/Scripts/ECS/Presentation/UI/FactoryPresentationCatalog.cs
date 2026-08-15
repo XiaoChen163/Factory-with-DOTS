@@ -64,6 +64,12 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
     {
         if (string.Equals(nameKey, "building.foundation.mk1", StringComparison.Ordinal))
             return "地基";
+        if (string.Equals(nameKey, "building.ramp_foundation_1_1", StringComparison.Ordinal))
+            return "斜面地基 1/1";
+        if (string.Equals(nameKey, "building.ramp_foundation_1_2", StringComparison.Ordinal))
+            return "斜面地基 1/2";
+        if (string.Equals(nameKey, "building.ramp_foundation_1_4", StringComparison.Ordinal))
+            return "斜面地基 1/4";
         string value = string.IsNullOrWhiteSpace(nameKey) ? fallback : nameKey;
         return string.IsNullOrWhiteSpace(value) ? "未命名" : value.Replace('_', ' ');
     }

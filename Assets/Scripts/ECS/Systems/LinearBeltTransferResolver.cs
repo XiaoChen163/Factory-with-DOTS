@@ -72,6 +72,7 @@ internal struct TransportTopologyNode
     public int Output1;
     public int Output2;
     public byte InputCount;
+    public TransportConnectionMode ConnectionMode;
 }
 
 internal struct TransportDynamicNode
@@ -499,7 +500,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
                 FactoryTransportKind.Belt,
                 i,
                 beltTopologies[i].Cell,
-                beltTopologies[i].Direction);
+                beltTopologies[i].Direction,
+                beltTopologies[i].ConnectionMode);
         }
 
         for (int i = 0; i < mergers.Length; i++, nodeIndex++)
@@ -510,7 +512,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
                 FactoryTransportKind.Merger,
                 i,
                 mergers[i].Cell,
-                mergers[i].Direction);
+                mergers[i].Direction,
+                TransportConnectionMode.Planar);
         }
 
         for (int i = 0; i < splitters.Length; i++, nodeIndex++)
@@ -521,7 +524,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
                 FactoryTransportKind.Splitter,
                 i,
                 splitters[i].Cell,
-                splitters[i].Direction);
+                splitters[i].Direction,
+                TransportConnectionMode.Planar);
         }
 
         BuildConnections(explicitEdges);
@@ -549,7 +553,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         FactoryTransportKind kind,
         int sourceIndex,
         GridCell cell,
-        int2 direction)
+        int2 direction,
+        TransportConnectionMode connectionMode)
     {
         topology[nodeIndex] = new TransportTopologyNode
         {
@@ -563,9 +568,11 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             Input2 = -1,
             Output0 = -1,
             Output1 = -1,
-            Output2 = -1
+            Output2 = -1,
+            ConnectionMode = connectionMode
         };
-        indexByCell[cell] = nodeIndex;
+        if (connectionMode == TransportConnectionMode.Planar)
+            indexByCell[cell] = nodeIndex;
         indexByEntity[entity] = nodeIndex;
     }
 
@@ -579,6 +586,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
              targetIndex++)
         {
             TransportTopologyNode target = topology[targetIndex];
+            if (target.ConnectionMode == TransportConnectionMode.ExplicitOnly)
+                continue;
             switch (target.Kind)
             {
                 case FactoryTransportKind.Belt:

@@ -37,6 +37,15 @@ MonoBehaviour:
   - prefabPath: Assets/Prefabs/Buildings/Miner.prefab
     outputPath: Assets/Art/Icons/Buildings/Miner.png
     hash: 2018b0612e27c9b87c109b352beba270
+  - prefabPath: Assets/Prefabs/Buildings/RampFoundation.prefab
+    outputPath: Assets/Art/Icons/Buildings/RampFoundation.png
+    hash: b81560665668e439ced401f40957f344
+  - prefabPath: Assets/Prefabs/Buildings/RampFoundationHalf.prefab
+    outputPath: Assets/Art/Icons/Buildings/RampFoundationHalf.png
+    hash: 2cbcc3816327825d4a4c72ce52936dd8
+  - prefabPath: Assets/Prefabs/Buildings/RampFoundationQuarter.prefab
+    outputPath: Assets/Art/Icons/Buildings/RampFoundationQuarter.png
+    hash: 56321960eec81a21c4c9ccaf75d124e1
   - prefabPath: Assets/Prefabs/Buildings/Splitter.prefab
     outputPath: Assets/Art/Icons/Buildings/Splitter.png
     hash: c32ac01bab18c020edff0ea3bcdaf3b5

@@ -10,6 +10,7 @@ public struct BeltTopology : IComponentData
     public float CellsPerSecond;
     public GridCell Cell;
     public int2 Direction;
+    public TransportConnectionMode ConnectionMode;
 }
 
 /// <summary>
@@ -25,6 +26,9 @@ public struct TransportExplicitEdge : IBufferElementData
     public Entity Target;
     public byte SourceOutputIndex;
     public byte TargetInputIndex;
+    // Zero is reserved for authored/non-ramp connector edges. Ramp topology
+    // refreshes only its own generated entries.
+    public byte Generator;
 }
 
 /// <summary>

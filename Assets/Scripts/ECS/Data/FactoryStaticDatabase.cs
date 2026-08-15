@@ -179,6 +179,7 @@ public struct FactoryBuildingLevelBlob
     public FixedString64Bytes Key;
     public FixedString64Bytes NameKey;
     public FixedString64Bytes VisualPrefabKey;
+    public sbyte RampRiseHeightUnits;
 }
 
 public struct FactoryBeltLevelBlob

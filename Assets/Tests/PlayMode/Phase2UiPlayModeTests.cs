@@ -7,6 +7,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
@@ -566,7 +567,53 @@ namespace Factory.Tests
             Assert.That(beltScale.Value.c0.x,
                 Is.EqualTo(expectedLengthScale).Within(0.001f),
                 "The ramp belt must scale along its travel axis to the slope length.");
+            BeltVisualParts firstVisual = world.EntityManager.GetComponentData<
+                BeltVisualParts>(world.EntityManager.GetComponentData<
+                    BuildingVisualReference>(first.BeltEntity).Value);
+            BeltVisualParts secondVisual = world.EntityManager.GetComponentData<
+                BeltVisualParts>(world.EntityManager.GetComponentData<
+                    BuildingVisualReference>(second.BeltEntity).Value);
+            Assert.That(HasDisableRendering(
+                world.EntityManager, firstVisual.EastEdge), Is.True,
+                "The uphill belt's connected high/output edge must be hidden.");
+            Assert.That(HasDisableRendering(
+                world.EntityManager, secondVisual.WestEdge), Is.True,
+                "The uphill belt's connected low/input edge must be hidden.");
+            Entity firstBelt = first.BeltEntity;
+            interaction.SimulateRemove(first.Connector.Cell, false);
+            for (int i = 0; i < 120 && world.EntityManager.Exists(firstBelt); i++)
+                yield return null;
+            Assert.That(world.EntityManager.Exists(firstBelt), Is.False,
+                "Demolition must remove a ramp belt even though it is absent from planar occupancy.");
+
+            Entity firstFoundation = first.ConnectorEntity;
+            interaction.SimulateRemove(first.Connector.Cell, false);
+            for (int i = 0;
+                 i < 120 && world.EntityManager.Exists(firstFoundation);
+                 i++)
+            {
+                yield return null;
+            }
+            Assert.That(world.EntityManager.Exists(firstFoundation), Is.False,
+                "A second demolition click must remove the exposed ramp foundation.");
             interaction.StopSimulatedHover();
+        }
+
+        private static bool HasDisableRendering(
+            EntityManager manager,
+            Entity entity)
+        {
+            using NativeArray<ComponentType> types =
+                manager.GetComponentTypes(entity, Allocator.Temp);
+            for (int i = 0; i < types.Length; i++)
+            {
+                if (types[i].GetManagedType()?.FullName ==
+                    "Unity.Rendering.DisableRendering")
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         [UnityTest]

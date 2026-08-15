@@ -462,11 +462,14 @@ public partial class GridBuildCommandSystem : SystemBase
         if (buildingChanged)
         {
             IncrementBuildingOccupancyRevision(gridEntity);
-            if (transportChanged)
-            {
-                IncrementTransportTopologyRevision(gridEntity);
-                IncrementTransportVisualRevision(gridEntity);
-            }
+        }
+        if (transportChanged)
+        {
+            IncrementTransportTopologyRevision(gridEntity);
+            IncrementTransportVisualRevision(gridEntity);
+        }
+        if (dirtyCells.Count > 0)
+        {
             if (!EntityManager.HasBuffer<BeltVisualDirtyCell>(
                     gridEntity))
             {
@@ -484,11 +487,6 @@ public partial class GridBuildCommandSystem : SystemBase
                     Value = cell
                 });
             }
-        }
-        else if (transportChanged)
-        {
-            IncrementTransportTopologyRevision(gridEntity);
-            IncrementTransportVisualRevision(gridEntity);
         }
     }
 

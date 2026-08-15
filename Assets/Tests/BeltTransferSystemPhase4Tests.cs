@@ -138,6 +138,43 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void RampVisualCapture_PreservesHorizontalAndVerticalMotion()
+        {
+            Entity item = CreateItemWithVisualState(IronOre);
+            EntityManager.SetComponentData(item, new ItemVisualState
+            {
+                FromPosition = new float3(-0.5f, 0.535f, 0.5f),
+                ToPosition = new float3(0.5f, 0.535f, 0.5f)
+            });
+            Entity belt = CreateBelt(
+                new GridCell(1, 0, 0),
+                East,
+                item,
+                0.5f);
+            EntityManager.AddComponentData(belt, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+
+            SystemHandle capture =
+                TestWorld.GetOrCreateSystem<ItemVisualStateCaptureSystem>();
+            capture.Update(TestWorld.Unmanaged);
+            EntityManager.CompleteAllTrackedJobs();
+
+            ItemVisualState visualState =
+                EntityManager.GetComponentData<ItemVisualState>(item);
+            Assert.That(
+                visualState.FromPosition,
+                Is.EqualTo(new float3(0.5f, 0.535f, 0.5f)));
+            Assert.That(
+                visualState.ToPosition,
+                Is.EqualTo(new float3(1.5f, 0.785f, 0.5f)));
+            Assert.That(visualState.Progress, Is.EqualTo(0.5f));
+        }
+
+        [Test]
         public void PresentationSystem_InterpolatesAlongVisualProgress()
         {
             Entity item = CreateItemWithVisualState(IronOre);

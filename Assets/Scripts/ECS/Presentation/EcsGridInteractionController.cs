@@ -1373,8 +1373,13 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
         beltPathStarted = false;
         rampBeltPathStarted = false;
-        bool removesRampBelt = SelectedKind == BuildingKind.Belt &&
-                               TryGetRamp(world, cell, out _);
+        bool targetIsRamp = TryGetRamp(
+            world,
+            cell,
+            out RampRegistrySystem.Record ramp);
+        bool removesRampBelt = targetIsRamp &&
+                               ramp.BeltEntity != Entity.Null &&
+                               world.EntityManager.Exists(ramp.BeltEntity);
         Enqueue(
             world,
             gridEntity,
@@ -1383,6 +1388,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 RequestId = 0,
                 Type = removesRampBelt
                     ? GridBuildCommandType.RemoveRampBelt
+                    : targetIsRamp
+                        ? GridBuildCommandType.RemoveRampFoundation
                     : removeBeltLine
                     ? GridBuildCommandType.RemoveBeltLine
                     : SelectedKind == BuildingKind.Foundation
@@ -1550,7 +1557,6 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             isInside = foundationPlacement
                 ? cell.Level >= 0
                 : HasSurface(world, grid, cell) ||
-                  SelectedKind == BuildingKind.Belt &&
                   TryGetRamp(world, cell, out _);
             return true;
         }
@@ -1573,7 +1579,6 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     foundationCell.Z)
                 : foundationCell;
             isInside = foundationPlacement || HasSurface(world, grid, cell) ||
-                       SelectedKind == BuildingKind.Belt &&
                        TryGetRamp(world, cell, out _);
             SetSelectedGridLevel(cell.Level);
             return true;
@@ -1603,7 +1608,6 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 hitPoint.z),
             grid);
         isInside = HasSurface(world, grid, cell) ||
-                   SelectedKind == BuildingKind.Belt &&
                    TryGetRamp(world, cell, out _);
         if (foundationPlacement)
         {

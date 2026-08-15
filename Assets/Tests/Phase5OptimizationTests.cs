@@ -229,6 +229,167 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void RampBeltTopologyRefresh_HidesPlanarConnectionEdges()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(1, 0) });
+
+            Entity source = CreateVisualBelt(
+                new int2(0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new int2(1, 0), East, BuildingPortType.Input);
+            EntityManager.AddComponentData(target, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.True);
+        }
+
+        [Test]
+        public void RampBeltTopologyRefresh_AlwaysHidesHighAndLowEdges()
+        {
+            Entity grid = CreateGrid();
+            EntityManager.AddBuffer<BeltVisualDirtyCell>(grid).Add(
+                new BeltVisualDirtyCell { Value = new int2(1, 0) });
+
+            Entity ramp = CreateVisualBelt(
+                new int2(1, 0), East, BuildingPortType.Input);
+            EntityManager.AddComponentData(ramp, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts parts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(ramp).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.EastEdge), Is.True,
+                "A ramp belt's high edge must always be hidden.");
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.WestEdge), Is.True,
+                "A ramp belt's low edge must always be hidden.");
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.NorthEdge), Is.False,
+                "A ramp belt's lateral edges must remain visible.");
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.SouthEdge), Is.False,
+                "A ramp belt's lateral edges must remain visible.");
+        }
+
+        [Test]
+        public void RampBeltTopologyRefresh_UsesBeltTopologyForBothSides()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(1, 0) });
+
+            Entity source = CreateVisualBelt(
+                new int2(0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new int2(1, 0), East, BuildingPortType.Input);
+            EntityManager.AddComponentData(target, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+            EntityManager.RemoveComponent<BuildingPort>(source);
+            EntityManager.RemoveComponent<BuildingPort>(target);
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.True);
+        }
+
+        [Test]
+        public void RampBeltTopologyRefresh_HidesExplicitConnectionEdges()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new int2(1, 0) });
+
+            Entity source = CreateVisualBelt(
+                new int2(0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new int2(1, 0), East, BuildingPortType.Input);
+            BeltTopology sourceTopology =
+                EntityManager.GetComponentData<BeltTopology>(source);
+            sourceTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(source, sourceTopology);
+            BeltTopology targetTopology =
+                EntityManager.GetComponentData<BeltTopology>(target);
+            targetTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(target, targetTopology);
+            EntityManager.AddComponentData(source, new RampBelt());
+            EntityManager.AddComponentData(target, new RampBelt());
+            EntityManager.AddBuffer<TransportExplicitEdge>(grid).Add(
+                new TransportExplicitEdge
+                {
+                    Source = source,
+                    Target = target
+                });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.True);
+        }
+
+        [Test]
         public void RemovingBelt_ReturnsItemToPoolAndHidesRendering()
         {
             BlobAssetReference<FactoryDatabaseBlob> database = default;

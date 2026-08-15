@@ -61,6 +61,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     }
 
     [BurstCompile]
+    [WithNone(typeof(RampBelt))]
     private partial struct CaptureBeltVisualStateJob : IJobEntity
     {
         public WorldGridConfig WorldGrid;

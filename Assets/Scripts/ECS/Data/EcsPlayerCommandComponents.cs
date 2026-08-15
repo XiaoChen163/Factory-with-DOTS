@@ -124,6 +124,7 @@ public struct GridBuildPlayerCommand : IBufferElementData
     public GridCell EndCell;
     public byte QuarterTurns;
     public byte HorizontalFirst;
+    public ushort VisualMaterialId;
 }
 
 public struct GridBuildPlayerResult : IBufferElementData

@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Collections;
 
 public struct BuildingPrefabCatalog : IComponentData
 {
@@ -27,7 +28,9 @@ public enum GridBuildCommandType : byte
     Place,
     Remove,
     PlaceBeltPath,
-    RemoveBeltLine
+    RemoveBeltLine,
+    PlaceFoundation,
+    RemoveFoundation
 }
 
 public struct GridBuildCommand : IBufferElementData
@@ -41,6 +44,7 @@ public struct GridBuildCommand : IBufferElementData
     public GridCell EndCell;
     public byte QuarterTurns;
     public byte HorizontalFirst;
+    public ushort VisualMaterialId;
 }
 
 public enum GridBuildFailureReason : byte
@@ -55,7 +59,11 @@ public enum GridBuildFailureReason : byte
     SplitterDirectionConflict,
     MergerOutputFaceConflict,
     InvalidPath,
-    TargetIsNotBelt
+    TargetIsNotBelt,
+    SurfaceMissing,
+    FoundationAlreadyExists,
+    FoundationUnsupported,
+    FoundationSupportsBuilding
 }
 
 public struct GridBuildResult : IBufferElementData
@@ -132,6 +140,16 @@ public static class BuildingPrefabCatalogUtility
             if (entry.BuildingLevel == buildingLevel)
                 return entry.Prefab;
         }
+        return Entity.Null;
+    }
+
+    public static Entity GetPrefab(
+        in NativeArray<BuildingVisualPrefabEntry> prefabs,
+        BuildingLevelId buildingLevel)
+    {
+        for (int i = 0; i < prefabs.Length; i++)
+            if (prefabs[i].BuildingLevel == buildingLevel)
+                return prefabs[i].Prefab;
         return Entity.Null;
     }
 }

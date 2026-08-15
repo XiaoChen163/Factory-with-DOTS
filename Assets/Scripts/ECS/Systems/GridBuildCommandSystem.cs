@@ -188,13 +188,14 @@ public partial class GridBuildCommandSystem : SystemBase
             EntityManager.GetBuffer<GridBuildResult>(gridEntity);
         results.Clear();
 
+        SurfaceRegistrySystem surfaceRegistry =
+            World.GetExistingSystemManaged<SurfaceRegistrySystem>();
         if (catalogQuery.CalculateEntityCount() != 1)
         {
-            RejectAll(
+            ProcessFoundationOnlyBatch(
+                gridEntity,
                 commands,
-                results,
-                GridBuildFailureReason.MissingPrefab);
-            commands.Clear();
+                surfaceRegistry);
             return;
         }
 
@@ -222,6 +223,8 @@ public partial class GridBuildCommandSystem : SystemBase
         DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs =
             EntityManager.GetBuffer<BuildingVisualPrefabEntry>(
                 catalogQuery.GetSingletonEntity(), true);
+        using NativeArray<BuildingVisualPrefabEntry> visualPrefabSnapshot =
+            visualPrefabs.ToNativeArray(Allocator.Temp);
         BlobAssetReference<FactoryDatabaseBlob> databaseReference =
             catalogQuery.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref databaseReference.Value;
@@ -232,21 +235,48 @@ public partial class GridBuildCommandSystem : SystemBase
 
         EntityCommandBuffer ecb =
             new EntityCommandBuffer(Allocator.Temp);
-        bool gridChanged = false;
+        using NativeArray<GridBuildCommand> commandSnapshot =
+            commands.ToNativeArray(Allocator.Temp);
+        List<GridBuildResult> stagedResults =
+            new List<GridBuildResult>(commandSnapshot.Length);
+        bool buildingChanged = false;
         bool transportChanged = false;
         HashSet<GridCell> dirtyCells = new HashSet<GridCell>();
 
         for (int commandIndex = 0;
-             commandIndex < commands.Length;
+             commandIndex < commandSnapshot.Length;
              commandIndex++)
         {
-            GridBuildCommand command = commands[commandIndex];
+            GridBuildCommand command = commandSnapshot[commandIndex];
             GridBuildFailureReason failureReason;
             bool success;
             int affectedCount = 0;
+            bool changesBuildingOccupancy = true;
 
             switch (command.Type)
             {
+                case GridBuildCommandType.PlaceFoundation:
+                    changesBuildingOccupancy = false;
+                    success = TryPlaceFoundation(
+                        gridEntity,
+                        command,
+                        surfaceRegistry,
+                        out failureReason);
+                    affectedCount = success ? 1 : 0;
+                    break;
+
+                case GridBuildCommandType.RemoveFoundation:
+                    changesBuildingOccupancy = false;
+                    success = TryRemoveFoundation(
+                        gridEntity,
+                        command.StartCell,
+                        surfaceRegistry,
+                        occupancySystem,
+                        placements,
+                        out failureReason);
+                    affectedCount = success ? 1 : 0;
+                    break;
+
                 case GridBuildCommandType.Remove:
                     success = TryRemove(
                         command.StartCell,
@@ -280,7 +310,7 @@ public partial class GridBuildCommandSystem : SystemBase
                         command,
                         grid,
                         catalog,
-                        visualPrefabs,
+                        visualPrefabSnapshot,
                         ref database,
                         placements,
                         dirtyCells,
@@ -297,7 +327,7 @@ public partial class GridBuildCommandSystem : SystemBase
                         command.QuarterTurns,
                         grid,
                         catalog,
-                        visualPrefabs,
+                        visualPrefabSnapshot,
                         ref database,
                         placements,
                         dirtyCells,
@@ -308,8 +338,8 @@ public partial class GridBuildCommandSystem : SystemBase
                     break;
             }
 
-            gridChanged |= success;
-            results.Add(new GridBuildResult
+            buildingChanged |= success && changesBuildingOccupancy;
+            stagedResults.Add(new GridBuildResult
             {
                 RequestId = command.RequestId,
                 Type = command.Type,
@@ -325,12 +355,15 @@ public partial class GridBuildCommandSystem : SystemBase
             });
         }
 
-        commands.Clear();
         ecb.Playback(EntityManager);
         ecb.Dispose();
+        EntityManager.GetBuffer<GridBuildCommand>(gridEntity).Clear();
+        results = EntityManager.GetBuffer<GridBuildResult>(gridEntity);
+        for (int i = 0; i < stagedResults.Count; i++)
+            results.Add(stagedResults[i]);
         EntityManager.SetComponentData(gridEntity, runtimeIdAllocator);
 
-        if (gridChanged)
+        if (buildingChanged)
         {
             IncrementBuildingOccupancyRevision(gridEntity);
             if (transportChanged)
@@ -356,6 +389,138 @@ public partial class GridBuildCommandSystem : SystemBase
                 });
             }
         }
+    }
+
+    private void ProcessFoundationOnlyBatch(
+        Entity gridEntity,
+        DynamicBuffer<GridBuildCommand> commands,
+        SurfaceRegistrySystem registry)
+    {
+        using NativeArray<GridBuildCommand> commandSnapshot =
+            commands.ToNativeArray(Allocator.Temp);
+        List<GridBuildResult> stagedResults =
+            new List<GridBuildResult>(commandSnapshot.Length);
+        GridOccupancyIndexSystem occupancy =
+            World.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+        for (int i = 0; i < commandSnapshot.Length; i++)
+        {
+            GridBuildCommand command = commandSnapshot[i];
+            bool success;
+            GridBuildFailureReason failure;
+            if (command.Type == GridBuildCommandType.PlaceFoundation)
+                success = TryPlaceFoundation(gridEntity, command, registry, out failure);
+            else if (command.Type == GridBuildCommandType.RemoveFoundation && occupancy != null)
+                success = TryRemoveFoundation(
+                    gridEntity, command.StartCell, registry, occupancy, null, out failure);
+            else
+            {
+                success = false;
+                failure = GridBuildFailureReason.MissingPrefab;
+            }
+
+            stagedResults.Add(new GridBuildResult
+            {
+                RequestId = command.RequestId,
+                Type = command.Type,
+                Kind = command.Kind,
+                BuildingLevel = command.BuildingLevel,
+                Cell = command.StartCell,
+                Success = success ? (byte)1 : (byte)0,
+                AffectedCount = success ? 1 : 0,
+                FailureReason = failure
+            });
+        }
+        EntityManager.GetBuffer<GridBuildCommand>(gridEntity).Clear();
+        DynamicBuffer<GridBuildResult> results =
+            EntityManager.GetBuffer<GridBuildResult>(gridEntity);
+        for (int i = 0; i < stagedResults.Count; i++)
+            results.Add(stagedResults[i]);
+    }
+
+    private bool TryPlaceFoundation(
+        Entity grid,
+        in GridBuildCommand command,
+        SurfaceRegistrySystem registry,
+        out GridBuildFailureReason failure)
+    {
+        GridCell cell = command.StartCell;
+        if (registry == null || !registry.IsReady)
+        {
+            failure = GridBuildFailureReason.GridNotReady;
+            return false;
+        }
+        if (cell.Level != 0)
+        {
+            failure = GridBuildFailureReason.FoundationUnsupported;
+            return false;
+        }
+        if (registry.HasFoundationVoxel(cell))
+        {
+            failure = GridBuildFailureReason.FoundationAlreadyExists;
+            return false;
+        }
+
+        bool supported = registry.SurfaceCount == 0;
+        for (int i = 0; !supported && i < CardinalDirections.Length; i++)
+            supported = registry.HasFoundationVoxel(cell + CardinalDirections[i]);
+        if (!supported)
+        {
+            failure = GridBuildFailureReason.FoundationUnsupported;
+            return false;
+        }
+
+        Entity entity = registry.AddFoundation(
+            grid,
+            cell,
+            command.VisualMaterialId,
+            SurfacePermission.All,
+            true);
+        if (entity == Entity.Null)
+        {
+            failure = GridBuildFailureReason.FoundationAlreadyExists;
+            return false;
+        }
+        failure = GridBuildFailureReason.None;
+        return true;
+    }
+
+    private bool TryRemoveFoundation(
+        Entity grid,
+        GridCell cell,
+        SurfaceRegistrySystem registry,
+        GridOccupancyIndexSystem occupancy,
+        BatchPlacementState placements,
+        out GridBuildFailureReason failure)
+    {
+        if (registry == null || !registry.IsReady)
+        {
+            failure = GridBuildFailureReason.GridNotReady;
+            return false;
+        }
+        if (!registry.TryGetFoundation(cell, out Entity foundation))
+        {
+            failure = GridBuildFailureReason.NothingToRemove;
+            return false;
+        }
+        if (occupancy == null || !occupancy.IsReady || occupancy.ConflictCount > 0)
+        {
+            failure = GridBuildFailureReason.GridNotReady;
+            return false;
+        }
+        if (occupancy.TryGetOccupant(cell, out _) ||
+            (placements != null && placements.TryGet(cell, out _)))
+        {
+            failure = GridBuildFailureReason.FoundationSupportsBuilding;
+            return false;
+        }
+        if (!registry.RemoveFoundation(grid, cell, out foundation))
+        {
+            failure = GridBuildFailureReason.NothingToRemove;
+            return false;
+        }
+        if (EntityManager.Exists(foundation)) EntityManager.DestroyEntity(foundation);
+        failure = GridBuildFailureReason.None;
+        return true;
     }
 
     private void BeginDiagnosticBatch()
@@ -432,7 +597,7 @@ public partial class GridBuildCommandSystem : SystemBase
         byte quarterTurns,
         in GridDefinition grid,
         in BuildingPrefabCatalog catalog,
-        in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
+        in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
         BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
@@ -494,7 +659,7 @@ public partial class GridBuildCommandSystem : SystemBase
         in GridBuildCommand command,
         in GridDefinition grid,
         in BuildingPrefabCatalog catalog,
-        in DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs,
+        in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
         BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
@@ -795,7 +960,14 @@ public partial class GridBuildCommandSystem : SystemBase
              i++)
         {
             GridCell cell = candidate.OccupiedCells[i];
-            if (!EcsGridUtility.Contains(grid, cell))
+            SurfaceRegistrySystem registry =
+                World.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            bool hasPermission = registry != null && registry.IsReady
+                ? candidate.Placement.Kind == BuildingKind.Belt
+                    ? registry.AllowsBelts(cell)
+                    : registry.AllowsBuildings(cell)
+                : EcsGridUtility.Contains(grid, cell);
+            if (!hasPermission)
             {
                 failureReason =
                     GridBuildFailureReason.OutsideGrid;

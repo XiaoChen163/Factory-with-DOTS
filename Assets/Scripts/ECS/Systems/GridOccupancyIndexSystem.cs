@@ -163,7 +163,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
                 GridCell cell = EcsGridUtility.GetBuildingCell(
                     placement,
                     offsets[cellIndex].Value);
-                if (!EcsGridUtility.Contains(grid, cell) ||
+                if (!HasBuildableSurface(grid, cell) ||
                     !occupancy.TryAdd(cell, entities[i]))
                 {
                     ConflictCount++;
@@ -238,7 +238,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
                     placement,
                     occupiedCells[cellIndex].Value);
 
-                if (!EcsGridUtility.Contains(grid, cell))
+                if (!HasBuildableSurface(grid, cell))
                 {
                     ConflictCount++;
                     Debug.LogError(
@@ -275,5 +275,14 @@ public partial class GridOccupancyIndexSystem : SystemBase
         lastPlacementCount = -1;
         lastPlacementOrderVersion = -1;
         lastOccupancyRevision = uint.MaxValue;
+    }
+
+    private bool HasBuildableSurface(in GridDefinition grid, GridCell cell)
+    {
+        SurfaceRegistrySystem registry =
+            World.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        return registry != null && registry.IsReady
+            ? registry.HasSurface(cell)
+            : EcsGridUtility.Contains(grid, cell);
     }
 }

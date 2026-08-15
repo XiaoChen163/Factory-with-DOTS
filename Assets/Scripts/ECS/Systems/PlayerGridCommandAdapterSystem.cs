@@ -72,7 +72,8 @@ public partial struct PlayerGridCommandAdapterSystem : ISystem
                 StartCell = value.StartCell,
                 EndCell = value.EndCell,
                 QuarterTurns = value.QuarterTurns,
-                HorizontalFirst = value.HorizontalFirst
+                HorizontalFirst = value.HorizontalFirst,
+                VisualMaterialId = value.VisualMaterialId
             });
         }
         state.EntityManager.SetComponentData(grid, adapter);

@@ -6,6 +6,7 @@
         "Unity.InputSystem",
         "Unity.Entities",
         "Unity.Mathematics",
+        "Unity.Physics",
         "Unity.Collections"
     ],
     "includePlatforms": [],

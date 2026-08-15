@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 100001}
   - component: {fileID: 100002}
   - component: {fileID: 100003}
+  - component: {fileID: 100004}
   m_Layer: 0
   m_Name: ECS Grid Runtime Authoring
   m_TagString: Untagged
@@ -181,6 +182,20 @@ MonoBehaviour:
   database: {fileID: 11400000, guid: b1b2c3d4e5f6478899aabbccddeeff01, type: 2}
   inputPortVisualPrefab: {fileID: 410000, guid: c1b2c3d4e5f6478899aabbccddeeff01, type: 3}
   outputPortVisualPrefab: {fileID: 420000, guid: c1b2c3d4e5f6478899aabbccddeeff02, type: 3}
+--- !u!114 &100004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73bd5ebdf6f5f0c44b97b9e3a72f7102, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FoundationMaterialCatalogAuthoring
+  materials:
+  - {fileID: 2100000, guid: 02d57a575c4f14c4ca4b17ece5b0993b, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -271,6 +271,7 @@ Merger/Splitter round-robin。
 | 1 | 全链路迁移到统一 `GridCell`，旧场景固定 `Level=0` | 无 |
 | 2 | 持久空间索引和 Revision 解耦 | 无，建造尖峰应下降 |
 | 3 | 稀疏区块表面和地基规则，先支持单层非矩形 | 可自由扩展非矩形地基 |
+| 3.5 | 地基接入建筑资源、UI 和统一矩形命令 | 从空白工作平面手动批量铺设地基 |
 | 4 | 多高度平面、实际表面拾取和跨层 UI | 可在多个整数高度层建造 |
 | 5 | 运输拓扑地址升级和显式连接边基础设施 | 平面传送带行为不变 |
 | 6 | 坡度地基及坡道专用传送带槽 | 支持 `1`、`1/2`、`1/4` 坡道 |
@@ -423,6 +424,10 @@ Merger/Splitter round-robin。
 - 相同基线场景的建造操作无新增托管 GC；稳态 Tick 保持无持续 GC。
 
 ## 8. 阶段 3：单层稀疏表面和非矩形地基
+
+完成状态（2026-08-15）：已实现单层稀疏 Surface Registry、统一地基命令、确定性区块
+Mesh/Compound Collider、旧矩形迁移和身份恢复；完整回归与运行时采样见
+[`PerformanceReports/multilevel-stage3-20260815`](../PerformanceReports/multilevel-stage3-20260815/README.md)。
 
 ### 8.1 目标和本阶段固定契约
 
@@ -710,6 +715,214 @@ Mesh 顶点/索引、Greedy 面和 Greedy Box 的纯数据计算应尽量在 Bur
 - Render Mesh 重建耗时、Compound Blob 创建耗时和旧 Blob 释放数；
 - Physics 静态 Body 数、Collider Blob 持久内存和建造操作同步点耗时；
 - 连续放置/拆除时的主线程尖峰、GC Alloc 和 Persistent Native 内存趋势。
+
+## 阶段 3.5：地基接入现有建筑资源、UI 与统一命令系统
+
+### 3.5.1 目标和架构边界
+
+阶段 3 已完成地基的稀疏 Surface、区块 Mesh、Compound Collider 和专用事务逻辑，但地基
+尚未成为现有建筑内容管线中的正式建造项。本阶段把地基接入建筑 CSV、纯表现 Prefab、图标
+烘焙、建造目录、快捷选择和玩家命令入口，并把正式 ECS 场景从预铺 32×32 地面改为玩家
+手动铺设地基。
+
+本阶段采用以下固定分层：
+
+```text
+buildings.csv / building_levels.csv / 纯表现 Foundation Prefab
+                          ↓
+              名称、图标、菜单、材质绑定
+                          ↓
+             统一玩家建造命令与 GridBuildCommand
+                    ├─ Place
+                    ├─ PlaceBeltPath
+                    └─ PlaceFoundationArea
+                          ↓
+          Surface Registry + 区块 Mesh/Compound Collider
+```
+
+地基在资源层和 UI 层兼容普通建筑，在执行层使用同一个 `GridBuildCommand` 中明确的地基
+矩形命令分支。不得把地基伪装成普通 `Place`，也不得创建独立 Foundation Command Buffer、
+Command Bus、结果通道或命令处理系统。
+
+### 3.5.2 接入建筑数据表和纯表现 Prefab
+
+正式增加：
+
+- `BuildingKind.Foundation`；
+- `FactoryBuildingBehavior.Foundation`；
+- `buildings.csv` 中的 `foundation` 建筑类型；
+- `building_levels.csv` 中的 `foundation_mk1` 建造项；
+- `Assets/Prefabs/Buildings/Foundation.prefab` 纯表现 Prefab；
+- 由现有建筑图标烘焙器生成的 Foundation 图标。
+
+Foundation Prefab 继续遵守现有纯表现资源规则，只允许 `Transform`、`MeshFilter` 和
+`MeshRenderer`。标准地基 Prefab 表示 `1 × 1 × 1` 立方体，使用单一视觉材质，不携带逻辑
+Authoring、Collider 或运行时脚本。UI 名称必须显示为“地基”，不得把未解析的
+`building.foundation.mk1` Key 直接显示给玩家。
+
+Prefab 的职责是：
+
+- 作为建筑等级的正式资源绑定；
+- 为建造目录和快捷栏提供自动烘焙图标；
+- 提供该地基等级使用的视觉材质；
+- 必要时作为选中项或预览的美术来源。
+
+Prefab 不作为逐格运行时 Renderer。地基放置成功后仍由阶段 3 的区块网格生成器提取外表面，
+按 `VisualMaterialId` 生成 SubMesh，并由一个区块 Render Entity 提交。不得因为接入建筑表而
+退回“每个地基实例化一个表现 Prefab”的路径。
+
+建筑 Prefab Baker 对 Foundation 等级建立稳定的：
+
+```text
+BuildingLevelId -> VisualMaterialId -> Material
+```
+
+映射。`GridBuildCommandSystem` 从 `BuildingLevelId` 解析地基材质，不能信任 UI 任意填写的
+`VisualMaterialId`。第一版 Foundation Prefab 只允许一个材质；以后增加地基类型或等级时，
+每个等级仍可映射到不同材质 ID。
+
+### 3.5.3 稳定 ID 和无端口建筑规则
+
+当前建筑导入器按 Key 或菜单顺序重新生成 ID，直接插入 Foundation 会改变现有
+`BuildingTypeId`/`BuildingLevelId`。本阶段必须先给 `buildings.csv` 和
+`building_levels.csv` 增加显式稳定 `id` 列，将当前已生成 ID 固化，再为 Foundation 分配新
+且未使用的 ID。导入器必须验证 ID 非零、唯一并保持 Blob 索引可查询；后续新增行不得改变
+已有 ID。
+
+Foundation 没有输入/输出端口、机器类型或行为专属等级统计。数据导入器应允许
+`FactoryBuildingBehavior.Foundation` 使用空 `port_layout_key`，生成 `PortCount = 0`；不得
+为满足旧校验而添加无意义的虚假端口。Foundation 也不得出现在 Belt、Processor 或 Storage
+等级统计表中。
+
+### 3.5.4 统一命令中的地基矩形事务
+
+新增或最终定名为：
+
+```text
+GridBuildCommandType.PlaceFoundationArea
+```
+
+命令复用现有字段和基础设施：
+
+```text
+RequestId
+Player
+BuildingLevel
+StartCell
+EndCell
+```
+
+`StartCell` 和 `EndCell` 定义包含两端的轴对齐 X/Z 矩形；两者相同表示单格地基。阶段 3.5
+仍只接受 `Level = 0`，且起点、终点必须在同一 Level。矩形与传送带路径的区别固定为：
+
+```text
+PlaceBeltPath       -> 起点到终点的两条正交线段
+PlaceFoundationArea -> 起点、终点包围的完整矩形区域
+```
+
+命令必须按“先验证、后提交”的原子事务执行：
+
+1. 解析 `BuildingLevel`，确认它是 Foundation 等级并取得 `VisualMaterialId`；
+2. 计算规范化的 `minX/maxX/minZ/maxZ` 和总格数，检查尺寸与命令批次上限；
+3. 遍历矩形内所有目标格；
+4. 任意目标格已存在地基体素时，以 `FoundationAlreadyExists` 拒绝整个矩形；
+5. 任意目标格不满足世界边界、层级或其他固定规则时，拒绝整个矩形；
+6. 全部验证成功后，在同一事务内创建所有地基玩法实体并登记 Surface Registry；
+7. 合并相同区块的 Revision 和 dirty 请求，避免每格重复入队；
+8. 统一生成一个命令结果，`AffectedCount` 等于成功创建的地基格数；失败时为 0。
+
+不得先放置空格、遇到已有地基后留下部分结果。命令在同一批次中继续遵守现有确定性顺序，
+因此可以正确表达“先拆建筑、再拆地基”或“先铺地基、再建建筑”。
+
+### 3.5.5 空白位置建造和普通建筑解锁
+
+地基是 Surface 的来源，因此它的验证规则与普通建筑相反：
+
+```text
+普通建筑：目标格必须已有允许该类型的 Surface，且 Building Occupancy 为空
+地基地块：目标格必须没有 Foundation Voxel；不要求目标格预先存在 Surface
+```
+
+阶段 3.5 的第一块以及后续地基允许放在 `Level = 0` 明确建造工作平面上的任意整数格，
+不要求与已有地基相邻，也不要求命中旧地板 Collider。地基矩形成功提交并完成 Registry
+登记后，同批次中后续普通建筑命令和后续帧玩家操作必须立刻能够在这些新 Surface 上通过
+放置验证。
+
+普通建筑仍不得建在没有地基的空白格。地基不写入 `BuildingOccupancyIndex`；它使用独立的
+Foundation 所有者索引，所以“地基存在”和“地基顶面承载普通建筑”可以同时成立。
+
+### 3.5.6 建造目录、快捷栏和矩形预览
+
+`FactoryDatabaseBlob.BuildingLevelMenu` 应包含 Foundation 等级，因此现有
+`UiSnapshotExportSystem`、`BuildCatalogView` 和 `FactoryPresentationCatalog` 可以继续通过
+`BuildingLevelId` 显示其名称和图标。地基必须出现在完整建造目录中；快捷栏槽位不足时使用
+明确、可测试的菜单顺序选择前九项，不得因为增加 Foundation 而产生越界或错误图标绑定。
+
+选择 Foundation 后，玩家控制器进入地基矩形模式：
+
+1. 第一次左键记录 `StartCell`；
+2. 鼠标移动时填充显示起点与当前格包围的整个矩形；
+3. 已有地基的任意格使整个预览显示为无效；
+4. 第二次左键提交 `PlaceFoundationArea`；
+5. `Escape` 取消当前矩形起点；
+6. `R` 对轴对齐矩形没有意义，不改变地基预览；
+7. 成功或失败后均通过现有命令结果通道反馈，不直接从 MonoBehaviour 修改 ECS。
+
+地基预览不得复用普通建筑的 `HasSurface()` 前置条件；它应查询
+`!HasFoundationVoxel(cell)`。射线继续使用阶段 3.5 明确的 `Y = 0` 建造工作平面，使玩家在
+完全空白的位置也能得到整数 `GridCell`。阶段 4 再把常规拾取切换为实际多层地基 Collider。
+
+### 3.5.7 正式 ECS 场景和旧矩形迁移
+
+正式 `Ecs` 场景当前包含名为 `Factory Floor` 的 GameObject：单位 Cube、位置
+`(16, -0.5, 16)`、缩放 `(32, 1, 32)`，并带有 `MeshRenderer` 和 `BoxCollider`。本阶段必须
+删除该对象，不允许把它保留为隐藏的视觉地板、碰撞地板或建造支撑。
+
+同时，正式 ECS 场景必须关闭阶段 3 的 `GridDefinition.Size -> 32×32 Surface` 自动兼容
+初始化。进入正式场景后初始 Surface Registry 为空，玩家只能先手动放置地基，再在其上
+建造普通建筑。
+
+阶段 3 的旧矩形初始化能力保留为显式兼容选项，只允许旧存档迁移、专门测试场景或迁移工具
+主动开启；不得再由所有 `GridDefinition` 隐式触发。建议在 Authoring/启动配置中使用明确的
+`InitialSurfaceMode.Empty` 与 `InitialSurfaceMode.LegacyRectangle`，正式 `Ecs` 固定为
+`Empty`。
+
+### 3.5.8 性能场景兼容
+
+现有性能场景在没有地基命令的情况下直接放置 Belt、Processor 和 Storage，关闭隐式矩形后
+会全部失败。性能 Bootstrap 必须在提交普通建筑前，通过相同的
+`PlaceFoundationArea` 命令创建覆盖场景布局的最小矩形或明确的目标 Surface 集合，并等待
+地基结果成功后再提交普通建筑。
+
+性能场景不得绕过 Registry 直接写入位图，也不得重新启用正式场景的隐藏 32×32 地板。
+性能报告应区分地基初始化阶段和稳态采样阶段，避免把一次性 Mesh/Collider 重建计入运输
+稳态指标；另设地基矩形建造场景记录批量事务、区块重建和 Blob 替换尖峰。
+
+### 3.5.9 实施顺序
+
+1. 固化建筑和建筑等级显式 ID，扩展 Foundation Kind/Behavior 和无端口导入规则；
+2. 新增 Foundation 纯表现 Prefab、CSV 行、名称和自动烘焙图标；
+3. 从 Foundation Prefab/Level 建立材质映射，替换独立且不可由建筑表寻址的材质入口；
+4. 实现 `PlaceFoundationArea` 的矩形计算、批次上限、完整预验证和一次性提交；
+5. 接入玩家命令适配、建造目录、快捷栏、两次点击状态和矩形预览；
+6. 删除正式场景 `Factory Floor`，把正式初始 Surface 模式切换为 `Empty`；
+7. 修改性能 Bootstrap，通过正式地基命令先铺设所需 Surface；
+8. 更新 EditMode、PlayMode、场景内容和性能回归后，再进入阶段 4。
+
+### 3.5.10 验收标准
+
+- Foundation 是建筑 CSV 和建筑等级 CSV 中的正式、稳定 ID 条目；
+- Foundation Prefab 只含表现组件，图标由现有建筑图标管线生成；
+- 建造目录正确显示“地基”和对应图标，选中后进入矩形模式；
+- 玩家能在原来没有地基的任意 `Level = 0` 工作平面位置选择起点和终点；
+- `StartCell == EndCell` 成功放置一个地基；不同起终点填满包含边界的矩形；
+- 矩形内任意格已有地基时，命令整体失败且 `AffectedCount == 0`；
+- 成功建造地基后，普通建筑和传送带可在新 Surface 上建造；相邻空白格仍拒绝普通建筑；
+- 地基不产生逐格 Render Entity、GameObject Collider 或独立 `PhysicsCollider`；
+- 正式 `Ecs` 场景不再包含 `(16,-0.5,16)`、缩放 `(32,1,32)` 的 `Factory Floor`；
+- 正式场景启动时 Surface Registry 为空，不隐式生成 32×32 地基；
+- 性能场景通过正式地基命令准备 Surface，并继续达到既有确定性实体计数和稳态门槛；
+- 同一命令系统内的混合批次、矩形原子回滚、UI 名称/图标、空白预览和场景内容均有自动化测试。
 
 ## 9. 阶段 4：多高度平面和实际表面拾取
 

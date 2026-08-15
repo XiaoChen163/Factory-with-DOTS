@@ -206,7 +206,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         for (int i = 0; i < previewCells.Count; i++)
         {
             GridCell cell = previewCells[i];
-            if (!EcsGridUtility.Contains(grid, cell) ||
+            if (!HasSurface(world, grid, cell) ||
                 occupancySystem == null ||
                 occupancySystem.TryGetOccupant(cell, out _))
             {
@@ -769,7 +769,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
-        bool isInside = EcsGridUtility.Contains(grid, cell);
+        bool isInside = HasSurface(world, grid, cell);
         bool isOccupied =
             isInside &&
             occupancySystem != null &&
@@ -982,8 +982,20 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 hitPoint.y,
                 hitPoint.z),
             grid);
-        isInside = EcsGridUtility.Contains(grid, cell);
+        isInside = HasSurface(world, grid, cell);
         return true;
+    }
+
+    private static bool HasSurface(
+        World world,
+        in GridDefinition grid,
+        GridCell cell)
+    {
+        SurfaceRegistrySystem registry =
+            world?.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        return registry != null && registry.IsReady
+            ? registry.HasSurface(cell)
+            : EcsGridUtility.Contains(grid, cell);
     }
 
     private void EnsureSelectedBuildingLevel()

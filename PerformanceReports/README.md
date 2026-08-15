@@ -11,6 +11,7 @@
 - `multilevel-stage0-20260814/`：多层稀疏网格改造阶段 0 行为与性能基线
 - `multilevel-stage1-20260814/`：统一 `GridCell` 三维地址后的正确性与 32×32 性能验收
 - `multilevel-stage2-20260814/`：持久 Occupancy 索引、Revision 解耦和建造扫描验收
+- `multilevel-stage3-20260815/`：单层稀疏表面、区块 Mesh/Collider 与地基事务验收
 - `StressTest/`：按场景和运行时间归档的压力测试结果
 
 ## 常用入口

@@ -42,13 +42,15 @@ public partial class RampTopologyConnectionSystem : SystemBase
         Dictionary<GridCell, Entity> planarBelts =
             new Dictionary<GridCell, Entity>();
         for (int i = 0; i < beltEntities.Length; i++)
-            if (beltTopologies[i].ConnectionMode == TransportConnectionMode.Planar)
+            if (!EntityManager.HasComponent<RampBelt>(beltEntities[i]) &&
+                beltTopologies[i].ConnectionMode == TransportConnectionMode.Planar)
                 planarBelts[beltTopologies[i].Cell] = beltEntities[i];
 
         Dictionary<RampEndpointKey, Entity> rampEntries =
             new Dictionary<RampEndpointKey, Entity>();
-        List<(Entity Entity, RampBelt Belt, RampConnector Connector)> ramps =
-            new List<(Entity, RampBelt, RampConnector)>();
+        List<(Entity Entity, RampBelt Belt, RampConnector Connector,
+            BeltTopology Topology)> ramps =
+            new List<(Entity, RampBelt, RampConnector, BeltTopology)>();
         foreach ((RefRO<RampBelt> beltValue, Entity entity) in
                  SystemAPI.Query<RefRO<RampBelt>>().WithEntityAccess())
         {
@@ -58,14 +60,18 @@ public partial class RampTopologyConnectionSystem : SystemBase
                 continue;
             RampConnector connector =
                 EntityManager.GetComponentData<RampConnector>(belt.Connector);
-            ramps.Add((entity, belt, connector));
+            if (!EntityManager.HasComponent<BeltTopology>(entity))
+                continue;
+            ramps.Add((entity, belt, connector,
+                EntityManager.GetComponentData<BeltTopology>(entity)));
             rampEntries[RampUtility.GetEntryEndpoint(
                 connector, belt.TravelDirection)] = entity;
         }
 
         for (int i = 0; i < ramps.Count; i++)
         {
-            (Entity rampEntity, RampBelt belt, RampConnector connector) = ramps[i];
+            (Entity rampEntity, RampBelt belt, RampConnector connector,
+                BeltTopology topology) = ramps[i];
             int2 direction = belt.TravelDirection;
             bool uphill = math.all(direction == connector.UphillDirection);
             GridHeight entryHeight = uphill
@@ -77,7 +83,8 @@ public partial class RampTopologyConnectionSystem : SystemBase
             GridCell inputCell = connector.Cell - direction;
             GridCell outputCell = connector.Cell + direction;
 
-            if (entryHeight.IsWholeLevel)
+            if (!RampUtility.AllowsPlanarInput(topology.ConnectionMode) &&
+                entryHeight.IsWholeLevel)
             {
                 inputCell.Level = entryHeight.WholeLevel;
                 if (planarBelts.TryGetValue(inputCell, out Entity source) &&
@@ -90,10 +97,15 @@ public partial class RampTopologyConnectionSystem : SystemBase
                 nextRamp != rampEntity)
             {
                 RampBelt next = EntityManager.GetComponentData<RampBelt>(nextRamp);
-                if (math.all(next.TravelDirection == direction))
+                BeltTopology nextTopology =
+                    EntityManager.GetComponentData<BeltTopology>(nextRamp);
+                if (math.all(next.TravelDirection == direction) &&
+                    (!RampUtility.AllowsPlanarOutput(topology.ConnectionMode) ||
+                     !RampUtility.AllowsPlanarInput(nextTopology.ConnectionMode)))
                     AddEdge(edges, rampEntity, nextRamp);
             }
-            else if (exitHeight.IsWholeLevel)
+            else if (!RampUtility.AllowsPlanarOutput(topology.ConnectionMode) &&
+                     exitHeight.IsWholeLevel)
             {
                 outputCell.Level = exitHeight.WholeLevel;
                 if (planarBelts.TryGetValue(outputCell, out Entity target))

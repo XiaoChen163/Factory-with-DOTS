@@ -136,7 +136,10 @@ namespace Factory.Tests
                 EntityManager.AddComponentData(foundation, connector);
                 Entity belt = CreateBelt(new GridCell(i + 1, 0, 0), East);
                 BeltTopology topology = EntityManager.GetComponentData<BeltTopology>(belt);
-                topology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+                topology.ConnectionMode = RampUtility.GetConnectionMode(
+                    connector.Cell,
+                    connector.LowHeight,
+                    connector.HighHeight);
                 EntityManager.SetComponentData(belt, topology);
                 EntityManager.AddComponentData(belt, new RampBelt
                 {
@@ -152,9 +155,9 @@ namespace Factory.Tests
             UpdateSystem(GetOrCreateManagedSystem<RampTopologyConnectionSystem>());
 
             edges = EntityManager.GetBuffer<TransportExplicitEdge>(grid);
-            Assert.That(edges.Length, Is.EqualTo(5));
-            Assert.That(edges[0].Source, Is.EqualTo(source));
-            Assert.That(edges[edges.Length - 1].Target, Is.EqualTo(target));
+            Assert.That(edges.Length, Is.EqualTo(1));
+            Assert.That(edges[0].Source, Is.EqualTo(previous));
+            Assert.That(edges[0].Target, Is.EqualTo(target));
             for (int i = 0; i < edges.Length; i++)
                 Assert.That(edges[i].Generator, Is.EqualTo(1));
         }
@@ -169,6 +172,112 @@ namespace Factory.Tests
                 Is.True);
             Assert.That(RampUtility.IsTravelDirectionAllowed(
                 connector, new int2(0, 1)), Is.False);
+        }
+
+        [Test]
+        public void RampBeltPath_RequiresCompleteCollinearUniformSlope()
+        {
+            RampRegistrySystem registry =
+                GetOrCreateManagedSystem<RampRegistrySystem>();
+            registry.Register(Entity.Null,
+                Connector(new GridCell(0, 0, 0), 0, 2));
+            registry.Register(Entity.Null,
+                Connector(new GridCell(1, 0, 0), 2, 4));
+            registry.Register(Entity.Null,
+                Connector(new GridCell(2, 0, 0), 4, 6));
+            List<RampRegistrySystem.Record> path =
+                new List<RampRegistrySystem.Record>();
+
+            Assert.That(registry.TryBuildBeltPath(
+                new GridCell(0, 0, 0),
+                new GridCell(2, 0, 0),
+                East,
+                path,
+                out GridBuildFailureReason failure), Is.True);
+            Assert.That(failure, Is.EqualTo(GridBuildFailureReason.None));
+            Assert.That(path, Has.Count.EqualTo(3));
+
+            registry.Register(Entity.Null,
+                Connector(new GridCell(10, 0, 0), 0, 2));
+            registry.Register(Entity.Null,
+                Connector(new GridCell(12, 0, 0), 4, 6));
+            Assert.That(registry.TryBuildBeltPath(
+                new GridCell(10, 0, 0),
+                new GridCell(12, 0, 0), East, path, out failure), Is.False);
+            Assert.That(failure,
+                Is.EqualTo(GridBuildFailureReason.RampPathIncomplete));
+
+            registry.Register(Entity.Null,
+                Connector(new GridCell(20, 0, 0), 0, 2));
+            registry.Register(Entity.Null,
+                Connector(new GridCell(21, 0, 0), 2, 6));
+            Assert.That(registry.TryBuildBeltPath(
+                new GridCell(20, 0, 0),
+                new GridCell(21, 0, 0), East, path, out failure), Is.False);
+            Assert.That(failure,
+                Is.EqualTo(GridBuildFailureReason.RampPathSlopeMismatch));
+
+            registry.Register(Entity.Null,
+                Connector(new GridCell(1, 0, 1), 2, 4));
+            Assert.That(registry.TryBuildBeltPath(
+                new GridCell(0, 0, 0),
+                new GridCell(1, 0, 1), East, path, out failure), Is.False);
+            Assert.That(failure,
+                Is.EqualTo(GridBuildFailureReason.RampPathNotCollinear));
+        }
+
+        [Test]
+        public void RampConnectionMode_UsesExplicitEdgeOnlyAtLevelBoundary()
+        {
+            Assert.That(RampUtility.GetConnectionMode(
+                    new GridCell(0, 0, 0),
+                    new GridHeight(0),
+                    new GridHeight(2)),
+                Is.EqualTo(TransportConnectionMode.Planar));
+            Assert.That(RampUtility.GetConnectionMode(
+                    new GridCell(0, 0, 0),
+                    new GridHeight(6),
+                    new GridHeight(8)),
+                Is.EqualTo(TransportConnectionMode.PlanarInputOnly));
+            Assert.That(RampUtility.GetConnectionMode(
+                    new GridCell(0, 0, 0),
+                    new GridHeight(8),
+                    new GridHeight(6)),
+                Is.EqualTo(TransportConnectionMode.PlanarOutputOnly));
+        }
+
+        [Test]
+        public void RampBelt_IsExcludedFromPlanarOccupancyIndex()
+        {
+            Entity grid = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(grid, new GridDefinition
+            {
+                Size = new int2(4, 4),
+                CellSize = 1f,
+                Revision = 1
+            });
+            Entity rampBelt = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(rampBelt, new GridPlacement
+            {
+                AnchorCell = new GridCell(20, 9, 9),
+                FootprintSize = new int2(1, 1),
+                Kind = BuildingKind.Belt
+            });
+            EntityManager.AddBuffer<OccupiedCellOffset>(rampBelt).Add(
+                new OccupiedCellOffset { Value = int2.zero });
+            EntityManager.AddComponentData(rampBelt, new RampBelt());
+            EntityManager.AddComponent<PendingOccupancyAdd>(rampBelt);
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+
+            Assert.That(occupancy.IsReady, Is.True);
+            Assert.That(occupancy.ConflictCount, Is.Zero);
+            Assert.That(occupancy.OccupiedCellCount, Is.Zero);
+            Assert.That(EntityManager.HasComponent<PendingOccupancyAdd>(rampBelt),
+                Is.True,
+                "Ramp belts must not enter the planar pending-add channel.");
         }
 
         private static RampConnector Connector(

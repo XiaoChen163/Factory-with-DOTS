@@ -36,7 +36,8 @@ public enum GridBuildCommandType : byte
     PlaceRampFoundation,
     RemoveRampFoundation,
     PlaceRampBelt,
-    RemoveRampBelt
+    RemoveRampBelt,
+    PlaceRampBeltPath
 }
 
 public struct GridBuildCommand : IBufferElementData
@@ -81,7 +82,11 @@ public enum GridBuildFailureReason : byte
     RampOccupied,
     RampMissing,
     RampHasBelt,
-    RampDirectionInvalid
+    RampDirectionInvalid,
+    RampPathMustStayOnRamp,
+    RampPathNotCollinear,
+    RampPathIncomplete,
+    RampPathSlopeMismatch
 }
 
 public struct GridBuildResult : IBufferElementData

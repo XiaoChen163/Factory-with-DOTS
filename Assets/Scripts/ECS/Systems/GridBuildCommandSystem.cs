@@ -290,6 +290,7 @@ public partial class GridBuildCommandSystem : SystemBase
                     break;
 
                 case GridBuildCommandType.PlaceRampBelt:
+                    changesBuildingOccupancy = false;
                     success = TryPlaceRampBelt(
                         command,
                         grid,
@@ -298,7 +299,6 @@ public partial class GridBuildCommandSystem : SystemBase
                         visualPrefabSnapshot,
                         ref database,
                         rampRegistry,
-                        placements,
                         dirtyCells,
                         ref transportChanged,
                         ref ecb,
@@ -306,15 +306,31 @@ public partial class GridBuildCommandSystem : SystemBase
                     affectedCount = success ? 1 : 0;
                     break;
 
+                case GridBuildCommandType.PlaceRampBeltPath:
+                    changesBuildingOccupancy = false;
+                    success = TryPlaceRampBeltPath(
+                        command,
+                        grid,
+                        worldGrid,
+                        catalog,
+                        visualPrefabSnapshot,
+                        ref database,
+                        rampRegistry,
+                        dirtyCells,
+                        ref transportChanged,
+                        ref ecb,
+                        out affectedCount,
+                        out failureReason);
+                    break;
+
                 case GridBuildCommandType.RemoveRampBelt:
+                    changesBuildingOccupancy = false;
                     success = TryRemoveRampBelt(
                         command.StartCell,
                         GetPlayer(command.Player, players),
                         ref database,
                         rampRegistry,
-                        placements,
                         dirtyCells,
-                        occupancySystem,
                         ref transportChanged,
                         ref ecb,
                         out failureReason);
@@ -425,8 +441,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 Type = command.Type,
                 Kind = command.Kind,
                 BuildingLevel = command.BuildingLevel,
-                Cell = command.Type ==
-                       GridBuildCommandType.PlaceBeltPath
+                Cell = command.Type == GridBuildCommandType.PlaceBeltPath ||
+                       command.Type == GridBuildCommandType.PlaceRampBeltPath
                     ? command.EndCell
                     : command.StartCell,
                 Success = success ? (byte)1 : (byte)0,
@@ -904,7 +920,6 @@ public partial class GridBuildCommandSystem : SystemBase
         in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
         RampRegistrySystem rampRegistry,
-        BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
         ref bool transportChanged,
         ref EntityCommandBuffer ecb,
@@ -916,7 +931,7 @@ public partial class GridBuildCommandSystem : SystemBase
             failure = GridBuildFailureReason.RampMissing;
             return false;
         }
-        if (record.BeltEntity != Entity.Null || placements.TryGet(command.StartCell, out _))
+        if (record.BeltEntity != Entity.Null)
         {
             failure = GridBuildFailureReason.RampOccupied;
             return false;
@@ -951,12 +966,11 @@ public partial class GridBuildCommandSystem : SystemBase
             Kind = BuildingKind.Belt
         };
         PlacementRecord candidate = CreateRecordFromDefinition(building, placement, ref database);
-        placements.Add(candidate);
         Entity prefab = BuildingPrefabCatalogUtility.GetPrefab(
             visualPrefabs, command.BuildingLevel);
         Entity instance = Instantiate(
             prefab, building, level, placement, grid, worldGrid,
-            catalog, ref database, ref ecb);
+            catalog, ref database, ref ecb, false);
         bool uphill = math.all(travel == record.Connector.UphillDirection);
         GridHeight entry = uphill ? record.Connector.LowHeight : record.Connector.HighHeight;
         GridHeight exit = uphill ? record.Connector.HighHeight : record.Connector.LowHeight;
@@ -972,7 +986,8 @@ public partial class GridBuildCommandSystem : SystemBase
             CellsPerSecond = beltStats.CellsPerSecond,
             Cell = command.StartCell,
             Direction = travel,
-            ConnectionMode = TransportConnectionMode.ExplicitOnly
+            ConnectionMode = RampUtility.GetConnectionMode(
+                command.StartCell, entry, exit)
         });
 
         float3 center = RampUtility.GetSurfaceCenter(record.Connector, worldGrid);
@@ -1002,14 +1017,102 @@ public partial class GridBuildCommandSystem : SystemBase
         return true;
     }
 
+    private bool TryPlaceRampBeltPath(
+        in GridBuildCommand command,
+        in GridDefinition grid,
+        in WorldGridConfig worldGrid,
+        in BuildingPrefabCatalog catalog,
+        in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
+        ref FactoryDatabaseBlob database,
+        RampRegistrySystem rampRegistry,
+        HashSet<GridCell> dirtyCells,
+        ref bool transportChanged,
+        ref EntityCommandBuffer ecb,
+        out int affectedCount,
+        out GridBuildFailureReason failure)
+    {
+        affectedCount = 0;
+        if (rampRegistry == null)
+        {
+            failure = GridBuildFailureReason.RampPathMustStayOnRamp;
+            return false;
+        }
+
+        int2 direction = EcsGridUtility.Rotate(
+            new int2(1, 0), command.QuarterTurns);
+        List<RampRegistrySystem.Record> path =
+            new List<RampRegistrySystem.Record>();
+        if (!rampRegistry.TryBuildBeltPath(
+                command.StartCell,
+                command.EndCell,
+                direction,
+                path,
+                out failure))
+        {
+            return false;
+        }
+        for (int i = 0; i < path.Count; i++)
+        {
+            if (path[i].BeltEntity != Entity.Null)
+            {
+                failure = GridBuildFailureReason.RampOccupied;
+                return false;
+            }
+        }
+
+        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+                ref database,
+                command.BuildingLevel,
+                out _,
+                out FactoryBuildingBlob building) ||
+            building.Kind != BuildingKind.Belt ||
+            !FactoryDatabaseUtility.TryGetBeltLevel(
+                ref database,
+                command.BuildingLevel,
+                out _) ||
+            !IsValidVisualPrefab(BuildingPrefabCatalogUtility.GetPrefab(
+                visualPrefabs,
+                command.BuildingLevel)))
+        {
+            failure = GridBuildFailureReason.MissingPrefab;
+            return false;
+        }
+
+        for (int i = 0; i < path.Count; i++)
+        {
+            GridBuildCommand segment = command;
+            segment.Type = GridBuildCommandType.PlaceRampBelt;
+            segment.StartCell = path[i].Connector.Cell;
+            segment.EndCell = segment.StartCell;
+            if (!TryPlaceRampBelt(
+                    segment,
+                    grid,
+                    worldGrid,
+                    catalog,
+                    visualPrefabs,
+                    ref database,
+                    rampRegistry,
+                    dirtyCells,
+                    ref transportChanged,
+                    ref ecb,
+                    out failure))
+            {
+                affectedCount = 0;
+                return false;
+            }
+        }
+
+        affectedCount = path.Count;
+        failure = GridBuildFailureReason.None;
+        return true;
+    }
+
     private bool TryRemoveRampBelt(
         GridCell cell,
         Entity player,
         ref FactoryDatabaseBlob database,
         RampRegistrySystem rampRegistry,
-        BatchPlacementState placements,
         HashSet<GridCell> dirtyCells,
-        GridOccupancyIndexSystem occupancySystem,
         ref bool transportChanged,
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failure)
@@ -1029,8 +1132,6 @@ public partial class GridBuildCommandSystem : SystemBase
             placement,
             EntityManager.GetBuffer<OccupiedCellOffset>(belt, true),
             EntityManager.GetBuffer<BuildingPort>(belt, true));
-        placements.Remove(record);
-        RemoveOccupancy(record, occupancySystem);
         MarkCellsDirty(record.OccupiedCells, dirtyCells);
         RecoverOwnedItems(belt, player, ref database, ref ecb);
         ecb.DestroyEntity(belt);
@@ -1705,10 +1806,12 @@ public partial class GridBuildCommandSystem : SystemBase
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         ref FactoryDatabaseBlob database,
-        ref EntityCommandBuffer ecb)
+        ref EntityCommandBuffer ecb,
+        bool registerPlanarOccupancy = true)
     {
         Entity instance = ecb.CreateEntity();
-        ecb.AddComponent(instance, new PendingOccupancyAdd());
+        if (registerPlanarOccupancy)
+            ecb.AddComponent(instance, new PendingOccupancyAdd());
         ecb.AddComponent(instance, placement);
         ecb.AddComponent(instance, new BuildingIdentity
         {

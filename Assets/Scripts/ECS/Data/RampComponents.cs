@@ -55,7 +55,9 @@ public struct RampBelt : IComponentData
 public enum TransportConnectionMode : byte
 {
     Planar,
-    ExplicitOnly
+    ExplicitOnly,
+    PlanarInputOnly,
+    PlanarOutputOnly
 }
 
 public readonly struct RampEndpointKey : IEquatable<RampEndpointKey>
@@ -115,6 +117,33 @@ public static class RampUtility
         return math.all(direction == ramp.UphillDirection) ||
                math.all(direction == -ramp.UphillDirection);
     }
+
+    public static int GetLevelAtHeight(GridHeight height) =>
+        SurfaceChunkUtility.FloorDiv(height.Units, GridHeight.UnitsPerLayer);
+
+    public static TransportConnectionMode GetConnectionMode(
+        GridCell cell,
+        GridHeight entryHeight,
+        GridHeight exitHeight)
+    {
+        int entryLevel = GetLevelAtHeight(entryHeight);
+        int exitLevel = GetLevelAtHeight(exitHeight);
+        if (entryLevel == exitLevel)
+            return TransportConnectionMode.Planar;
+        if (cell.Level == entryLevel)
+            return TransportConnectionMode.PlanarInputOnly;
+        if (cell.Level == exitLevel)
+            return TransportConnectionMode.PlanarOutputOnly;
+        return TransportConnectionMode.ExplicitOnly;
+    }
+
+    public static bool AllowsPlanarInput(TransportConnectionMode mode) =>
+        mode == TransportConnectionMode.Planar ||
+        mode == TransportConnectionMode.PlanarInputOnly;
+
+    public static bool AllowsPlanarOutput(TransportConnectionMode mode) =>
+        mode == TransportConnectionMode.Planar ||
+        mode == TransportConnectionMode.PlanarOutputOnly;
 
     public static RampEndpointKey GetLowEndpoint(in RampConnector ramp) =>
         GetEndpoint(ramp.Cell, -ramp.UphillDirection, ramp.LowHeight);

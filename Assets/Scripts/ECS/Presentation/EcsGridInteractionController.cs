@@ -27,6 +27,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         new List<int2>(64);
     private readonly List<int> previewRampStartHeightUnits =
         new List<int>(64);
+    private readonly List<RampRegistrySystem.Record> previewRampBeltPath =
+        new List<RampRegistrySystem.Record>(64);
     private readonly List<GridCell> previewPortCells =
         new List<GridCell>(8);
     private readonly List<int2> previewPortDirections =
@@ -48,10 +50,12 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private PlayerCommandBus commandBus;
     private byte quarterTurns;
     private bool beltPathStarted;
+    private bool rampBeltPathStarted;
     private bool foundationAreaStarted;
     private bool rampLineStarted;
     private bool horizontalFirst = true;
     private GridCell beltPathStart;
+    private GridCell rampBeltPathStart;
     private GridCell foundationAreaStart;
     private GridCell rampLineStart;
     private bool simulatedHoverActive;
@@ -71,6 +75,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         BuildingKind.Belt;
     public BuildingLevelId SelectedBuildingLevel { get; private set; }
     public bool IsBeltPathStarted => beltPathStarted;
+    public bool IsRampBeltPathStarted => rampBeltPathStarted;
     public bool IsFoundationAreaStarted => foundationAreaStarted;
     public bool IsRampLineStarted => rampLineStarted;
     public bool UsesHorizontalFirst => horizontalFirst;
@@ -295,13 +300,12 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             else if (SelectedKind == BuildingKind.Belt &&
                      TryGetRamp(world, cell, out RampRegistrySystem.Record ramp))
             {
-                int2 travel = EcsGridUtility.Rotate(
-                    new int2(1, 0), quarterTurns);
+                int2 travel = i < previewDisplayDirections.Count
+                    ? previewDisplayDirections[i]
+                    : EcsGridUtility.Rotate(new int2(1, 0), quarterTurns);
                 if (ramp.BeltEntity != Entity.Null ||
                     !RampUtility.IsTravelDirectionAllowed(
-                        ramp.Connector, travel) ||
-                    occupancySystem == null ||
-                    occupancySystem.TryGetOccupant(cell, out _))
+                        ramp.Connector, travel))
                 {
                     canPlace = false;
                 }
@@ -359,6 +363,28 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 previewCells,
                 previewDisplayDirections,
                 previewRampStartHeightUnits);
+            return;
+        }
+        if (SelectedKind == BuildingKind.Belt && rampBeltPathStarted)
+        {
+            if (!TryResolveRampPathDirection(
+                    rampBeltPathStart, hoveredCell, out int2 direction) ||
+                cachedWorld == null || !cachedWorld.IsCreated)
+                return;
+            RampRegistrySystem registry = cachedWorld
+                .GetExistingSystemManaged<RampRegistrySystem>();
+            if (registry == null || !registry.TryBuildBeltPath(
+                    rampBeltPathStart,
+                    hoveredCell,
+                    direction,
+                    previewRampBeltPath,
+                    out _))
+                return;
+            for (int i = 0; i < previewRampBeltPath.Count; i++)
+            {
+                previewCells.Add(previewRampBeltPath[i].Connector.Cell);
+                previewDisplayDirections.Add(direction);
+            }
             return;
         }
         if (SelectedKind == BuildingKind.Belt &&
@@ -1180,37 +1206,78 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
         if (SelectedKind == BuildingKind.Belt)
         {
-            if (TryGetRamp(
-                    world,
-                    cell,
-                    out RampRegistrySystem.Record ramp))
+            bool targetIsRamp = TryGetRamp(
+                world, cell, out RampRegistrySystem.Record ramp);
+            if (beltPathStarted && targetIsRamp)
             {
                 beltPathStarted = false;
-                int2 travel = EcsGridUtility.Rotate(
-                    new int2(1, 0), quarterTurns);
-                if (ramp.BeltEntity != Entity.Null ||
-                    !RampUtility.IsTravelDirectionAllowed(
-                        ramp.Connector, travel))
+                Debug.LogWarning(
+                    "[ECS Grid Build] A belt path cannot mix planar and " +
+                    "ramp cells.");
+                return;
+            }
+            if (rampBeltPathStarted)
+            {
+                if (!targetIsRamp)
                 {
                     Debug.LogWarning(
-                        "[ECS Grid Build] A ramp belt must be straight and " +
-                        "parallel to the ramp slope.");
+                        "[ECS Grid Build] A belt path cannot mix ramp and " +
+                        "planar cells.");
+                    rampBeltPathStarted = false;
                     return;
                 }
-
+                if (!TryResolveRampPathDirection(
+                        rampBeltPathStart, cell, out int2 direction))
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Build] Ramp belt endpoints must be " +
+                        "axis-aligned.");
+                    rampBeltPathStarted = false;
+                    return;
+                }
+                RampRegistrySystem registry = world
+                    .GetExistingSystemManaged<RampRegistrySystem>();
+                GridBuildFailureReason failure =
+                    GridBuildFailureReason.RampPathMustStayOnRamp;
+                if (registry == null || !registry.TryBuildBeltPath(
+                        rampBeltPathStart,
+                        cell,
+                        direction,
+                        previewRampBeltPath,
+                        out failure))
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Build] Invalid ramp belt path: " + failure + ".");
+                    rampBeltPathStarted = false;
+                    return;
+                }
                 Enqueue(
                     world,
                     gridEntity,
                     new GridBuildCommand
                     {
-                        Type = GridBuildCommandType.PlaceRampBelt,
+                        Type = GridBuildCommandType.PlaceRampBeltPath,
                         Kind = BuildingKind.Belt,
                         BuildingLevel = SelectedBuildingLevel,
-                        StartCell = cell,
+                        StartCell = rampBeltPathStart,
                         EndCell = cell,
                         QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(
-                            travel)
+                            direction)
                     });
+                rampBeltPathStarted = false;
+                return;
+            }
+            if (targetIsRamp)
+            {
+                if (ramp.BeltEntity != Entity.Null)
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Build] The ramp already has a belt.");
+                    return;
+                }
+                rampBeltPathStart = cell;
+                rampBeltPathStarted = true;
+                beltPathStarted = false;
                 return;
             }
 
@@ -1305,13 +1372,18 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         }
 
         beltPathStarted = false;
+        rampBeltPathStarted = false;
+        bool removesRampBelt = SelectedKind == BuildingKind.Belt &&
+                               TryGetRamp(world, cell, out _);
         Enqueue(
             world,
             gridEntity,
             new GridBuildCommand
             {
                 RequestId = 0,
-                Type = removeBeltLine
+                Type = removesRampBelt
+                    ? GridBuildCommandType.RemoveRampBelt
+                    : removeBeltLine
                     ? GridBuildCommandType.RemoveBeltLine
                     : SelectedKind == BuildingKind.Foundation
                         ? GridBuildCommandType.RemoveFoundation
@@ -1348,13 +1420,40 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     public void CancelBeltPath()
     {
         beltPathStarted = false;
+        rampBeltPathStarted = false;
     }
 
     public void CancelPlacementGesture()
     {
         beltPathStarted = false;
+        rampBeltPathStarted = false;
         foundationAreaStarted = false;
         rampLineStarted = false;
+    }
+
+    private bool TryResolveRampPathDirection(
+        GridCell start,
+        GridCell end,
+        out int2 direction)
+    {
+        int2 delta = end.Horizontal - start.Horizontal;
+        if (delta.x == 0 && delta.y == 0)
+        {
+            direction = EcsGridUtility.Rotate(new int2(1, 0), quarterTurns);
+            return true;
+        }
+        if (delta.x != 0 && delta.y == 0)
+        {
+            direction = new int2(delta.x > 0 ? 1 : -1, 0);
+            return true;
+        }
+        if (delta.y != 0 && delta.x == 0)
+        {
+            direction = new int2(0, delta.y > 0 ? 1 : -1);
+            return true;
+        }
+        direction = default;
+        return false;
     }
 
     private bool IsSurfacePlacementKind() =>

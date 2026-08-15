@@ -571,7 +571,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             Output2 = -1,
             ConnectionMode = connectionMode
         };
-        if (connectionMode == TransportConnectionMode.Planar)
+        if (connectionMode != TransportConnectionMode.ExplicitOnly)
             indexByCell[cell] = nodeIndex;
         indexByEntity[entity] = nodeIndex;
     }
@@ -586,7 +586,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
              targetIndex++)
         {
             TransportTopologyNode target = topology[targetIndex];
-            if (target.ConnectionMode == TransportConnectionMode.ExplicitOnly)
+            if (!RampUtility.AllowsPlanarInput(target.ConnectionMode))
                 continue;
             switch (target.Kind)
             {
@@ -809,6 +809,12 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         int2 travelDirection,
         out int outputIndex)
     {
+        if (source.Kind == FactoryTransportKind.Belt &&
+            !RampUtility.AllowsPlanarOutput(source.ConnectionMode))
+        {
+            outputIndex = -1;
+            return false;
+        }
         if (source.Kind != FactoryTransportKind.Splitter)
         {
             outputIndex = 0;

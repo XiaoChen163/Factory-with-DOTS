@@ -85,7 +85,7 @@ public static class FactoryTransferResolver
                 OutputIndex = -1,
                 ConnectionMode = belt.ConnectionMode
             };
-            if (belt.ConnectionMode == TransportConnectionMode.Planar)
+            if (belt.ConnectionMode != TransportConnectionMode.ExplicitOnly)
                 indexByCell[belt.Cell] = nodeIndex;
         }
 
@@ -319,6 +319,11 @@ public static class FactoryTransferResolver
         Node[] nodes,
         Dictionary<GridCell, int> indexByCell)
     {
+        if (target.Kind == NodeKind.Belt &&
+            !RampUtility.AllowsPlanarInput(target.ConnectionMode))
+        {
+            return false;
+        }
         if (sourceCell + travelDirection != target.Cell)
         {
             return false;
@@ -395,6 +400,11 @@ public static class FactoryTransferResolver
         }
 
         Node source = nodes[sourceIndex];
+        if (source.Kind == NodeKind.Belt &&
+            !RampUtility.AllowsPlanarOutput(source.ConnectionMode))
+        {
+            return false;
+        }
         if (source.Kind == NodeKind.Splitter)
         {
             for (int i = 0; i < 3; i++)

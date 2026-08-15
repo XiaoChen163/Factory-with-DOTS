@@ -520,16 +520,33 @@ namespace Factory.Tests
             interaction.SimulateHover(first.Connector.Cell);
             yield return null;
             interaction.SimulatePrimaryClick(first.Connector.Cell);
+            Assert.That(interaction.IsRampBeltPathStarted, Is.True);
+            interaction.SimulateHover(third.Connector.Cell);
+            yield return null;
+            interaction.SimulatePrimaryClick(third.Connector.Cell);
             for (int i = 0; i < 120; i++)
             {
                 yield return null;
                 if (ramps.TryGet(first.Connector.Cell, out first) &&
+                    ramps.TryGet(second.Connector.Cell, out second) &&
+                    ramps.TryGet(third.Connector.Cell, out third) &&
                     first.BeltEntity != Entity.Null &&
-                    world.EntityManager.Exists(first.BeltEntity))
+                    second.BeltEntity != Entity.Null &&
+                    third.BeltEntity != Entity.Null &&
+                    world.EntityManager.Exists(first.BeltEntity) &&
+                    world.EntityManager.Exists(second.BeltEntity) &&
+                    world.EntityManager.Exists(third.BeltEntity))
                     break;
             }
 
+            Assert.That(interaction.IsRampBeltPathStarted, Is.False);
             Assert.That(first.BeltEntity, Is.Not.EqualTo(Entity.Null));
+            Assert.That(second.BeltEntity, Is.Not.EqualTo(Entity.Null));
+            Assert.That(third.BeltEntity, Is.Not.EqualTo(Entity.Null));
+            GridOccupancyIndexSystem occupancy = world
+                .GetExistingSystemManaged<GridOccupancyIndexSystem>();
+            Assert.That(occupancy.ConflictCount, Is.Zero,
+                "Ramp belts must not poison the planar occupancy index.");
             Assert.That(world.EntityManager.HasComponent<RampBelt>(first.BeltEntity),
                 Is.True);
             RampBelt rampBelt = world.EntityManager.GetComponentData<RampBelt>(

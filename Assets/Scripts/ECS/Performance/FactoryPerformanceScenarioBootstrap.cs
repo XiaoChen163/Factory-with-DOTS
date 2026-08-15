@@ -680,6 +680,15 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
         LocalTransform prefabTransform =
             entityManager.GetComponentData<LocalTransform>(itemPrefab);
+        using EntityQuery worldGridQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<WorldGridConfig>());
+        WorldGridConfig worldGrid = worldGridQuery.CalculateEntityCount() == 1
+            ? worldGridQuery.GetSingleton<WorldGridConfig>()
+            : new WorldGridConfig
+            {
+                CellSize = EcsGridUtility.DefaultCellSize,
+                LayerHeight = EcsGridUtility.DefaultLayerHeight
+            };
         for (int i = 0; i < definition.InitialItemCells.Length; i++)
         {
             GridCell cell = definition.InitialItemCells[i];
@@ -697,10 +706,10 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             }
 
             Entity item = ecb.Instantiate(itemPrefab);
-            float3 position = new float3(
-                cell.X + 0.5f,
-                0.535f,
-                cell.Z + 0.5f);
+            float3 position = EcsGridUtility.CellToWorldCenter(
+                cell,
+                worldGrid);
+            position.y += 0.535f;
             ecb.SetComponent(item, new Item
             {
                 ItemType = itemType

@@ -141,6 +141,28 @@ public struct WorldGridConfig : IComponentData
     public float3 Origin;
 }
 
+public enum GridLayerPickingMode : byte
+{
+    FirstHit,
+    SelectedLevel
+}
+
+public enum GridLayerVisibilityMode : byte
+{
+    All,
+    SelectedAndBelow,
+    SelectedOnly
+}
+
+public struct GridLayerViewState : IComponentData
+{
+    public int SelectedLevel;
+    public GridLayerPickingMode PickingMode;
+    public GridLayerVisibilityMode VisibilityMode;
+    public byte VisibleLevelRadius;
+    public uint Revision;
+}
+
 public readonly struct BeltPathCell
 {
     public BeltPathCell(GridCell cell, int2 direction)
@@ -293,9 +315,7 @@ public static class EcsGridUtility
         in WorldGridConfig grid)
     {
         float cellSize = math.max(math.EPSILON, grid.CellSize);
-        float layerHeight = math.max(math.EPSILON, grid.LayerHeight);
-        int level = (int)math.round(
-            (worldPosition.y - grid.Origin.y) / layerHeight);
+        int level = WorldYToLevel(worldPosition.y, grid);
         return WorldToCell(worldPosition, grid.Origin, cellSize, level);
     }
 
@@ -303,12 +323,39 @@ public static class EcsGridUtility
         GridCell cell,
         in WorldGridConfig grid)
     {
-        float layerHeight = math.max(math.EPSILON, grid.LayerHeight);
         return CellToWorldCenter(
             cell,
-            grid.Origin.y + cell.Level * layerHeight,
+            LevelToWorldY(cell.Level, grid),
             grid.Origin,
             grid.CellSize);
+    }
+
+    public static float LevelToWorldY(
+        int level,
+        in WorldGridConfig grid) =>
+        grid.Origin.y + level * math.max(math.EPSILON, grid.LayerHeight);
+
+    public static int WorldYToLevel(
+        float worldY,
+        in WorldGridConfig grid) =>
+        (int)math.round(
+            (worldY - grid.Origin.y) /
+            math.max(math.EPSILON, grid.LayerHeight));
+
+    public static bool IsLevelVisible(
+        int level,
+        in GridLayerViewState state)
+    {
+        switch (state.VisibilityMode)
+        {
+            case GridLayerVisibilityMode.SelectedOnly:
+                return level == state.SelectedLevel;
+            case GridLayerVisibilityMode.SelectedAndBelow:
+                return level <= state.SelectedLevel &&
+                       level >= state.SelectedLevel - state.VisibleLevelRadius;
+            default:
+                return true;
+        }
     }
 
     public static GridCell GetBuildingCell(

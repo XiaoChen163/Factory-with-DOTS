@@ -219,6 +219,7 @@ public partial class GridBuildCommandSystem : SystemBase
         GridDefinition grid =
             EntityManager.GetComponentData<GridDefinition>(
                 gridEntity);
+        WorldGridConfig worldGrid = GetWorldGridConfig(gridEntity, grid);
         BuildingPrefabCatalog catalog =
             catalogQuery.GetSingleton<BuildingPrefabCatalog>();
         DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs =
@@ -329,6 +330,7 @@ public partial class GridBuildCommandSystem : SystemBase
                     success = TryPlaceBeltPath(
                         command,
                         grid,
+                        worldGrid,
                         catalog,
                         visualPrefabSnapshot,
                         ref database,
@@ -346,6 +348,7 @@ public partial class GridBuildCommandSystem : SystemBase
                         command.StartCell,
                         command.QuarterTurns,
                         grid,
+                        worldGrid,
                         catalog,
                         visualPrefabSnapshot,
                         ref database,
@@ -469,7 +472,7 @@ public partial class GridBuildCommandSystem : SystemBase
             failure = GridBuildFailureReason.GridNotReady;
             return false;
         }
-        if (cell.Level != 0)
+        if (cell.Level < 0)
         {
             failure = GridBuildFailureReason.FoundationUnsupported;
             return false;
@@ -477,15 +480,6 @@ public partial class GridBuildCommandSystem : SystemBase
         if (registry.HasFoundationVoxel(cell))
         {
             failure = GridBuildFailureReason.FoundationAlreadyExists;
-            return false;
-        }
-
-        bool supported = registry.SurfaceCount == 0;
-        for (int i = 0; !supported && i < CardinalDirections.Length; i++)
-            supported = registry.HasFoundationVoxel(cell + CardinalDirections[i]);
-        if (!supported)
-        {
-            failure = GridBuildFailureReason.FoundationUnsupported;
             return false;
         }
 
@@ -519,8 +513,8 @@ public partial class GridBuildCommandSystem : SystemBase
             failure = GridBuildFailureReason.GridNotReady;
             return false;
         }
-        if (command.StartCell.Level != 0 ||
-            command.EndCell.Level != 0 ||
+        if (command.StartCell.Level < 0 ||
+            command.EndCell.Level < 0 ||
             command.StartCell.Level != command.EndCell.Level)
         {
             failure = GridBuildFailureReason.FoundationUnsupported;
@@ -559,7 +553,10 @@ public partial class GridBuildCommandSystem : SystemBase
         for (long z = minZ; z <= maxZ; z++)
         for (long x = minX; x <= maxX; x++)
         {
-            GridCell cell = new GridCell((int)x, 0, (int)z);
+            GridCell cell = new GridCell(
+                (int)x,
+                command.StartCell.Level,
+                (int)z);
             if (registry.HasFoundationVoxel(cell))
             {
                 failure = GridBuildFailureReason.FoundationAlreadyExists;
@@ -677,6 +674,20 @@ public partial class GridBuildCommandSystem : SystemBase
             EntityManager.AddComponentData(gridEntity, value);
     }
 
+    private WorldGridConfig GetWorldGridConfig(
+        Entity gridEntity,
+        in GridDefinition grid)
+    {
+        return EntityManager.HasComponent<WorldGridConfig>(gridEntity)
+            ? EntityManager.GetComponentData<WorldGridConfig>(gridEntity)
+            : new WorldGridConfig
+            {
+                CellSize = grid.CellSize,
+                LayerHeight = EcsGridUtility.DefaultLayerHeight,
+                Origin = grid.Origin
+            };
+    }
+
     private void IncrementTransportTopologyRevision(Entity gridEntity)
     {
         bool exists = EntityManager.HasComponent<TransportTopologyRevision>(
@@ -710,6 +721,7 @@ public partial class GridBuildCommandSystem : SystemBase
         GridCell anchor,
         byte quarterTurns,
         in GridDefinition grid,
+        in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
@@ -765,6 +777,7 @@ public partial class GridBuildCommandSystem : SystemBase
             level,
             candidate.Placement,
             grid,
+            worldGrid,
             catalog,
             ref database,
             ref ecb);
@@ -777,6 +790,7 @@ public partial class GridBuildCommandSystem : SystemBase
     private bool TryPlaceBeltPath(
         in GridBuildCommand command,
         in GridDefinition grid,
+        in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database,
@@ -872,6 +886,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 beltLevel,
                 staged[i].Placement,
                 grid,
+                worldGrid,
                 catalog,
                 ref database,
                 ref ecb);
@@ -1081,10 +1096,17 @@ public partial class GridBuildCommandSystem : SystemBase
             GridCell cell = candidate.OccupiedCells[i];
             SurfaceRegistrySystem registry =
                 World.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            if (cell.Level != candidate.Placement.AnchorCell.Level)
+            {
+                failureReason = GridBuildFailureReason.OutsideGrid;
+                return false;
+            }
             bool hasPermission = registry != null && registry.IsReady
-                ? candidate.Placement.Kind == BuildingKind.Belt
-                    ? registry.AllowsBelts(cell)
-                    : registry.AllowsBuildings(cell)
+                ? registry.AllowsFlat(
+                    cell,
+                    candidate.Placement.Kind == BuildingKind.Belt
+                        ? SurfacePermission.Belts
+                        : SurfacePermission.Buildings)
                 : EcsGridUtility.Contains(grid, cell);
             if (!hasPermission)
             {
@@ -1346,6 +1368,7 @@ public partial class GridBuildCommandSystem : SystemBase
         in FactoryBuildingLevelBlob level,
         in GridPlacement placement,
         in GridDefinition grid,
+        in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         ref FactoryDatabaseBlob database,
         ref EntityCommandBuffer ecb)
@@ -1383,8 +1406,7 @@ public partial class GridBuildCommandSystem : SystemBase
             placement.QuarterTurns);
         float3 center = EcsGridUtility.CellToWorldCenter(
             placement.AnchorCell,
-            grid.Origin.y,
-            grid);
+            worldGrid);
         float2 visualOffset = EcsGridUtility.GetVisualCenterOffset(
             placement.FootprintSize) * grid.CellSize;
         center.x += visualOffset.x;
@@ -1430,6 +1452,7 @@ public partial class GridBuildCommandSystem : SystemBase
             ports,
             placement,
             grid,
+            worldGrid,
             catalog,
             ref ecb);
     }
@@ -1563,6 +1586,7 @@ public partial class GridBuildCommandSystem : SystemBase
         in DynamicBuffer<BuildingPort> ports,
         in GridPlacement placement,
         in GridDefinition grid,
+        in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         ref EntityCommandBuffer ecb)
     {
@@ -1594,8 +1618,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 placement.QuarterTurns);
             float3 position = EcsGridUtility.CellToWorldCenter(
                 portCell,
-                grid.Origin.y + 0.375f * cellSize,
-                grid);
+                worldGrid);
+            position.y += 0.375f * cellSize;
             float boundaryDirection =
                 port.Type == BuildingPortType.Input ? 0.5f : -0.5f;
             position.x += direction.x * boundaryDirection * cellSize;

@@ -22,20 +22,31 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        WorldGridConfig worldGrid =
+            SystemAPI.TryGetSingleton(out WorldGridConfig configured)
+                ? configured
+                : new WorldGridConfig
+                {
+                    CellSize = EcsGridUtility.DefaultCellSize,
+                    LayerHeight = EcsGridUtility.DefaultLayerHeight
+                };
         state.Dependency = new CaptureBeltVisualStateJob
         {
+            WorldGrid = worldGrid,
             ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
         }.ScheduleParallel(state.Dependency);
         state.Dependency = new CaptureMergerVisualStateJob
         {
+            WorldGrid = worldGrid,
             ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
         }.ScheduleParallel(state.Dependency);
         state.Dependency = new CaptureSplitterVisualStateJob
         {
+            WorldGrid = worldGrid,
             ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
@@ -45,6 +56,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     [BurstCompile]
     private partial struct CaptureBeltVisualStateJob : IJobEntity
     {
+        public WorldGridConfig WorldGrid;
         [ReadOnly]
         public ComponentLookup<Item> ItemLookup;
 
@@ -57,10 +69,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         {
             Capture(
                 state.CurrentItem,
-                new float3(
-                    topology.Cell.X + 0.5f,
-                    0.535f,
-                    topology.Cell.Z + 0.5f),
+                GetTargetPosition(topology.Cell, WorldGrid),
                 state.Progress);
         }
 
@@ -93,6 +102,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     [BurstCompile]
     private partial struct CaptureMergerVisualStateJob : IJobEntity
     {
+        public WorldGridConfig WorldGrid;
         [ReadOnly]
         public ComponentLookup<Item> ItemLookup;
 
@@ -103,10 +113,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         {
             Capture(
                 merger.CurrentItem,
-                new float3(
-                    merger.Cell.X + 0.5f,
-                    0.535f,
-                    merger.Cell.Z + 0.5f),
+                GetTargetPosition(merger.Cell, WorldGrid),
                 1f);
         }
 
@@ -139,6 +146,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     [BurstCompile]
     private partial struct CaptureSplitterVisualStateJob : IJobEntity
     {
+        public WorldGridConfig WorldGrid;
         [ReadOnly]
         public ComponentLookup<Item> ItemLookup;
 
@@ -149,10 +157,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         {
             Capture(
                 splitter.CurrentItem,
-                new float3(
-                    splitter.Cell.X + 0.5f,
-                    0.535f,
-                    splitter.Cell.Z + 0.5f),
+                GetTargetPosition(splitter.Cell, WorldGrid),
                 1f);
         }
 
@@ -180,5 +185,14 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
             visualState.Progress = math.saturate(progress);
             VisualStateLookup[item] = visualState;
         }
+    }
+
+    private static float3 GetTargetPosition(
+        GridCell cell,
+        in WorldGridConfig grid)
+    {
+        float3 position = EcsGridUtility.CellToWorldCenter(cell, grid);
+        position.y += 0.535f;
+        return position;
     }
 }

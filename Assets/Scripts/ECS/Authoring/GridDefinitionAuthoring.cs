@@ -20,6 +20,7 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
         // Integer X/Z origins keep the runtime grid on Unity's editor grid
         // lines when one grid cell is exactly one Unity unit.
         origin.x = Mathf.Round(origin.x);
+        origin.y = 0f;
         origin.z = Mathf.Round(origin.z);
         layerHeight = Mathf.Max(0.01f, layerHeight);
     }
@@ -31,6 +32,7 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
         {
             Entity entity = GetEntity(TransformUsageFlags.None);
             Vector3 configuredOrigin = authoring.origin;
+            configuredOrigin.y = 0f;
 
             AddComponent(entity, new GridDefinition
             {
@@ -52,6 +54,14 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                     Mathf.Round(configuredOrigin.x),
                     configuredOrigin.y,
                     Mathf.Round(configuredOrigin.z))
+            });
+            AddComponent(entity, new GridLayerViewState
+            {
+                SelectedLevel = 0,
+                PickingMode = GridLayerPickingMode.FirstHit,
+                VisibilityMode = GridLayerVisibilityMode.All,
+                VisibleLevelRadius = 2,
+                Revision = 1
             });
             AddComponent(entity, new SurfaceTopologyRevision { Value = 1 });
             AddComponent(entity, new InitialSurfaceSettings

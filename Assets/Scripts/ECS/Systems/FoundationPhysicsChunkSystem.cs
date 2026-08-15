@@ -8,7 +8,8 @@ using Unity.Transforms;
 [UpdateInGroup(typeof(BeforePhysicsSystemGroup))]
 public partial class FoundationPhysicsChunkSystem : SystemBase
 {
-    private readonly Dictionary<SurfaceChunkKey, Entity> physicsChunks = new();
+    private readonly Dictionary<FoundationPhysicsChunkKey, Entity>
+        physicsChunks = new();
     private EntityQuery gridQuery;
 
     public ulong CreatedColliderBlobCount { get; private set; }
@@ -64,27 +65,41 @@ public partial class FoundationPhysicsChunkSystem : SystemBase
     }
 
     private void Rebuild(
-        SurfaceChunkKey key,
+        FoundationPhysicsChunkKey key,
         in WorldGridConfig config,
         in FoundationCollisionSettings settings)
     {
-        Entity surfaceChunk = FindSurfaceChunk(key);
-        if (surfaceChunk == Entity.Null)
+        int bandMinimumLevel =
+            SurfaceChunkUtility.GetPhysicsBandMinimumLevel(key);
+        List<int3> voxels = new List<int3>();
+        foreach ((RefRO<SurfaceChunk> chunk, Entity chunkEntity) in
+                 SystemAPI.Query<RefRO<SurfaceChunk>>().WithEntityAccess())
+        {
+            SurfaceChunkKey surfaceKey = chunk.ValueRO.Key;
+            if (surfaceKey.ChunkX != key.ChunkX ||
+                surfaceKey.ChunkZ != key.ChunkZ ||
+                SurfaceChunkUtility.FloorDiv(
+                    surfaceKey.Level,
+                    SurfaceChunkUtility.PhysicsLevelBandSize) != key.LevelBand)
+            {
+                continue;
+            }
+
+            DynamicBuffer<SurfaceCellData> cells =
+                EntityManager.GetBuffer<SurfaceCellData>(chunkEntity, true);
+            for (int i = 0; i < cells.Length; i++)
+            {
+                int index = cells[i].LocalCellIndex;
+                voxels.Add(new int3(
+                    index % SurfaceChunkUtility.ChunkSize,
+                    surfaceKey.Level - bandMinimumLevel - 1,
+                    index / SurfaceChunkUtility.ChunkSize));
+            }
+        }
+        if (voxels.Count == 0)
         {
             DestroyPhysicsChunk(key);
             return;
-        }
-
-        DynamicBuffer<SurfaceCellData> cells =
-            EntityManager.GetBuffer<SurfaceCellData>(surfaceChunk, true);
-        List<int3> voxels = new List<int3>(cells.Length);
-        for (int i = 0; i < cells.Length; i++)
-        {
-            int index = cells[i].LocalCellIndex;
-            voxels.Add(new int3(
-                index % SurfaceChunkUtility.ChunkSize,
-                -1,
-                index / SurfaceChunkUtility.ChunkSize));
         }
         List<FoundationBox> boxes = FoundationGreedyBoxBuilder.Build(voxels);
         BlobAssetReference<Collider> collider = FoundationCompoundColliderBuilder.Build(
@@ -99,9 +114,11 @@ public partial class FoundationPhysicsChunkSystem : SystemBase
             !EntityManager.Exists(entity))
         {
             entity = EntityManager.CreateEntity();
-            float3 origin = config.Origin + new float3(
+            float3 origin = new float3(
+                config.Origin.x +
                 key.ChunkX * SurfaceChunkUtility.ChunkSize * config.CellSize,
-                key.Level * config.LayerHeight,
+                EcsGridUtility.LevelToWorldY(bandMinimumLevel, config),
+                config.Origin.z +
                 key.ChunkZ * SurfaceChunkUtility.ChunkSize * config.CellSize);
             EntityManager.AddComponentData(entity, new FoundationPhysicsChunk { Key = key });
             EntityManager.AddComponentData(entity, LocalTransform.FromPosition(origin));
@@ -126,14 +143,6 @@ public partial class FoundationPhysicsChunkSystem : SystemBase
         }
     }
 
-    private Entity FindSurfaceChunk(SurfaceChunkKey key)
-    {
-        foreach ((RefRO<SurfaceChunk> chunk, Entity entity) in
-                 SystemAPI.Query<RefRO<SurfaceChunk>>().WithEntityAccess())
-            if (chunk.ValueRO.Key == key) return entity;
-        return Entity.Null;
-    }
-
     private void RebuildChunkMap()
     {
         physicsChunks.Clear();
@@ -142,7 +151,7 @@ public partial class FoundationPhysicsChunkSystem : SystemBase
             physicsChunks[chunk.ValueRO.Key] = entity;
     }
 
-    private void DestroyPhysicsChunk(SurfaceChunkKey key)
+    private void DestroyPhysicsChunk(FoundationPhysicsChunkKey key)
     {
         if (!physicsChunks.TryGetValue(key, out Entity entity) ||
             !EntityManager.Exists(entity)) return;

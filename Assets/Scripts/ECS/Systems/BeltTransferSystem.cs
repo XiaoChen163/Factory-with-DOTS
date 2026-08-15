@@ -213,9 +213,38 @@ public partial class BeltTransferSystem : SystemBase
         job.DisableRenderingLookup =
             GetComponentLookup<DisableRendering>(true);
         job.ItemPrefabVisualInfo = itemPrefabVisualInfo;
+        job.WorldGrid = GetWorldGridConfig();
 
         Dependency = job.Schedule(Dependency);
         transferEcbSystem.AddJobHandleForProducer(Dependency);
+    }
+
+    private WorldGridConfig GetWorldGridConfig()
+    {
+        if (gridQuery.CalculateEntityCount() == 1)
+        {
+            Entity gridEntity = gridQuery.GetSingletonEntity();
+            if (EntityManager.HasComponent<WorldGridConfig>(gridEntity))
+            {
+                return EntityManager.GetComponentData<WorldGridConfig>(
+                    gridEntity);
+            }
+            GridDefinition grid =
+                EntityManager.GetComponentData<GridDefinition>(gridEntity);
+            return new WorldGridConfig
+            {
+                CellSize = math.max(
+                    EcsGridUtility.DefaultCellSize,
+                    grid.CellSize),
+                LayerHeight = EcsGridUtility.DefaultLayerHeight,
+                Origin = grid.Origin
+            };
+        }
+        return new WorldGridConfig
+        {
+            CellSize = EcsGridUtility.DefaultCellSize,
+            LayerHeight = EcsGridUtility.DefaultLayerHeight
+        };
     }
 
     private void RefreshTopology(uint gridRevision, bool hasGrid)

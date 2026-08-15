@@ -338,9 +338,39 @@ namespace Factory.Tests
             Assert.That(preview, Is.Not.Null,
                 "Simulated hover must render without player build mode.");
 
-            interaction.SimulatePrimaryClick(new int2(0, 0));
-            interaction.SimulatePrimaryClick(new int2(1, 0));
+            GameObject previewCell = GameObject.Find("Placement Preview Cell 0");
+            Assert.That(previewCell, Is.Not.Null);
             World world = World.DefaultGameObjectInjectionWorld;
+            EntityQuery worldGridQuery = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<WorldGridConfig>());
+            WorldGridConfig worldGrid = worldGridQuery.GetSingleton<WorldGridConfig>();
+            worldGridQuery.Dispose();
+            float3 expectedPreviewCenter = EcsGridUtility.CellToWorldCenter(
+                new GridCell(0, 0, 0),
+                worldGrid);
+            expectedPreviewCenter.y -= worldGrid.LayerHeight * 0.5f;
+            Assert.That(previewCell.transform.position.x,
+                Is.EqualTo(expectedPreviewCenter.x).Within(0.0001f));
+            Assert.That(previewCell.transform.position.y,
+                Is.EqualTo(expectedPreviewCenter.y).Within(0.0001f));
+            Assert.That(previewCell.transform.position.z,
+                Is.EqualTo(expectedPreviewCenter.z).Within(0.0001f));
+            Assert.That(previewCell.transform.localScale,
+                Is.EqualTo(new Vector3(
+                    worldGrid.CellSize,
+                    worldGrid.LayerHeight,
+                    worldGrid.CellSize)));
+
+            interaction.SimulatePrimaryClick(new GridCell(0, 0, 0));
+            interaction.SimulateHover(new GridCell(1, 3, 0));
+            yield return null;
+            GameObject secondPreviewCell =
+                GameObject.Find("Placement Preview Cell 1");
+            Assert.That(secondPreviewCell, Is.Not.Null);
+            Assert.That(secondPreviewCell.transform.position.y,
+                Is.EqualTo(expectedPreviewCenter.y).Within(0.0001f),
+                "The second foundation corner must stay on the first corner's plane.");
+            interaction.SimulatePrimaryClick(new GridCell(1, 3, 0));
             SurfaceRegistrySystem registry =
                 world.GetExistingSystemManaged<SurfaceRegistrySystem>();
             int surfaceCountBeforeBuild = registry?.SurfaceCount ?? 0;

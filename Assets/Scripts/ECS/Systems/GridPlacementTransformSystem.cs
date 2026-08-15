@@ -24,9 +24,19 @@ public partial struct GridPlacementTransformSystem : ISystem
     {
         GridDefinition grid =
             SystemAPI.GetSingleton<GridDefinition>();
+        WorldGridConfig worldGrid =
+            SystemAPI.TryGetSingleton(out WorldGridConfig configured)
+                ? configured
+                : new WorldGridConfig
+                {
+                    CellSize = grid.CellSize,
+                    LayerHeight = EcsGridUtility.DefaultLayerHeight,
+                    Origin = grid.Origin
+                };
         state.Dependency = new AlignToGridJob
         {
-            Grid = grid
+            Grid = grid,
+            WorldGrid = worldGrid
         }.ScheduleParallel(state.Dependency);
         state.Dependency.Complete();
         state.EntityManager.RemoveComponent<GridTransformDirty>(dirtyQuery);
@@ -36,6 +46,7 @@ public partial struct GridPlacementTransformSystem : ISystem
     private partial struct AlignToGridJob : IJobEntity
     {
         public GridDefinition Grid;
+        public WorldGridConfig WorldGrid;
 
         private void Execute(
             ref LocalTransform transform,
@@ -45,8 +56,7 @@ public partial struct GridPlacementTransformSystem : ISystem
             Unity.Mathematics.float3 center =
                 EcsGridUtility.CellToWorldCenter(
                     placement.AnchorCell,
-                    transform.Position.y,
-                    Grid);
+                    WorldGrid);
             Unity.Mathematics.float2 visualOffset =
                 EcsGridUtility.GetVisualCenterOffset(
                     placement.FootprintSize) *

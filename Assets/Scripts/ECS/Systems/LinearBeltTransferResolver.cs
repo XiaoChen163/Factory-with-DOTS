@@ -874,6 +874,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
     public int LoopCount;
     public byte EnableInterface;
     public EntityCommandBuffer Ecb;
+    public WorldGridConfig WorldGrid;
 
     [ReadOnly]
     public NativeParallelHashMap<ItemId, Entity> ItemPoolByType;
@@ -1233,10 +1234,15 @@ public partial struct FactoryTransferArbitrationJob : IJob
 
                 ReservedTargets.Add(targetEntity);
 
-                float3 position = new float3(
-                    targetCell.X + 0.5f,
-                    0.535f,
-                    targetCell.Z + 0.5f);
+                WorldGridConfig worldGrid = WorldGrid;
+                if (worldGrid.CellSize <= 0f)
+                    worldGrid.CellSize = EcsGridUtility.DefaultCellSize;
+                if (worldGrid.LayerHeight <= 0f)
+                    worldGrid.LayerHeight = EcsGridUtility.DefaultLayerHeight;
+                float3 position = EcsGridUtility.CellToWorldCenter(
+                    targetCell,
+                    worldGrid);
+                position.y += 0.535f;
                 bool reused = TryGetPooledItem(
                     port.ItemType,
                     out Entity item);

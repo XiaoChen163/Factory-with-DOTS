@@ -86,7 +86,7 @@ namespace Factory.Tests
 
             LocalTransform aligned =
                 EntityManager.GetComponentData<LocalTransform>(building);
-            Assert.That(aligned.Position, Is.EqualTo(new float3(15f, 4f, 27f)));
+            Assert.That(aligned.Position, Is.EqualTo(new float3(15f, 0f, 27f)));
             Assert.That(
                 EntityManager.HasComponent<GridTransformDirty>(building),
                 Is.False);

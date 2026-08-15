@@ -52,6 +52,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private World cachedWorld;
     private EntityQuery gridQuery;
     private EntityQuery databaseQuery;
+    private EntityQuery physicsWorldQuery;
     private Entity gridEntity = Entity.Null;
     private Entity databaseEntity = Entity.Null;
     private BlobAssetReference<FactoryDatabaseBlob> databaseReference;
@@ -198,12 +199,18 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                      out hoveredCell,
                      out _,
                      out _,
+                     SelectedKind == BuildingKind.Foundation,
                      false))
         {
             HidePlacementPreview();
             return;
         }
 
+        if (SelectedKind == BuildingKind.Foundation &&
+            foundationAreaStarted)
+        {
+            hoveredCell.Level = foundationAreaStart.Level;
+        }
         BuildPreviewCells(hoveredCell);
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
@@ -219,7 +226,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             GridCell cell = previewCells[i];
             if (SelectedKind == BuildingKind.Foundation)
             {
-                if (cell.Level != 0 || surfaceRegistry == null ||
+                if (cell.Level < 0 || surfaceRegistry == null ||
                     !surfaceRegistry.IsReady ||
                     surfaceRegistry.HasFoundationVoxel(cell))
                     canPlace = false;
@@ -257,7 +264,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 return;
             for (long z = minZ; z <= maxZ; z++)
             for (long x = minX; x <= maxX; x++)
-                previewCells.Add(new GridCell((int)x, 0, (int)z));
+                previewCells.Add(new GridCell(
+                    (int)x,
+                    start.Level,
+                    (int)z));
             return;
         }
         if (SelectedKind == BuildingKind.Belt &&
@@ -432,6 +442,12 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         float cellSize = math.max(
             math.EPSILON,
             grid.CellSize);
+        WorldGridConfig worldGrid = GetWorldGridConfig();
+        bool isFoundationPreview =
+            SelectedKind == BuildingKind.Foundation;
+        float layerHeight = math.max(
+            math.EPSILON,
+            worldGrid.LayerHeight);
         for (int i = 0; i < previewCellObjects.Count; i++)
         {
             GameObject previewCell = previewCellObjects[i];
@@ -444,17 +460,21 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
             float3 center = EcsGridUtility.CellToWorldCenter(
                 previewCells[i],
-                grid.Origin.y + 0.055f,
-                grid);
+                worldGrid);
+            center.y += isFoundationPreview
+                ? -layerHeight * 0.5f
+                : 0.055f;
             previewCell.transform.position = new Vector3(
                 center.x,
                 center.y,
                 center.z);
             previewCell.transform.rotation = Quaternion.identity;
-            previewCell.transform.localScale = new Vector3(
-                cellSize * 0.9f,
-                0.1f,
-                cellSize * 0.9f);
+            previewCell.transform.localScale = isFoundationPreview
+                ? new Vector3(cellSize, layerHeight, cellSize)
+                : new Vector3(
+                    cellSize * 0.9f,
+                    0.1f,
+                    cellSize * 0.9f);
 
             Transform triangle = previewTriangles[i];
             bool showTriangle =
@@ -486,8 +506,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
             float3 center = EcsGridUtility.CellToWorldCenter(
                 previewPortCells[i],
-                grid.Origin.y + 0.115f * cellSize,
-                grid);
+                GetWorldGridConfig());
+            center.y += 0.115f * cellSize;
             triangle.position = new Vector3(
                 center.x,
                 center.y,
@@ -760,6 +780,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out GridCell cell,
                 out _,
                 out _,
+                SelectedKind == BuildingKind.Foundation,
                 true))
         {
             return;
@@ -770,14 +791,17 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public void SimulatePrimaryClick(int2 cell)
     {
-        HandlePrimaryClickAtCell(GridCell.LevelZero(cell));
+        SimulatePrimaryClick(GridCell.LevelZero(cell));
     }
+
+    public void SimulatePrimaryClick(GridCell cell) =>
+        HandlePrimaryClickAtCell(cell);
 
     public bool TryGetHoveredBuilding(out BuildingRuntimeId runtimeId)
     {
         runtimeId = default;
         if (!TryRaycastGrid(out World world, out _, out _, out GridCell cell,
-                out _, out bool isInside, false) || !isInside)
+                out _, out bool isInside, false, false) || !isInside)
             return false;
         GridOccupancyIndexSystem occupancy =
             world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
@@ -793,6 +817,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void HandlePrimaryClickAtCell(GridCell cell)
     {
+        if (SelectedKind == BuildingKind.Foundation &&
+            foundationAreaStarted)
+        {
+            cell.Level = foundationAreaStart.Level;
+        }
         if (!TryGetGrid(
                 out World world,
                 out Entity gridEntity,
@@ -806,7 +835,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
         bool isInside = SelectedKind == BuildingKind.Foundation
-            ? cell.Level == 0
+            ? cell.Level >= 0
             : HasSurface(world, grid, cell);
         bool isOccupied =
             isInside &&
@@ -914,6 +943,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out GridCell cell,
                 out _,
                 out bool isInside,
+                false,
                 false) ||
             !isInside)
         {
@@ -925,8 +955,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public void SimulateRemove(int2 cell, bool removeBeltLine)
     {
-        HandleRemoveAtCell(GridCell.LevelZero(cell), removeBeltLine);
+        SimulateRemove(GridCell.LevelZero(cell), removeBeltLine);
     }
+
+    public void SimulateRemove(GridCell cell, bool removeBeltLine) =>
+        HandleRemoveAtCell(cell, removeBeltLine);
 
     private void HandleRemoveAtCell(
         GridCell cell,
@@ -965,8 +998,13 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public void SimulateHover(int2 cell)
     {
+        SimulateHover(GridCell.LevelZero(cell));
+    }
+
+    public void SimulateHover(GridCell cell)
+    {
         simulatedHoverActive = true;
-        simulatedHoverCell = GridCell.LevelZero(cell);
+        simulatedHoverCell = cell;
     }
 
     public void StopSimulatedHover()
@@ -992,6 +1030,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         out GridCell cell,
         out Vector3 hitPoint,
         out bool isInside,
+        bool foundationPlacement,
         bool logFailure)
     {
         world = null;
@@ -1026,12 +1065,75 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         Ray ray = inputCamera.ScreenPointToRay(
             Input.mousePosition);
 
+        if (foundationPlacement && foundationAreaStarted)
+        {
+            WorldGridConfig foundationGrid = GetWorldGridConfig();
+            int foundationLevel = foundationAreaStart.Level;
+            Plane foundationPlane = new Plane(
+                Vector3.up,
+                new Vector3(
+                    0f,
+                    EcsGridUtility.LevelToWorldY(
+                        foundationLevel,
+                        foundationGrid),
+                    0f));
+            if (!foundationPlane.Raycast(ray, out float planeDistance))
+                return false;
+            hitPoint = ray.GetPoint(planeDistance);
+            cell = EcsGridUtility.WorldToCell(
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                foundationGrid);
+            cell.Level = foundationLevel;
+            isInside = true;
+            return true;
+        }
+
+        GridLayerViewState layerView = GetLayerViewState();
+        if (layerView.PickingMode == GridLayerPickingMode.SelectedLevel)
+        {
+            WorldGridConfig worldGrid = GetWorldGridConfig();
+            Plane selectedPlane = new Plane(
+                Vector3.up,
+                new Vector3(
+                    0f,
+                    EcsGridUtility.LevelToWorldY(
+                        layerView.SelectedLevel,
+                        worldGrid),
+                    0f));
+            if (!selectedPlane.Raycast(ray, out float selectedDistance))
+                return false;
+            hitPoint = ray.GetPoint(selectedDistance);
+            cell = EcsGridUtility.WorldToCell(
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                worldGrid);
+            cell.Level = layerView.SelectedLevel;
+            isInside = foundationPlacement
+                ? cell.Level >= 0
+                : HasSurface(world, grid, cell);
+            return true;
+        }
+
+        if (TryRaycastFoundation(
+                world,
+                ray,
+                out GridCell foundationCell,
+                out hitPoint,
+                out float3 surfaceNormal))
+        {
+            cell = foundationPlacement && surfaceNormal.y > 0.5f
+                ? new GridCell(
+                    foundationCell.X,
+                    foundationCell.Level + 1,
+                    foundationCell.Z)
+                : foundationCell;
+            isInside = foundationPlacement || HasSurface(world, grid, cell);
+            SetSelectedGridLevel(cell.Level);
+            return true;
+        }
+
         Plane gridPlane = new Plane(
             Vector3.up,
-            new Vector3(
-                grid.Origin.x,
-                grid.Origin.y,
-                grid.Origin.z));
+            Vector3.zero);
         if (!gridPlane.Raycast(ray, out float distance))
         {
             if (logFailure)
@@ -1053,7 +1155,151 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 hitPoint.z),
             grid);
         isInside = HasSurface(world, grid, cell);
+        if (foundationPlacement)
+        {
+            cell.Level = 0;
+            isInside = true;
+        }
         return true;
+    }
+
+    private bool TryRaycastFoundation(
+        World world,
+        Ray ray,
+        out GridCell cell,
+        out Vector3 hitPoint,
+        out float3 surfaceNormal)
+    {
+        cell = default;
+        hitPoint = default;
+        surfaceNormal = default;
+        if (!ecsCacheInitialized ||
+            physicsWorldQuery.CalculateEntityCount() != 1)
+        {
+            return false;
+        }
+
+        EntityManager manager = world.EntityManager;
+        manager.CompleteDependencyBeforeRO<Unity.Physics.PhysicsWorldSingleton>();
+        Unity.Physics.PhysicsWorldSingleton physicsWorld =
+            physicsWorldQuery.GetSingleton<Unity.Physics.PhysicsWorldSingleton>();
+        float maxDistance = math.max(1f, inputCamera.farClipPlane);
+        Unity.Physics.RaycastInput input = new Unity.Physics.RaycastInput
+        {
+            Start = ray.origin,
+            End = ray.origin + ray.direction * maxDistance,
+            Filter = FoundationCollisionCategories.FoundationQueryFilter
+        };
+        if (!physicsWorld.CastRay(input, out Unity.Physics.RaycastHit hit))
+        {
+            return false;
+        }
+
+        SurfaceRegistrySystem registry =
+            world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        if (!FoundationQueryUtility.TryResolveFoundation(
+                hit.Position,
+                hit.SurfaceNormal,
+                GetWorldGridConfig(),
+                registry,
+                out cell,
+                out _))
+        {
+            return false;
+        }
+
+        hitPoint = hit.Position;
+        surfaceNormal = hit.SurfaceNormal;
+        return true;
+    }
+
+    private WorldGridConfig GetWorldGridConfig()
+    {
+        if (cachedWorld != null && cachedWorld.IsCreated &&
+            gridEntity != Entity.Null &&
+            cachedWorld.EntityManager.Exists(gridEntity) &&
+            cachedWorld.EntityManager.HasComponent<WorldGridConfig>(gridEntity))
+        {
+            return cachedWorld.EntityManager.GetComponentData<WorldGridConfig>(
+                gridEntity);
+        }
+
+        GridDefinition grid = cachedWorld.EntityManager.GetComponentData<
+            GridDefinition>(gridEntity);
+        return new WorldGridConfig
+        {
+            CellSize = grid.CellSize,
+            LayerHeight = EcsGridUtility.DefaultLayerHeight,
+            Origin = grid.Origin
+        };
+    }
+
+    public int SelectedGridLevel => GetLayerViewState().SelectedLevel;
+
+    public GridLayerPickingMode LayerPickingMode =>
+        GetLayerViewState().PickingMode;
+
+    public GridLayerVisibilityMode LayerVisibilityMode =>
+        GetLayerViewState().VisibilityMode;
+
+    public void SelectGridLevel(int level)
+    {
+        GridLayerViewState state = GetLayerViewState();
+        state.SelectedLevel = level;
+        state.PickingMode = GridLayerPickingMode.SelectedLevel;
+        SetLayerViewState(state);
+    }
+
+    public void UseFirstHitLayer()
+    {
+        GridLayerViewState state = GetLayerViewState();
+        state.PickingMode = GridLayerPickingMode.FirstHit;
+        SetLayerViewState(state);
+    }
+
+    public void SetLayerVisibility(GridLayerVisibilityMode mode)
+    {
+        GridLayerViewState state = GetLayerViewState();
+        state.VisibilityMode = mode;
+        SetLayerViewState(state);
+    }
+
+    private GridLayerViewState GetLayerViewState()
+    {
+        if (TryGetGrid(out World world, out Entity entity, out _) &&
+            world.EntityManager.HasComponent<GridLayerViewState>(entity))
+        {
+            return world.EntityManager.GetComponentData<GridLayerViewState>(
+                entity);
+        }
+        return new GridLayerViewState
+        {
+            SelectedLevel = 0,
+            PickingMode = GridLayerPickingMode.FirstHit,
+            VisibilityMode = GridLayerVisibilityMode.All,
+            VisibleLevelRadius = 2,
+            Revision = 1
+        };
+    }
+
+    private void SetSelectedGridLevel(int level)
+    {
+        GridLayerViewState state = GetLayerViewState();
+        if (state.SelectedLevel == level)
+            return;
+        state.SelectedLevel = level;
+        SetLayerViewState(state);
+    }
+
+    private void SetLayerViewState(GridLayerViewState state)
+    {
+        if (!TryGetGrid(out World world, out Entity entity, out _))
+            return;
+        state.Revision++;
+        if (world.EntityManager.HasComponent<GridLayerViewState>(entity))
+            world.EntityManager.SetComponentData(entity, state);
+        else
+            world.EntityManager.AddComponentData(entity, state);
     }
 
     private static bool HasSurface(
@@ -1204,6 +1450,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             ComponentType.ReadOnly<GridDefinition>());
         databaseQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<FactoryDatabase>());
+        physicsWorldQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<Unity.Physics.PhysicsWorldSingleton>());
         ecsCacheInitialized = true;
         RefreshGridSingleton();
         RefreshDatabaseSingleton();
@@ -1243,6 +1491,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         {
             gridQuery.Dispose();
             databaseQuery.Dispose();
+            physicsWorldQuery.Dispose();
         }
 
         ecsCacheInitialized = false;

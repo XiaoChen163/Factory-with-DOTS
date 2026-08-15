@@ -12,12 +12,20 @@ public enum SurfacePermission : byte
     All = Buildings | Belts
 }
 
+[Flags]
+public enum SurfaceShapeFlags : byte
+{
+    None = 0,
+    Flat = 1 << 0
+}
+
 public struct Foundation : IComponentData
 {
     public GridCell Cell;
     public ushort VisualMaterialId;
     public SurfacePermission Permissions;
     public byte OccludesFaces;
+    public SurfaceShapeFlags ShapeFlags;
 }
 
 public struct SurfaceChunk : IComponentData
@@ -73,6 +81,7 @@ public struct SurfaceCellData : IBufferElementData
     public ushort VisualMaterialId;
     public SurfacePermission Permissions;
     public byte OccludesFaces;
+    public SurfaceShapeFlags ShapeFlags;
     public Entity Foundation;
 }
 
@@ -85,7 +94,7 @@ public struct SurfaceRenderDirtyChunk : IBufferElementData
 [InternalBufferCapacity(8)]
 public struct SurfacePhysicsDirtyChunk : IBufferElementData
 {
-    public SurfaceChunkKey Value;
+    public FoundationPhysicsChunkKey Value;
 }
 
 public struct LegacySurfaceInitialized : IComponentData { }
@@ -103,7 +112,7 @@ public struct InitialSurfaceSettings : IComponentData
 
 public struct FoundationPhysicsChunk : IComponentData
 {
-    public SurfaceChunkKey Key;
+    public FoundationPhysicsChunkKey Key;
 }
 
 public struct FoundationRenderChunk : IComponentData
@@ -152,6 +161,45 @@ public readonly struct SurfaceChunkKey : IEquatable<SurfaceChunkKey>
     public override string ToString() => $"({ChunkX}, L{Level}, {ChunkZ})";
 }
 
+public readonly struct FoundationPhysicsChunkKey :
+    IEquatable<FoundationPhysicsChunkKey>
+{
+    public readonly int ChunkX;
+    public readonly int LevelBand;
+    public readonly int ChunkZ;
+
+    public FoundationPhysicsChunkKey(int chunkX, int levelBand, int chunkZ)
+    {
+        ChunkX = chunkX;
+        LevelBand = levelBand;
+        ChunkZ = chunkZ;
+    }
+
+    public bool Equals(FoundationPhysicsChunkKey other) =>
+        ChunkX == other.ChunkX &&
+        LevelBand == other.LevelBand &&
+        ChunkZ == other.ChunkZ;
+    public override bool Equals(object obj) =>
+        obj is FoundationPhysicsChunkKey other && Equals(other);
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = ChunkX;
+            hash = (hash * 397) ^ LevelBand;
+            return (hash * 397) ^ ChunkZ;
+        }
+    }
+    public static bool operator ==(
+        FoundationPhysicsChunkKey left,
+        FoundationPhysicsChunkKey right) => left.Equals(right);
+    public static bool operator !=(
+        FoundationPhysicsChunkKey left,
+        FoundationPhysicsChunkKey right) => !left.Equals(right);
+    public override string ToString() =>
+        $"({ChunkX}, B{LevelBand}, {ChunkZ})";
+}
+
 public static class FoundationCollisionCategories
 {
     public const uint Foundation = 1u << 0;
@@ -178,6 +226,7 @@ public static class SurfaceChunkUtility
 {
     public const int ChunkSize = 16;
     public const int CellsPerChunk = ChunkSize * ChunkSize;
+    public const int PhysicsLevelBandSize = 8;
 
     public static int FloorDiv(int value, int divisor)
     {
@@ -202,4 +251,14 @@ public static class SurfaceChunkUtility
         key.ChunkX * ChunkSize + localCellIndex % ChunkSize,
         key.Level,
         key.ChunkZ * ChunkSize + localCellIndex / ChunkSize);
+
+    public static FoundationPhysicsChunkKey GetPhysicsChunkKey(GridCell cell) =>
+        new FoundationPhysicsChunkKey(
+            FloorDiv(cell.X, ChunkSize),
+            FloorDiv(cell.Level, PhysicsLevelBandSize),
+            FloorDiv(cell.Z, ChunkSize));
+
+    public static int GetPhysicsBandMinimumLevel(
+        FoundationPhysicsChunkKey key) =>
+        key.LevelBand * PhysicsLevelBandSize;
 }

@@ -13,6 +13,7 @@ public partial class SurfaceRegistrySystem : SystemBase
         public ushort VisualMaterialId;
         public SurfacePermission Permissions;
         public byte OccludesFaces;
+        public SurfaceShapeFlags ShapeFlags;
     }
 
     private NativeParallelHashMap<GridCell, SurfaceRecord> surfaces;
@@ -72,6 +73,15 @@ public partial class SurfaceRegistrySystem : SystemBase
     public bool AllowsBelts(GridCell cell) =>
         surfaces.TryGetValue(cell, out SurfaceRecord value) &&
         (value.Permissions & SurfacePermission.Belts) != 0;
+    public bool HasFlatSurface(GridCell cell) =>
+        surfaces.TryGetValue(cell, out SurfaceRecord value) &&
+        (value.ShapeFlags & SurfaceShapeFlags.Flat) != 0;
+    public bool AllowsFlat(
+        GridCell cell,
+        SurfacePermission requiredPermission) =>
+        surfaces.TryGetValue(cell, out SurfaceRecord value) &&
+        (value.ShapeFlags & SurfaceShapeFlags.Flat) != 0 &&
+        (value.Permissions & requiredPermission) == requiredPermission;
     public bool TryGetFoundation(GridCell cell, out Entity foundation)
     {
         if (surfaces.TryGetValue(cell, out SurfaceRecord value))
@@ -121,7 +131,8 @@ public partial class SurfaceRegistrySystem : SystemBase
             Cell = cell,
             VisualMaterialId = visualMaterialId,
             Permissions = permissions,
-            OccludesFaces = occludesFaces ? (byte)1 : (byte)0
+            OccludesFaces = occludesFaces ? (byte)1 : (byte)0,
+            ShapeFlags = SurfaceShapeFlags.Flat
         });
         RegisterFoundation(grid, foundation, EntityManager.GetComponentData<Foundation>(foundation));
         return foundation;
@@ -136,6 +147,12 @@ public partial class SurfaceRegistrySystem : SystemBase
     {
         if (cells == null || cells.Count == 0)
             return 0;
+        HashSet<GridCell> uniqueCells = new HashSet<GridCell>();
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (surfaces.ContainsKey(cells[i]) || !uniqueCells.Add(cells[i]))
+                return 0;
+        }
         EnsureSurfaceCapacity(surfaces.Count() + cells.Count);
         HashSet<SurfaceChunkKey> changedChunks = new HashSet<SurfaceChunkKey>();
         byte occlusion = occludesFaces ? (byte)1 : (byte)0;
@@ -148,7 +165,8 @@ public partial class SurfaceRegistrySystem : SystemBase
                 Cell = cell,
                 VisualMaterialId = visualMaterialId,
                 Permissions = permissions,
-                OccludesFaces = occlusion
+                OccludesFaces = occlusion,
+                ShapeFlags = SurfaceShapeFlags.Flat
             };
             EntityManager.AddComponentData(foundation, data);
             SurfaceChunkKey key = SurfaceChunkUtility.GetChunkKey(cell);
@@ -164,6 +182,7 @@ public partial class SurfaceRegistrySystem : SystemBase
                 VisualMaterialId = visualMaterialId,
                 Permissions = permissions,
                 OccludesFaces = occlusion,
+                ShapeFlags = SurfaceShapeFlags.Flat,
                 Foundation = foundation
             });
             surfaces[cell] = new SurfaceRecord
@@ -172,7 +191,8 @@ public partial class SurfaceRegistrySystem : SystemBase
                 Chunk = chunk,
                 VisualMaterialId = visualMaterialId,
                 Permissions = permissions,
-                OccludesFaces = occlusion
+                OccludesFaces = occlusion,
+                ShapeFlags = SurfaceShapeFlags.Flat
             };
             changedChunks.Add(key);
             MarkDirty(grid, cell);
@@ -237,6 +257,9 @@ public partial class SurfaceRegistrySystem : SystemBase
             VisualMaterialId = data.VisualMaterialId,
             Permissions = data.Permissions,
             OccludesFaces = data.OccludesFaces,
+            ShapeFlags = data.ShapeFlags == SurfaceShapeFlags.None
+                ? SurfaceShapeFlags.Flat
+                : data.ShapeFlags,
             Foundation = foundation
         });
         surfaces[data.Cell] = new SurfaceRecord
@@ -245,7 +268,10 @@ public partial class SurfaceRegistrySystem : SystemBase
             Chunk = chunk,
             VisualMaterialId = data.VisualMaterialId,
             Permissions = data.Permissions,
-            OccludesFaces = data.OccludesFaces
+            OccludesFaces = data.OccludesFaces,
+            ShapeFlags = data.ShapeFlags == SurfaceShapeFlags.None
+                ? SurfaceShapeFlags.Flat
+                : data.ShapeFlags
         };
         IncrementChunkRevision(chunk);
         MarkDirty(grid, data.Cell);
@@ -318,7 +344,10 @@ public partial class SurfaceRegistrySystem : SystemBase
                 Chunk = chunk,
                 VisualMaterialId = data.VisualMaterialId,
                 Permissions = data.Permissions,
-                OccludesFaces = data.OccludesFaces
+                OccludesFaces = data.OccludesFaces,
+                ShapeFlags = data.ShapeFlags == SurfaceShapeFlags.None
+                    ? SurfaceShapeFlags.Flat
+                    : data.ShapeFlags
             };
         }
     }
@@ -347,7 +376,9 @@ public partial class SurfaceRegistrySystem : SystemBase
     {
         SurfaceChunkKey key = SurfaceChunkUtility.GetChunkKey(cell);
         AddUnique(EntityManager.GetBuffer<SurfaceRenderDirtyChunk>(grid), key);
-        AddUnique(EntityManager.GetBuffer<SurfacePhysicsDirtyChunk>(grid), key);
+        AddUnique(
+            EntityManager.GetBuffer<SurfacePhysicsDirtyChunk>(grid),
+            SurfaceChunkUtility.GetPhysicsChunkKey(cell));
         int localX = SurfaceChunkUtility.FloorMod(cell.X, SurfaceChunkUtility.ChunkSize);
         int localZ = SurfaceChunkUtility.FloorMod(cell.Z, SurfaceChunkUtility.ChunkSize);
         DynamicBuffer<SurfaceRenderDirtyChunk> render =
@@ -356,6 +387,8 @@ public partial class SurfaceRegistrySystem : SystemBase
         if (localX == SurfaceChunkUtility.ChunkSize - 1) AddUnique(render, new SurfaceChunkKey(key.ChunkX + 1, key.Level, key.ChunkZ));
         if (localZ == 0) AddUnique(render, new SurfaceChunkKey(key.ChunkX, key.Level, key.ChunkZ - 1));
         if (localZ == SurfaceChunkUtility.ChunkSize - 1) AddUnique(render, new SurfaceChunkKey(key.ChunkX, key.Level, key.ChunkZ + 1));
+        AddUnique(render, new SurfaceChunkKey(key.ChunkX, key.Level - 1, key.ChunkZ));
+        AddUnique(render, new SurfaceChunkKey(key.ChunkX, key.Level + 1, key.ChunkZ));
     }
 
     private static void AddUnique(DynamicBuffer<SurfaceRenderDirtyChunk> buffer, SurfaceChunkKey key)
@@ -364,7 +397,9 @@ public partial class SurfaceRegistrySystem : SystemBase
         buffer.Add(new SurfaceRenderDirtyChunk { Value = key });
     }
 
-    private static void AddUnique(DynamicBuffer<SurfacePhysicsDirtyChunk> buffer, SurfaceChunkKey key)
+    private static void AddUnique(
+        DynamicBuffer<SurfacePhysicsDirtyChunk> buffer,
+        FoundationPhysicsChunkKey key)
     {
         for (int i = 0; i < buffer.Length; i++) if (buffer[i].Value == key) return;
         buffer.Add(new SurfacePhysicsDirtyChunk { Value = key });

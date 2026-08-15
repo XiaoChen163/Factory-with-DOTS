@@ -3,6 +3,13 @@
     <ui:VisualElement name="game-ui-root" class="game-ui-root" picking-mode="Ignore">
         <ui:VisualElement name="hud-layer" class="ui-fill" picking-mode="Ignore">
             <ui:Label name="demolition-mode-hint" text="拆除模式" class="demolition-mode-hint" picking-mode="Ignore" />
+            <ui:VisualElement name="grid-layer-controls" class="grid-layer-controls">
+                <ui:Button name="grid-layer-down" text="−" class="grid-layer-button" />
+                <ui:Label name="grid-layer-label" text="AUTO · L0" class="grid-layer-label" picking-mode="Ignore" />
+                <ui:Button name="grid-layer-up" text="+" class="grid-layer-button" />
+                <ui:Button name="grid-layer-auto" text="自动" class="grid-layer-auto-button" />
+                <ui:Button name="grid-layer-visibility" text="全部层" class="grid-layer-visibility-button" />
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="window-layer" class="ui-fill" picking-mode="Ignore">
             <ui:VisualElement name="left-dock" class="dock dock-left" picking-mode="Ignore">

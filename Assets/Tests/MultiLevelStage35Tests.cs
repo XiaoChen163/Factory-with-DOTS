@@ -101,9 +101,89 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void FoundationArea_RejectsWrongLevelAndOversizedBatch()
+        public void FoundationArea_CanStackOnExistingFoundationGrid()
+        {
+            Submit(new GridCell(0, 0, 0), new GridCell(1, 0, 0));
+            Submit(new GridCell(0, 1, 0), new GridCell(1, 1, 0));
+
+            GridBuildResult result = EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success, Is.EqualTo(1));
+            Assert.That(result.AffectedCount, Is.EqualTo(2));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(0, 1, 0)));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(1, 1, 0)));
+        }
+
+        [Test]
+        public void SingleFoundation_CanBePlacedWithoutLowerSupport()
+        {
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
+                new GridBuildCommand
+                {
+                    RequestId = 1,
+                    Type = GridBuildCommandType.PlaceFoundation,
+                    StartCell = new GridCell(3, 4, 5),
+                    VisualMaterialId = 3
+                });
+            UpdateSystem(build);
+
+            GridBuildResult result =
+                EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success, Is.EqualTo(1));
+            Assert.That(result.FailureReason,
+                Is.EqualTo(GridBuildFailureReason.None));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(3, 4, 5)));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(3, 3, 5)),
+                Is.False);
+        }
+
+        [Test]
+        public void FoundationArea_AllowsCellsWithoutLowerFoundationSupport()
+        {
+            Submit(new GridCell(0, 0, 0), new GridCell(0, 0, 0));
+            Submit(new GridCell(0, 1, 0), new GridCell(1, 1, 0));
+
+            GridBuildResult result = EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success, Is.EqualTo(1));
+            Assert.That(result.AffectedCount, Is.EqualTo(2));
+            Assert.That(result.FailureReason,
+                Is.EqualTo(GridBuildFailureReason.None));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(0, 1, 0)));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(1, 1, 0)));
+        }
+
+        [Test]
+        public void RemovingFoundation_ThatSupportsUpperFoundationIsAllowed()
+        {
+            Submit(new GridCell(0, 0, 0), new GridCell(0, 0, 0));
+            Submit(new GridCell(0, 1, 0), new GridCell(0, 1, 0));
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
+                new GridBuildCommand
+                {
+                    RequestId = 3,
+                    Type = GridBuildCommandType.RemoveFoundation,
+                    StartCell = new GridCell(0, 0, 0)
+                });
+            UpdateSystem(build);
+
+            GridBuildResult result =
+                EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success, Is.EqualTo(1));
+            Assert.That(result.FailureReason,
+                Is.EqualTo(GridBuildFailureReason.None));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(0, 0, 0)),
+                Is.False);
+            Assert.That(registry.HasFoundationVoxel(new GridCell(0, 1, 0)),
+                Is.True);
+        }
+
+        [Test]
+        public void FoundationArea_AllowsUnsupportedLevelButRequiresOnePlane()
         {
             Submit(new GridCell(0, 1, 0), new GridCell(0, 1, 0));
+            Assert.That(EntityManager.GetBuffer<GridBuildResult>(grid)[0].Success,
+                Is.EqualTo(1));
+
+            Submit(new GridCell(0, 1, 0), new GridCell(0, 2, 0));
             Assert.That(EntityManager.GetBuffer<GridBuildResult>(grid)[0].FailureReason,
                 Is.EqualTo(GridBuildFailureReason.FoundationUnsupported));
 
@@ -111,7 +191,7 @@ namespace Factory.Tests
                 new GridCell(GridBuildCommandSystem.MaxFoundationAreaCells, 0, 0));
             Assert.That(EntityManager.GetBuffer<GridBuildResult>(grid)[0].FailureReason,
                 Is.EqualTo(GridBuildFailureReason.FoundationAreaTooLarge));
-            Assert.That(registry.SurfaceCount, Is.Zero);
+            Assert.That(registry.SurfaceCount, Is.EqualTo(1));
         }
 
         [Test]

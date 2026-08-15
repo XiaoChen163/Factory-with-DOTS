@@ -112,7 +112,7 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
         Mesh mesh = reuse
             ? runtime.Mesh
             : new Mesh { name = $"FoundationChunk_{key.ChunkX}_{key.Level}_{key.ChunkZ}" };
-        BuildMesh(mesh, groups);
+        BuildMesh(mesh, groups, config);
         Material[] materials = new Material[groups.Count];
         MaterialMeshIndex[] indices = new MaterialMeshIndex[groups.Count];
         int materialIndex = 0;
@@ -158,7 +158,8 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
 
     private static void BuildMesh(
         Mesh mesh,
-        SortedDictionary<ushort, List<FoundationQuad>> groups)
+        SortedDictionary<ushort, List<FoundationQuad>> groups,
+        in WorldGridConfig config)
     {
         mesh.Clear();
         int quadCount = 0;
@@ -175,7 +176,10 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
             {
                 FoundationQuad q = group[i];
                 int first = vertices.Count;
-                vertices.Add(q.A); vertices.Add(q.B); vertices.Add(q.C); vertices.Add(q.D);
+                vertices.Add(ScaleVertex(q.A, config));
+                vertices.Add(ScaleVertex(q.B, config));
+                vertices.Add(ScaleVertex(q.C, config));
+                vertices.Add(ScaleVertex(q.D, config));
                 normals.Add(q.Normal); normals.Add(q.Normal); normals.Add(q.Normal); normals.Add(q.Normal);
                 uvs.Add(new Vector2(0,0)); uvs.Add(new Vector2(1,0));
                 uvs.Add(new Vector2(1,1)); uvs.Add(new Vector2(0,1));
@@ -191,6 +195,14 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
         for (int i = 0; i < triangles.Count; i++) mesh.SetTriangles(triangles[i], i, false);
         mesh.RecalculateBounds();
     }
+
+    private static Vector3 ScaleVertex(
+        float3 vertex,
+        in WorldGridConfig config) =>
+        new Vector3(
+            vertex.x * config.CellSize,
+            vertex.y * config.LayerHeight,
+            vertex.z * config.CellSize);
 
     private static void AddOpaqueBorderNeighbors(
         SurfaceChunkKey key,

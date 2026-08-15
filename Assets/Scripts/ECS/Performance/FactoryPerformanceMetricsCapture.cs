@@ -350,6 +350,8 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                     diagnostics.transportTopologyRebuildCount,
                 transportTopologyNodeCount =
                     diagnostics.transportTopologyNodeCount,
+                transportTopologyEdgeCount =
+                    diagnostics.transportTopologyEdgeCount,
                 lastTransportTopologyRebuildNodeCount =
                     diagnostics.lastTransportTopologyRebuildNodeCount,
                 lastTransportTopologyRebuildMilliseconds =
@@ -583,6 +585,8 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                         report.transportTopologyRebuildCount,
                     transportTopologyNodeCount =
                         report.transportTopologyNodeCount,
+                    transportTopologyEdgeCount =
+                        report.transportTopologyEdgeCount,
                     lastTransportTopologyRebuildNodeCount =
                         report.lastTransportTopologyRebuildNodeCount,
                     lastTransportTopologyRebuildMilliseconds =
@@ -733,6 +737,8 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
                 transfer?.TransportTopologyRebuildCount ?? 0,
             transportTopologyNodeCount =
                 transfer?.TransportTopologyNodeCount ?? 0,
+            transportTopologyEdgeCount =
+                transfer?.TransportTopologyEdgeCount ?? 0,
             lastTransportTopologyRebuildNodeCount =
                 transfer?.LastTransportTopologyRebuildNodeCount ?? 0,
             lastTransportTopologyRebuildMilliseconds =
@@ -924,6 +930,7 @@ public sealed class FactoryPerformanceMetricsCapture : MonoBehaviour
         public ulong gridBuildPathValidationCellCount;
         public int transportTopologyRebuildCount;
         public int transportTopologyNodeCount;
+        public int transportTopologyEdgeCount;
         public int lastTransportTopologyRebuildNodeCount;
         public double lastTransportTopologyRebuildMilliseconds;
         public double totalTransportTopologyRebuildMilliseconds;
@@ -995,6 +1002,7 @@ public sealed class FactoryPerformanceCaptureReport
     public ulong gridBuildPathValidationCellCount;
     public int transportTopologyRebuildCount;
     public int transportTopologyNodeCount;
+    public int transportTopologyEdgeCount;
     public int lastTransportTopologyRebuildNodeCount;
     public double lastTransportTopologyRebuildMilliseconds;
     public double totalTransportTopologyRebuildMilliseconds;
@@ -1055,6 +1063,7 @@ public sealed class FactoryPerformanceCompactReport
     public ulong gridBuildPathValidationCellCount;
     public int transportTopologyRebuildCount;
     public int transportTopologyNodeCount;
+    public int transportTopologyEdgeCount;
     public int lastTransportTopologyRebuildNodeCount;
     public double lastTransportTopologyRebuildMilliseconds;
     public double totalTransportTopologyRebuildMilliseconds;

@@ -236,6 +236,7 @@ internal static class TransportTopologyAccess
 public sealed class FactoryLinearTransferResolver : IDisposable
 {
     private NativeParallelHashMap<GridCell, int> indexByCell;
+    private NativeParallelHashMap<Entity, int> indexByEntity;
     private NativeList<TransportTopologyNode> topology;
     private NativeList<byte> loopVisitState;
     private NativeList<int> loopPathIndex;
@@ -259,12 +260,16 @@ public sealed class FactoryLinearTransferResolver : IDisposable
     private int cachedBeltCount;
     private int cachedMergerCount;
     private int cachedSplitterCount;
+    private int cachedExplicitEdgeCount;
     private bool hasCachedRevision;
     private bool disposed;
 
     public FactoryLinearTransferResolver()
     {
         indexByCell = new NativeParallelHashMap<GridCell, int>(
+            16,
+            Allocator.Persistent);
+        indexByEntity = new NativeParallelHashMap<Entity, int>(
             16,
             Allocator.Persistent);
         topology = new NativeList<TransportTopologyNode>(
@@ -307,6 +312,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
 
     public int TopologyRebuildCount { get; private set; }
     public int NodeCount => topology.IsCreated ? topology.Length : 0;
+    public int EdgeCount { get; private set; }
     public int LastTopologyRebuildNodeCount { get; private set; }
     public double LastTopologyRebuildMilliseconds { get; private set; }
     public double TotalTopologyRebuildMilliseconds { get; private set; }
@@ -338,6 +344,31 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         NativeArray<Splitter> splitters,
         bool forceRebuild = false)
     {
+        using NativeArray<TransportExplicitEdge> explicitEdges =
+            new NativeArray<TransportExplicitEdge>(0, Allocator.Temp);
+        EnsureTopology(
+            revision,
+            beltEntities,
+            beltTopologies,
+            mergerEntities,
+            mergers,
+            splitterEntities,
+            splitters,
+            explicitEdges,
+            forceRebuild);
+    }
+
+    public void EnsureTopology(
+        uint revision,
+        NativeArray<Entity> beltEntities,
+        NativeArray<BeltTopology> beltTopologies,
+        NativeArray<Entity> mergerEntities,
+        NativeArray<Merger> mergers,
+        NativeArray<Entity> splitterEntities,
+        NativeArray<Splitter> splitters,
+        NativeArray<TransportExplicitEdge> explicitEdges,
+        bool forceRebuild = false)
+    {
         ThrowIfDisposed();
         ValidateSnapshots(
             beltEntities,
@@ -345,14 +376,16 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             mergerEntities,
             mergers,
             splitterEntities,
-            splitters);
+            splitters,
+            explicitEdges);
 
         if (!forceRebuild &&
             hasCachedRevision &&
             revision == cachedRevision &&
             beltTopologies.Length == cachedBeltCount &&
             mergers.Length == cachedMergerCount &&
-            splitters.Length == cachedSplitterCount)
+            splitters.Length == cachedSplitterCount &&
+            explicitEdges.Length == cachedExplicitEdgeCount)
         {
             return;
         }
@@ -364,7 +397,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             mergerEntities,
             mergers,
             splitterEntities,
-            splitters);
+            splitters,
+            explicitEdges);
     }
 
     /// <summary>
@@ -410,6 +444,7 @@ public sealed class FactoryLinearTransferResolver : IDisposable
 
         disposed = true;
         DisposeIfCreated(ref indexByCell);
+        DisposeIfCreated(ref indexByEntity);
         DisposeIfCreated(ref topology);
         DisposeIfCreated(ref loopVisitState);
         DisposeIfCreated(ref loopPathIndex);
@@ -436,7 +471,8 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         NativeArray<Entity> mergerEntities,
         NativeArray<Merger> mergers,
         NativeArray<Entity> splitterEntities,
-        NativeArray<Splitter> splitters)
+        NativeArray<Splitter> splitters,
+        NativeArray<TransportExplicitEdge> explicitEdges)
     {
         long rebuildStarted = Stopwatch.GetTimestamp();
         int nodeCount =
@@ -444,9 +480,14 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         EnsureCapacity(nodeCount);
         topology.ResizeUninitialized(nodeCount);
         indexByCell.Clear();
+        indexByEntity.Clear();
         if (indexByCell.Capacity < math.max(16, nodeCount))
         {
             indexByCell.Capacity = math.max(16, nodeCount);
+        }
+        if (indexByEntity.Capacity < math.max(16, nodeCount))
+        {
+            indexByEntity.Capacity = math.max(16, nodeCount);
         }
 
         int nodeIndex = 0;
@@ -483,13 +524,15 @@ public sealed class FactoryLinearTransferResolver : IDisposable
                 splitters[i].Direction);
         }
 
-        BuildConnections();
+        BuildConnections(explicitEdges);
+        EdgeCount = CountEdges();
         LoopCount = MarkBeltLoops();
 
         cachedRevision = revision;
         cachedBeltCount = beltTopologies.Length;
         cachedMergerCount = mergers.Length;
         cachedSplitterCount = splitters.Length;
+        cachedExplicitEdgeCount = explicitEdges.Length;
         hasCachedRevision = true;
         TopologyRebuildCount++;
         LastTopologyRebuildNodeCount = nodeCount;
@@ -523,10 +566,14 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             Output2 = -1
         };
         indexByCell[cell] = nodeIndex;
+        indexByEntity[entity] = nodeIndex;
     }
 
-    private void BuildConnections()
+    private void BuildConnections(
+        NativeArray<TransportExplicitEdge> explicitEdges)
     {
+        ConnectExplicitEdges(explicitEdges);
+
         for (int targetIndex = 0;
              targetIndex < topology.Length;
              targetIndex++)
@@ -563,6 +610,49 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         }
     }
 
+    private void ConnectExplicitEdges(
+        NativeArray<TransportExplicitEdge> explicitEdges)
+    {
+        for (int i = 0; i < explicitEdges.Length; i++)
+        {
+            TransportExplicitEdge edge = explicitEdges[i];
+            if (edge.Source == Entity.Null ||
+                edge.Target == Entity.Null ||
+                edge.Source == edge.Target ||
+                !indexByEntity.TryGetValue(edge.Source, out int sourceIndex) ||
+                !indexByEntity.TryGetValue(edge.Target, out int targetIndex))
+            {
+                continue;
+            }
+
+            TransportTopologyNode source = topology[sourceIndex];
+            TransportTopologyNode target = topology[targetIndex];
+            int outputIndex = edge.SourceOutputIndex;
+            int inputIndex = edge.TargetInputIndex;
+            if (outputIndex >= GetOutputCapacity(source.Kind) ||
+                inputIndex >= GetInputCapacity(target.Kind) ||
+                TransportTopologyAccess.GetOutput(source, outputIndex) >= 0 ||
+                TransportTopologyAccess.GetInput(target, inputIndex) >= 0)
+            {
+                continue;
+            }
+
+            TransportTopologyAccess.SetOutput(
+                ref source,
+                outputIndex,
+                targetIndex);
+            TransportTopologyAccess.SetInput(
+                ref target,
+                inputIndex,
+                sourceIndex);
+            target.InputCount = (byte)math.max(
+                target.InputCount,
+                inputIndex + 1);
+            topology[sourceIndex] = source;
+            topology[targetIndex] = target;
+        }
+    }
+
     private void ConnectPreferredBeltInput(
         int targetIndex,
         TransportTopologyNode target)
@@ -591,6 +681,11 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         int2 travelDirection)
     {
         TransportTopologyNode target = topology[targetIndex];
+        if (TransportTopologyAccess.GetInput(target, inputIndex) >= 0)
+        {
+            return true;
+        }
+
         GridCell sourceCell = target.Cell - travelDirection;
         if (!indexByCell.TryGetValue(
                 sourceCell,
@@ -604,6 +699,10 @@ public sealed class FactoryLinearTransferResolver : IDisposable
                 source,
                 travelDirection,
                 out int outputIndex))
+        {
+            return false;
+        }
+        if (TransportTopologyAccess.GetOutput(source, outputIndex) >= 0)
         {
             return false;
         }
@@ -623,6 +722,33 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         topology[sourceIndex] = source;
         return true;
     }
+
+    private int CountEdges()
+    {
+        int count = 0;
+        for (int nodeIndex = 0; nodeIndex < topology.Length; nodeIndex++)
+        {
+            TransportTopologyNode node = topology[nodeIndex];
+            int outputCapacity = GetOutputCapacity(node.Kind);
+            for (int outputIndex = 0;
+                 outputIndex < outputCapacity;
+                 outputIndex++)
+            {
+                if (TransportTopologyAccess.GetOutput(node, outputIndex) >= 0)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private static int GetInputCapacity(FactoryTransportKind kind) =>
+        kind == FactoryTransportKind.Merger ? 3 : 1;
+
+    private static int GetOutputCapacity(FactoryTransportKind kind) =>
+        kind == FactoryTransportKind.Splitter ? 3 : 1;
 
     private int MarkBeltLoops()
     {
@@ -731,14 +857,16 @@ public sealed class FactoryLinearTransferResolver : IDisposable
         NativeArray<Entity> mergerEntities,
         NativeArray<Merger> mergers,
         NativeArray<Entity> splitterEntities,
-        NativeArray<Splitter> splitters)
+        NativeArray<Splitter> splitters,
+        NativeArray<TransportExplicitEdge> explicitEdges)
     {
         if (!beltEntities.IsCreated ||
             !beltTopologies.IsCreated ||
             !mergerEntities.IsCreated ||
             !mergers.IsCreated ||
             !splitterEntities.IsCreated ||
-            !splitters.IsCreated)
+            !splitters.IsCreated ||
+            !explicitEdges.IsCreated)
         {
             throw new ArgumentException(
                 "Transport snapshots must be created native containers.");

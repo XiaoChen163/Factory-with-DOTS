@@ -82,6 +82,7 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                 NextGridRequestId = 1
             });
             AddBuffer<GridBuildResult>(entity);
+            AddBuffer<TransportExplicitEdge>(entity);
             AddBuffer<SurfaceRenderDirtyChunk>(entity);
             AddBuffer<SurfacePhysicsDirtyChunk>(entity);
             AddComponent(entity, new FoundationCollisionSettings

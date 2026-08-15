@@ -27,6 +27,8 @@ namespace Factory.Tests
             new List<Entity>();
         private readonly List<Splitter> splitters =
             new List<Splitter>();
+        private readonly List<TransportExplicitEdge> explicitEdges =
+            new List<TransportExplicitEdge>();
         private readonly HashSet<Entity> processedJunctions =
             new HashSet<Entity>();
         private readonly FactoryLinearTransferResolver linearResolver =
@@ -44,6 +46,7 @@ namespace Factory.Tests
         public IReadOnlyList<Splitter> Splitters => splitters;
         public int LinearTopologyRebuildCount =>
             linearResolver.TopologyRebuildCount;
+        public int LinearTopologyEdgeCount => linearResolver.EdgeCount;
         public int LinearCandidateInspectionCount =>
             linearResolver.LastCandidateInspectionCount;
         public int LinearRoutingPassCount =>
@@ -122,6 +125,21 @@ namespace Factory.Tests
                 NextOutputIndex = nextOutputIndex
             });
             return entity;
+        }
+
+        public void AddExplicitEdge(
+            Entity source,
+            Entity target,
+            byte sourceOutputIndex = 0,
+            byte targetInputIndex = 0)
+        {
+            explicitEdges.Add(new TransportExplicitEdge
+            {
+                Source = source,
+                Target = target,
+                SourceOutputIndex = sourceOutputIndex,
+                TargetInputIndex = targetInputIndex
+            });
         }
 
         public TransportTickResult ResolveTick()
@@ -209,6 +227,10 @@ namespace Factory.Tests
                 new NativeArray<Splitter>(
                     splitters.ToArray(),
                     Allocator.TempJob);
+            using NativeArray<TransportExplicitEdge> explicitEdgeSnapshot =
+                new NativeArray<TransportExplicitEdge>(
+                    explicitEdges.ToArray(),
+                    Allocator.TempJob);
 
             linearResolver.EnsureTopology(
                 revision,
@@ -217,7 +239,8 @@ namespace Factory.Tests
                 mergerEntitySnapshot,
                 mergerSnapshot,
                 splitterEntitySnapshot,
-                splitterSnapshot);
+                splitterSnapshot,
+                explicitEdgeSnapshot);
 
             FactoryTransferArbitrationJob job =
                 linearResolver.CreateArbitrationJob();

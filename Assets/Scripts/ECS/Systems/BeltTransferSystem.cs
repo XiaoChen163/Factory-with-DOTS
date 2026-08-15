@@ -44,6 +44,8 @@ public partial class BeltTransferSystem : SystemBase
         transferResolver?.TopologyRebuildCount ?? 0;
     public int TransportTopologyNodeCount =>
         transferResolver?.NodeCount ?? 0;
+    public int TransportTopologyEdgeCount =>
+        transferResolver?.EdgeCount ?? 0;
     public int LastTransportTopologyRebuildNodeCount =>
         transferResolver?.LastTopologyRebuildNodeCount ?? 0;
     public double LastTransportTopologyRebuildMilliseconds =>
@@ -250,6 +252,19 @@ public partial class BeltTransferSystem : SystemBase
     private void RefreshTopology(uint gridRevision, bool hasGrid)
     {
         uint revision = hasGrid ? gridRevision : 0;
+        using NativeList<TransportExplicitEdge> explicitEdges =
+            new NativeList<TransportExplicitEdge>(Allocator.Temp);
+        if (hasGrid)
+        {
+            Entity gridEntity = gridQuery.GetSingletonEntity();
+            if (EntityManager.HasBuffer<TransportExplicitEdge>(gridEntity))
+            {
+                explicitEdges.AddRange(
+                    EntityManager.GetBuffer<TransportExplicitEdge>(
+                        gridEntity,
+                        true).AsNativeArray());
+            }
+        }
         using NativeArray<Entity> beltEntities =
             beltTopologyQuery.ToEntityArray(Allocator.Temp);
         using NativeArray<BeltTopology> beltTopologies =
@@ -271,6 +286,7 @@ public partial class BeltTransferSystem : SystemBase
             mergers,
             splitterEntities,
             splitters,
+            explicitEdges.AsArray(),
             !hasGrid);
     }
 

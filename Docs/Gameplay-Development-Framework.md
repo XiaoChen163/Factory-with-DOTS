@@ -20,7 +20,7 @@
 
 | 目录 | 职责 |
 |---|---|
-| `Assets/Scripts/Data` | 数据模型、数据库 Asset、CSV 导入 |
+| `Assets/Scripts/DataBase` | 数据模型、数据库 Asset、CSV 导入 |
 | `Assets/Scripts/ECS/Data` | ECS 组件、Buffer、Blob 结构 |
 | `Assets/Scripts/ECS/Systems` | 模拟系统、建造、拓扑、端口、表现采集 |
 | `Assets/Scripts/ECS/Authoring` | GameObject 到 ECS 的 Baker |

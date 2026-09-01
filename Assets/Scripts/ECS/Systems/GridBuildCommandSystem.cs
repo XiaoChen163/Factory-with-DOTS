@@ -275,6 +275,7 @@ public partial class GridBuildCommandSystem : SystemBase
                         worldGrid,
                         catalog,
                         rampRegistry,
+                        surfaceRegistry,
                         placements,
                         out failureReason);
                     affectedCount = success ? 1 : 0;
@@ -560,7 +561,8 @@ public partial class GridBuildCommandSystem : SystemBase
         }
         RampRegistrySystem rampRegistry =
             World.GetExistingSystemManaged<RampRegistrySystem>();
-        if (rampRegistry != null && rampRegistry.ContainsCell(cell))
+        if (rampRegistry != null &&
+            rampRegistry.ConflictsWithFoundationVoxel(cell))
         {
             failure = GridBuildFailureReason.RampOccupied;
             return false;
@@ -647,7 +649,8 @@ public partial class GridBuildCommandSystem : SystemBase
             }
             RampRegistrySystem rampRegistry =
                 World.GetExistingSystemManaged<RampRegistrySystem>();
-            if (rampRegistry != null && rampRegistry.ContainsCell(cell))
+            if (rampRegistry != null &&
+                rampRegistry.ConflictsWithFoundationVoxel(cell))
             {
                 failure = GridBuildFailureReason.RampOccupied;
                 return false;
@@ -812,6 +815,7 @@ public partial class GridBuildCommandSystem : SystemBase
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         RampRegistrySystem rampRegistry,
+        SurfaceRegistrySystem surfaceRegistry,
         BatchPlacementState placements,
         out GridBuildFailureReason failure)
     {
@@ -849,6 +853,12 @@ public partial class GridBuildCommandSystem : SystemBase
             UphillDirection = uphill,
             VisualMaterialId = command.VisualMaterialId
         };
+        if (surfaceRegistry != null &&
+            surfaceRegistry.HasFoundationOverlappingRamp(connector))
+        {
+            failure = GridBuildFailureReason.RampOccupied;
+            return false;
+        }
 
         Entity entity = EntityManager.CreateEntity();
         EntityManager.AddComponentData(entity, connector);

@@ -109,6 +109,25 @@ public static class RampUtility
         return rise == 2 || rise == 4 || rise == 8;
     }
 
+    /// <summary>
+    /// A flat foundation cell stores the level of its top face and occupies
+    /// the open vertical interval (Level - 1, Level). A ramp stores its exact
+    /// low/high heights. Equal boundaries only touch and are not a conflict.
+    /// </summary>
+    public static bool OverlapsFoundationVoxel(
+        in RampConnector ramp,
+        GridCell foundationCell)
+    {
+        if (!math.all(ramp.Cell.Horizontal == foundationCell.Horizontal))
+            return false;
+        long foundationBottom =
+            ((long)foundationCell.Level - 1L) * GridHeight.UnitsPerLayer;
+        long foundationTop =
+            (long)foundationCell.Level * GridHeight.UnitsPerLayer;
+        return foundationBottom < ramp.HighHeight.Units &&
+               foundationTop > ramp.LowHeight.Units;
+    }
+
     public static bool IsTravelDirectionAllowed(
         in RampConnector ramp,
         int2 travelDirection)

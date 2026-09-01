@@ -58,6 +58,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private GridCell rampBeltPathStart;
     private GridCell foundationAreaStart;
     private GridCell rampLineStart;
+    private int rampLineStartHeightUnits;
+    private int2 rampLineDirection;
     private bool simulatedHoverActive;
     private GridCell simulatedHoverCell;
     private World cachedWorld;
@@ -230,6 +232,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         World world;
         GridDefinition grid;
         GridCell hoveredCell;
+        ResolvedBuildAnchor buildAnchor;
         if (simulatedHoverActive)
         {
             if (!TryGetGrid(out world, out _, out grid))
@@ -239,16 +242,24 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             }
 
             hoveredCell = simulatedHoverCell;
+            buildAnchor = CreateDirectBuildAnchor(hoveredCell);
         }
-        else if (!TryRaycastGrid(
+        else if (!TryRaycastBuildAnchor(
                      out world,
                      out grid,
                      out _,
-                     out hoveredCell,
-                     out _,
-                     out _,
-                     IsSurfacePlacementKind(),
+                     out buildAnchor,
                      false))
+        {
+            HidePlacementPreview();
+            return;
+        }
+        else
+        {
+            hoveredCell = buildAnchor.Cell;
+        }
+
+        if (buildAnchor.IsValid == 0)
         {
             HidePlacementPreview();
             return;
@@ -264,7 +275,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         {
             hoveredCell.Level = rampLineStart.Level;
         }
-        BuildPreviewCells(hoveredCell);
+        BuildPreviewCells(hoveredCell, buildAnchor);
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
@@ -280,6 +291,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                   occupancySystem.ConflictCount == 0
                 : occupancySystem != null && occupancySystem.IsReady &&
                   occupancySystem.ConflictCount == 0;
+        int selectedRampRise = 0;
+        if (SelectedKind == BuildingKind.RampFoundation &&
+            TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel))
+            selectedRampRise = rampLevel.RampRiseHeightUnits;
         for (int i = 0; i < previewCells.Count; i++)
         {
             GridCell cell = previewCells[i];
@@ -287,7 +302,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             {
                 if (cell.Level < 0 || surfaceRegistry == null ||
                     !surfaceRegistry.IsReady ||
-                    surfaceRegistry.HasFoundationVoxel(cell))
+                    surfaceRegistry.HasFoundationVoxel(cell) ||
+                    rampRegistry != null &&
+                    rampRegistry.ConflictsWithFoundationVoxel(cell))
                     canPlace = false;
             }
             else if (SelectedKind == BuildingKind.RampFoundation)
@@ -296,6 +313,24 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     occupancySystem == null ||
                     occupancySystem.TryGetOccupant(cell, out _))
                     canPlace = false;
+                else if (surfaceRegistry != null &&
+                         i < previewRampStartHeightUnits.Count &&
+                         i < previewDisplayDirections.Count)
+                {
+                    int start = previewRampStartHeightUnits[i];
+                    int end = checked(start + selectedRampRise);
+                    RampConnector candidate = new RampConnector
+                    {
+                        Cell = cell,
+                        LowHeight = new GridHeight(math.min(start, end)),
+                        HighHeight = new GridHeight(math.max(start, end)),
+                        UphillDirection = selectedRampRise >= 0
+                            ? previewDisplayDirections[i]
+                            : -previewDisplayDirections[i]
+                    };
+                    if (surfaceRegistry.HasFoundationOverlappingRamp(candidate))
+                        canPlace = false;
+                }
             }
             else if (SelectedKind == BuildingKind.Belt &&
                      TryGetRamp(world, cell, out RampRegistrySystem.Record ramp))
@@ -321,7 +356,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         ShowPlacementPreview(grid, canPlace);
     }
 
-    private void BuildPreviewCells(GridCell hoveredCell)
+    private void BuildPreviewCells(
+        GridCell hoveredCell,
+        in ResolvedBuildAnchor buildAnchor)
     {
         previewCells.Clear();
         previewDisplayDirections.Clear();
@@ -358,8 +395,13 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 rampLineStarted ? rampLineStart : hoveredCell,
                 hoveredCell,
                 rampLineStarted,
-                EcsGridUtility.Rotate(new int2(1, 0), quarterTurns),
+                rampLineStarted
+                    ? rampLineDirection
+                    : buildAnchor.RampUphillDirection,
                 rampLevel.RampRiseHeightUnits,
+                rampLineStarted
+                    ? rampLineStartHeightUnits
+                    : buildAnchor.RampStartHeightUnits,
                 previewCells,
                 previewDisplayDirections,
                 previewRampStartHeightUnits);
@@ -504,6 +546,29 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         List<int2> directions,
         List<int> startHeightUnits)
     {
+        BuildRampLine(
+            start,
+            end,
+            useEndDirection,
+            fallbackDirection,
+            riseHeightUnits,
+            checked(start.Level * GridHeight.UnitsPerLayer),
+            cells,
+            directions,
+            startHeightUnits);
+    }
+
+    public static void BuildRampLine(
+        GridCell start,
+        GridCell end,
+        bool useEndDirection,
+        int2 fallbackDirection,
+        int riseHeightUnits,
+        int initialStartHeightUnits,
+        List<GridCell> cells,
+        List<int2> directions,
+        List<int> startHeightUnits)
+    {
         cells.Clear();
         directions.Clear();
         startHeightUnits.Clear();
@@ -529,10 +594,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             length = math.abs(delta.y);
         }
 
-        int baseHeight = checked(start.Level * GridHeight.UnitsPerLayer);
         for (int i = 0; i <= length; i++)
         {
-            int height = checked(baseHeight + i * riseHeightUnits);
+            int height = checked(initialStartHeightUnits + i * riseHeightUnits);
             GridCell cell = start + direction * i;
             cell.Level = SurfaceChunkUtility.FloorDiv(
                 height,
@@ -1038,20 +1102,18 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void HandlePrimaryClick()
     {
-        if (!TryRaycastGrid(
+        if (!TryRaycastBuildAnchor(
                 out World world,
                 out _,
                 out _,
-                out GridCell cell,
-                out _,
-                out _,
-                IsSurfacePlacementKind(),
+                out ResolvedBuildAnchor buildAnchor,
                 true))
         {
             return;
         }
 
-        HandlePrimaryClickAtCell(cell);
+        if (buildAnchor.IsValid != 0)
+            HandlePrimaryClickAtAnchor(buildAnchor);
     }
 
     public void SimulatePrimaryClick(int2 cell)
@@ -1060,13 +1122,13 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     }
 
     public void SimulatePrimaryClick(GridCell cell) =>
-        HandlePrimaryClickAtCell(cell);
+        HandlePrimaryClickAtAnchor(CreateDirectBuildAnchor(cell));
 
     public bool TryGetHoveredBuilding(out BuildingRuntimeId runtimeId)
     {
         runtimeId = default;
         if (!TryRaycastGrid(out World world, out _, out _, out GridCell cell,
-                out _, out bool isInside, false, false) || !isInside)
+                out _, out bool isInside, out _, false, false) || !isInside)
             return false;
         GridOccupancyIndexSystem occupancy =
             world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
@@ -1080,8 +1142,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         return runtimeId.IsValid;
     }
 
-    private void HandlePrimaryClickAtCell(GridCell cell)
+    private void HandlePrimaryClickAtAnchor(ResolvedBuildAnchor buildAnchor)
     {
+        GridCell cell = buildAnchor.Cell;
         if (SelectedKind == BuildingKind.Foundation &&
             foundationAreaStarted)
         {
@@ -1162,6 +1225,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             if (!rampLineStarted)
             {
                 rampLineStart = cell;
+                rampLineStartHeightUnits = buildAnchor.RampStartHeightUnits;
+                rampLineDirection = buildAnchor.RampUphillDirection;
                 rampLineStarted = true;
                 return;
             }
@@ -1171,8 +1236,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 rampLineStart,
                 cell,
                 true,
-                EcsGridUtility.Rotate(new int2(1, 0), quarterTurns),
+                rampLineDirection,
                 rampLevel.RampRiseHeightUnits,
+                rampLineStartHeightUnits,
                 previewCells,
                 previewDisplayDirections,
                 previewRampStartHeightUnits);
@@ -1341,6 +1407,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out GridCell cell,
                 out _,
                 out bool isInside,
+                out _,
                 false,
                 false) ||
             !isInside)
@@ -1467,6 +1534,54 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         SelectedKind == BuildingKind.Foundation ||
         SelectedKind == BuildingKind.RampFoundation;
 
+    private ResolvedBuildAnchor CreateDirectBuildAnchor(GridCell cell)
+    {
+        return new ResolvedBuildAnchor
+        {
+            Cell = cell,
+            RampStartHeightUnits = checked(
+                cell.Level * GridHeight.UnitsPerLayer),
+            RampUphillDirection = EcsGridUtility.Rotate(
+                new int2(1, 0), quarterTurns),
+            IsValid = 1
+        };
+    }
+
+    private bool TryRaycastBuildAnchor(
+        out World world,
+        out GridDefinition grid,
+        out Entity currentGrid,
+        out ResolvedBuildAnchor buildAnchor,
+        bool logFailure)
+    {
+        buildAnchor = default;
+        if (!TryRaycastGrid(
+                out world,
+                out grid,
+                out currentGrid,
+                out _,
+                out _,
+                out _,
+                out GridSurfaceHit surfaceHit,
+                IsSurfacePlacementKind(),
+                logFailure))
+            return false;
+
+        int rise = 0;
+        if (SelectedKind == BuildingKind.RampFoundation &&
+            TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob level))
+            rise = level.RampRiseHeightUnits;
+        buildAnchor = GridBuildPlacementResolver.Resolve(
+            surfaceHit,
+            SelectedKind,
+            rise,
+            EcsGridUtility.Rotate(new int2(1, 0), quarterTurns),
+            GetWorldGridConfig());
+        if (buildAnchor.IsValid != 0)
+            SetSelectedGridLevel(buildAnchor.Cell.Level);
+        return true;
+    }
+
     private bool TryRaycastGrid(
         out World world,
         out GridDefinition grid,
@@ -1474,6 +1589,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         out GridCell cell,
         out Vector3 hitPoint,
         out bool isInside,
+        out GridSurfaceHit surfaceHit,
         bool foundationPlacement,
         bool logFailure)
     {
@@ -1483,6 +1599,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         cell = default;
         hitPoint = default;
         isInside = false;
+        surfaceHit = default;
         if (!TryGetGrid(
                 out world,
                 out gridEntity,
@@ -1532,6 +1649,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 foundationGrid);
             cell.Level = foundationLevel;
             isInside = true;
+            surfaceHit = GridSurfaceHit.Direct(
+                cell,
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z));
             return true;
         }
 
@@ -1558,27 +1678,23 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 ? cell.Level >= 0
                 : HasSurface(world, grid, cell) ||
                   TryGetRamp(world, cell, out _);
+            surfaceHit = GridSurfaceHit.Direct(
+                cell,
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z));
             return true;
         }
 
         if (TryRaycastFoundation(
                 world,
                 ray,
-                out GridCell foundationCell,
-                out hitPoint,
-                out float3 surfaceNormal))
+                out surfaceHit))
         {
-            bool placeFlatFoundationAdjacent =
-                foundationPlacement &&
-                SelectedKind == BuildingKind.Foundation;
-            cell = placeFlatFoundationAdjacent
-                ? FoundationQueryUtility.ResolveAdjacentCell(
-                    foundationCell,
-                    surfaceNormal)
-                : foundationCell;
+            cell = surfaceHit.SourceCell;
+            hitPoint = surfaceHit.Position;
             isInside = foundationPlacement || HasSurface(world, grid, cell) ||
                        TryGetRamp(world, cell, out _);
-            SetSelectedGridLevel(cell.Level);
+            if (!foundationPlacement)
+                SetSelectedGridLevel(cell.Level);
             return true;
         }
 
@@ -1612,19 +1728,18 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             cell.Level = 0;
             isInside = true;
         }
+        surfaceHit = GridSurfaceHit.Direct(
+            cell,
+            new float3(hitPoint.x, hitPoint.y, hitPoint.z));
         return true;
     }
 
     private bool TryRaycastFoundation(
         World world,
         Ray ray,
-        out GridCell cell,
-        out Vector3 hitPoint,
-        out float3 surfaceNormal)
+        out GridSurfaceHit surfaceHit)
     {
-        cell = default;
-        hitPoint = default;
-        surfaceNormal = default;
+        surfaceHit = default;
         if (!ecsCacheInitialized ||
             physicsWorldQuery.CalculateEntityCount() != 1)
         {
@@ -1652,9 +1767,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 hit.Entity,
                 out RampConnector ramp))
         {
-            cell = ramp.Cell;
-            hitPoint = hit.Position;
-            surfaceNormal = hit.SurfaceNormal;
+            surfaceHit = GridBuildPlacementResolver.CreateRampHit(
+                ramp,
+                hit.Position,
+                hit.SurfaceNormal);
             return true;
         }
 
@@ -1665,14 +1781,16 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 hit.SurfaceNormal,
                 GetWorldGridConfig(),
                 registry,
-                out cell,
+                out GridCell cell,
                 out _))
         {
             return false;
         }
 
-        hitPoint = hit.Position;
-        surfaceNormal = hit.SurfaceNormal;
+        surfaceHit = GridBuildPlacementResolver.CreateFlatHit(
+            cell,
+            hit.Position,
+            hit.SurfaceNormal);
         return true;
     }
 

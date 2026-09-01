@@ -137,6 +137,128 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void SingleFoundation_CanBePlacedDirectlyBelowExistingRamp()
+        {
+            RampRegistrySystem ramps =
+                GetOrCreateManagedSystem<RampRegistrySystem>();
+            ramps.Register(Entity.Null, new RampConnector
+            {
+                Cell = new GridCell(3, 0, 5),
+                LowHeight = new GridHeight(0),
+                HighHeight = new GridHeight(8),
+                UphillDirection = new int2(1, 0)
+            });
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
+                new GridBuildCommand
+                {
+                    RequestId = 1,
+                    Type = GridBuildCommandType.PlaceFoundation,
+                    StartCell = new GridCell(3, 0, 5),
+                    VisualMaterialId = 3
+                });
+
+            UpdateSystem(build);
+
+            GridBuildResult result =
+                EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success, Is.EqualTo(1));
+            Assert.That(result.FailureReason,
+                Is.EqualTo(GridBuildFailureReason.None));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(3, 0, 5)));
+        }
+
+        [Test]
+        public void SingleFoundation_RejectsActualRampVolumeOverlap()
+        {
+            RampRegistrySystem ramps =
+                GetOrCreateManagedSystem<RampRegistrySystem>();
+            ramps.Register(Entity.Null, new RampConnector
+            {
+                Cell = new GridCell(3, 0, 5),
+                LowHeight = new GridHeight(4),
+                HighHeight = new GridHeight(8),
+                UphillDirection = new int2(1, 0)
+            });
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
+                new GridBuildCommand
+                {
+                    RequestId = 1,
+                    Type = GridBuildCommandType.PlaceFoundation,
+                    StartCell = new GridCell(3, 1, 5),
+                    VisualMaterialId = 3
+                });
+
+            UpdateSystem(build);
+
+            GridBuildResult result =
+                EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success, Is.Zero);
+            Assert.That(result.FailureReason,
+                Is.EqualTo(GridBuildFailureReason.RampOccupied));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(3, 1, 5)),
+                Is.False);
+        }
+
+        [Test]
+        public void FoundationArea_CanIncludeCellDirectlyBelowExistingRamp()
+        {
+            RampRegistrySystem ramps =
+                GetOrCreateManagedSystem<RampRegistrySystem>();
+            ramps.Register(Entity.Null, new RampConnector
+            {
+                Cell = new GridCell(0, 0, 0),
+                LowHeight = new GridHeight(0),
+                HighHeight = new GridHeight(8),
+                UphillDirection = new int2(1, 0)
+            });
+
+            Submit(new GridCell(0, 0, 0), new GridCell(1, 0, 0));
+
+            GridBuildResult result =
+                EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success, Is.EqualTo(1));
+            Assert.That(result.AffectedCount, Is.EqualTo(2));
+            Assert.That(registry.HasFoundationVoxel(new GridCell(0, 0, 0)));
+        }
+
+        [Test]
+        public void SurfaceRegistry_DistinguishesRampSupportFromVolumeOverlap()
+        {
+            registry.AddFoundation(
+                grid,
+                new GridCell(0, 0, 0),
+                3,
+                SurfacePermission.All,
+                true);
+            registry.AddFoundation(
+                grid,
+                new GridCell(1, 1, 0),
+                3,
+                SurfacePermission.All,
+                true);
+
+            RampConnector supported = new RampConnector
+            {
+                Cell = new GridCell(0, 0, 0),
+                LowHeight = new GridHeight(0),
+                HighHeight = new GridHeight(8),
+                UphillDirection = new int2(1, 0)
+            };
+            RampConnector overlapping = new RampConnector
+            {
+                Cell = new GridCell(1, 0, 0),
+                LowHeight = new GridHeight(4),
+                HighHeight = new GridHeight(8),
+                UphillDirection = new int2(1, 0)
+            };
+
+            Assert.That(registry.HasFoundationOverlappingRamp(supported),
+                Is.False);
+            Assert.That(registry.HasFoundationOverlappingRamp(overlapping),
+                Is.True);
+        }
+
+        [Test]
         public void FoundationArea_AllowsCellsWithoutLowerFoundationSupport()
         {
             Submit(new GridCell(0, 0, 0), new GridCell(0, 0, 0));

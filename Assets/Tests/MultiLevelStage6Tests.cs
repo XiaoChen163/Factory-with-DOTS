@@ -80,6 +80,25 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void RampFoundationOverlap_TreatsSharedBoundariesAsContact()
+        {
+            RampConnector ramp = Connector(new GridCell(2, 0, 3), 0, 8);
+
+            Assert.That(RampUtility.OverlapsFoundationVoxel(
+                ramp, new GridCell(2, 0, 3)), Is.False,
+                "A foundation ending at the ramp low height supports it.");
+            Assert.That(RampUtility.OverlapsFoundationVoxel(
+                ramp, new GridCell(2, 1, 3)), Is.True,
+                "A foundation spanning the ramp height intersects it.");
+            Assert.That(RampUtility.OverlapsFoundationVoxel(
+                ramp, new GridCell(2, 2, 3)), Is.False,
+                "A foundation starting at the ramp high height only touches it.");
+            Assert.That(RampUtility.OverlapsFoundationVoxel(
+                ramp, new GridCell(3, 1, 3)), Is.False,
+                "Different horizontal cells never overlap.");
+        }
+
+        [Test]
         public void FractionalRampEndpoints_ChainWithoutFloatRounding()
         {
             RampConnector first = Connector(new GridCell(1, 0, 0), 0, 2);
@@ -115,6 +134,171 @@ namespace Factory.Tests
             Assert.That(cells[3], Is.EqualTo(new GridCell(6, 3, 4)));
             Assert.That(heights, Is.EqualTo(new[] { 16, 20, 24, 28 }));
             Assert.That(directions, Has.All.EqualTo(East));
+        }
+
+        [Test]
+        public void FlatFoundationPlacement_ResolvesFlatAndRampFaces()
+        {
+            WorldGridConfig grid = GridConfig();
+            GridCell flatCell = new GridCell(4, 3, 7);
+
+            ResolvedBuildAnchor flatTop = Resolve(
+                GridBuildPlacementResolver.CreateFlatHit(
+                    flatCell,
+                    new float3(4.5f, 3f, 7.5f),
+                    new float3(0f, 1f, 0f)),
+                BuildingKind.Foundation,
+                8,
+                grid);
+            Assert.That(flatTop.Cell, Is.EqualTo(new GridCell(4, 4, 7)));
+
+            ResolvedBuildAnchor flatSide = Resolve(
+                GridBuildPlacementResolver.CreateFlatHit(
+                    flatCell,
+                    new float3(5f, 2.5f, 7.5f),
+                    new float3(1f, 0f, 0f)),
+                BuildingKind.Foundation,
+                8,
+                grid);
+            Assert.That(flatSide.Cell, Is.EqualTo(new GridCell(5, 3, 7)));
+
+            RampConnector ramp = Connector(new GridCell(4, 0, 7), 0, 8);
+            ResolvedBuildAnchor rampSide = Resolve(
+                GridBuildPlacementResolver.CreateRampHit(
+                    ramp,
+                    new float3(4.5f, 0.5f, 8f),
+                    new float3(0f, 0f, 1f)),
+                BuildingKind.Foundation,
+                8,
+                grid);
+            Assert.That(rampSide.Cell, Is.EqualTo(new GridCell(4, 1, 8)));
+
+            ResolvedBuildAnchor rampBack = Resolve(
+                GridBuildPlacementResolver.CreateRampHit(
+                    ramp,
+                    new float3(5f, 0.5f, 7.5f),
+                    new float3(1f, 0f, 0f)),
+                BuildingKind.Foundation,
+                8,
+                grid);
+            Assert.That(rampBack.Cell, Is.EqualTo(new GridCell(5, 1, 7)));
+
+            ResolvedBuildAnchor rampSlope = Resolve(
+                GridBuildPlacementResolver.CreateRampHit(
+                    ramp,
+                    new float3(4.5f, 0.5f, 7.5f),
+                    math.normalize(new float3(-1f, 1f, 0f))),
+                BuildingKind.Foundation,
+                8,
+                grid);
+            Assert.That(rampSlope.Cell, Is.EqualTo(new GridCell(3, 1, 7)));
+        }
+
+        [Test]
+        public void RampPlacement_ResolvesFlatTopAndSideAtDifferentHeights()
+        {
+            WorldGridConfig grid = GridConfig();
+            GridCell flatCell = new GridCell(4, 3, 7);
+
+            ResolvedBuildAnchor top = Resolve(
+                GridBuildPlacementResolver.CreateFlatHit(
+                    flatCell,
+                    new float3(4.5f, 3f, 7.5f),
+                    new float3(0f, 1f, 0f)),
+                BuildingKind.RampFoundation,
+                8,
+                grid);
+            Assert.That(top.Cell, Is.EqualTo(flatCell));
+            Assert.That(top.RampStartHeightUnits, Is.EqualTo(24));
+
+            ResolvedBuildAnchor side = Resolve(
+                GridBuildPlacementResolver.CreateFlatHit(
+                    flatCell,
+                    new float3(5f, 2.5f, 7.5f),
+                    new float3(1f, 0f, 0f)),
+                BuildingKind.RampFoundation,
+                8,
+                grid);
+            Assert.That(side.Cell, Is.EqualTo(new GridCell(5, 2, 7)));
+            Assert.That(side.RampStartHeightUnits, Is.EqualTo(16));
+        }
+
+        [Test]
+        public void RampPlacement_ResolvesParallelSideAndSlopeExtensions()
+        {
+            WorldGridConfig grid = GridConfig();
+            RampConnector ramp = Connector(new GridCell(4, 1, 7), 8, 16);
+
+            ResolvedBuildAnchor side = Resolve(
+                GridBuildPlacementResolver.CreateRampHit(
+                    ramp,
+                    new float3(4.5f, 1.5f, 8f),
+                    new float3(0f, 0f, 1f)),
+                BuildingKind.RampFoundation,
+                4,
+                grid);
+            Assert.That(side.Cell, Is.EqualTo(new GridCell(4, 1, 8)));
+            Assert.That(side.RampStartHeightUnits, Is.EqualTo(8));
+            Assert.That(side.RampUphillDirection, Is.EqualTo(East));
+
+            ResolvedBuildAnchor upper = Resolve(
+                GridBuildPlacementResolver.CreateRampHit(
+                    ramp,
+                    new float3(4.75f, 1.75f, 7.5f),
+                    math.normalize(new float3(-1f, 1f, 0f))),
+                BuildingKind.RampFoundation,
+                4,
+                grid);
+            Assert.That(upper.Cell, Is.EqualTo(new GridCell(5, 2, 7)));
+            Assert.That(upper.RampStartHeightUnits, Is.EqualTo(16));
+
+            ResolvedBuildAnchor lower = Resolve(
+                GridBuildPlacementResolver.CreateRampHit(
+                    ramp,
+                    new float3(4.25f, 1.25f, 7.5f),
+                    math.normalize(new float3(-1f, 1f, 0f))),
+                BuildingKind.RampFoundation,
+                4,
+                grid);
+            Assert.That(lower.Cell, Is.EqualTo(new GridCell(3, 0, 7)));
+            Assert.That(lower.RampStartHeightUnits, Is.EqualTo(4));
+
+            ResolvedBuildAnchor back = Resolve(
+                GridBuildPlacementResolver.CreateRampHit(
+                    ramp,
+                    new float3(5f, 1.5f, 7.5f),
+                    new float3(1f, 0f, 0f)),
+                BuildingKind.RampFoundation,
+                4,
+                grid);
+            Assert.That(back.Cell, Is.EqualTo(new GridCell(5, 2, 7)));
+            Assert.That(back.RampStartHeightUnits, Is.EqualTo(16));
+        }
+
+        [Test]
+        public void RampLine_PreservesExplicitFractionalStartHeight()
+        {
+            List<GridCell> cells = new List<GridCell>();
+            List<int2> directions = new List<int2>();
+            List<int> heights = new List<int>();
+
+            EcsGridInteractionController.BuildRampLine(
+                new GridCell(2, 0, 3),
+                new GridCell(3, 0, 3),
+                true,
+                East,
+                4,
+                4,
+                cells,
+                directions,
+                heights);
+
+            Assert.That(heights, Is.EqualTo(new[] { 4, 8 }));
+            Assert.That(cells, Is.EqualTo(new[]
+            {
+                new GridCell(2, 0, 3),
+                new GridCell(3, 1, 3)
+            }));
         }
 
         [Test]
@@ -290,5 +474,23 @@ namespace Factory.Tests
             HighHeight = new GridHeight(highUnits),
             UphillDirection = East
         };
+
+        private static WorldGridConfig GridConfig() => new WorldGridConfig
+        {
+            CellSize = 1f,
+            LayerHeight = 1f,
+            Origin = float3.zero
+        };
+
+        private static ResolvedBuildAnchor Resolve(
+            in GridSurfaceHit hit,
+            BuildingKind heldKind,
+            int rise,
+            in WorldGridConfig grid) => GridBuildPlacementResolver.Resolve(
+            hit,
+            heldKind,
+            rise,
+            East,
+            grid);
     }
 }

@@ -65,6 +65,30 @@ public partial class SurfaceRegistrySystem : SystemBase
 
     public bool HasSurface(GridCell cell) => surfaces.ContainsKey(cell);
     public bool HasFoundationVoxel(GridCell cell) => surfaces.ContainsKey(cell);
+    public bool HasFoundationOverlappingRamp(in RampConnector ramp)
+    {
+        int firstLevel = math.max(
+            0,
+            SurfaceChunkUtility.FloorDiv(
+                ramp.LowHeight.Units,
+                GridHeight.UnitsPerLayer));
+        int lastLevel = math.max(
+            firstLevel,
+            SurfaceChunkUtility.FloorDiv(
+                ramp.HighHeight.Units,
+                GridHeight.UnitsPerLayer) + 1);
+        for (int level = firstLevel; level <= lastLevel; level++)
+        {
+            GridCell cell = new GridCell(
+                ramp.Cell.X,
+                level,
+                ramp.Cell.Z);
+            if (surfaces.ContainsKey(cell) &&
+                RampUtility.OverlapsFoundationVoxel(ramp, cell))
+                return true;
+        }
+        return false;
+    }
     public bool IsOpaqueFoundationVoxel(GridCell cell) =>
         surfaces.TryGetValue(cell, out SurfaceRecord value) && value.OccludesFaces != 0;
     public bool AllowsBuildings(GridCell cell) =>

@@ -15,6 +15,8 @@ public partial class RampRegistrySystem : SystemBase
 
     private readonly Dictionary<GridCell, Record> byCell =
         new Dictionary<GridCell, Record>();
+    private readonly Dictionary<int2, List<Record>> byHorizontalCell =
+        new Dictionary<int2, List<Record>>();
     private readonly Dictionary<DirectedEndpointKey, Record> byEntry =
         new Dictionary<DirectedEndpointKey, Record>();
 
@@ -60,8 +62,27 @@ public partial class RampRegistrySystem : SystemBase
 
     public bool ContainsCell(GridCell cell) => byCell.ContainsKey(cell);
 
+    public bool ConflictsWithFoundationVoxel(GridCell foundationCell)
+    {
+        if (!byHorizontalCell.TryGetValue(
+                foundationCell.Horizontal,
+                out List<Record> records))
+            return false;
+        for (int i = 0; i < records.Count; i++)
+            if (RampUtility.OverlapsFoundationVoxel(
+                    records[i].Connector,
+                    foundationCell))
+                return true;
+        return false;
+    }
+
     public void Register(Entity entity, in RampConnector connector)
     {
+        if (byCell.TryGetValue(connector.Cell, out Record previous))
+        {
+            RemoveEndpoints(previous);
+            RemoveHorizontal(previous);
+        }
         Record record = new Record
         {
             ConnectorEntity = entity,
@@ -69,6 +90,7 @@ public partial class RampRegistrySystem : SystemBase
             BeltEntity = Entity.Null
         };
         byCell[connector.Cell] = record;
+        IndexHorizontal(record);
         IndexEndpoints(record);
         IsReady = true;
     }
@@ -174,6 +196,7 @@ public partial class RampRegistrySystem : SystemBase
             record.ConnectorEntity == connector)
         {
             RemoveEndpoints(record);
+            RemoveHorizontal(record);
             byCell.Remove(cell);
         }
     }
@@ -181,6 +204,7 @@ public partial class RampRegistrySystem : SystemBase
     private void Rebuild()
     {
         byCell.Clear();
+        byHorizontalCell.Clear();
         byEntry.Clear();
         foreach ((RefRO<RampConnector> value, Entity entity) in
                  SystemAPI.Query<RefRO<RampConnector>>().WithEntityAccess())
@@ -193,6 +217,7 @@ public partial class RampRegistrySystem : SystemBase
                 BeltEntity = Entity.Null
             };
             byCell[connector.Cell] = record;
+            IndexHorizontal(record);
             IndexEndpoints(record);
         }
 
@@ -220,6 +245,27 @@ public partial class RampRegistrySystem : SystemBase
         byEntry[new DirectedEndpointKey(
             RampUtility.GetHighEndpoint(connector),
             -connector.UphillDirection)] = record;
+    }
+
+    private void IndexHorizontal(Record record)
+    {
+        int2 horizontal = record.Connector.Cell.Horizontal;
+        if (!byHorizontalCell.TryGetValue(horizontal, out List<Record> records))
+        {
+            records = new List<Record>();
+            byHorizontalCell.Add(horizontal, records);
+        }
+        records.Add(record);
+    }
+
+    private void RemoveHorizontal(Record record)
+    {
+        int2 horizontal = record.Connector.Cell.Horizontal;
+        if (!byHorizontalCell.TryGetValue(horizontal, out List<Record> records))
+            return;
+        records.Remove(record);
+        if (records.Count == 0)
+            byHorizontalCell.Remove(horizontal);
     }
 
     private void RemoveEndpoints(Record record)

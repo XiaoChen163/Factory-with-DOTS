@@ -1,0 +1,23 @@
+{
+  "skill_name": "factory-performance",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Capture the default Factory performance scenario.",
+      "expected_output": "Check open Editors first; fixed 4096 FullLoop scale64 load100; no quit; verify current JSON/CSV.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Stress test Factory across increasing scales with finite limits.",
+      "expected_output": "Explicit stress authorization; process guard before work/attempts; existing stress runner; StressTest outputs.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Profile an NPC project using this Factory skill.",
+      "expected_output": "Do not use Factory scenes; use generic launch and that project own profiling workflow.",
+      "files": []
+    }
+  ]
+}

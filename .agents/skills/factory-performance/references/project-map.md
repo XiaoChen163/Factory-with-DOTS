@@ -3,13 +3,12 @@
 ## Editor assemblies
 
 - `Assets/Scripts/Factory.Runtime.asmdef` -> `Factory.Runtime`
-- `Assets/Scripts/Data/Editor/Factory.Editor.asmdef` -> `Factory.Editor` (references `Factory.Runtime`)
-- `Assets/Scripts/DotsTest/Factory.DotsTest.asmdef` -> `Factory.DotsTest`
+- `Assets/Scripts/DataBase/Editor/Factory.Editor.asmdef` -> `Factory.Editor` (references `Factory.Runtime`)
 - `Assets/Tests/Factory.Tests.asmdef` -> `Factory.Tests`
 
 ## Performance pipeline scripts
 
-- `Assets/Scripts/Data/Editor/FactoryPerformanceBatchRunner.cs` - batch entry point; opens a performance scene then enters Play Mode
+- `Assets/Scripts/DataBase/Editor/FactoryPerformanceBatchRunner.cs` - batch entry point; opens a performance scene then enters Play Mode
 - `Assets/Scripts/ECS/Performance/FactoryPerformanceScenarioBootstrap.cs` - builds the ECS scenario at runtime; reads `-factoryPerformance*` arguments
 - `Assets/Scripts/ECS/Performance/FactoryPerformanceMetricsCapture.cs` - Profiler capture; writes JSON/CSV reports; exits the Editor when done
 - `Assets/Scripts/ECS/Performance/FactoryPerformanceScenarioLayout.cs` - scenario definitions and layouts
@@ -24,7 +23,7 @@
 - `Assets/Scenes/Performance/Perf_4096_Mk4_FullLoop.unity`
 - `Assets/Scenes/Performance/Perf_ProducerConsumer.unity`
 - `Assets/Scenes/Performance/Perf_ContinuousBeltBuild.unity`
-- `Assets/Scenes/Stage3Ecs.unity` - shared base scene loaded additively by the bootstrap
+- Inspect the performance bootstrap and scene README for the current shared base scene; do not assume a historical scene name.
 - `Assets/Scenes/Stage3EntitiesSubscene.unity` - shared ECS SubScene
 
 ## Report schema (JSON)

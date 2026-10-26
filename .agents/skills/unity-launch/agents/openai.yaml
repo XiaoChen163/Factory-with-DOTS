@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity Launch"
+  short_description: "Launch Factory Unity with version and process checks"
+  default_prompt: "Use $unity-launch to run Factory-with-DOTS after checking for open Editors."

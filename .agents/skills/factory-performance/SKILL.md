@@ -13,8 +13,8 @@ checkout is D:/UnityProject/Factory-with-DOTS. Never route another project's pro
 Before modifying the project or running a capture, check Get-Process -Name Unity.
 If any Unity Editor is running, stop and tell the user to close it before continuing.
 Do not attach, reuse, start another Editor, or close the existing Editor or its licensing processes.
-The global unity-launch skill defines version discovery, permissions and bounded process ownership.
-Read its SKILL.md from CODEX_HOME/skills/unity-launch (or ~/.codex/skills/unity-launch).
+The project unity-launch skill defines version discovery, permissions and bounded process ownership.
+Read its [SKILL.md](../unity-launch/SKILL.md).
 This project's scripts/Run-UnityBatch.ps1 forwards to that one guarded runner; it does not duplicate it.
 
 ## Select the measurement
@@ -24,7 +24,7 @@ Follow the current policy in Assets/Scenes/Performance/README.md. Default runs u
 are allowed when specifically requested. Stress matrices require an explicit user request;
 use Tools/FactoryStress/Run-FactoryStressTest.ps1 with finite bounds and outputs under
 PerformanceReports/StressTest. Check that no Editor is running before invoking that legacy tool,
-and before each new attempt; never bypass the global stop rule.
+and before each new attempt; never bypass the existing-Editor stop rule.
 
 Reuse FactoryPerformanceBatchRunner.Run in Factory.Editor; it opens the selected performance
 scene, schedules Play Mode, and the runtime capture exits the Editor. Do not pass -quit for this

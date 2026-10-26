@@ -1,4 +1,4 @@
-# Project-only forwarding wrapper; all launches use the global guarded runner.
+# Project-only forwarding wrapper; all launches use the sibling guarded runner.
 [CmdletBinding()]
 param(
     [string]$UnityExe = '',
@@ -18,8 +18,7 @@ if ($ProjectPath -and -not [string]::Equals((Resolve-Path -LiteralPath $ProjectP
     $projectRoot.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
     throw 'factory-performance may only run its own project checkout.'
 }
-$skillsHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
-$runner = Join-Path $skillsHome 'skills/unity-launch/scripts/Run-UnityBatch.ps1'
-if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) { throw 'Global unity-launch runner is missing; do not launch Unity directly.' }
+$runner = Join-Path $PSScriptRoot '../../unity-launch/scripts/Run-UnityBatch.ps1'
+if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) { throw 'Project unity-launch runner is missing; do not launch Unity directly.' }
 & $runner -ProjectPath $projectRoot -UnityExe $UnityExe -LicensingIpc $LicensingIpc `
     -TimeoutSeconds $TimeoutSeconds -LogFile $LogFile -ExtraArgs $ExtraArgs

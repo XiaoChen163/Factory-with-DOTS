@@ -617,6 +617,58 @@ namespace Factory.Tests
         }
 
         [UnityTest]
+        public IEnumerator VerticalBelts_BuildFromCatalogAndRemainPickableInPhysicsWorld()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction = Object.FindFirstObjectByType<EcsGridInteractionController>();
+            bool selected = false;
+            for (int frame = 0; frame < 240 && !selected; frame++)
+            {
+                selected = interaction.TrySelectBuildingLevel(new BuildingLevelId { Value = 17 });
+                yield return null;
+            }
+            Assert.That(selected, Is.True);
+            World world = World.DefaultGameObjectInjectionWorld;
+            EntityManager manager = world.EntityManager;
+            VerticalConnectorIndexSystem index = world.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>();
+            ushort[] levels = { 17, 25, 21 };
+            Entity[] nodes = new Entity[3];
+            for (int level = 0; level < 3; level++)
+            {
+                Assert.That(interaction.TrySelectBuildingLevel(new BuildingLevelId { Value = levels[level] }), Is.True);
+                GridCell cell = new GridCell(110, level, 110);
+                interaction.SimulateHover(cell);
+                yield return null;
+                interaction.SimulatePrimaryClick(cell);
+                for (int frame = 0; frame < 120 && !index.TryGet(cell, out nodes[level]); frame++)
+                    yield return null;
+                Assert.That(nodes[level], Is.Not.EqualTo(Entity.Null));
+                Assert.That(manager.GetComponentData<BeltTopology>(nodes[level]).CellsPerSecond, Is.EqualTo(8f));
+                Assert.That(manager.HasComponent<PhysicsWorldIndex>(nodes[level]), Is.True);
+                Assert.That(manager.HasComponent<BuildingVisualReference>(nodes[level]), Is.True);
+            }
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            manager.CompleteAllTrackedJobs();
+            using EntityQuery physicsQuery = manager.CreateEntityQuery(ComponentType.ReadOnly<PhysicsWorldSingleton>());
+            var physicsWorld = physicsQuery.GetSingleton<PhysicsWorldSingleton>();
+            using EntityQuery configQuery = manager.CreateEntityQuery(ComponentType.ReadOnly<WorldGridConfig>());
+            WorldGridConfig config = configQuery.GetSingleton<WorldGridConfig>();
+            float3 center = EcsGridUtility.CellToWorldCenter(new GridCell(110,1,110),config);
+            center.y += config.LayerHeight * .5f;
+            var ray = new RaycastInput { Start = center-new float3(2,0,0), End=center+new float3(2,0,0),
+                Filter=FoundationCollisionCategories.FoundationQueryFilter };
+            Assert.That(physicsWorld.CastRay(ray,out Unity.Physics.RaycastHit hit),Is.True);
+            Assert.That(hit.Entity,Is.EqualTo(nodes[1]),"The thin segment must participate in the grid picking physics world.");
+            interaction.SimulateRemove(new GridCell(110,1,110),false);
+            for (int frame = 0; frame < 120 && index.TryGet(new GridCell(110,1,110),out _); frame++)
+                yield return null;
+            Assert.That(index.TryGet(new GridCell(110,1,110),out _),Is.False);
+            Assert.That(manager.Exists(nodes[0]),Is.True);
+            Assert.That(manager.Exists(nodes[2]),Is.True);
+        }
+
+        [UnityTest]
         public IEnumerator IncrementalFoundationBatches_ReuseValidChunkRenderMesh()
         {
             yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);

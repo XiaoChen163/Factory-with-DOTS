@@ -34,12 +34,14 @@ public partial class GridOccupancyIndexSystem : SystemBase
         placementQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<OccupiedCellOffset>(),
-            ComponentType.Exclude<RampBelt>());
+            ComponentType.Exclude<RampBelt>(),
+            ComponentType.Exclude<VerticalBeltNode>());
         pendingAddQuery = GetEntityQuery(
             ComponentType.ReadOnly<PendingOccupancyAdd>(),
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<OccupiedCellOffset>(),
-            ComponentType.Exclude<RampBelt>());
+            ComponentType.Exclude<RampBelt>(),
+            ComponentType.Exclude<VerticalBeltNode>());
     }
 
     protected override void OnDestroy()

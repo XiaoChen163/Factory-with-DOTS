@@ -3,3 +3,15 @@ belt_mk1,1.0
 belt_mk2,2.0
 belt_mk3,4.0
 belt_mk4,8
+vertical_belt_entry_mk1,1
+vertical_belt_entry_mk2,2
+vertical_belt_entry_mk3,4
+vertical_belt_entry_mk4,8
+vertical_belt_exit_mk1,1
+vertical_belt_exit_mk2,2
+vertical_belt_exit_mk3,4
+vertical_belt_exit_mk4,8
+vertical_belt_segment_mk1,1
+vertical_belt_segment_mk2,2
+vertical_belt_segment_mk3,4
+vertical_belt_segment_mk4,8

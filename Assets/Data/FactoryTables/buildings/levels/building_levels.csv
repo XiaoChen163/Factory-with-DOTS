@@ -12,3 +12,15 @@ id,key,building_key,level,name_key,visual_prefab_key,menu_order,ramp_rise_height
 11,ramp_foundation_1_1_mk1,ramp_foundation_1_1,1,building.ramp_foundation_1_1,ramp_foundation,51,8
 12,ramp_foundation_1_2_mk1,ramp_foundation_1_2,1,building.ramp_foundation_1_2,ramp_foundation_half,52,4
 13,ramp_foundation_1_4_mk1,ramp_foundation_1_4,1,building.ramp_foundation_1_4,ramp_foundation_quarter,53,2
+14,vertical_belt_entry_mk1,vertical_belt_entry,1,building.vertical_belt_entry.mk1,vertical_belt_entry_mk1,111,
+15,vertical_belt_entry_mk2,vertical_belt_entry,2,building.vertical_belt_entry.mk2,vertical_belt_entry_mk2,112,
+16,vertical_belt_entry_mk3,vertical_belt_entry,3,building.vertical_belt_entry.mk3,vertical_belt_entry_mk3,113,
+17,vertical_belt_entry_mk4,vertical_belt_entry,4,building.vertical_belt_entry.mk4,vertical_belt_entry_mk4,114,
+18,vertical_belt_exit_mk1,vertical_belt_exit,1,building.vertical_belt_exit.mk1,vertical_belt_exit_mk1,121,
+19,vertical_belt_exit_mk2,vertical_belt_exit,2,building.vertical_belt_exit.mk2,vertical_belt_exit_mk2,122,
+20,vertical_belt_exit_mk3,vertical_belt_exit,3,building.vertical_belt_exit.mk3,vertical_belt_exit_mk3,123,
+21,vertical_belt_exit_mk4,vertical_belt_exit,4,building.vertical_belt_exit.mk4,vertical_belt_exit_mk4,124,
+22,vertical_belt_segment_mk1,vertical_belt_segment,1,building.vertical_belt_segment.mk1,vertical_belt_segment_mk1,131,
+23,vertical_belt_segment_mk2,vertical_belt_segment,2,building.vertical_belt_segment.mk2,vertical_belt_segment_mk2,132,
+24,vertical_belt_segment_mk3,vertical_belt_segment,3,building.vertical_belt_segment.mk3,vertical_belt_segment_mk3,133,
+25,vertical_belt_segment_mk4,vertical_belt_segment,4,building.vertical_belt_segment.mk4,vertical_belt_segment_mk4,134,

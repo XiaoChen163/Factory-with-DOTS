@@ -9,3 +9,6 @@ id,key,name_key,behavior,kind,machine_type_key,port_layout_key,footprint_width,f
 8,ramp_foundation_1_1,building.ramp_foundation_1_1,Foundation,RampFoundation,,,1,1
 9,ramp_foundation_1_2,building.ramp_foundation_1_2,Foundation,RampFoundation,,,1,1
 10,ramp_foundation_1_4,building.ramp_foundation_1_4,Foundation,RampFoundation,,,1,1
+11,vertical_belt_entry,building.vertical_belt_entry,Belt,VerticalBeltEntry,,vertical_entry_ports,1,1
+12,vertical_belt_exit,building.vertical_belt_exit,Belt,VerticalBeltExit,,vertical_exit_ports,1,1
+13,vertical_belt_segment,building.vertical_belt_segment,Belt,VerticalBeltSegment,,,1,1

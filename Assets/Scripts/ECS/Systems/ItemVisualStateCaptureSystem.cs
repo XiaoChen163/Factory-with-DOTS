@@ -33,6 +33,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         state.Dependency = new CaptureBeltVisualStateJob
         {
             WorldGrid = worldGrid,
+            VerticalNodeLookup = SystemAPI.GetComponentLookup<VerticalBeltNode>(true),
             ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
@@ -65,6 +66,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     private partial struct CaptureBeltVisualStateJob : IJobEntity
     {
         public WorldGridConfig WorldGrid;
+        [ReadOnly] public ComponentLookup<VerticalBeltNode> VerticalNodeLookup;
         [ReadOnly]
         public ComponentLookup<Item> ItemLookup;
 
@@ -72,13 +74,14 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         public ComponentLookup<ItemVisualState> VisualStateLookup;
 
         private void Execute(
+            Entity entity,
             in BeltTopology topology,
             in BeltState state)
         {
-            Capture(
-                state.CurrentItem,
-                GetTargetPosition(topology.Cell, WorldGrid),
-                state.Progress);
+            float3 target = GetTargetPosition(topology.Cell, WorldGrid);
+            if (VerticalNodeLookup.HasComponent(entity))
+                target.y += (WorldGrid.LayerHeight - 1f) * .5f;
+            Capture(state.CurrentItem, target, state.Progress);
         }
 
         private void Capture(

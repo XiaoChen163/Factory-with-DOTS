@@ -65,7 +65,8 @@ public partial class GridBuildCommandSystem : SystemBase
                        !removedEntities.Contains(record.Entity);
             }
 
-            if (!occupancy.TryGetOccupant(cell, out Entity entity) ||
+            if (!(occupancy.TryGetOccupant(cell, out Entity entity) ||
+                  owner.World.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>().TryGet(cell, out entity)) ||
                 removedEntities.Contains(entity) ||
                 !owner.EntityManager.Exists(entity) ||
                 !owner.EntityManager.HasComponent<GridPlacement>(entity) ||
@@ -1350,6 +1351,12 @@ public partial class GridBuildCommandSystem : SystemBase
             return false;
         }
 
+        if (VerticalBeltUtility.IsVertical(record.Placement.Kind) &&
+            GetOwnedItem(record.Entity) != Entity.Null)
+        {
+            failureReason = GridBuildFailureReason.VerticalContainsItem;
+            return false;
+        }
         placements.Remove(record);
         RemoveOccupancy(record, occupancySystem);
         MarkCellsDirty(record.OccupiedCells, dirtyCells);
@@ -1544,7 +1551,9 @@ public partial class GridBuildCommandSystem : SystemBase
                 failureReason = GridBuildFailureReason.OutsideGrid;
                 return false;
             }
-            bool hasPermission = registry != null && registry.IsReady
+            bool hasPermission = VerticalBeltUtility.IsVertical(candidate.Placement.Kind)
+                ? cell.Level >= 0
+                : registry != null && registry.IsReady
                 ? registry.AllowsFlat(
                     cell,
                     candidate.Placement.Kind == BuildingKind.Belt
@@ -1565,6 +1574,10 @@ public partial class GridBuildCommandSystem : SystemBase
                 return false;
             }
         }
+
+        if (VerticalBeltUtility.IsVertical(candidate.Placement.Kind) &&
+            !ValidateVerticalPlacement(candidate, placements, out failureReason))
+            return false;
 
         int2 candidateDirection = EcsGridUtility.Rotate(
             new int2(1, 0),
@@ -1663,6 +1676,13 @@ public partial class GridBuildCommandSystem : SystemBase
         return true;
     }
 
+    private bool ValidateVerticalPlacement(PlacementRecord candidate,
+        BatchPlacementState placements, out GridBuildFailureReason failure) =>
+        VerticalBeltUtility.Validate(candidate.Placement.Kind,
+            candidate.Placement.AnchorCell, candidate.Placement.QuarterTurns,
+            cell => placements.TryGet(cell, out PlacementRecord record)
+                ? record.Placement : (GridPlacement?)null, out failure);
+
     private bool TryCreateStagedRecord(
         BuildingLevelId levelId,
         GridCell anchor,
@@ -1706,6 +1726,9 @@ public partial class GridBuildCommandSystem : SystemBase
     {
         switch (kind)
         {
+            case BuildingKind.VerticalBeltEntry:
+            case BuildingKind.VerticalBeltExit:
+            case BuildingKind.VerticalBeltSegment:
             case BuildingKind.Belt:
                 return FactoryDatabaseUtility.TryGetBeltLevel(
                     ref database,
@@ -1818,7 +1841,7 @@ public partial class GridBuildCommandSystem : SystemBase
         bool registerPlanarOccupancy = true)
     {
         Entity instance = ecb.CreateEntity();
-        if (registerPlanarOccupancy)
+        if (registerPlanarOccupancy && !VerticalBeltUtility.IsVertical(placement.Kind))
             ecb.AddComponent(instance, new PendingOccupancyAdd());
         ecb.AddComponent(instance, placement);
         ecb.AddComponent(instance, new BuildingIdentity
@@ -1846,6 +1869,15 @@ public partial class GridBuildCommandSystem : SystemBase
             });
         }
 
+        if (VerticalBeltUtility.IsVertical(placement.Kind))
+        {
+            ecb.AddComponent(instance, new PhysicsCollider
+            {
+                Value = World.GetOrCreateSystemManaged<VerticalBeltColliderCacheSystem>()
+                    .GetOrCreate(worldGrid, placement.Kind == BuildingKind.VerticalBeltSegment)
+            });
+            ecb.AddSharedComponent(instance, new PhysicsWorldIndex { Value = 0 });
+        }
         int2 direction = EcsGridUtility.Rotate(
             new int2(1, 0),
             placement.QuarterTurns);
@@ -1885,6 +1917,28 @@ public partial class GridBuildCommandSystem : SystemBase
             ecb.AddBuffer<LinkedEntityGroup>(instance);
         linked.Add(new LinkedEntityGroup { Value = instance });
         Entity visual = ecb.Instantiate(visualPrefab);
+        if (placement.Kind == BuildingKind.VerticalBeltSegment &&
+            VerticalBeltUtility.Step(placement.QuarterTurns) < 0)
+        {
+            LocalTransform visualTransform = EntityManager.GetComponentData<LocalTransform>(visualPrefab);
+            visualTransform.Position = new float3(0f, worldGrid.LayerHeight, 0f);
+            visualTransform.Rotation = quaternion.RotateX(math.PI);
+            ecb.SetComponent(visual, visualTransform);
+        }
+        if (VerticalBeltUtility.IsVertical(placement.Kind))
+        {
+            PostTransformMatrix dimensions = new PostTransformMatrix
+            {
+                Value = float4x4.Scale(new float3(worldGrid.CellSize, worldGrid.LayerHeight, worldGrid.CellSize))
+            };
+            if (EntityManager.HasComponent<PostTransformMatrix>(visualPrefab))
+            {
+                dimensions.Value = math.mul(dimensions.Value,
+                    EntityManager.GetComponentData<PostTransformMatrix>(visualPrefab).Value);
+                ecb.SetComponent(visual, dimensions);
+            }
+            else ecb.AddComponent(visual, dimensions);
+        }
         ecb.AddComponent(visual, new Parent { Value = instance });
         ecb.AddComponent(instance, new BuildingVisualReference
         {
@@ -1929,6 +1983,9 @@ public partial class GridBuildCommandSystem : SystemBase
     {
         switch (placement.Kind)
         {
+            case BuildingKind.VerticalBeltEntry:
+            case BuildingKind.VerticalBeltExit:
+            case BuildingKind.VerticalBeltSegment:
             case BuildingKind.Belt:
                 FactoryDatabaseUtility.TryGetBeltLevel(
                     ref database,
@@ -1938,13 +1995,22 @@ public partial class GridBuildCommandSystem : SystemBase
                 {
                     CellsPerSecond = beltLevel.CellsPerSecond,
                     Cell = placement.AnchorCell,
-                    Direction = direction
+                    Direction = direction,
+                    ConnectionMode = VerticalBeltUtility.IsVertical(placement.Kind)
+                        ? VerticalBeltUtility.ConnectionMode(placement.Kind) : TransportConnectionMode.Planar
                 });
+                if (VerticalBeltUtility.IsVertical(placement.Kind))
+                    ecb.AddComponent(instance, new VerticalBeltNode
+                    {
+                        Kind = placement.Kind,
+                        Step = VerticalBeltUtility.Step(placement.QuarterTurns)
+                    });
                 ecb.AddComponent(instance, new BeltState
                 {
                     CurrentItem = Entity.Null
                 });
-                ecb.AddComponent(instance, new BeltVisualNeedsRefresh());
+                if (placement.Kind == BuildingKind.Belt)
+                    ecb.AddComponent(instance, new BeltVisualNeedsRefresh());
                 break;
             case BuildingKind.Merger:
                 ecb.AddComponent(instance, new Merger
@@ -2110,7 +2176,9 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static bool UsesPortVisuals(BuildingKind kind)
     {
-        return kind == BuildingKind.Miner ||
+        return kind == BuildingKind.VerticalBeltEntry ||
+               kind == BuildingKind.VerticalBeltExit ||
+               kind == BuildingKind.Miner ||
                kind == BuildingKind.Furnace ||
                kind == BuildingKind.Storage;
     }
@@ -2332,7 +2400,8 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private static bool UsesTransportTopology(PlacementRecord record)
     {
-        return record.Placement.Kind == BuildingKind.Belt ||
+        return VerticalBeltUtility.IsVertical(record.Placement.Kind) ||
+               record.Placement.Kind == BuildingKind.Belt ||
                record.Placement.Kind == BuildingKind.Merger ||
                record.Placement.Kind == BuildingKind.Splitter;
     }

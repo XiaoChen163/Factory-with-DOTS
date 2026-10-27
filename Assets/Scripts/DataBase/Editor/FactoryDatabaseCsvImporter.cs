@@ -180,7 +180,8 @@ public static class FactoryDatabaseCsvImporter
                 table.Get(row, "behavior"), "building behavior");
             string layoutKey = table.Get(row, "port_layout_key").Trim();
             List<FactoryBuildingPortTableRow> buildingPorts;
-            if (string.IsNullOrEmpty(layoutKey) && behavior == FactoryBuildingBehavior.Foundation)
+            if (string.IsNullOrEmpty(layoutKey) && (behavior == FactoryBuildingBehavior.Foundation ||
+                table.Get(row, "kind") == nameof(BuildingKind.VerticalBeltSegment)))
                 buildingPorts = new List<FactoryBuildingPortTableRow>();
             else
             {
@@ -593,7 +594,7 @@ public static class FactoryDatabaseCsvImporter
         if (row.footprintWidth == 0 || row.footprintHeight == 0)
             throw new InvalidDataException($"Building '{row.key}' footprint must be positive.");
         bool behaviorMatchesKind =
-            row.behavior == FactoryBuildingBehavior.Belt && row.kind == BuildingKind.Belt ||
+            row.behavior == FactoryBuildingBehavior.Belt && (row.kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(row.kind)) ||
             row.behavior == FactoryBuildingBehavior.Processor &&
                 (row.kind == BuildingKind.Miner || row.kind == BuildingKind.Furnace) ||
             row.behavior == FactoryBuildingBehavior.Storage && row.kind == BuildingKind.Storage ||

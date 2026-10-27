@@ -45,6 +45,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private Material outputPortPreviewMaterial;
     private Mesh previewTriangleMesh;
     private Mesh previewRampMesh;
+    private Mesh previewCylinderMesh;
     private Mesh previewCubeMesh;
     [SerializeField] private uint localPlayerId = 1;
     private PlayerCommandBus commandBus;
@@ -221,6 +222,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     {
         if (SelectedKind == BuildingKind.Foundation)
             return;
+        if (SelectedKind == BuildingKind.VerticalBeltSegment)
+        {
+            quarterTurns = (byte)(VerticalBeltUtility.Step(quarterTurns) > 0 ? 2 : 0);
+            return;
+        }
         if (SelectedKind == BuildingKind.Belt && beltPathStarted)
             horizontalFirst = !horizontalFirst;
         else
@@ -311,7 +317,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             {
                 if (rampRegistry == null || rampRegistry.ContainsCell(cell) ||
                     occupancySystem == null ||
-                    occupancySystem.TryGetOccupant(cell, out _))
+                    TryGetBuilding(world, cell, out _))
                     canPlace = false;
                 else if (surfaceRegistry != null &&
                          i < previewRampStartHeightUnits.Count &&
@@ -345,9 +351,17 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     canPlace = false;
                 }
             }
+            else if (VerticalBeltUtility.IsVertical(SelectedKind))
+            {
+                if (cell.Level < 0 || TryGetBuilding(world, cell, out _) ||
+                    (rampRegistry != null && rampRegistry.ContainsCell(cell)) ||
+                    !VerticalBeltUtility.Validate(SelectedKind, cell, quarterTurns,
+                        address => GetPlacement(world, address), out _))
+                    canPlace = false;
+            }
             else if (!HasSurface(world, grid, cell) ||
                 occupancySystem == null ||
-                occupancySystem.TryGetOccupant(cell, out _))
+                TryGetBuilding(world, cell, out _))
             {
                 canPlace = false;
             }
@@ -754,6 +768,17 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                     0.1f,
                     cellSize * 0.9f);
             }
+            else if (VerticalBeltUtility.IsVertical(SelectedKind))
+            {
+                meshFilter.sharedMesh = SelectedKind == BuildingKind.VerticalBeltSegment
+                    ? GetPreviewCylinderMesh() : previewCubeMesh;
+                center.y += layerHeight * .5f;
+                previewCell.transform.position = (Vector3)center;
+                previewCell.transform.rotation = Quaternion.identity;
+                previewCell.transform.localScale = SelectedKind == BuildingKind.VerticalBeltSegment
+                    ? new Vector3(cellSize * .22f, layerHeight * .5f, cellSize * .22f)
+                    : new Vector3(cellSize * .75f, layerHeight * .75f, cellSize * .75f);
+            }
             else
             {
                 center.y += isFoundationPreview
@@ -773,12 +798,26 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             }
 
             Transform triangle = previewTriangles[i];
-            bool showTriangle =
-                SelectedKind == BuildingKind.Belt &&
-                i < previewDisplayDirections.Count;
+            bool showTriangle = SelectedKind == BuildingKind.VerticalBeltSegment ||
+                SelectedKind == BuildingKind.Belt && i < previewDisplayDirections.Count;
             triangle.gameObject.SetActive(showTriangle);
-            if (showTriangle)
+            if (SelectedKind == BuildingKind.VerticalBeltSegment)
             {
+                triangle.SetParent(previewRoot, false);
+                Vector3 normal = inputCamera != null
+                    ? inputCamera.transform.position - previewCell.transform.position : Vector3.back;
+                normal.y = 0f;
+                normal = normal.sqrMagnitude > .0001f ? normal.normalized : Vector3.back;
+                triangle.position = previewCell.transform.position + normal * (cellSize * .14f);
+                Vector3 tip = Vector3.up * VerticalBeltUtility.Step(quarterTurns);
+                triangle.rotation = Quaternion.LookRotation(Vector3.Cross(tip, normal), normal);
+                triangle.localScale = Vector3.one * .7f;
+            }
+            else if (showTriangle)
+            {
+                triangle.SetParent(previewCell.transform, false);
+                triangle.localPosition = new Vector3(0f, .65f, 0f);
+                triangle.localScale = Vector3.one;
                 int2 displayDirection =
                     previewDisplayDirections[i];
                 float angle = -math.atan2(
@@ -1032,6 +1071,15 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         return material;
     }
 
+    private Mesh GetPreviewCylinderMesh()
+    {
+        if (previewCylinderMesh != null) return previewCylinderMesh;
+        GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        previewCylinderMesh = primitive.GetComponent<MeshFilter>().sharedMesh;
+        Destroy(primitive);
+        return previewCylinderMesh;
+    }
+
     private Mesh GetPreviewTriangleMesh()
     {
         if (previewTriangleMesh != null)
@@ -1130,9 +1178,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         if (!TryRaycastGrid(out World world, out _, out _, out GridCell cell,
                 out _, out bool isInside, out _, false, false) || !isInside)
             return false;
-        GridOccupancyIndexSystem occupancy =
-            world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
-        if (occupancy == null || !occupancy.TryGetOccupant(cell, out Entity entity))
+        if (!TryGetBuilding(world, cell, out Entity entity))
             return false;
         EntityManager manager = world.EntityManager;
         if (!manager.Exists(entity) || !manager.HasComponent<ItemContainerIdentity>(entity))
@@ -1167,7 +1213,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
-        bool isInside = SelectedKind == BuildingKind.Foundation
+        bool isInside = VerticalBeltUtility.IsVertical(SelectedKind) || SelectedKind == BuildingKind.Foundation
             || SelectedKind == BuildingKind.RampFoundation
             ? cell.Level >= 0
             : HasSurface(world, grid, cell) ||
@@ -1176,9 +1222,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         bool isOccupied =
             isInside &&
             occupancySystem != null &&
-            occupancySystem.TryGetOccupant(
-                cell,
-                out occupant);
+            TryGetBuilding(world, cell, out occupant);
 
         Debug.Log(
             "[ECS Grid Raycast] Cell=(" + cell.X + ", L" + cell.Level +
@@ -1576,7 +1620,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             SelectedKind,
             rise,
             EcsGridUtility.Rotate(new int2(1, 0), quarterTurns),
-            GetWorldGridConfig());
+            GetWorldGridConfig(),
+            VerticalBeltUtility.Step(quarterTurns));
         if (buildAnchor.IsValid != 0)
             SetSelectedGridLevel(buildAnchor.Cell.Level);
         return true;
@@ -1674,7 +1719,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 new float3(hitPoint.x, hitPoint.y, hitPoint.z),
                 worldGrid);
             cell.Level = layerView.SelectedLevel;
-            isInside = foundationPlacement
+            isInside = (foundationPlacement || VerticalBeltUtility.IsVertical(SelectedKind))
                 ? cell.Level >= 0
                 : HasSurface(world, grid, cell) ||
                   TryGetRamp(world, cell, out _);
@@ -1691,7 +1736,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         {
             cell = surfaceHit.SourceCell;
             hitPoint = surfaceHit.Position;
-            isInside = foundationPlacement || HasSurface(world, grid, cell) ||
+            isInside = foundationPlacement || VerticalBeltUtility.IsVertical(SelectedKind) ||
+                       TryGetBuilding(world, cell, out _) || HasSurface(world, grid, cell) ||
                        TryGetRamp(world, cell, out _);
             if (!foundationPlacement)
                 SetSelectedGridLevel(cell.Level);
@@ -1721,7 +1767,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 hitPoint.y,
                 hitPoint.z),
             grid);
-        isInside = HasSurface(world, grid, cell) ||
+        isInside = VerticalBeltUtility.IsVertical(SelectedKind) ||
+                   TryGetBuilding(world, cell, out _) || HasSurface(world, grid, cell) ||
                    TryGetRamp(world, cell, out _);
         if (foundationPlacement)
         {
@@ -1760,6 +1807,20 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         if (!physicsWorld.CastRay(input, out Unity.Physics.RaycastHit hit))
         {
             return false;
+        }
+
+        if (manager.HasComponent<VerticalBeltNode>(hit.Entity) &&
+            manager.HasComponent<GridPlacement>(hit.Entity))
+        {
+            surfaceHit = new GridSurfaceHit
+            {
+                SourceCell = manager.GetComponentData<GridPlacement>(hit.Entity).AnchorCell,
+                Position = hit.Position,
+                Normal = hit.SurfaceNormal,
+                Kind = GridSurfaceHitKind.VerticalNode,
+                VerticalNode = manager.GetComponentData<VerticalBeltNode>(hit.Entity)
+            };
+            return true;
         }
 
         if (TryResolveRampPhysicsHit(
@@ -1905,6 +1966,17 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         else
             world.EntityManager.AddComponentData(entity, state);
     }
+
+    private static bool TryGetBuilding(World world, GridCell cell, out Entity entity)
+    {
+        GridOccupancyIndexSystem occupancy = world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+        if (occupancy != null && occupancy.TryGetOccupant(cell, out entity)) return true;
+        return world.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>().TryGet(cell, out entity);
+    }
+
+    private static GridPlacement? GetPlacement(World world, GridCell cell) =>
+        TryGetBuilding(world, cell, out Entity entity) && world.EntityManager.HasComponent<GridPlacement>(entity)
+            ? world.EntityManager.GetComponentData<GridPlacement>(entity) : (GridPlacement?)null;
 
     private static bool HasSurface(
         World world,

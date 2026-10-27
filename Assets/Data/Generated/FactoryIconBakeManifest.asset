@@ -52,6 +52,42 @@ MonoBehaviour:
   - prefabPath: Assets/Prefabs/Buildings/Storage.prefab
     outputPath: Assets/Art/Icons/Buildings/Storage.png
     hash: 6de2e583cff1ffd107bfa868e9fd0808
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk1.png
+    hash: de44f17b7841b34aa61930afd24883fa
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk2.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk2.png
+    hash: a6d3d5225afa5b8da6f3ae6761e5ccd2
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk3.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk3.png
+    hash: 36e190cc60b44d2a0898f3a042d50b13
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk4.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk4.png
+    hash: 63368687b1e29f98cd271cb4c384cca3
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk1.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk1.png
+    hash: e848ac37ad1f30cb64bdc9699170efaa
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk2.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk2.png
+    hash: 4476e355d89d60722a2930ba25d18288
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk3.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk3.png
+    hash: 01f419b436b01c5b6155ade67e0c1c95
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk4.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk4.png
+    hash: 92ce98eaff7bfb0b17cdcfcf41935621
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk1.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk1.png
+    hash: 5b52f6710da15acac7eeaa307e63feae
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk2.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk2.png
+    hash: 576ea3cfe0fae01f9d564a9ca67e2d51
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk3.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk3.png
+    hash: 988ceeb61f3fec86bb674eab1bdba731
+  - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk4.prefab
+    outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk4.png
+    hash: a9d38ec4dfe92bf7f1816bfe3a1fb324
   - prefabPath: Assets/Prefabs/Items/IronIngot.prefab
     outputPath: Assets/Art/Icons/Items/IronIngot.png
     hash: cf0c3769670417756f20590eeb4b3720

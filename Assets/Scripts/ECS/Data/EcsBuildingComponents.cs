@@ -86,7 +86,10 @@ public enum GridBuildFailureReason : byte
     RampPathMustStayOnRamp,
     RampPathNotCollinear,
     RampPathIncomplete,
-    RampPathSlopeMismatch
+    RampPathSlopeMismatch,
+    VerticalSupportMissing,
+    VerticalDirectionConflict,
+    VerticalContainsItem
 }
 
 public struct GridBuildResult : IBufferElementData

@@ -3,6 +3,7 @@ using Unity.Mathematics;
 public enum GridSurfaceHitKind : byte
 {
     Direct,
+    VerticalNode,
     FlatTop,
     FlatBottom,
     FlatSide,
@@ -19,6 +20,7 @@ public struct GridSurfaceHit
     public float3 Normal;
     public GridSurfaceHitKind Kind;
     public RampConnector Ramp;
+    public VerticalBeltNode VerticalNode;
 
     public bool IsRamp =>
         Kind == GridSurfaceHitKind.RampSlope ||
@@ -115,7 +117,8 @@ public static class GridBuildPlacementResolver
         BuildingKind heldKind,
         int selectedRampRiseHeightUnits,
         int2 selectedRampDirection,
-        in WorldGridConfig grid)
+        in WorldGridConfig grid,
+        int selectedVerticalStep = 1)
     {
         int2 selectedDirection =
             EcsGridUtility.SanitizeDirection(selectedRampDirection);
@@ -128,6 +131,16 @@ public static class GridBuildPlacementResolver
             IsValid = 1
         };
 
+        if (hit.Kind == GridSurfaceHitKind.VerticalNode)
+        {
+            if (heldKind == BuildingKind.VerticalBeltSegment || heldKind == BuildingKind.VerticalBeltExit)
+            {
+                int step = hit.VerticalNode.Kind == BuildingKind.VerticalBeltSegment
+                    ? hit.VerticalNode.Step : selectedVerticalStep;
+                direct.Cell.Level += step;
+            }
+            return direct;
+        }
         if (hit.Kind == GridSurfaceHitKind.Direct)
             return direct;
         if (heldKind == BuildingKind.Foundation)

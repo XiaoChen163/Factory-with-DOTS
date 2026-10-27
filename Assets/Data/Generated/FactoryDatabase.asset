@@ -188,9 +188,9 @@ MonoBehaviour:
     nameKey: building.ramp_foundation_1_1
     behavior: 6
     kind: 8
-    machineTypeKey:
+    machineTypeKey: 
     machineTypeId: 0
-    portLayoutKey:
+    portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
     ports: []
@@ -199,9 +199,9 @@ MonoBehaviour:
     nameKey: building.ramp_foundation_1_2
     behavior: 6
     kind: 8
-    machineTypeKey:
+    machineTypeKey: 
     machineTypeId: 0
-    portLayoutKey:
+    portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
     ports: []
@@ -210,9 +210,50 @@ MonoBehaviour:
     nameKey: building.ramp_foundation_1_4
     behavior: 6
     kind: 8
-    machineTypeKey:
+    machineTypeKey: 
     machineTypeId: 0
-    portLayoutKey:
+    portLayoutKey: 
+    footprintWidth: 1
+    footprintHeight: 1
+    ports: []
+  - id: 11
+    key: vertical_belt_entry
+    nameKey: building.vertical_belt_entry
+    behavior: 1
+    kind: 9
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: vertical_entry_ports
+    footprintWidth: 1
+    footprintHeight: 1
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 12
+    key: vertical_belt_exit
+    nameKey: building.vertical_belt_exit
+    behavior: 1
+    kind: 10
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: vertical_exit_ports
+    footprintWidth: 1
+    footprintHeight: 1
+    ports:
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 13
+    key: vertical_belt_segment
+    nameKey: building.vertical_belt_segment
+    behavior: 1
+    kind: 11
+    machineTypeKey: 
+    machineTypeId: 0
+    portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
     ports: []
@@ -313,6 +354,150 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 3ce66c5e5faf6594faf9875decc0f10b, type: 3}
     menuOrder: 103
     rampRiseHeightUnits: 0
+  - id: 14
+    key: vertical_belt_entry_mk1
+    buildingKey: vertical_belt_entry
+    buildingId: 11
+    level: 1
+    nameKey: building.vertical_belt_entry.mk1
+    visualPrefabKey: vertical_belt_entry_mk1
+    visualPrefab: {fileID: 849880541941752008, guid: 427e9682af365624db4f8093bc5a5272, type: 3}
+    iconKey: vertical_belt_entry_mk1
+    icon: {fileID: 21300000, guid: 872ae47e01ee2304fa11a55b8350b42a, type: 3}
+    menuOrder: 111
+    rampRiseHeightUnits: 0
+  - id: 15
+    key: vertical_belt_entry_mk2
+    buildingKey: vertical_belt_entry
+    buildingId: 11
+    level: 2
+    nameKey: building.vertical_belt_entry.mk2
+    visualPrefabKey: vertical_belt_entry_mk2
+    visualPrefab: {fileID: 756550717548969875, guid: 550ad97ca2b33fc41af712c62f46eb9a, type: 3}
+    iconKey: vertical_belt_entry_mk2
+    icon: {fileID: 21300000, guid: 7ae7aa3c66710a147ac8cee93b5237d3, type: 3}
+    menuOrder: 112
+    rampRiseHeightUnits: 0
+  - id: 16
+    key: vertical_belt_entry_mk3
+    buildingKey: vertical_belt_entry
+    buildingId: 11
+    level: 3
+    nameKey: building.vertical_belt_entry.mk3
+    visualPrefabKey: vertical_belt_entry_mk3
+    visualPrefab: {fileID: 8263080865558837001, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+    iconKey: vertical_belt_entry_mk3
+    icon: {fileID: 21300000, guid: 54382fadc46a56248b23405f054411bd, type: 3}
+    menuOrder: 113
+    rampRiseHeightUnits: 0
+  - id: 17
+    key: vertical_belt_entry_mk4
+    buildingKey: vertical_belt_entry
+    buildingId: 11
+    level: 4
+    nameKey: building.vertical_belt_entry.mk4
+    visualPrefabKey: vertical_belt_entry_mk4
+    visualPrefab: {fileID: 8642908834916057529, guid: d9392b01d0a1cfe428a0dcf54ee44787, type: 3}
+    iconKey: vertical_belt_entry_mk4
+    icon: {fileID: 21300000, guid: c70ef67eccb23504eb2098c626188c6e, type: 3}
+    menuOrder: 114
+    rampRiseHeightUnits: 0
+  - id: 18
+    key: vertical_belt_exit_mk1
+    buildingKey: vertical_belt_exit
+    buildingId: 12
+    level: 1
+    nameKey: building.vertical_belt_exit.mk1
+    visualPrefabKey: vertical_belt_exit_mk1
+    visualPrefab: {fileID: 198289212279591929, guid: 420382c9b697fbd4cb0cf7fb658359cb, type: 3}
+    iconKey: vertical_belt_exit_mk1
+    icon: {fileID: 21300000, guid: 4095b0f1b1f55d345bba3dcc5a65b65b, type: 3}
+    menuOrder: 121
+    rampRiseHeightUnits: 0
+  - id: 19
+    key: vertical_belt_exit_mk2
+    buildingKey: vertical_belt_exit
+    buildingId: 12
+    level: 2
+    nameKey: building.vertical_belt_exit.mk2
+    visualPrefabKey: vertical_belt_exit_mk2
+    visualPrefab: {fileID: 7353657416348320044, guid: 6677dcd17691afc438e9b37ef2e71330, type: 3}
+    iconKey: vertical_belt_exit_mk2
+    icon: {fileID: 21300000, guid: 109ebe0ca147e74498fbec7a3b26d8de, type: 3}
+    menuOrder: 122
+    rampRiseHeightUnits: 0
+  - id: 20
+    key: vertical_belt_exit_mk3
+    buildingKey: vertical_belt_exit
+    buildingId: 12
+    level: 3
+    nameKey: building.vertical_belt_exit.mk3
+    visualPrefabKey: vertical_belt_exit_mk3
+    visualPrefab: {fileID: 975789746718991501, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+    iconKey: vertical_belt_exit_mk3
+    icon: {fileID: 21300000, guid: f2099cc7385492c408c70dd511d7915a, type: 3}
+    menuOrder: 123
+    rampRiseHeightUnits: 0
+  - id: 21
+    key: vertical_belt_exit_mk4
+    buildingKey: vertical_belt_exit
+    buildingId: 12
+    level: 4
+    nameKey: building.vertical_belt_exit.mk4
+    visualPrefabKey: vertical_belt_exit_mk4
+    visualPrefab: {fileID: 6766636972588932620, guid: 1bea08d822543f948a8bd8eff4477321, type: 3}
+    iconKey: vertical_belt_exit_mk4
+    icon: {fileID: 21300000, guid: ce4daa05a65d7dc46b270f4eda33947f, type: 3}
+    menuOrder: 124
+    rampRiseHeightUnits: 0
+  - id: 22
+    key: vertical_belt_segment_mk1
+    buildingKey: vertical_belt_segment
+    buildingId: 13
+    level: 1
+    nameKey: building.vertical_belt_segment.mk1
+    visualPrefabKey: vertical_belt_segment_mk1
+    visualPrefab: {fileID: 2170183881831946398, guid: c93ad474fb5ccdc4ea041ff840d2cc37, type: 3}
+    iconKey: vertical_belt_segment_mk1
+    icon: {fileID: 21300000, guid: 5b8f0e1b54d122c4cb5956396eeb42ce, type: 3}
+    menuOrder: 131
+    rampRiseHeightUnits: 0
+  - id: 23
+    key: vertical_belt_segment_mk2
+    buildingKey: vertical_belt_segment
+    buildingId: 13
+    level: 2
+    nameKey: building.vertical_belt_segment.mk2
+    visualPrefabKey: vertical_belt_segment_mk2
+    visualPrefab: {fileID: 4950480565365963600, guid: ffbdfc7250a0122458278a47b7741a59, type: 3}
+    iconKey: vertical_belt_segment_mk2
+    icon: {fileID: 21300000, guid: ec898dbb678be3445b2924f98e73ad9a, type: 3}
+    menuOrder: 132
+    rampRiseHeightUnits: 0
+  - id: 24
+    key: vertical_belt_segment_mk3
+    buildingKey: vertical_belt_segment
+    buildingId: 13
+    level: 3
+    nameKey: building.vertical_belt_segment.mk3
+    visualPrefabKey: vertical_belt_segment_mk3
+    visualPrefab: {fileID: 3340782413726316499, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+    iconKey: vertical_belt_segment_mk3
+    icon: {fileID: 21300000, guid: 27c8aca8d9b2f5c43a1ec83f33e30ec8, type: 3}
+    menuOrder: 133
+    rampRiseHeightUnits: 0
+  - id: 25
+    key: vertical_belt_segment_mk4
+    buildingKey: vertical_belt_segment
+    buildingId: 13
+    level: 4
+    nameKey: building.vertical_belt_segment.mk4
+    visualPrefabKey: vertical_belt_segment_mk4
+    visualPrefab: {fileID: 2980616878522348748, guid: 15303e1a7d66cad489a1f40dfdeff6c2, type: 3}
+    iconKey: vertical_belt_segment_mk4
+    icon: {fileID: 21300000, guid: 8d00d5606124cc64f994c0b2910c93e5, type: 3}
+    menuOrder: 134
+    rampRiseHeightUnits: 0
   - id: 5
     key: miner_mk1
     buildingKey: miner
@@ -385,6 +570,42 @@ MonoBehaviour:
     cellsPerSecond: 4
   - buildingLevelKey: belt_mk4
     buildingLevelId: 4
+    cellsPerSecond: 8
+  - buildingLevelKey: vertical_belt_entry_mk1
+    buildingLevelId: 14
+    cellsPerSecond: 1
+  - buildingLevelKey: vertical_belt_entry_mk2
+    buildingLevelId: 15
+    cellsPerSecond: 2
+  - buildingLevelKey: vertical_belt_entry_mk3
+    buildingLevelId: 16
+    cellsPerSecond: 4
+  - buildingLevelKey: vertical_belt_entry_mk4
+    buildingLevelId: 17
+    cellsPerSecond: 8
+  - buildingLevelKey: vertical_belt_exit_mk1
+    buildingLevelId: 18
+    cellsPerSecond: 1
+  - buildingLevelKey: vertical_belt_exit_mk2
+    buildingLevelId: 19
+    cellsPerSecond: 2
+  - buildingLevelKey: vertical_belt_exit_mk3
+    buildingLevelId: 20
+    cellsPerSecond: 4
+  - buildingLevelKey: vertical_belt_exit_mk4
+    buildingLevelId: 21
+    cellsPerSecond: 8
+  - buildingLevelKey: vertical_belt_segment_mk1
+    buildingLevelId: 22
+    cellsPerSecond: 1
+  - buildingLevelKey: vertical_belt_segment_mk2
+    buildingLevelId: 23
+    cellsPerSecond: 2
+  - buildingLevelKey: vertical_belt_segment_mk3
+    buildingLevelId: 24
+    cellsPerSecond: 4
+  - buildingLevelKey: vertical_belt_segment_mk4
+    buildingLevelId: 25
     cellsPerSecond: 8
   processorLevels:
   - buildingLevelKey: miner_mk1

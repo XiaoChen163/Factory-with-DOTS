@@ -13,10 +13,9 @@ public partial struct GridPlacementTransformSystem : ISystem
     {
         state.RequireForUpdate<GridDefinition>();
         state.RequireForUpdate<GridTransformDirty>();
-        dirtyQuery = state.GetEntityQuery(
-            ComponentType.ReadOnly<GridPlacement>(),
-            ComponentType.ReadWrite<LocalTransform>(),
-            ComponentType.ReadOnly<GridTransformDirty>());
+        dirtyQuery = new EntityQueryBuilder(Unity.Collections.Allocator.Temp)
+            .WithAll<GridPlacement, GridTransformDirty>()
+            .WithAllRW<LocalTransform>().Build(ref state);
     }
 
     [BurstCompile]

@@ -57,7 +57,8 @@ public enum TransportConnectionMode : byte
     Planar,
     ExplicitOnly,
     PlanarInputOnly,
-    PlanarOutputOnly
+    PlanarOutputOnly,
+    SinglePlanarInputOnly
 }
 
 public readonly struct RampEndpointKey : IEquatable<RampEndpointKey>
@@ -158,7 +159,8 @@ public static class RampUtility
 
     public static bool AllowsPlanarInput(TransportConnectionMode mode) =>
         mode == TransportConnectionMode.Planar ||
-        mode == TransportConnectionMode.PlanarInputOnly;
+        mode == TransportConnectionMode.PlanarInputOnly ||
+        mode == TransportConnectionMode.SinglePlanarInputOnly;
 
     public static bool AllowsPlanarOutput(TransportConnectionMode mode) =>
         mode == TransportConnectionMode.Planar ||

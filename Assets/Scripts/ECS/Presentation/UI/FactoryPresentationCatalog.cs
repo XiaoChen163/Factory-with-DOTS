@@ -70,6 +70,13 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
             return "斜面地基 1/2";
         if (string.Equals(nameKey, "building.ramp_foundation_1_4", StringComparison.Ordinal))
             return "斜面地基 1/4";
+        if (nameKey != null && nameKey.StartsWith("building.vertical_belt_", StringComparison.Ordinal))
+        {
+            string label = nameKey.Contains("entry") ? "垂直带入口" :
+                nameKey.Contains("exit") ? "垂直带出口" : "垂直传送节点";
+            int marker = nameKey.LastIndexOf(".mk", StringComparison.Ordinal);
+            return marker >= 0 ? label + " Mk" + nameKey.Substring(marker + 3) : label;
+        }
         string value = string.IsNullOrWhiteSpace(nameKey) ? fallback : nameKey;
         return string.IsNullOrWhiteSpace(value) ? "未命名" : value.Replace('_', ' ');
     }

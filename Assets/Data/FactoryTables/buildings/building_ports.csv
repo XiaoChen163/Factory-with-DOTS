@@ -16,3 +16,5 @@ splitter_ports,Input,0,-1,0,1,0
 splitter_ports,Output,0,1,0,1,0
 splitter_ports,Output,1,0,1,0,1
 splitter_ports,Output,2,0,-1,0,-1
+vertical_entry_ports,Input,0,-1,0,1,0
+vertical_exit_ports,Output,0,1,0,1,0

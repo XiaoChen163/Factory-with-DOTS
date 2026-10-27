@@ -672,6 +672,9 @@ public sealed class FactoryLinearTransferResolver : IDisposable
             return;
         }
 
+        if (target.ConnectionMode == TransportConnectionMode.SinglePlanarInputOnly)
+            return;
+
         int2 right = TransportTopologyAccess.RotateClockwise(straight);
         if (TryConnectInput(targetIndex, 0, right))
         {
@@ -1851,6 +1854,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
                 item = state.CurrentItem;
                 outputIndex = 0;
                 return item != Entity.Null &&
+                       RampUtility.AllowsPlanarOutput(source.ConnectionMode) &&
                        state.Progress >= 1f &&
                        math.all(source.Direction == expectedDirection);
             case FactoryTransportKind.Merger:
@@ -1906,7 +1910,10 @@ public partial struct FactoryTransferArbitrationJob : IJob
         switch (target.Kind)
         {
             case FactoryTransportKind.Belt:
-                return state.CurrentItem == Entity.Null;
+                return state.CurrentItem == Entity.Null &&
+                       RampUtility.AllowsPlanarInput(target.ConnectionMode) &&
+                       (target.ConnectionMode != TransportConnectionMode.SinglePlanarInputOnly ||
+                        math.all(direction == target.Direction));
             case FactoryTransportKind.Merger:
                 return state.CurrentItem == Entity.Null &&
                        TransportTopologyAccess.GetMergerInputIndex(

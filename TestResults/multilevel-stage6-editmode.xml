@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="8" result="Passed" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.2522715">
+  <test-suite type="TestSuite" id="1000" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="177" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.252272" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1208" name="Factory.Tests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.Tests.dll" runstate="Runnable" testcasecount="177" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.245532" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="14028" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1209" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="177" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.244159" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1210" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="177" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.242942" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1138" name="MultiLevelStage6Tests" fullname="Factory.Tests.MultiLevelStage6Tests" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.240645" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1144" name="FractionalRampEndpoints_ChainWithoutFloatRounding" fullname="Factory.Tests.MultiLevelStage6Tests.FractionalRampEndpoints_ChainWithoutFloatRounding" methodname="FractionalRampEndpoints_ChainWithoutFloatRounding" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="1657817551" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.158399" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1146" name="QuarterSlopeChain_ConnectsPlanarBeltsAtBothEnds" fullname="Factory.Tests.MultiLevelStage6Tests.QuarterSlopeChain_ConnectsPlanarBeltsAtBothEnds" methodname="QuarterSlopeChain_ConnectsPlanarBeltsAtBothEnds" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="1294131749" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.057229" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1147" name="RampBeltDirection_MustFollowOrReverseSlopeAxis" fullname="Factory.Tests.MultiLevelStage6Tests.RampBeltDirection_MustFollowOrReverseSlopeAxis" methodname="RampBeltDirection_MustFollowOrReverseSlopeAxis" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="1017637333" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.001479" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1139" name="RampCatalog_ContainsOnlyRequestedSlopeBuildOptionsAndIcons" fullname="Factory.Tests.MultiLevelStage6Tests.RampCatalog_ContainsOnlyRequestedSlopeBuildOptionsAndIcons" methodname="RampCatalog_ContainsOnlyRequestedSlopeBuildOptionsAndIcons" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="1978657652" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.002788" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1145" name="RampLine_SnapsToOneAxisAndAccumulatesFractionalHeight" fullname="Factory.Tests.MultiLevelStage6Tests.RampLine_SnapsToOneAxisAndAccumulatesFractionalHeight" methodname="RampLine_SnapsToOneAxisAndAccumulatesFractionalHeight" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="2019865682" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.005350" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1143" name="SupportedRampSlopes_UseExactHeightUnits" fullname="Factory.Tests.MultiLevelStage6Tests.SupportedRampSlopes_UseExactHeightUnits" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.004000" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1140" name="SupportedRampSlopes_UseExactHeightUnits(2)" fullname="Factory.Tests.MultiLevelStage6Tests.SupportedRampSlopes_UseExactHeightUnits(2)" methodname="SupportedRampSlopes_UseExactHeightUnits" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="1438564462" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.000838" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1141" name="SupportedRampSlopes_UseExactHeightUnits(4)" fullname="Factory.Tests.MultiLevelStage6Tests.SupportedRampSlopes_UseExactHeightUnits(4)" methodname="SupportedRampSlopes_UseExactHeightUnits" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="292239880" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.000482" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1142" name="SupportedRampSlopes_UseExactHeightUnits(8)" fullname="Factory.Tests.MultiLevelStage6Tests.SupportedRampSlopes_UseExactHeightUnits(8)" methodname="SupportedRampSlopes_UseExactHeightUnits" classname="Factory.Tests.MultiLevelStage6Tests" runstate="Runnable" seed="996420146" result="Passed" start-time="2026-08-15 13:00:16Z" end-time="2026-08-15 13:00:16Z" duration="0.000298" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

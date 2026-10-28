@@ -19,6 +19,8 @@ public partial class BeltTransferSystem : SystemBase
     private EntityQuery outputPortQuery;
     private EntityQuery itemCatalogQuery;
     private EntityQuery gridQuery;
+    private EntityQuery transportRevisionQuery;
+    private EntityQuery occupancyRevisionQuery;
     private EntityQuery itemPoolQuery;
     private TransferCommandBufferSystem transferEcbSystem;
     private Entity statsEntity;
@@ -33,11 +35,23 @@ public partial class BeltTransferSystem : SystemBase
         itemPrefabVisualInfo;
     private int cachedItemPoolCount = -1;
     private Entity cachedItemPrefabVisualCatalog = Entity.Null;
-    private uint cachedGridRevision;
-    private bool hasCachedGridRevision;
+    private uint cachedTopologyRevision;
+    private bool hasCachedTopologyRevision;
+    private uint cachedPortOwnerRevision;
+    private bool hasCachedPortOwnerRevision;
 
     public int TransportTopologyRebuildCount =>
         transferResolver?.TopologyRebuildCount ?? 0;
+    public int TransportTopologyNodeCount =>
+        transferResolver?.NodeCount ?? 0;
+    public int TransportTopologyEdgeCount =>
+        transferResolver?.EdgeCount ?? 0;
+    public int LastTransportTopologyRebuildNodeCount =>
+        transferResolver?.LastTopologyRebuildNodeCount ?? 0;
+    public double LastTransportTopologyRebuildMilliseconds =>
+        transferResolver?.LastTopologyRebuildMilliseconds ?? 0.0;
+    public double TotalTransportTopologyRebuildMilliseconds =>
+        transferResolver?.TotalTopologyRebuildMilliseconds ?? 0.0;
 
     protected override void OnCreate()
     {
@@ -71,7 +85,11 @@ public partial class BeltTransferSystem : SystemBase
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
             ComponentType.ReadOnly<ItemPrefabEntry>());
         gridQuery = GetEntityQuery(
-            ComponentType.ReadOnly<GridDefinition>());
+            ComponentType.ReadOnly<WorldGridConfig>());
+        transportRevisionQuery = GetEntityQuery(
+            ComponentType.ReadOnly<TransportTopologyRevision>());
+        occupancyRevisionQuery = GetEntityQuery(
+            ComponentType.ReadOnly<BuildingOccupancyRevision>());
         itemPoolQuery = GetEntityQuery(
             ComponentType.ReadOnly<ItemPool>(),
             ComponentType.ReadOnly<ItemPoolEntry>());
@@ -128,16 +146,27 @@ public partial class BeltTransferSystem : SystemBase
     protected override void OnUpdate()
     {
         bool hasGrid = gridQuery.CalculateEntityCount() == 1;
-        uint gridRevision = hasGrid
-            ? gridQuery.GetSingleton<GridDefinition>().Revision
+        uint topologyRevision = transportRevisionQuery.CalculateEntityCount() == 1
+            ? transportRevisionQuery.GetSingleton<TransportTopologyRevision>().Value
             : 0;
-        if (!hasCachedGridRevision || gridRevision != cachedGridRevision)
+        uint portOwnerRevision = occupancyRevisionQuery.CalculateEntityCount() == 1
+            ? occupancyRevisionQuery.GetSingleton<BuildingOccupancyRevision>().Value
+            : 0;
+        if (!hasCachedTopologyRevision ||
+            topologyRevision != cachedTopologyRevision)
         {
             Dependency.Complete();
-            RefreshTopology(gridRevision, hasGrid);
+            RefreshTopology(topologyRevision, hasGrid);
+            hasCachedTopologyRevision = true;
+            cachedTopologyRevision = topologyRevision;
+        }
+        if (!hasCachedPortOwnerRevision ||
+            portOwnerRevision != cachedPortOwnerRevision)
+        {
+            Dependency.Complete();
             RefreshPortOwnerCache();
-            hasCachedGridRevision = true;
-            cachedGridRevision = gridRevision;
+            hasCachedPortOwnerRevision = true;
+            cachedPortOwnerRevision = portOwnerRevision;
         }
 
         RefreshItemCatalog();
@@ -182,14 +211,36 @@ public partial class BeltTransferSystem : SystemBase
         job.DisableRenderingLookup =
             GetComponentLookup<DisableRendering>(true);
         job.ItemPrefabVisualInfo = itemPrefabVisualInfo;
+        job.WorldGrid = GetWorldGridConfig();
 
         Dependency = job.Schedule(Dependency);
         transferEcbSystem.AddJobHandleForProducer(Dependency);
     }
 
+    private WorldGridConfig GetWorldGridConfig() => gridQuery.CalculateEntityCount() == 1
+        ? gridQuery.GetSingleton<WorldGridConfig>()
+        : new WorldGridConfig
+        {
+            CellSize = EcsGridUtility.DefaultCellSize,
+            LayerHeight = EcsGridUtility.DefaultLayerHeight
+        };
+
     private void RefreshTopology(uint gridRevision, bool hasGrid)
     {
         uint revision = hasGrid ? gridRevision : 0;
+        using NativeList<TransportExplicitEdge> explicitEdges =
+            new NativeList<TransportExplicitEdge>(Allocator.Temp);
+        if (hasGrid)
+        {
+            Entity gridEntity = gridQuery.GetSingletonEntity();
+            if (EntityManager.HasBuffer<TransportExplicitEdge>(gridEntity))
+            {
+                explicitEdges.AddRange(
+                    EntityManager.GetBuffer<TransportExplicitEdge>(
+                        gridEntity,
+                        true).AsNativeArray());
+            }
+        }
         using NativeArray<Entity> beltEntities =
             beltTopologyQuery.ToEntityArray(Allocator.Temp);
         using NativeArray<BeltTopology> beltTopologies =
@@ -211,6 +262,7 @@ public partial class BeltTransferSystem : SystemBase
             mergers,
             splitterEntities,
             splitters,
+            explicitEdges.AsArray(),
             !hasGrid);
     }
 
@@ -334,15 +386,22 @@ public partial class BeltTransferSystem : SystemBase
                 EntityManager.GetComponentData<GridPlacement>(left);
             GridPlacement rightPlacement =
                 EntityManager.GetComponentData<GridPlacement>(right);
-            int x = leftPlacement.AnchorCell.x.CompareTo(
-                rightPlacement.AnchorCell.x);
+            int level = leftPlacement.AnchorCell.Level.CompareTo(
+                rightPlacement.AnchorCell.Level);
+            if (level != 0)
+            {
+                return level;
+            }
+
+            int x = leftPlacement.AnchorCell.X.CompareTo(
+                rightPlacement.AnchorCell.X);
             if (x != 0)
             {
                 return x;
             }
 
-            int y = leftPlacement.AnchorCell.y.CompareTo(
-                rightPlacement.AnchorCell.y);
+            int y = leftPlacement.AnchorCell.Z.CompareTo(
+                rightPlacement.AnchorCell.Z);
             return y != 0 ? y : left.Index.CompareTo(right.Index);
         });
 

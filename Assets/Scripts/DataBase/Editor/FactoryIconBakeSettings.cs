@@ -5,6 +5,10 @@ using UnityEngine;
 public sealed class FactoryIconBakeOverride
 {
     public GameObject prefab;
+    [Tooltip("Optional model rendered instead of the building itself.")]
+    public GameObject iconPrefab;
+    [Tooltip("Optional supplied sprite. Never overwritten by the icon baker.")]
+    public Sprite customIcon;
     public Vector3 viewDirection = new Vector3(-1f, -0.75f, -1f);
     [Min(1.01f)] public float padding = 1.12f;
     public Vector3 centerOffset;
@@ -25,6 +29,19 @@ public sealed class FactoryIconBakeSettings : ScriptableObject
     [Min(0f)] public float fillLightIntensity = 0.45f;
     public Vector3 fillLightEuler = new Vector3(340f, 215f, 0f);
     public FactoryIconBakeOverride[] overrides = Array.Empty<FactoryIconBakeOverride>();
+
+    public void GetIconSource(GameObject prefab, out GameObject model, out Sprite sprite)
+    {
+        model = prefab;
+        sprite = null;
+        foreach (FactoryIconBakeOverride value in overrides)
+        {
+            if (value == null || value.prefab != prefab) continue;
+            model = value.iconPrefab != null ? value.iconPrefab : prefab;
+            sprite = value.customIcon;
+            return;
+        }
+    }
 
     public void GetFraming(
         GameObject prefab,

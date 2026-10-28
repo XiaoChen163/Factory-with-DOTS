@@ -144,12 +144,13 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
         EntityManager entityManager = world.EntityManager;
         EntityQuery gridQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadWrite<GridDefinition>(),
+            ComponentType.ReadWrite<WorldGridConfig>(),
             ComponentType.ReadWrite<GridBuildCommand>(),
             ComponentType.ReadWrite<GridBuildResult>());
         EntityQuery catalogQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
-            ComponentType.ReadOnly<ItemPrefabEntry>());
+            ComponentType.ReadOnly<ItemPrefabEntry>(),
+            ComponentType.ReadOnly<FactoryDatabase>());
 
         while ((gridQuery.CalculateEntityCount() != 1 ||
                 catalogQuery.CalculateEntityCount() != 1) &&
@@ -163,18 +164,24 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         {
             gridQuery.Dispose();
             catalogQuery.Dispose();
-            Fail("GridDefinition or BuildingPrefabCatalog failed to load.");
+            Fail("WorldGridConfig or BuildingPrefabCatalog failed to load.");
             yield break;
         }
 
         Entity gridEntity = gridQuery.GetSingletonEntity();
-        GridDefinition grid =
-            entityManager.GetComponentData<GridDefinition>(gridEntity);
-        grid.Size = definition.GridSize;
+        WorldGridConfig grid =
+            entityManager.GetComponentData<WorldGridConfig>(gridEntity);
         grid.Origin = float3.zero;
         grid.CellSize = EcsGridUtility.DefaultCellSize;
-        grid.Revision++;
+        grid.LayerHeight = EcsGridUtility.DefaultLayerHeight;
         entityManager.SetComponentData(gridEntity, grid);
+        if (entityManager.HasComponent<TransportTopologyRevision>(gridEntity))
+        {
+            TransportTopologyRevision revision = entityManager
+                .GetComponentData<TransportTopologyRevision>(gridEntity);
+            revision.Value++;
+            entityManager.SetComponentData(gridEntity, revision);
+        }
 
         EntityQuery placementQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<GridPlacement>());
@@ -187,6 +194,81 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             yield break;
         }
         placementQuery.Dispose();
+
+        GridOccupancyIndexSystem occupancy =
+            world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+        while ((occupancy == null || !occupancy.IsReady ||
+                occupancy.ConflictCount > 0) &&
+               Time.realtimeSinceStartup < deadline)
+        {
+            occupancy =
+                world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+            yield return null;
+        }
+        if (occupancy == null || !occupancy.IsReady ||
+            occupancy.ConflictCount > 0)
+        {
+            gridQuery.Dispose();
+            catalogQuery.Dispose();
+            Fail("Grid occupancy did not become ready before foundation setup.");
+            yield break;
+        }
+
+        int foundationCommandCount = QueueFoundationCommands(
+            entityManager.GetBuffer<GridBuildCommand>(gridEntity),
+            definition.GridSize);
+        int foundationCellCount = definition.GridSize.x * definition.GridSize.y;
+        status = "Building " + foundationCellCount +
+                 " foundation cells through " + foundationCommandCount +
+                 " unified commands...";
+        SurfaceRegistrySystem surfaceRegistry =
+            world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        while ((surfaceRegistry == null || !surfaceRegistry.IsReady ||
+                surfaceRegistry.SurfaceCount != foundationCellCount) &&
+               Time.realtimeSinceStartup < deadline)
+        {
+            surfaceRegistry =
+                world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            DynamicBuffer<GridBuildResult> pendingResults =
+                entityManager.GetBuffer<GridBuildResult>(gridEntity);
+            if (pendingResults.Length >= foundationCommandCount)
+            {
+                for (int i = 0; i < pendingResults.Length; i++)
+                {
+                    if (pendingResults[i].Success != 0)
+                        continue;
+                    GridBuildFailureReason reason =
+                        pendingResults[i].FailureReason;
+                    gridQuery.Dispose();
+                    catalogQuery.Dispose();
+                    Fail("A performance foundation command was rejected: " +
+                         reason + ".");
+                    yield break;
+                }
+            }
+            yield return null;
+        }
+        if (surfaceRegistry == null ||
+            surfaceRegistry.SurfaceCount != foundationCellCount)
+        {
+            gridQuery.Dispose();
+            catalogQuery.Dispose();
+            Fail("Timed out while building the performance foundation surface.");
+            yield break;
+        }
+        DynamicBuffer<GridBuildResult> foundationResults =
+            entityManager.GetBuffer<GridBuildResult>(gridEntity);
+        for (int i = 0; i < foundationResults.Length; i++)
+        {
+            if (foundationResults[i].Success != 0)
+                continue;
+            gridQuery.Dispose();
+            catalogQuery.Dispose();
+            Fail("A performance foundation command was rejected: " +
+                 foundationResults[i].FailureReason + ".");
+            yield break;
+        }
+        foundationResults.Clear();
 
         status = "Submitting " + definition.Placements.Length +
                  " build commands...";
@@ -405,6 +487,35 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             driver);
     }
 
+    private static int QueueFoundationCommands(
+        DynamicBuffer<GridBuildCommand> commands,
+        int2 size)
+    {
+        int rowsPerCommand = math.max(
+            1,
+            GridBuildCommandSystem.MaxFoundationAreaCells /
+            math.max(1, size.x));
+        int commandCount = 0;
+        for (int startZ = 0; startZ < size.y; startZ += rowsPerCommand)
+        {
+            int endZ = math.min(size.y - 1, startZ + rowsPerCommand - 1);
+            commands.Add(new GridBuildCommand
+            {
+                RequestId = (uint)(0x40000000 + commandCount),
+                Type = GridBuildCommandType.PlaceFoundationArea,
+                Kind = BuildingKind.Foundation,
+                BuildingLevel = new BuildingLevelId
+                {
+                    Value = FactoryPerformanceScenarioLayout.FoundationLevelId
+                },
+                StartCell = new GridCell(0, 0, startZ),
+                EndCell = new GridCell(size.x - 1, 0, endZ)
+            });
+            commandCount++;
+        }
+        return commandCount;
+    }
+
     private bool TrySubmitRecipeSelections(
         EntityManager entityManager,
         Entity commandEntity,
@@ -546,12 +657,12 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             splitterQuery.ToEntityArray(Allocator.Temp);
         using NativeArray<Splitter> splitters =
             splitterQuery.ToComponentDataArray<Splitter>(Allocator.Temp);
-        Dictionary<int2, int> beltIndexByCell =
-            new Dictionary<int2, int>(beltTopologies.Length);
-        Dictionary<int2, int> mergerIndexByCell =
-            new Dictionary<int2, int>(mergers.Length);
-        Dictionary<int2, int> splitterIndexByCell =
-            new Dictionary<int2, int>(splitters.Length);
+        Dictionary<GridCell, int> beltIndexByCell =
+            new Dictionary<GridCell, int>(beltTopologies.Length);
+        Dictionary<GridCell, int> mergerIndexByCell =
+            new Dictionary<GridCell, int>(mergers.Length);
+        Dictionary<GridCell, int> splitterIndexByCell =
+            new Dictionary<GridCell, int>(splitters.Length);
         for (int i = 0; i < beltTopologies.Length; i++)
         {
             beltIndexByCell.Add(beltTopologies[i].Cell, i);
@@ -568,9 +679,18 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
         LocalTransform prefabTransform =
             entityManager.GetComponentData<LocalTransform>(itemPrefab);
+        using EntityQuery worldGridQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<WorldGridConfig>());
+        WorldGridConfig worldGrid = worldGridQuery.CalculateEntityCount() == 1
+            ? worldGridQuery.GetSingleton<WorldGridConfig>()
+            : new WorldGridConfig
+            {
+                CellSize = EcsGridUtility.DefaultCellSize,
+                LayerHeight = EcsGridUtility.DefaultLayerHeight
+            };
         for (int i = 0; i < definition.InitialItemCells.Length; i++)
         {
-            int2 cell = definition.InitialItemCells[i];
+            GridCell cell = definition.InitialItemCells[i];
             bool isBelt = beltIndexByCell.TryGetValue(cell, out int beltIndex);
             bool isMerger = mergerIndexByCell.TryGetValue(cell, out int mergerIndex);
             bool isSplitter = splitterIndexByCell.TryGetValue(
@@ -585,10 +705,10 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             }
 
             Entity item = ecb.Instantiate(itemPrefab);
-            float3 position = new float3(
-                cell.x + 0.5f,
-                0.535f,
-                cell.y + 0.5f);
+            float3 position = EcsGridUtility.CellToWorldCenter(
+                cell,
+                worldGrid);
+            position.y += 0.535f;
             ecb.SetComponent(item, new Item
             {
                 ItemType = itemType
@@ -721,8 +841,8 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             interactions[i].enabled = keepInteractionEnabled;
         }
 
-        TopDownPlayerController[] controllers =
-            FindObjectsByType<TopDownPlayerController>(
+        FirstPersonPlayerController[] controllers =
+            FindObjectsByType<FirstPersonPlayerController>(
                 FindObjectsSortMode.None);
         for (int i = 0; i < controllers.Length; i++)
         {

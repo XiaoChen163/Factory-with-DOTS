@@ -1,12 +1,22 @@
 using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 [RequireComponent(typeof(Camera))]
-public sealed class EcsGridInteractionController : MonoBehaviour
+public sealed partial class EcsGridInteractionController : MonoBehaviour
 {
+    public const float MaxInteractionDistance = 50f;
+
+    private Ray CreateInteractionRay()
+    {
+        Ray ray = inputCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        // Measure reach from the eye, rather than the camera's near clipping plane.
+        ray.origin = inputCamera.transform.position;
+        return ray;
+    }
     private static readonly Color ValidPreviewColor =
         new Color(0.08f, 0.42f, 1f, 0.48f);
     private static readonly Color InvalidPreviewColor =
@@ -16,16 +26,20 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private static readonly Color OutputPortPreviewColor =
         new Color(0.12f, 0.9f, 0.28f, 0.95f);
 
-    private readonly List<int2> previewCells =
-        new List<int2>(64);
+    private readonly List<GridCell> previewCells =
+        new List<GridCell>(64);
     private readonly List<GameObject> previewCellObjects =
         new List<GameObject>(64);
     private readonly List<Transform> previewTriangles =
         new List<Transform>(64);
     private readonly List<int2> previewDisplayDirections =
         new List<int2>(64);
-    private readonly List<int2> previewPortCells =
-        new List<int2>(8);
+    private readonly List<int> previewRampStartHeightUnits =
+        new List<int>(64);
+    private readonly List<RampRegistrySystem.Record> previewRampBeltPath =
+        new List<RampRegistrySystem.Record>(64);
+    private readonly List<GridCell> previewPortCells =
+        new List<GridCell>(8);
     private readonly List<int2> previewPortDirections =
         new List<int2>(8);
     private readonly List<BuildingPortType> previewPortTypes =
@@ -39,17 +53,29 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private Material inputPortPreviewMaterial;
     private Material outputPortPreviewMaterial;
     private Mesh previewTriangleMesh;
+    private Mesh previewRampMesh;
+    private Mesh previewCylinderMesh;
+    private Mesh previewCubeMesh;
     [SerializeField] private uint localPlayerId = 1;
     private PlayerCommandBus commandBus;
     private byte quarterTurns;
     private bool beltPathStarted;
+    private bool rampBeltPathStarted;
+    private bool foundationAreaStarted;
+    private bool rampLineStarted;
     private bool horizontalFirst = true;
-    private int2 beltPathStart;
+    private GridCell beltPathStart;
+    private GridCell rampBeltPathStart;
+    private GridCell foundationAreaStart;
+    private GridCell rampLineStart;
+    private int rampLineStartHeightUnits;
+    private int2 rampLineDirection;
     private bool simulatedHoverActive;
-    private int2 simulatedHoverCell;
+    private GridCell simulatedHoverCell;
     private World cachedWorld;
     private EntityQuery gridQuery;
     private EntityQuery databaseQuery;
+    private EntityQuery physicsWorldQuery;
     private Entity gridEntity = Entity.Null;
     private Entity databaseEntity = Entity.Null;
     private BlobAssetReference<FactoryDatabaseBlob> databaseReference;
@@ -61,7 +87,41 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         BuildingKind.Belt;
     public BuildingLevelId SelectedBuildingLevel { get; private set; }
     public bool IsBeltPathStarted => beltPathStarted;
+    public bool IsRampBeltPathStarted => rampBeltPathStarted;
+    public bool IsFoundationAreaStarted => foundationAreaStarted;
+    public bool IsRampLineStarted => rampLineStarted;
     public bool UsesHorizontalFirst => horizontalFirst;
+
+    public bool TrySubmitRampCommand(
+        GridBuildCommandType type,
+        GridCell cell,
+        int startHeightUnits,
+        int riseHeightUnits,
+        int2 direction,
+        BuildingLevelId beltLevel = default)
+    {
+        if ((type == GridBuildCommandType.PlaceRampFoundation &&
+             !RampUtility.IsAllowedRise(riseHeightUnits)) ||
+            riseHeightUnits < sbyte.MinValue || riseHeightUnits > sbyte.MaxValue ||
+            !TryGetGrid(out World world, out Entity currentGrid, out _))
+            return false;
+
+        Enqueue(world, currentGrid, new GridBuildCommand
+        {
+            Type = type,
+            Kind = type == GridBuildCommandType.PlaceRampBelt ||
+                   type == GridBuildCommandType.RemoveRampBelt
+                ? BuildingKind.Belt
+                : BuildingKind.Foundation,
+            BuildingLevel = beltLevel,
+            StartCell = cell,
+            EndCell = cell,
+            QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(direction),
+            RampStartHeightUnits = startHeightUnits,
+            RampRiseHeightUnits = (sbyte)riseHeightUnits
+        });
+        return true;
+    }
 
     private void Awake()
     {
@@ -71,13 +131,14 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void Update()
     {
+        commandBus?.PumpResults();
         ConsumeBuildResults();
         bool usePlayerInput = !simulatedHoverActive;
         if (usePlayerInput &&
             inputMode != null &&
             inputMode.IsDemolitionMode)
         {
-            beltPathStarted = false;
+            CancelPlacementGesture();
             HidePlacementPreview();
             if (!inputMode.BlocksWorldInput &&
                 inputMode.PrimaryPointerPressedThisFrame)
@@ -90,7 +151,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             inputMode != null &&
             !inputMode.IsBuildMode)
         {
-            beltPathStarted = false;
+            CancelPlacementGesture();
             HidePlacementPreview();
             return;
         }
@@ -104,7 +165,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             HidePlacementPreview();
             return;
         }
-        UpdatePlacementPreview();
+        if (!verticalPathStarted) UpdatePlacementPreview();
 
         if (usePlayerInput &&
             inputMode != null &&
@@ -117,6 +178,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void OnDisable()
     {
+        CancelPlacementGesture();
         HidePlacementPreview();
         ReleaseEcsCache();
     }
@@ -148,10 +210,19 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         {
             Destroy(previewTriangleMesh);
         }
+        if (previewRampMesh != null)
+        {
+            Destroy(previewRampMesh);
+        }
     }
 
     private void HandleBuildActions()
     {
+        if (inputMode != null && inputMode.CancelPressedThisFrame)
+        {
+            CancelPlacementGesture();
+            return;
+        }
         if (inputMode != null && inputMode.RotatePressedThisFrame)
         {
             RotateSelectionOrToggleBeltPathOrder();
@@ -160,6 +231,14 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     public void RotateSelectionOrToggleBeltPathOrder()
     {
+        if (verticalCompletionRequest != 0) return;
+        if (SelectedKind == BuildingKind.Foundation)
+            return;
+        if (SelectedKind == BuildingKind.VerticalBeltSegment)
+        {
+            quarterTurns = (byte)(VerticalBeltUtility.Step(quarterTurns) > 0 ? 2 : 0);
+            return;
+        }
         if (SelectedKind == BuildingKind.Belt && beltPathStarted)
             horizontalFirst = !horizontalFirst;
         else
@@ -168,9 +247,15 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void UpdatePlacementPreview()
     {
+        if (verticalPathStarted)
+        {
+            UpdateVerticalPathPreview();
+            return;
+        }
         World world;
-        GridDefinition grid;
-        int2 hoveredCell;
+        WorldGridConfig grid;
+        GridCell hoveredCell;
+        ResolvedBuildAnchor buildAnchor;
         if (simulatedHoverActive)
         {
             if (!TryGetGrid(out world, out _, out grid))
@@ -180,35 +265,120 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             }
 
             hoveredCell = simulatedHoverCell;
+            buildAnchor = CreateDirectBuildAnchor(hoveredCell);
         }
-        else if (!TryRaycastGrid(
+        else if (!TryRaycastBuildAnchor(
                      out world,
                      out grid,
                      out _,
-                     out hoveredCell,
-                     out _,
-                     out _,
+                     out buildAnchor,
                      false))
         {
             HidePlacementPreview();
             return;
         }
+        else
+        {
+            hoveredCell = buildAnchor.Cell;
+        }
 
-        BuildPreviewCells(hoveredCell);
+        if (buildAnchor.IsValid == 0)
+        {
+            HidePlacementPreview();
+            return;
+        }
+
+        if (SelectedKind == BuildingKind.Foundation &&
+            foundationAreaStarted)
+        {
+            hoveredCell.Level = foundationAreaStart.Level;
+        }
+        if (SelectedKind == BuildingKind.RampFoundation &&
+            rampLineStarted)
+        {
+            hoveredCell.Level = rampLineStart.Level;
+        }
+        BuildPreviewCells(hoveredCell, buildAnchor);
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
-        bool canPlace =
-            occupancySystem != null &&
-            occupancySystem.IsReady &&
-            occupancySystem.ConflictCount == 0;
-
+        SurfaceRegistrySystem surfaceRegistry =
+            world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        RampRegistrySystem rampRegistry =
+            world.GetExistingSystemManaged<RampRegistrySystem>();
+        bool canPlace = SelectedKind == BuildingKind.Foundation
+            ? surfaceRegistry != null && surfaceRegistry.IsReady
+            : SelectedKind == BuildingKind.RampFoundation
+                ? rampRegistry != null && rampRegistry.IsReady &&
+                  occupancySystem != null && occupancySystem.IsReady &&
+                  occupancySystem.ConflictCount == 0
+                : occupancySystem != null && occupancySystem.IsReady &&
+                  occupancySystem.ConflictCount == 0;
+        int selectedRampRise = 0;
+        if (SelectedKind == BuildingKind.RampFoundation &&
+            TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel))
+            selectedRampRise = rampLevel.RampRiseHeightUnits;
         for (int i = 0; i < previewCells.Count; i++)
         {
-            int2 cell = previewCells[i];
-            if (!EcsGridUtility.Contains(grid, cell) ||
+            GridCell cell = previewCells[i];
+            if (SelectedKind == BuildingKind.Foundation)
+            {
+                if (cell.Level < 0 || surfaceRegistry == null ||
+                    !surfaceRegistry.IsReady ||
+                    surfaceRegistry.HasFoundationVoxel(cell) ||
+                    rampRegistry != null &&
+                    rampRegistry.ConflictsWithFoundationVoxel(cell))
+                    canPlace = false;
+            }
+            else if (SelectedKind == BuildingKind.RampFoundation)
+            {
+                if (rampRegistry == null || rampRegistry.ContainsCell(cell) ||
+                    occupancySystem == null ||
+                    TryGetBuilding(world, cell, out _))
+                    canPlace = false;
+                else if (surfaceRegistry != null &&
+                         i < previewRampStartHeightUnits.Count &&
+                         i < previewDisplayDirections.Count)
+                {
+                    int start = previewRampStartHeightUnits[i];
+                    int end = checked(start + selectedRampRise);
+                    RampConnector candidate = new RampConnector
+                    {
+                        Cell = cell,
+                        LowHeight = new GridHeight(math.min(start, end)),
+                        HighHeight = new GridHeight(math.max(start, end)),
+                        UphillDirection = selectedRampRise >= 0
+                            ? previewDisplayDirections[i]
+                            : -previewDisplayDirections[i]
+                    };
+                    if (surfaceRegistry.HasFoundationOverlappingRamp(candidate))
+                        canPlace = false;
+                }
+            }
+            else if (SelectedKind == BuildingKind.Belt &&
+                     TryGetRamp(world, cell, out RampRegistrySystem.Record ramp))
+            {
+                int2 travel = i < previewDisplayDirections.Count
+                    ? previewDisplayDirections[i]
+                    : EcsGridUtility.Rotate(new int2(1, 0), quarterTurns);
+                if (ramp.BeltEntity != Entity.Null ||
+                    !RampUtility.IsTravelDirectionAllowed(
+                        ramp.Connector, travel))
+                {
+                    canPlace = false;
+                }
+            }
+            else if (VerticalBeltUtility.IsVertical(SelectedKind))
+            {
+                if (cell.Level < 0 || TryGetBuilding(world, cell, out _) ||
+                    (rampRegistry != null && rampRegistry.ContainsCell(cell)) ||
+                    !VerticalBeltUtility.Validate(SelectedKind, cell, quarterTurns,
+                        address => GetPlacement(world, address), out _))
+                    canPlace = false;
+            }
+            else if (!HasSurface(world, cell) ||
                 occupancySystem == null ||
-                occupancySystem.TryGetOccupant(cell, out _))
+                TryGetBuilding(world, cell, out _))
             {
                 canPlace = false;
             }
@@ -217,19 +387,93 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         ShowPlacementPreview(grid, canPlace);
     }
 
-    private void BuildPreviewCells(int2 hoveredCell)
+    private void BuildPreviewCells(
+        GridCell hoveredCell,
+        in ResolvedBuildAnchor buildAnchor)
     {
         previewCells.Clear();
         previewDisplayDirections.Clear();
+        previewRampStartHeightUnits.Clear();
         previewPortCells.Clear();
         previewPortDirections.Clear();
         previewPortTypes.Clear();
+        if (SelectedKind == BuildingKind.Foundation)
+        {
+            GridCell start = foundationAreaStarted
+                ? foundationAreaStart
+                : hoveredCell;
+            int minX = math.min(start.X, hoveredCell.X);
+            int maxX = math.max(start.X, hoveredCell.X);
+            int minZ = math.min(start.Z, hoveredCell.Z);
+            int maxZ = math.max(start.Z, hoveredCell.Z);
+            long count = ((long)maxX - minX + 1L) *
+                         ((long)maxZ - minZ + 1L);
+            if (count > GridBuildCommandSystem.MaxFoundationAreaCells)
+                return;
+            for (long z = minZ; z <= maxZ; z++)
+            for (long x = minX; x <= maxX; x++)
+                previewCells.Add(new GridCell(
+                    (int)x,
+                    start.Level,
+                    (int)z));
+            return;
+        }
+        if (SelectedKind == BuildingKind.RampFoundation)
+        {
+            if (!TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel))
+                return;
+            BuildRampLine(
+                rampLineStarted ? rampLineStart : hoveredCell,
+                hoveredCell,
+                rampLineStarted,
+                rampLineStarted
+                    ? rampLineDirection
+                    : buildAnchor.RampUphillDirection,
+                rampLevel.RampRiseHeightUnits,
+                rampLineStarted
+                    ? rampLineStartHeightUnits
+                    : buildAnchor.RampStartHeightUnits,
+                previewCells,
+                previewDisplayDirections,
+                previewRampStartHeightUnits);
+            return;
+        }
+        if (SelectedKind == BuildingKind.Belt && rampBeltPathStarted)
+        {
+            if (!TryResolveRampPathDirection(
+                    rampBeltPathStart, hoveredCell, out int2 direction) ||
+                cachedWorld == null || !cachedWorld.IsCreated)
+                return;
+            RampRegistrySystem registry = cachedWorld
+                .GetExistingSystemManaged<RampRegistrySystem>();
+            if (registry == null || !registry.TryBuildBeltPath(
+                    rampBeltPathStart,
+                    hoveredCell,
+                    direction,
+                    previewRampBeltPath,
+                    out _))
+                return;
+            for (int i = 0; i < previewRampBeltPath.Count; i++)
+            {
+                previewCells.Add(previewRampBeltPath[i].Connector.Cell);
+                previewDisplayDirections.Add(direction);
+            }
+            return;
+        }
+        if (SelectedKind == BuildingKind.Belt &&
+            TryGetRamp(cachedWorld, hoveredCell, out _))
+        {
+            previewCells.Add(hoveredCell);
+            previewDisplayDirections.Add(EcsGridUtility.Rotate(
+                new int2(1, 0), quarterTurns));
+            return;
+        }
         if (SelectedKind == BuildingKind.Belt &&
             beltPathStarted)
         {
-            int2 corner = horizontalFirst
-                ? new int2(hoveredCell.x, beltPathStart.y)
-                : new int2(beltPathStart.x, hoveredCell.y);
+            GridCell corner = horizontalFirst
+                ? new GridCell(hoveredCell.X, hoveredCell.Level, beltPathStart.Z)
+                : new GridCell(beltPathStart.X, hoveredCell.Level, hoveredCell.Z);
             AppendPreviewSegment(
                 beltPathStart,
                 corner,
@@ -279,7 +523,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     }
 
     private void BuildPortPreview(
-        int2 anchorCell,
+        GridCell anchorCell,
         int2 footprintSize,
         in FactoryBuildingBlob building)
     {
@@ -307,11 +551,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     }
 
     private void AppendPreviewSegment(
-        int2 from,
-        int2 to,
+        GridCell from,
+        GridCell to,
         bool includeStart)
     {
-        int2 delta = to - from;
+        int2 delta = to.Horizontal - from.Horizontal;
         int2 step = new int2(
             delta.x == 0 ? 0 : delta.x > 0 ? 1 : -1,
             delta.y == 0 ? 0 : delta.y > 0 ? 1 : -1);
@@ -320,6 +564,77 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         for (int i = first; i <= length; i++)
         {
             previewCells.Add(from + step * i);
+        }
+    }
+
+    public static void BuildRampLine(
+        GridCell start,
+        GridCell end,
+        bool useEndDirection,
+        int2 fallbackDirection,
+        int riseHeightUnits,
+        List<GridCell> cells,
+        List<int2> directions,
+        List<int> startHeightUnits)
+    {
+        BuildRampLine(
+            start,
+            end,
+            useEndDirection,
+            fallbackDirection,
+            riseHeightUnits,
+            checked(start.Level * GridHeight.UnitsPerLayer),
+            cells,
+            directions,
+            startHeightUnits);
+    }
+
+    public static void BuildRampLine(
+        GridCell start,
+        GridCell end,
+        bool useEndDirection,
+        int2 fallbackDirection,
+        int riseHeightUnits,
+        int initialStartHeightUnits,
+        List<GridCell> cells,
+        List<int2> directions,
+        List<int> startHeightUnits)
+    {
+        cells.Clear();
+        directions.Clear();
+        startHeightUnits.Clear();
+        if (!RampUtility.IsAllowedRise(riseHeightUnits))
+            return;
+
+        int2 delta = end.Horizontal - start.Horizontal;
+        int2 direction;
+        int length;
+        if (!useEndDirection || math.all(delta == int2.zero))
+        {
+            direction = EcsGridUtility.SanitizeDirection(fallbackDirection);
+            length = 0;
+        }
+        else if (math.abs(delta.x) >= math.abs(delta.y))
+        {
+            direction = new int2(delta.x >= 0 ? 1 : -1, 0);
+            length = math.abs(delta.x);
+        }
+        else
+        {
+            direction = new int2(0, delta.y >= 0 ? 1 : -1);
+            length = math.abs(delta.y);
+        }
+
+        for (int i = 0; i <= length; i++)
+        {
+            int height = checked(initialStartHeightUnits + i * riseHeightUnits);
+            GridCell cell = start + direction * i;
+            cell.Level = SurfaceChunkUtility.FloorDiv(
+                height,
+                GridHeight.UnitsPerLayer);
+            cells.Add(cell);
+            directions.Add(direction);
+            startHeightUnits.Add(height);
         }
     }
 
@@ -334,7 +649,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             if (i < previewCells.Count - 1)
             {
                 outputDirection =
-                    previewCells[i + 1] - previewCells[i];
+                    previewCells[i + 1].Horizontal -
+                    previewCells[i].Horizontal;
                 fallbackDirection = outputDirection;
             }
             else
@@ -346,7 +662,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             if (i > 0)
             {
                 int2 incomingDirection =
-                    previewCells[i] - previewCells[i - 1];
+                    previewCells[i].Horizontal -
+                    previewCells[i - 1].Horizontal;
                 if (!math.all(
                         incomingDirection == outputDirection))
                 {
@@ -365,7 +682,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     }
 
     private void ShowPlacementPreview(
-        in GridDefinition grid,
+        in WorldGridConfig grid,
         bool canPlace)
     {
         EnsurePreviewObjects(previewCells.Count);
@@ -394,37 +711,135 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         float cellSize = math.max(
             math.EPSILON,
             grid.CellSize);
+        WorldGridConfig worldGrid = GetWorldGridConfig();
+        bool isFoundationPreview =
+            SelectedKind == BuildingKind.Foundation;
+        bool isRampPreview =
+            SelectedKind == BuildingKind.RampFoundation;
+        float layerHeight = math.max(
+            math.EPSILON,
+            worldGrid.LayerHeight);
         for (int i = 0; i < previewCellObjects.Count; i++)
         {
             GameObject previewCell = previewCellObjects[i];
+            BuildingKind previewKind = verticalPathStarted
+                ? i == previewCells.Count - 1 ? BuildingKind.VerticalBeltExit : BuildingKind.VerticalBeltSegment
+                : SelectedKind;
             bool active = i < previewCells.Count;
             previewCell.SetActive(active);
             if (!active)
             {
+                previewTriangles[i].gameObject.SetActive(false);
                 continue;
             }
 
             float3 center = EcsGridUtility.CellToWorldCenter(
                 previewCells[i],
-                grid.Origin.y + 0.055f,
-                grid);
-            previewCell.transform.position = new Vector3(
-                center.x,
-                center.y,
-                center.z);
-            previewCell.transform.rotation = Quaternion.identity;
-            previewCell.transform.localScale = new Vector3(
-                cellSize * 0.9f,
-                0.1f,
-                cellSize * 0.9f);
+                worldGrid);
+            MeshFilter meshFilter = previewCell.GetComponent<MeshFilter>();
+            meshFilter.sharedMesh = isRampPreview
+                ? GetPreviewRampMesh()
+                : previewCubeMesh;
+            if (isRampPreview)
+            {
+                int2 direction = previewDisplayDirections[i];
+                TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel);
+                center.y = new GridHeight(
+                    previewRampStartHeightUnits[i]).ToWorldY(worldGrid);
+                previewCell.transform.position = new Vector3(
+                    center.x, center.y, center.z);
+                previewCell.transform.rotation = Quaternion.Euler(
+                    0f,
+                    -math.atan2(direction.y, direction.x) * math.TODEGREES,
+                    0f);
+                previewCell.transform.localScale = new Vector3(
+                    cellSize,
+                    math.abs(rampLevel.RampRiseHeightUnits) /
+                    (float)GridHeight.UnitsPerLayer * layerHeight,
+                    cellSize);
+            }
+            else if (SelectedKind == BuildingKind.Belt &&
+                     TryGetRamp(cachedWorld, previewCells[i],
+                         out RampRegistrySystem.Record ramp))
+            {
+                int2 travel = previewDisplayDirections[i];
+                bool uphill = math.all(
+                    travel == ramp.Connector.UphillDirection);
+                float signedRise = (uphill ? 1f : -1f) *
+                    (ramp.Connector.HighHeight.ToWorldY(worldGrid) -
+                     ramp.Connector.LowHeight.ToWorldY(worldGrid));
+                float angle = math.atan2(
+                    signedRise,
+                    math.max(math.EPSILON, cellSize));
+                quaternion rampBeltRotation = math.mul(
+                    EcsGridUtility.RotationFromQuarterTurns(
+                        EcsGridUtility.QuarterTurnsFromDirection(travel)),
+                    quaternion.RotateZ(angle));
+                center = RampUtility.GetSurfaceCenter(
+                    ramp.Connector, worldGrid);
+                previewCell.transform.position = new Vector3(
+                    center.x, center.y, center.z);
+                previewCell.transform.rotation = new Quaternion(
+                    rampBeltRotation.value.x,
+                    rampBeltRotation.value.y,
+                    rampBeltRotation.value.z,
+                    rampBeltRotation.value.w);
+                previewCell.transform.localScale = new Vector3(
+                    RampUtility.GetSlopeLength(ramp.Connector, worldGrid) * 0.9f,
+                    0.1f,
+                    cellSize * 0.9f);
+            }
+            else if (VerticalBeltUtility.IsVertical(previewKind))
+            {
+                meshFilter.sharedMesh = previewKind == BuildingKind.VerticalBeltSegment
+                    ? GetPreviewCylinderMesh() : previewCubeMesh;
+                center.y += layerHeight * .5f;
+                previewCell.transform.position = (Vector3)center;
+                previewCell.transform.rotation = Quaternion.identity;
+                previewCell.transform.localScale = previewKind == BuildingKind.VerticalBeltSegment
+                    ? new Vector3(cellSize * .22f, layerHeight * .5f, cellSize * .22f)
+                    : new Vector3(cellSize * .75f, layerHeight * .75f, cellSize * .75f);
+            }
+            else
+            {
+                center.y += isFoundationPreview
+                    ? -layerHeight * 0.5f
+                    : 0.055f;
+                previewCell.transform.position = new Vector3(
+                    center.x,
+                    center.y,
+                    center.z);
+                previewCell.transform.rotation = Quaternion.identity;
+                previewCell.transform.localScale = isFoundationPreview
+                    ? new Vector3(cellSize, layerHeight, cellSize)
+                    : new Vector3(
+                        cellSize * 0.9f,
+                        0.1f,
+                        cellSize * 0.9f);
+            }
 
             Transform triangle = previewTriangles[i];
-            bool showTriangle =
-                SelectedKind == BuildingKind.Belt &&
-                i < previewDisplayDirections.Count;
+            bool showTriangle = previewKind == BuildingKind.VerticalBeltSegment ||
+                SelectedKind == BuildingKind.Belt && i < previewDisplayDirections.Count;
             triangle.gameObject.SetActive(showTriangle);
-            if (showTriangle)
+            if (previewKind == BuildingKind.VerticalBeltSegment)
             {
+                triangle.SetParent(previewRoot, false);
+                Vector3 normal = inputCamera != null
+                    ? inputCamera.transform.position - previewCell.transform.position : Vector3.back;
+                normal.y = 0f;
+                normal = normal.sqrMagnitude > .0001f ? normal.normalized : Vector3.back;
+                triangle.position = previewCell.transform.position + normal * (cellSize * .14f);
+                Vector3 tip = Vector3.up * (verticalPathStarted
+                    ? math.sign(VerticalPreviewExitCell.Level - verticalPathStart.Level) : VerticalBeltUtility.Step(quarterTurns));
+                triangle.rotation = Quaternion.LookRotation(Vector3.Cross(tip, normal), normal);
+                triangle.localScale = Vector3.one * .7f;
+            }
+            else if (showTriangle)
+            {
+                triangle.SetParent(previewCell.transform, false);
+                triangle.localPosition = new Vector3(0f, .65f, 0f);
+                triangle.localScale = Vector3.one;
                 int2 displayDirection =
                     previewDisplayDirections[i];
                 float angle = -math.atan2(
@@ -448,8 +863,16 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
             float3 center = EcsGridUtility.CellToWorldCenter(
                 previewPortCells[i],
-                grid.Origin.y + 0.115f * cellSize,
-                grid);
+                GetWorldGridConfig());
+            bool verticalPort = verticalPathStarted || VerticalBeltUtility.IsVertical(SelectedKind);
+            center.y += verticalPort ? layerHeight * .9f : 0.115f * cellSize;
+            if (verticalPort)
+            {
+                float offset = previewPortTypes[i] == BuildingPortType.Input ? .65f : -.65f;
+                int2 travel = previewPortDirections[i];
+                center.x += travel.x * offset * cellSize;
+                center.z += travel.y * offset * cellSize;
+            }
             triangle.position = new Vector3(
                 center.x,
                 center.y,
@@ -558,6 +981,8 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
             MeshRenderer meshRenderer =
                 previewCell.GetComponent<MeshRenderer>();
+            if (previewCubeMesh == null)
+                previewCubeMesh = previewCell.GetComponent<MeshFilter>().sharedMesh;
             meshRenderer.sharedMaterial = previewMaterial;
             meshRenderer.shadowCastingMode =
                 ShadowCastingMode.Off;
@@ -607,9 +1032,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 triangle.AddComponent<MeshRenderer>();
             BuildingPortType type =
                 previewPortTypes[previewPortTriangles.Count];
-            renderer.sharedMaterial = type == BuildingPortType.Input
-                ? inputPortPreviewMaterial
-                : outputPortPreviewMaterial;
+            renderer.sharedMaterial = GetPortPreviewMaterial(type);
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             previewPortTriangles.Add(triangle.transform);
@@ -619,11 +1042,15 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         {
             MeshRenderer renderer =
                 previewPortTriangles[i].GetComponent<MeshRenderer>();
-            renderer.sharedMaterial =
-                previewPortTypes[i] == BuildingPortType.Input
-                    ? inputPortPreviewMaterial
-                    : outputPortPreviewMaterial;
+            renderer.sharedMaterial = GetPortPreviewMaterial(previewPortTypes[i]);
         }
+    }
+
+    private Material GetPortPreviewMaterial(BuildingPortType type)
+    {
+        bool input = type == BuildingPortType.Input;
+        if (VerticalBeltUtility.IsVertical(SelectedKind)) input = !input;
+        return input ? inputPortPreviewMaterial : outputPortPreviewMaterial;
     }
 
     private static Material CreatePreviewMaterial(
@@ -676,6 +1103,15 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         return material;
     }
 
+    private Mesh GetPreviewCylinderMesh()
+    {
+        if (previewCylinderMesh != null) return previewCylinderMesh;
+        GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        previewCylinderMesh = primitive.GetComponent<MeshFilter>().sharedMesh;
+        Destroy(primitive);
+        return previewCylinderMesh;
+    }
+
     private Mesh GetPreviewTriangleMesh()
     {
         if (previewTriangleMesh != null)
@@ -700,8 +1136,41 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         return previewTriangleMesh;
     }
 
+    private Mesh GetPreviewRampMesh()
+    {
+        if (previewRampMesh != null)
+            return previewRampMesh;
+        previewRampMesh = new Mesh
+        {
+            name = "ECS Preview Ramp",
+            hideFlags = HideFlags.DontSave,
+            vertices = new[]
+            {
+                new Vector3(-0.5f, 0f, -0.5f),
+                new Vector3(-0.5f, 0f, 0.5f),
+                new Vector3(0.5f, 0f, -0.5f),
+                new Vector3(0.5f, 0f, 0.5f),
+                new Vector3(0.5f, 1f, -0.5f),
+                new Vector3(0.5f, 1f, 0.5f)
+            },
+            triangles = new[]
+            {
+                0, 2, 3, 0, 3, 1,
+                2, 4, 5, 2, 5, 3,
+                0, 1, 5, 0, 5, 4,
+                0, 4, 2,
+                1, 3, 5
+            }
+        };
+        previewRampMesh.RecalculateNormals();
+        previewRampMesh.RecalculateBounds();
+        return previewRampMesh;
+    }
+
     private void HidePlacementPreview()
     {
+        foreach (Transform triangle in previewTriangles)
+            triangle.gameObject.SetActive(false);
         for (int i = 0; i < previewCellObjects.Count; i++)
         {
             previewCellObjects[i].SetActive(false);
@@ -715,35 +1184,35 @@ public sealed class EcsGridInteractionController : MonoBehaviour
 
     private void HandlePrimaryClick()
     {
-        if (!TryRaycastGrid(
+        if (verticalPathStarted)
+        {
+            verticalConfirmPending = true;
+            return;
+        }
+        if (!TryRaycastBuildAnchor(
                 out World world,
                 out _,
                 out _,
-                out int2 cell,
-                out _,
-                out _,
+                out ResolvedBuildAnchor buildAnchor,
                 true))
         {
             return;
         }
 
-        HandlePrimaryClickAtCell(cell);
+        if (buildAnchor.IsValid != 0)
+            HandlePrimaryClickAtAnchor(buildAnchor);
     }
 
-    public void SimulatePrimaryClick(int2 cell)
-    {
-        HandlePrimaryClickAtCell(cell);
-    }
+    public void SimulatePrimaryClick(GridCell cell) =>
+        HandlePrimaryClickAtAnchor(CreateDirectBuildAnchor(cell));
 
     public bool TryGetHoveredBuilding(out BuildingRuntimeId runtimeId)
     {
         runtimeId = default;
-        if (!TryRaycastGrid(out World world, out _, out _, out int2 cell,
-                out _, out bool isInside, false) || !isInside)
+        if (!TryRaycastGrid(out World world, out _, out _, out GridCell cell,
+                out _, out bool isInside, out _, false, false) || !isInside)
             return false;
-        GridOccupancyIndexSystem occupancy =
-            world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
-        if (occupancy == null || !occupancy.TryGetOccupant(cell, out Entity entity))
+        if (!TryGetBuilding(world, cell, out Entity entity))
             return false;
         EntityManager manager = world.EntityManager;
         if (!manager.Exists(entity) || !manager.HasComponent<ItemContainerIdentity>(entity))
@@ -753,13 +1222,35 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         return runtimeId.IsValid;
     }
 
-    private void HandlePrimaryClickAtCell(int2 cell)
+    private void HandlePrimaryClickAtAnchor(ResolvedBuildAnchor buildAnchor)
     {
+        GridCell cell = buildAnchor.Cell;
+        if (SelectedKind == BuildingKind.Foundation &&
+            foundationAreaStarted)
+        {
+            cell.Level = foundationAreaStart.Level;
+        }
+        if (SelectedKind == BuildingKind.RampFoundation &&
+            rampLineStarted)
+        {
+            cell.Level = rampLineStart.Level;
+        }
         if (!TryGetGrid(
                 out World world,
                 out Entity gridEntity,
-                out GridDefinition grid))
+                out WorldGridConfig grid))
         {
+            return;
+        }
+
+        if (SelectedKind == BuildingKind.VerticalBeltEntry)
+        {
+            if (verticalPathStarted)
+            {
+                if (simulatedVerticalPointer) verticalConfirmPending = true;
+                else ConfirmVerticalPath(cell.Level);
+            }
+            else BeginVerticalPath(world, gridEntity, cell);
             return;
         }
 
@@ -767,16 +1258,20 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         GridOccupancyIndexSystem occupancySystem =
             world.GetExistingSystemManaged<
                 GridOccupancyIndexSystem>();
-        bool isInside = EcsGridUtility.Contains(grid, cell);
+        bool isInside = VerticalBeltUtility.IsVertical(SelectedKind) || SelectedKind == BuildingKind.Foundation
+            || SelectedKind == BuildingKind.RampFoundation
+            ? cell.Level >= 0
+            : HasSurface(world, cell) ||
+              SelectedKind == BuildingKind.Belt &&
+              TryGetRamp(world, cell, out _);
         bool isOccupied =
             isInside &&
             occupancySystem != null &&
-            occupancySystem.TryGetOccupant(
-                cell,
-                out occupant);
+            TryGetBuilding(world, cell, out occupant);
 
         Debug.Log(
-            "[ECS Grid Raycast] Cell=(" + cell.x + ", " + cell.y + ")" +
+            "[ECS Grid Raycast] Cell=(" + cell.X + ", L" + cell.Level +
+            ", " + cell.Z + ")" +
             ", Inside=" + isInside +
             ", Occupied=" + isOccupied +
             (isOccupied ? ", Entity=" + occupant : string.Empty) +
@@ -787,8 +1282,160 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return;
         }
 
+        if (SelectedKind == BuildingKind.Foundation)
+        {
+            if (!foundationAreaStarted)
+            {
+                foundationAreaStart = cell;
+                foundationAreaStarted = true;
+                return;
+            }
+            Enqueue(
+                world,
+                gridEntity,
+                new GridBuildCommand
+                {
+                    RequestId = 0,
+                    Type = GridBuildCommandType.PlaceFoundationArea,
+                    Kind = BuildingKind.Foundation,
+                    BuildingLevel = SelectedBuildingLevel,
+                    StartCell = foundationAreaStart,
+                    EndCell = cell
+                });
+            foundationAreaStarted = false;
+            return;
+        }
+
+        if (SelectedKind == BuildingKind.RampFoundation)
+        {
+            if (!TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel) ||
+                !RampUtility.IsAllowedRise(rampLevel.RampRiseHeightUnits))
+                return;
+            if (!rampLineStarted)
+            {
+                rampLineStart = cell;
+                rampLineStartHeightUnits = buildAnchor.RampStartHeightUnits;
+                rampLineDirection = buildAnchor.RampUphillDirection;
+                rampLineStarted = true;
+                return;
+            }
+
+            cell.Level = rampLineStart.Level;
+            BuildRampLine(
+                rampLineStart,
+                cell,
+                true,
+                rampLineDirection,
+                rampLevel.RampRiseHeightUnits,
+                rampLineStartHeightUnits,
+                previewCells,
+                previewDisplayDirections,
+                previewRampStartHeightUnits);
+            if (previewCells.Count == 0 ||
+                previewCells.Count > GridBuildCommandSystem.MaxFoundationAreaCells)
+            {
+                rampLineStarted = false;
+                return;
+            }
+            for (int i = 0; i < previewCells.Count; i++)
+            {
+                Enqueue(
+                    world,
+                    gridEntity,
+                    new GridBuildCommand
+                    {
+                        Type = GridBuildCommandType.PlaceRampFoundation,
+                        Kind = BuildingKind.RampFoundation,
+                        BuildingLevel = SelectedBuildingLevel,
+                        StartCell = previewCells[i],
+                        EndCell = previewCells[i],
+                        QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(
+                            previewDisplayDirections[i]),
+                        RampStartHeightUnits = previewRampStartHeightUnits[i],
+                        RampRiseHeightUnits = rampLevel.RampRiseHeightUnits
+                    });
+            }
+            rampLineStarted = false;
+            return;
+        }
+
         if (SelectedKind == BuildingKind.Belt)
         {
+            bool targetIsRamp = TryGetRamp(
+                world, cell, out RampRegistrySystem.Record ramp);
+            if (beltPathStarted && targetIsRamp)
+            {
+                beltPathStarted = false;
+                Debug.LogWarning(
+                    "[ECS Grid Build] A belt path cannot mix planar and " +
+                    "ramp cells.");
+                return;
+            }
+            if (rampBeltPathStarted)
+            {
+                if (!targetIsRamp)
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Build] A belt path cannot mix ramp and " +
+                        "planar cells.");
+                    rampBeltPathStarted = false;
+                    return;
+                }
+                if (!TryResolveRampPathDirection(
+                        rampBeltPathStart, cell, out int2 direction))
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Build] Ramp belt endpoints must be " +
+                        "axis-aligned.");
+                    rampBeltPathStarted = false;
+                    return;
+                }
+                RampRegistrySystem registry = world
+                    .GetExistingSystemManaged<RampRegistrySystem>();
+                GridBuildFailureReason failure =
+                    GridBuildFailureReason.RampPathMustStayOnRamp;
+                if (registry == null || !registry.TryBuildBeltPath(
+                        rampBeltPathStart,
+                        cell,
+                        direction,
+                        previewRampBeltPath,
+                        out failure))
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Build] Invalid ramp belt path: " + failure + ".");
+                    rampBeltPathStarted = false;
+                    return;
+                }
+                Enqueue(
+                    world,
+                    gridEntity,
+                    new GridBuildCommand
+                    {
+                        Type = GridBuildCommandType.PlaceRampBeltPath,
+                        Kind = BuildingKind.Belt,
+                        BuildingLevel = SelectedBuildingLevel,
+                        StartCell = rampBeltPathStart,
+                        EndCell = cell,
+                        QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(
+                            direction)
+                    });
+                rampBeltPathStarted = false;
+                return;
+            }
+            if (targetIsRamp)
+            {
+                if (ramp.BeltEntity != Entity.Null)
+                {
+                    Debug.LogWarning(
+                        "[ECS Grid Build] The ramp already has a belt.");
+                    return;
+                }
+                rampBeltPathStart = cell;
+                rampBeltPathStarted = true;
+                beltPathStarted = false;
+                return;
+            }
+
             if (!beltPathStarted)
             {
                 if (isOccupied)
@@ -846,9 +1493,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 out World world,
                 out _,
                 out _,
-                out int2 cell,
+                out GridCell cell,
                 out _,
                 out bool isInside,
+                out _,
+                false,
                 false) ||
             !isInside)
         {
@@ -858,13 +1507,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         HandleRemoveAtCell(cell, removeBeltLine);
     }
 
-    public void SimulateRemove(int2 cell, bool removeBeltLine)
-    {
+    public void SimulateRemove(GridCell cell, bool removeBeltLine) =>
         HandleRemoveAtCell(cell, removeBeltLine);
-    }
 
     private void HandleRemoveAtCell(
-        int2 cell,
+        GridCell cell,
         bool removeBeltLine)
     {
         if (!TryGetGrid(
@@ -876,15 +1523,33 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         }
 
         beltPathStarted = false;
+        rampBeltPathStarted = false;
+        bool targetIsRamp = TryGetRamp(
+            world,
+            cell,
+            out RampRegistrySystem.Record ramp);
+        bool targetIsVertical = TryGetBuilding(world, cell, out Entity verticalTarget) &&
+                                world.EntityManager.HasComponent<VerticalBeltNode>(verticalTarget);
+        bool removesRampBelt = targetIsRamp &&
+                               ramp.BeltEntity != Entity.Null &&
+                               world.EntityManager.Exists(ramp.BeltEntity);
         Enqueue(
             world,
             gridEntity,
             new GridBuildCommand
             {
                 RequestId = 0,
-                Type = removeBeltLine
+                Type = targetIsVertical ? GridBuildCommandType.Remove : removesRampBelt
+                    ? GridBuildCommandType.RemoveRampBelt
+                    : targetIsRamp
+                        ? GridBuildCommandType.RemoveRampFoundation
+                    : removeBeltLine
                     ? GridBuildCommandType.RemoveBeltLine
-                    : GridBuildCommandType.Remove,
+                    : SelectedKind == BuildingKind.Foundation
+                        ? GridBuildCommandType.RemoveFoundation
+                        : SelectedKind == BuildingKind.RampFoundation
+                            ? GridBuildCommandType.RemoveRampFoundation
+                            : GridBuildCommandType.Remove,
                 Kind = removeBeltLine
                     ? BuildingKind.Belt
                     : SelectedKind,
@@ -896,8 +1561,9 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             });
     }
 
-    public void SimulateHover(int2 cell)
+    public void SimulateHover(GridCell cell)
     {
+        simulatedVerticalPointer = false;
         simulatedHoverActive = true;
         simulatedHoverCell = cell;
     }
@@ -910,15 +1576,111 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     public void CancelBeltPath()
     {
         beltPathStarted = false;
+        rampBeltPathStarted = false;
+    }
+
+    public void CancelPlacementGesture(bool rollbackVerticalEntry = true)
+    {
+        if (rollbackVerticalEntry) RollBackVerticalPlacement();
+        verticalPlacementToken = 0;
+        verticalPathStarted = false;
+        verticalConfirmPending = false;
+        verticalEntryRequest = 0;
+        verticalCompletionRequest = 0;
+        simulatedVerticalPointer = false;
+        beltPathStarted = false;
+        rampBeltPathStarted = false;
+        foundationAreaStarted = false;
+        rampLineStarted = false;
+    }
+
+    private bool TryResolveRampPathDirection(
+        GridCell start,
+        GridCell end,
+        out int2 direction)
+    {
+        int2 delta = end.Horizontal - start.Horizontal;
+        if (delta.x == 0 && delta.y == 0)
+        {
+            direction = EcsGridUtility.Rotate(new int2(1, 0), quarterTurns);
+            return true;
+        }
+        if (delta.x != 0 && delta.y == 0)
+        {
+            direction = new int2(delta.x > 0 ? 1 : -1, 0);
+            return true;
+        }
+        if (delta.y != 0 && delta.x == 0)
+        {
+            direction = new int2(0, delta.y > 0 ? 1 : -1);
+            return true;
+        }
+        direction = default;
+        return false;
+    }
+
+    private bool IsSurfacePlacementKind() =>
+        SelectedKind == BuildingKind.Foundation ||
+        SelectedKind == BuildingKind.RampFoundation;
+
+    private ResolvedBuildAnchor CreateDirectBuildAnchor(GridCell cell)
+    {
+        return new ResolvedBuildAnchor
+        {
+            Cell = cell,
+            RampStartHeightUnits = checked(
+                cell.Level * GridHeight.UnitsPerLayer),
+            RampUphillDirection = EcsGridUtility.Rotate(
+                new int2(1, 0), quarterTurns),
+            IsValid = 1
+        };
+    }
+
+    private bool TryRaycastBuildAnchor(
+        out World world,
+        out WorldGridConfig grid,
+        out Entity currentGrid,
+        out ResolvedBuildAnchor buildAnchor,
+        bool logFailure)
+    {
+        buildAnchor = default;
+        if (!TryRaycastGrid(
+                out world,
+                out grid,
+                out currentGrid,
+                out _,
+                out _,
+                out _,
+                out GridSurfaceHit surfaceHit,
+                IsSurfacePlacementKind(),
+                logFailure))
+            return false;
+
+        int rise = 0;
+        if (SelectedKind == BuildingKind.RampFoundation &&
+            TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob level))
+            rise = level.RampRiseHeightUnits;
+        buildAnchor = GridBuildPlacementResolver.Resolve(
+            surfaceHit,
+            SelectedKind,
+            rise,
+            EcsGridUtility.Rotate(new int2(1, 0), quarterTurns),
+            GetWorldGridConfig(),
+            VerticalBeltUtility.Step(quarterTurns));
+        if (buildAnchor.IsValid != 0)
+            SetSelectedGridLevel(buildAnchor.Cell.Level);
+        return true;
     }
 
     private bool TryRaycastGrid(
         out World world,
-        out GridDefinition grid,
+        out WorldGridConfig grid,
         out Entity gridEntity,
-        out int2 cell,
+        out GridCell cell,
         out Vector3 hitPoint,
         out bool isInside,
+        out GridSurfaceHit surfaceHit,
+        bool foundationPlacement,
         bool logFailure)
     {
         world = null;
@@ -927,6 +1689,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         cell = default;
         hitPoint = default;
         isInside = false;
+        surfaceHit = default;
         if (!TryGetGrid(
                 out world,
                 out gridEntity,
@@ -942,7 +1705,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 else
                 {
                     Debug.LogWarning(
-                        "[ECS Grid Raycast] Exactly one GridDefinition is required; found " +
+                        "[ECS Grid Raycast] Exactly one WorldGridConfig is required; found " +
                         cachedGridCount + ".");
                 }
             }
@@ -950,16 +1713,89 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return false;
         }
 
-        Ray ray = inputCamera.ScreenPointToRay(
-            Input.mousePosition);
+        Ray ray = CreateInteractionRay();
+
+        if (foundationPlacement &&
+            (foundationAreaStarted || rampLineStarted))
+        {
+            WorldGridConfig foundationGrid = GetWorldGridConfig();
+            int foundationLevel = foundationAreaStarted
+                ? foundationAreaStart.Level
+                : rampLineStart.Level;
+            Plane foundationPlane = new Plane(
+                Vector3.up,
+                new Vector3(
+                    0f,
+                    EcsGridUtility.LevelToWorldY(
+                        foundationLevel,
+                        foundationGrid),
+                    0f));
+            if (!foundationPlane.Raycast(ray, out float planeDistance) || planeDistance > MaxInteractionDistance)
+                return false;
+            hitPoint = ray.GetPoint(planeDistance);
+            cell = EcsGridUtility.WorldToCell(
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                foundationGrid);
+            cell.Level = foundationLevel;
+            isInside = true;
+            surfaceHit = GridSurfaceHit.Direct(
+                cell,
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z));
+            return true;
+        }
+
+        GridLayerViewState layerView = GetLayerViewState();
+        if (layerView.PickingMode == GridLayerPickingMode.SelectedLevel)
+        {
+            WorldGridConfig worldGrid = GetWorldGridConfig();
+            Plane selectedPlane = new Plane(
+                Vector3.up,
+                new Vector3(
+                    0f,
+                    EcsGridUtility.LevelToWorldY(
+                        layerView.SelectedLevel,
+                        worldGrid),
+                    0f));
+            if (!selectedPlane.Raycast(ray, out float selectedDistance) || selectedDistance > MaxInteractionDistance)
+                return false;
+            hitPoint = ray.GetPoint(selectedDistance);
+            cell = EcsGridUtility.WorldToCell(
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                worldGrid);
+            cell.Level = layerView.SelectedLevel;
+            isInside = (foundationPlacement || VerticalBeltUtility.IsVertical(SelectedKind))
+                ? cell.Level >= 0
+                : HasSurface(world, cell) ||
+                  TryGetRamp(world, cell, out _);
+            surfaceHit = GridSurfaceHit.Direct(
+                cell,
+                new float3(hitPoint.x, hitPoint.y, hitPoint.z));
+            return true;
+        }
+
+        if (TryRaycastFoundation(
+                world,
+                ray,
+                out surfaceHit))
+        {
+            cell = surfaceHit.SourceCell;
+            hitPoint = surfaceHit.Position;
+            isInside = foundationPlacement || VerticalBeltUtility.IsVertical(SelectedKind) ||
+                       TryGetBuilding(world, cell, out _) || HasSurface(world, cell) ||
+                       TryGetRamp(world, cell, out _);
+            if (!foundationPlacement)
+                SetSelectedGridLevel(cell.Level);
+            return true;
+        }
+
+        // Only free-standing foundations and vertical entrances use the empty-world work plane.
+        if (!foundationPlacement && !VerticalBeltUtility.IsVertical(SelectedKind))
+            return false;
 
         Plane gridPlane = new Plane(
             Vector3.up,
-            new Vector3(
-                grid.Origin.x,
-                grid.Origin.y,
-                grid.Origin.z));
-        if (!gridPlane.Raycast(ray, out float distance))
+            Vector3.zero);
+        if (!gridPlane.Raycast(ray, out float distance) || distance > MaxInteractionDistance)
         {
             if (logFailure)
             {
@@ -979,8 +1815,208 @@ public sealed class EcsGridInteractionController : MonoBehaviour
                 hitPoint.y,
                 hitPoint.z),
             grid);
-        isInside = EcsGridUtility.Contains(grid, cell);
+        isInside = VerticalBeltUtility.IsVertical(SelectedKind) ||
+                   TryGetBuilding(world, cell, out _) || HasSurface(world, cell) ||
+                   TryGetRamp(world, cell, out _);
+        if (foundationPlacement)
+        {
+            cell.Level = 0;
+            isInside = true;
+        }
+        surfaceHit = GridSurfaceHit.Direct(
+            cell,
+            new float3(hitPoint.x, hitPoint.y, hitPoint.z));
         return true;
+    }
+
+    private bool TryRaycastFoundation(
+        World world,
+        Ray ray,
+        out GridSurfaceHit surfaceHit)
+    {
+        surfaceHit = default;
+        if (!ecsCacheInitialized ||
+            physicsWorldQuery.CalculateEntityCount() != 1)
+        {
+            return false;
+        }
+
+        EntityManager manager = world.EntityManager;
+        manager.CompleteDependencyBeforeRO<Unity.Physics.PhysicsWorldSingleton>();
+        Unity.Physics.PhysicsWorldSingleton physicsWorld =
+            physicsWorldQuery.GetSingleton<Unity.Physics.PhysicsWorldSingleton>();
+        Unity.Physics.RaycastInput input = new Unity.Physics.RaycastInput
+        {
+            Start = ray.origin,
+            End = ray.origin + ray.direction * MaxInteractionDistance,
+            Filter = FoundationCollisionCategories.FoundationQueryFilter
+        };
+        if (!physicsWorld.CastRay(input, out Unity.Physics.RaycastHit hit))
+        {
+            return false;
+        }
+
+        if (manager.HasComponent<VerticalBeltNode>(hit.Entity) &&
+            manager.HasComponent<GridPlacement>(hit.Entity))
+        {
+            surfaceHit = new GridSurfaceHit
+            {
+                SourceCell = manager.GetComponentData<GridPlacement>(hit.Entity).AnchorCell,
+                Position = hit.Position,
+                Normal = hit.SurfaceNormal,
+                Kind = GridSurfaceHitKind.VerticalNode,
+                VerticalNode = manager.GetComponentData<VerticalBeltNode>(hit.Entity)
+            };
+            return true;
+        }
+
+        if (TryResolveRampPhysicsHit(
+                manager,
+                hit.Entity,
+                out RampConnector ramp))
+        {
+            surfaceHit = GridBuildPlacementResolver.CreateRampHit(
+                ramp,
+                hit.Position,
+                hit.SurfaceNormal);
+            return true;
+        }
+
+        SurfaceRegistrySystem registry =
+            world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        if (!FoundationQueryUtility.TryResolveFoundation(
+                hit.Position,
+                hit.SurfaceNormal,
+                GetWorldGridConfig(),
+                registry,
+                out GridCell cell,
+                out _))
+        {
+            return false;
+        }
+
+        surfaceHit = GridBuildPlacementResolver.CreateFlatHit(
+            cell,
+            hit.Position,
+            hit.SurfaceNormal);
+        return true;
+    }
+
+    public static bool TryResolveRampPhysicsHit(
+        EntityManager manager,
+        Entity hitEntity,
+        out RampConnector ramp)
+    {
+        ramp = default;
+        Entity current = hitEntity;
+        for (int depth = 0;
+             depth < 8 && current != Entity.Null && manager.Exists(current);
+             depth++)
+        {
+            if (manager.HasComponent<RampConnector>(current))
+            {
+                ramp = manager.GetComponentData<RampConnector>(current);
+                return true;
+            }
+            if (!manager.HasComponent<Parent>(current))
+                break;
+            current = manager.GetComponentData<Parent>(current).Value;
+        }
+        return false;
+    }
+
+    private WorldGridConfig GetWorldGridConfig() =>
+        cachedWorld.EntityManager.GetComponentData<WorldGridConfig>(gridEntity);
+
+    public int SelectedGridLevel => GetLayerViewState().SelectedLevel;
+
+    public GridLayerPickingMode LayerPickingMode =>
+        GetLayerViewState().PickingMode;
+
+    public void SelectGridLevel(int level)
+    {
+        GridLayerViewState state = GetLayerViewState();
+        state.SelectedLevel = level;
+        state.PickingMode = GridLayerPickingMode.SelectedLevel;
+        SetLayerViewState(state);
+    }
+
+    public void UseFirstHitLayer()
+    {
+        GridLayerViewState state = GetLayerViewState();
+        state.PickingMode = GridLayerPickingMode.FirstHit;
+        SetLayerViewState(state);
+    }
+
+    private GridLayerViewState GetLayerViewState()
+    {
+        if (TryGetGrid(out World world, out Entity entity, out _) &&
+            world.EntityManager.HasComponent<GridLayerViewState>(entity))
+        {
+            return world.EntityManager.GetComponentData<GridLayerViewState>(
+                entity);
+        }
+        return new GridLayerViewState
+        {
+            SelectedLevel = 0,
+            PickingMode = GridLayerPickingMode.FirstHit,
+            Revision = 1
+        };
+    }
+
+    private void SetSelectedGridLevel(int level)
+    {
+        GridLayerViewState state = GetLayerViewState();
+        if (state.SelectedLevel == level)
+            return;
+        state.SelectedLevel = level;
+        SetLayerViewState(state);
+    }
+
+    private void SetLayerViewState(GridLayerViewState state)
+    {
+        if (!TryGetGrid(out World world, out Entity entity, out _))
+            return;
+        state.Revision++;
+        if (world.EntityManager.HasComponent<GridLayerViewState>(entity))
+            world.EntityManager.SetComponentData(entity, state);
+        else
+            world.EntityManager.AddComponentData(entity, state);
+    }
+
+    private static bool TryGetBuilding(World world, GridCell cell, out Entity entity)
+    {
+        GridOccupancyIndexSystem occupancy = world.GetExistingSystemManaged<GridOccupancyIndexSystem>();
+        if (occupancy != null && occupancy.TryGetOccupant(cell, out entity)) return true;
+        return world.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>().TryGet(cell, out entity);
+    }
+
+    private static GridPlacement? GetPlacement(World world, GridCell cell) =>
+        TryGetBuilding(world, cell, out Entity entity) && world.EntityManager.HasComponent<GridPlacement>(entity)
+            ? world.EntityManager.GetComponentData<GridPlacement>(entity) : (GridPlacement?)null;
+
+    private static bool HasSurface(
+        World world,
+        GridCell cell)
+    {
+        SurfaceRegistrySystem registry =
+            world?.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        return registry != null && registry.IsReady
+            && registry.HasSurface(cell);
+    }
+
+    private static bool TryGetRamp(
+        World world,
+        GridCell cell,
+        out RampRegistrySystem.Record ramp)
+    {
+        ramp = null;
+        if (world == null || !world.IsCreated)
+            return false;
+        RampRegistrySystem registry =
+            world.GetExistingSystemManaged<RampRegistrySystem>();
+        return registry != null && registry.IsReady &&
+               registry.TryGet(cell, out ramp);
     }
 
     private void EnsureSelectedBuildingLevel()
@@ -1028,6 +2064,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             return;
         SelectedBuildingLevel = id;
         SelectedKind = building.Kind;
+        CancelPlacementGesture();
     }
 
     private bool TryGetSelectedBuilding(out FactoryBuildingBlob building)
@@ -1041,6 +2078,21 @@ public sealed class EcsGridInteractionController : MonoBehaviour
             SelectedBuildingLevel,
             out _,
             out building);
+    }
+
+    private bool TryGetSelectedBuildingLevel(
+        out FactoryBuildingLevelBlob level)
+    {
+        level = default;
+        if (!TryGetDatabase(
+                out BlobAssetReference<FactoryDatabaseBlob> reference))
+            return false;
+        ref FactoryDatabaseBlob database = ref reference.Value;
+        return FactoryDatabaseUtility.TryGetBuildingLevel(
+            ref database,
+            SelectedBuildingLevel,
+            out level,
+            out _);
     }
 
     private bool TryGetDatabase(
@@ -1068,7 +2120,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
     private bool TryGetGrid(
         out World world,
         out Entity currentGridEntity,
-        out GridDefinition grid)
+        out WorldGridConfig grid)
     {
         world = null;
         currentGridEntity = Entity.Null;
@@ -1082,7 +2134,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         EntityManager entityManager = cachedWorld.EntityManager;
         if (gridEntity == Entity.Null ||
             !entityManager.Exists(gridEntity) ||
-            !entityManager.HasComponent<GridDefinition>(gridEntity))
+            !entityManager.HasComponent<WorldGridConfig>(gridEntity))
         {
             RefreshGridSingleton();
         }
@@ -1093,7 +2145,7 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         }
 
         currentGridEntity = gridEntity;
-        grid = entityManager.GetComponentData<GridDefinition>(gridEntity);
+        grid = entityManager.GetComponentData<WorldGridConfig>(gridEntity);
         return true;
     }
 
@@ -1115,9 +2167,11 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         cachedWorld = currentWorld;
         EntityManager entityManager = currentWorld.EntityManager;
         gridQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<GridDefinition>());
+            ComponentType.ReadOnly<WorldGridConfig>());
         databaseQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<FactoryDatabase>());
+        physicsWorldQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<Unity.Physics.PhysicsWorldSingleton>());
         ecsCacheInitialized = true;
         RefreshGridSingleton();
         RefreshDatabaseSingleton();
@@ -1157,8 +2211,10 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         {
             gridQuery.Dispose();
             databaseQuery.Dispose();
+            physicsWorldQuery.Dispose();
         }
 
+        DisconnectVerticalCommandBus();
         ecsCacheInitialized = false;
         cachedWorld = null;
         gridEntity = Entity.Null;
@@ -1167,22 +2223,29 @@ public sealed class EcsGridInteractionController : MonoBehaviour
         cachedGridCount = 0;
     }
 
-    private void Enqueue(
+    private ulong Enqueue(
         World world,
         Entity gridEntity,
         GridBuildCommand command)
     {
-        commandBus ??= PlayerCommandRuntimeServices.GetOrCreateBus(
-            world, new PlayerId { Value = localPlayerId });
-        commandBus.Submit(new GridBuildPlayerCommand
+        if (commandBus == null)
+        {
+            commandBus = PlayerCommandRuntimeServices.GetOrCreateBus(world, new PlayerId { Value = localPlayerId });
+            commandBus.ResultReceived += HandleVerticalBuildResult;
+        }
+        return commandBus.Submit(new GridBuildPlayerCommand
         {
             Type = command.Type,
+            PlacementRequestId = command.PlacementRequestId,
             Kind = command.Kind,
             BuildingLevel = command.BuildingLevel,
             StartCell = command.StartCell,
             EndCell = command.EndCell,
             QuarterTurns = command.QuarterTurns,
-            HorizontalFirst = command.HorizontalFirst
+            HorizontalFirst = command.HorizontalFirst,
+            VisualMaterialId = command.VisualMaterialId,
+            RampStartHeightUnits = command.RampStartHeightUnits,
+            RampRiseHeightUnits = command.RampRiseHeightUnits
         });
     }
 

@@ -19,7 +19,7 @@ public readonly struct FactoryPerformancePlacement
     public FactoryPerformancePlacement(
         BuildingKind kind,
         BuildingLevelId buildingLevel,
-        int2 cell,
+        GridCell cell,
         byte quarterTurns,
         string recipeKey = null)
     {
@@ -32,7 +32,7 @@ public readonly struct FactoryPerformancePlacement
 
     public BuildingKind Kind { get; }
     public BuildingLevelId BuildingLevel { get; }
-    public int2 Cell { get; }
+    public GridCell Cell { get; }
     public byte QuarterTurns { get; }
     public string RecipeKey { get; }
 }
@@ -45,7 +45,7 @@ public sealed class FactoryPerformanceScenarioDefinition
         string description,
         int2 gridSize,
         FactoryPerformancePlacement[] placements,
-        int2[] initialItemCells,
+        GridCell[] initialItemCells,
         int[] branchLengths,
         int scale,
         string scaleUnit)
@@ -104,7 +104,7 @@ public sealed class FactoryPerformanceScenarioDefinition
     public string Description { get; }
     public int2 GridSize { get; }
     public FactoryPerformancePlacement[] Placements { get; }
-    public int2[] InitialItemCells { get; }
+    public GridCell[] InitialItemCells { get; }
     public int[] BranchLengths { get; }
     public int Scale { get; }
     public string ScaleUnit { get; }
@@ -132,6 +132,7 @@ public static class FactoryPerformanceScenarioLayout
     public const ushort StorageLevelId = 7;
     public const ushort MergerLevelId = 8;
     public const ushort SplitterLevelId = 9;
+    public const ushort FoundationLevelId = 10;
 
     public static FactoryPerformanceScenarioDefinition Create(
         FactoryPerformanceScenario scenario,
@@ -446,7 +447,7 @@ public static class FactoryPerformanceScenarioLayout
 
         for (int i = 0; i < route.Count; i += 2)
         {
-            builder.AddInitialItem(route[i]);
+            builder.AddInitialItem(new GridCell(route[i]));
         }
 
         return builder.Build(
@@ -475,7 +476,7 @@ public static class FactoryPerformanceScenarioLayout
             new int2(0, 1));
         for (int i = 0; i < inputTrunk.Count; i++)
         {
-            builder.AddInitialItem(inputTrunk[i]);
+            builder.AddInitialItem(new GridCell(inputTrunk[i]));
         }
 
         int[] branchLengths = new int[16];
@@ -534,7 +535,7 @@ public static class FactoryPerformanceScenarioLayout
             new int2(-1, 0));
         for (int i = 0; i < mainRoute.Count; i++)
         {
-            builder.AddInitialItem(mainRoute[i]);
+            builder.AddInitialItem(new GridCell(mainRoute[i]));
         }
 
         builder.AddBelt(
@@ -590,10 +591,10 @@ public static class FactoryPerformanceScenarioLayout
         private readonly int2 gridSize;
         private readonly List<FactoryPerformancePlacement> placements =
             new List<FactoryPerformancePlacement>();
-        private readonly List<int2> initialItemCells = new List<int2>();
-        private readonly HashSet<int2> occupiedCells = new HashSet<int2>();
-        private readonly HashSet<int2> transportCells = new HashSet<int2>();
-        private readonly List<int2> orderedTransportCells = new List<int2>();
+        private readonly List<GridCell> initialItemCells = new List<GridCell>();
+        private readonly HashSet<GridCell> occupiedCells = new HashSet<GridCell>();
+        private readonly HashSet<GridCell> transportCells = new HashSet<GridCell>();
+        private readonly List<GridCell> orderedTransportCells = new List<GridCell>();
 
         public Builder(int2 gridSize)
         {
@@ -627,34 +628,34 @@ public static class FactoryPerformanceScenarioLayout
 
         public void AddBelt(int2 cell, int2 direction, ushort levelId)
         {
-            ReserveCell(cell, BuildingKind.Belt);
-            AddTransportCell(cell);
+            ReserveCell(new GridCell(cell), BuildingKind.Belt);
+            AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Belt,
                 new BuildingLevelId { Value = levelId },
-                cell,
+                new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
 
         public void AddSplitter(int2 cell, int2 direction)
         {
-            ReserveCell(cell, BuildingKind.Splitter);
-            AddTransportCell(cell);
+            ReserveCell(new GridCell(cell), BuildingKind.Splitter);
+            AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Splitter,
                 new BuildingLevelId { Value = SplitterLevelId },
-                cell,
+                new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
 
         public void AddMerger(int2 cell, int2 direction)
         {
-            ReserveCell(cell, BuildingKind.Merger);
-            AddTransportCell(cell);
+            ReserveCell(new GridCell(cell), BuildingKind.Merger);
+            AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Merger,
                 new BuildingLevelId { Value = MergerLevelId },
-                cell,
+                new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
 
@@ -674,7 +675,7 @@ public static class FactoryPerformanceScenarioLayout
             placements.Add(new FactoryPerformancePlacement(
                 kind,
                 new BuildingLevelId { Value = levelId },
-                anchor,
+                new GridCell(anchor),
                 EcsGridUtility.QuarterTurnsFromDirection(direction),
                 recipeKey));
         }
@@ -686,11 +687,11 @@ public static class FactoryPerformanceScenarioLayout
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Storage,
                 new BuildingLevelId { Value = StorageLevelId },
-                anchor,
+                new GridCell(anchor),
                 EcsGridUtility.QuarterTurnsFromDirection(inputDirection)));
         }
 
-        public void AddInitialItem(int2 cell)
+        public void AddInitialItem(GridCell cell)
         {
             if (!transportCells.Contains(cell))
             {
@@ -735,10 +736,10 @@ public static class FactoryPerformanceScenarioLayout
                 scaleUnit);
         }
 
-        private void ReserveCell(int2 cell, BuildingKind kind)
+        private void ReserveCell(GridCell cell, BuildingKind kind)
         {
-            if (cell.x < 0 || cell.y < 0 ||
-                cell.x >= gridSize.x || cell.y >= gridSize.y)
+            if (cell.Level != 0 || cell.X < 0 || cell.Z < 0 ||
+                cell.X >= gridSize.x || cell.Z >= gridSize.y)
             {
                 throw new InvalidOperationException(
                     kind + " lies outside the performance grid at " + cell + ".");
@@ -751,7 +752,7 @@ public static class FactoryPerformanceScenarioLayout
             }
         }
 
-        private void AddTransportCell(int2 cell)
+        private void AddTransportCell(GridCell cell)
         {
             transportCells.Add(cell);
             orderedTransportCells.Add(cell);
@@ -759,10 +760,10 @@ public static class FactoryPerformanceScenarioLayout
 
         private void ReserveSquareBuilding(int2 anchor, BuildingKind kind)
         {
-            ReserveCell(anchor, kind);
-            ReserveCell(anchor + new int2(1, 0), kind);
-            ReserveCell(anchor + new int2(0, 1), kind);
-            ReserveCell(anchor + new int2(1, 1), kind);
+            ReserveCell(new GridCell(anchor), kind);
+            ReserveCell(new GridCell(anchor + new int2(1, 0)), kind);
+            ReserveCell(new GridCell(anchor + new int2(0, 1)), kind);
+            ReserveCell(new GridCell(anchor + new int2(1, 1)), kind);
         }
     }
 }

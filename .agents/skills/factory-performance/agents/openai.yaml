@@ -1,0 +1,4 @@
+interface:
+  display_name: "Factory ECS Performance"
+  short_description: "Profile Factory ECS simulation and capture reports"
+  default_prompt: "Use $factory-performance to capture the default fixed-scale Factory scenario and report mean/P95 frame time."

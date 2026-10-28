@@ -111,6 +111,18 @@ public static class FactoryIconBaker
             if (prefab == null)
                 continue;
 
+            settings.GetIconSource(prefab, out GameObject iconModel, out Sprite suppliedIcon);
+            if (suppliedIcon != null)
+            {
+                // Supplied art belongs to its author, not the generated PNG directory.
+                next.Add(new FactoryIconBakeManifestEntry
+                {
+                    prefabPath = prefabPath,
+                    outputPath = AssetDatabase.GetAssetPath(suppliedIcon),
+                    hash = CalculateBakeHash(prefabPath, settings)
+                });
+                continue;
+            }
             string outputPath = outputDirectory + "/" +
                                 Path.GetFileNameWithoutExtension(prefabPath) + ".png";
             string hash = CalculateBakeHash(prefabPath, settings);
@@ -121,7 +133,7 @@ public static class FactoryIconBaker
 
             if (force || !current)
             {
-                byte[] png = FactoryIconRenderer.RenderPng(prefab, settings);
+                byte[] png = FactoryIconRenderer.RenderPng(iconModel, settings, prefab);
                 File.WriteAllBytes(ToAbsolutePath(outputPath), png);
                 changedOutputs.Add(outputPath);
             }
@@ -141,7 +153,20 @@ public static class FactoryIconBaker
     {
         string settingsJson = EditorJsonUtility.ToJson(settings);
         string dependencyHash = AssetDatabase.GetAssetDependencyHash(prefabPath).ToString();
-        return Hash128.Compute(BakerVersion + dependencyHash + settingsJson).ToString();
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        settings.GetIconSource(prefab, out GameObject model, out Sprite sprite);
+        string sourcePath = AssetDatabase.GetAssetPath(sprite != null ? (UnityEngine.Object)sprite : model);
+        string sourceHash = string.IsNullOrEmpty(sourcePath) ? string.Empty :
+            AssetDatabase.GetAssetDependencyHash(sourcePath).ToString();
+        return Hash128.Compute(BakerVersion + dependencyHash + sourceHash + settingsJson).ToString();
+    }
+
+    public static Sprite GetSuppliedBuildingIcon(GameObject prefab)
+    {
+        FactoryIconBakeSettings settings = AssetDatabase.LoadAssetAtPath<FactoryIconBakeSettings>(SettingsAssetPath);
+        if (settings == null) return null;
+        settings.GetIconSource(prefab, out _, out Sprite sprite);
+        return sprite;
     }
 
     private static void ConfigureTextureImporter(string outputPath)

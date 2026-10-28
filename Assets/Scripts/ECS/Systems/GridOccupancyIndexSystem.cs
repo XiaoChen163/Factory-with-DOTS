@@ -6,17 +6,17 @@ using UnityEngine;
 [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
 public partial class GridOccupancyIndexSystem : SystemBase
 {
-    private NativeParallelHashMap<int2, Entity> occupancy;
+    private NativeParallelHashMap<GridCell, Entity> occupancy;
     private EntityQuery gridQuery;
     private EntityQuery placementQuery;
     private EntityQuery pendingAddQuery;
     private int lastPlacementOrderVersion = -1;
     private int lastPlacementCount = -1;
-    private uint lastGridRevision = uint.MaxValue;
-    private bool reportedInvalidGridDefinition;
+    private uint lastOccupancyRevision = uint.MaxValue;
+    private bool reportedInvalidWorldGridConfig;
     private bool hasIncrementalChange;
 
-    public NativeParallelHashMap<int2, Entity>.ReadOnly Occupancy =>
+    public NativeParallelHashMap<GridCell, Entity>.ReadOnly Occupancy =>
         occupancy.AsReadOnly();
 
     public bool IsReady { get; private set; }
@@ -26,18 +26,22 @@ public partial class GridOccupancyIndexSystem : SystemBase
 
     protected override void OnCreate()
     {
-        occupancy = new NativeParallelHashMap<int2, Entity>(
+        occupancy = new NativeParallelHashMap<GridCell, Entity>(
             16,
             Allocator.Persistent);
         gridQuery = GetEntityQuery(
-            ComponentType.ReadOnly<GridDefinition>());
+            ComponentType.ReadOnly<WorldGridConfig>());
         placementQuery = GetEntityQuery(
             ComponentType.ReadOnly<GridPlacement>(),
-            ComponentType.ReadOnly<OccupiedCellOffset>());
+            ComponentType.ReadOnly<OccupiedCellOffset>(),
+            ComponentType.Exclude<RampBelt>(),
+            ComponentType.Exclude<VerticalBeltNode>());
         pendingAddQuery = GetEntityQuery(
             ComponentType.ReadOnly<PendingOccupancyAdd>(),
             ComponentType.ReadOnly<GridPlacement>(),
-            ComponentType.ReadOnly<OccupiedCellOffset>());
+            ComponentType.ReadOnly<OccupiedCellOffset>(),
+            ComponentType.Exclude<RampBelt>(),
+            ComponentType.Exclude<VerticalBeltNode>());
     }
 
     protected override void OnDestroy()
@@ -55,27 +59,32 @@ public partial class GridOccupancyIndexSystem : SystemBase
         if (gridCount != 1)
         {
             ClearIndex();
-            if (gridCount > 1 && !reportedInvalidGridDefinition)
+            if (gridCount > 1 && !reportedInvalidWorldGridConfig)
             {
                 Debug.LogError(
-                    "[ECS Grid] Exactly one GridDefinition is required, " +
+                    "[ECS Grid] Exactly one WorldGridConfig is required, " +
                     "but " + gridCount + " were found.");
-                reportedInvalidGridDefinition = true;
+                reportedInvalidWorldGridConfig = true;
             }
 
             return;
         }
 
-        reportedInvalidGridDefinition = false;
-        GridDefinition grid =
-            gridQuery.GetSingleton<GridDefinition>();
-        bool appliedPending = ApplyPendingAdds(grid);
+        reportedInvalidWorldGridConfig = false;
+        SurfaceRegistrySystem registry = World.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        if (registry == null || !registry.IsReady)
+        {
+            ClearIndex();
+            return;
+        }
+        uint occupancyRevision = GetOccupancyRevision();
+        bool appliedPending = ApplyPendingAdds();
         if (appliedPending || hasIncrementalChange)
         {
             lastPlacementCount = placementQuery.CalculateEntityCount();
             lastPlacementOrderVersion =
                 EntityManager.GetComponentOrderVersion<GridPlacement>();
-            lastGridRevision = grid.Revision;
+            lastOccupancyRevision = occupancyRevision;
             hasIncrementalChange = false;
             IsReady = true;
             return;
@@ -88,19 +97,29 @@ public partial class GridOccupancyIndexSystem : SystemBase
         if (IsReady &&
             placementCount == lastPlacementCount &&
             placementOrderVersion == lastPlacementOrderVersion &&
-            grid.Revision == lastGridRevision)
+            occupancyRevision == lastOccupancyRevision)
         {
             return;
         }
 
-        Rebuild(grid, placementCount);
+        Rebuild(placementCount);
         lastPlacementCount = placementCount;
         lastPlacementOrderVersion = placementOrderVersion;
-        lastGridRevision = grid.Revision;
+        lastOccupancyRevision = occupancyRevision;
         IsReady = true;
     }
 
-    public void RemoveOccupant(int2 cell, Entity entity)
+    private uint GetOccupancyRevision()
+    {
+        Entity gridEntity = gridQuery.GetSingletonEntity();
+        return EntityManager.HasComponent<BuildingOccupancyRevision>(gridEntity)
+            ? EntityManager
+                .GetComponentData<BuildingOccupancyRevision>(gridEntity)
+                .Value
+            : 0;
+    }
+
+    public void RemoveOccupant(GridCell cell, Entity entity)
     {
         if (!occupancy.IsCreated ||
             !occupancy.TryGetValue(cell, out Entity current) ||
@@ -113,7 +132,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
         hasIncrementalChange = true;
     }
 
-    private bool ApplyPendingAdds(in GridDefinition grid)
+    private bool ApplyPendingAdds()
     {
         if (pendingAddQuery.IsEmptyIgnoreFilter)
         {
@@ -125,6 +144,18 @@ public partial class GridOccupancyIndexSystem : SystemBase
         using NativeArray<GridPlacement> placements =
             pendingAddQuery.ToComponentDataArray<GridPlacement>(
                 Allocator.Temp);
+        int requiredCapacity = occupancy.Count();
+        for (int i = 0; i < entities.Length; i++)
+        {
+            requiredCapacity += EntityManager
+                .GetBuffer<OccupiedCellOffset>(entities[i], true)
+                .Length;
+        }
+        if (occupancy.Capacity < requiredCapacity)
+        {
+            occupancy.Capacity = math.max(16, requiredCapacity);
+        }
+
         ConflictCount = 0;
         for (int i = 0; i < entities.Length; i++)
         {
@@ -137,10 +168,10 @@ public partial class GridOccupancyIndexSystem : SystemBase
                  cellIndex < offsets.Length;
                  cellIndex++)
             {
-                int2 cell = EcsGridUtility.GetBuildingCell(
+                GridCell cell = EcsGridUtility.GetBuildingCell(
                     placement,
                     offsets[cellIndex].Value);
-                if (!EcsGridUtility.Contains(grid, cell) ||
+                if (!HasBuildableSurface(cell) ||
                     !occupancy.TryAdd(cell, entities[i]))
                 {
                     ConflictCount++;
@@ -157,7 +188,7 @@ public partial class GridOccupancyIndexSystem : SystemBase
         return true;
     }
 
-    public bool TryGetOccupant(int2 cell, out Entity entity)
+    public bool TryGetOccupant(GridCell cell, out Entity entity)
     {
         if (!occupancy.IsCreated)
         {
@@ -169,7 +200,6 @@ public partial class GridOccupancyIndexSystem : SystemBase
     }
 
     private void Rebuild(
-        in GridDefinition grid,
         int placementCount)
     {
         Dependency.Complete();
@@ -211,16 +241,16 @@ public partial class GridOccupancyIndexSystem : SystemBase
                  cellIndex < occupiedCells.Length;
                  cellIndex++)
             {
-                int2 cell = EcsGridUtility.GetBuildingCell(
+                GridCell cell = EcsGridUtility.GetBuildingCell(
                     placement,
                     occupiedCells[cellIndex].Value);
 
-                if (!EcsGridUtility.Contains(grid, cell))
+                if (!HasBuildableSurface(cell))
                 {
                     ConflictCount++;
                     Debug.LogError(
                         "[ECS Grid] " + building +
-                        " occupies out-of-bounds cell " + cell + ".");
+                        " occupies a cell without a surface " + cell + ".");
                     continue;
                 }
 
@@ -251,6 +281,13 @@ public partial class GridOccupancyIndexSystem : SystemBase
         ConflictCount = 0;
         lastPlacementCount = -1;
         lastPlacementOrderVersion = -1;
-        lastGridRevision = uint.MaxValue;
+        lastOccupancyRevision = uint.MaxValue;
+    }
+
+    private bool HasBuildableSurface(GridCell cell)
+    {
+        SurfaceRegistrySystem registry =
+            World.GetExistingSystemManaged<SurfaceRegistrySystem>();
+        return registry != null && registry.IsReady && registry.HasSurface(cell);
     }
 }

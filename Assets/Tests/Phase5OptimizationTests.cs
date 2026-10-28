@@ -15,7 +15,7 @@ namespace Factory.Tests
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {
-                AnchorCell = int2.zero,
+                AnchorCell = new GridCell(int2.zero),
                 FootprintSize = new int2(1, 1),
                 Kind = BuildingKind.Storage
             });
@@ -66,13 +66,13 @@ namespace Factory.Tests
             CreateGrid();
             Entity item = CreateItem(1);
             Entity belt = CreateBelt(
-                new int2(0, 0),
+                new GridCell(0, 0, 0),
                 East,
                 item,
                 1f);
             Entity owner = CreatePortOwner(new GridPlacement
             {
-                AnchorCell = int2.zero,
+                AnchorCell = new GridCell(int2.zero),
                 FootprintSize = new int2(1, 1),
                 Kind = BuildingKind.Storage
             });
@@ -125,7 +125,7 @@ namespace Factory.Tests
                 building,
                 new GridPlacement
                 {
-                    AnchorCell = new int2(2, 3),
+                    AnchorCell = new GridCell(2, 0, 3),
                     FootprintSize = new int2(1, 1),
                     Kind = BuildingKind.Belt
                 });
@@ -139,7 +139,7 @@ namespace Factory.Tests
             Assert.That(occupancy.IsReady, Is.True);
             Assert.That(
                 occupancy.TryGetOccupant(
-                    new int2(2, 3),
+                    new GridCell(2, 0, 3),
                     out Entity occupant),
                 Is.True);
             Assert.That(occupant, Is.EqualTo(building));
@@ -147,8 +147,8 @@ namespace Factory.Tests
                 EntityManager.HasComponent<PendingOccupancyAdd>(building),
                 Is.False);
             Assert.That(
-                EntityManager.GetComponentData<GridDefinition>(grid)
-                    .Revision,
+                EntityManager.GetComponentData<BuildingOccupancyRevision>(grid)
+                    .Value,
                 Is.EqualTo(1));
         }
 
@@ -159,7 +159,7 @@ namespace Factory.Tests
             EntityManager.AddBuffer<BeltVisualDirtyCell>(grid).Add(
                 new BeltVisualDirtyCell
                 {
-                    Value = new int2(5, 5)
+                    Value = new GridCell(5, 0, 5)
                 });
 
             GridOccupancyIndexSystem occupancy =
@@ -182,15 +182,15 @@ namespace Factory.Tests
             EntityManager.AddBuffer<BeltVisualDirtyCell>(grid).Add(
                 new BeltVisualDirtyCell
                 {
-                    Value = new int2(1, 0)
+                    Value = new GridCell(1, 0, 0)
                 });
 
             CreateVisualBelt(
-                new int2(0, 0),
+                new GridCell(0, 0, 0),
                 East,
                 BuildingPortType.Output);
             Entity target = CreateVisualBelt(
-                new int2(1, 0),
+                new GridCell(1, 0, 0),
                 East,
                 BuildingPortType.Input);
             Entity targetVisual = EntityManager
@@ -205,10 +205,10 @@ namespace Factory.Tests
                 GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
             UpdateSystem(occupancy);
             Assert.That(
-                occupancy.TryGetOccupant(new int2(0, 0), out _),
+                occupancy.TryGetOccupant(new GridCell(0, 0, 0), out _),
                 Is.True);
             Assert.That(
-                occupancy.TryGetOccupant(new int2(1, 0), out _),
+                occupancy.TryGetOccupant(new GridCell(1, 0, 0), out _),
                 Is.True);
 
             BeltTopologyVisualSystem visuals =
@@ -226,6 +226,216 @@ namespace Factory.Tests
                         .EastEdge),
                 Is.False,
                 "Unconnected edges should become visible after a refresh.");
+        }
+
+        [Test]
+        public void RampBeltTopologyRefresh_HidesPlanarConnectionEdges()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(0, 0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(1, 0, 0) });
+
+            Entity source = CreateVisualBelt(
+                new GridCell(0, 0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new GridCell(1, 0, 0), East, BuildingPortType.Input);
+            EntityManager.AddComponentData(target, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.True);
+        }
+
+        [Test]
+        public void RampBeltTopologyRefresh_AlwaysHidesHighAndLowEdges()
+        {
+            Entity grid = CreateGrid();
+            EntityManager.AddBuffer<BeltVisualDirtyCell>(grid).Add(
+                new BeltVisualDirtyCell { Value = new GridCell(1, 0, 0) });
+
+            Entity ramp = CreateVisualBelt(
+                new GridCell(1, 0, 0), East, BuildingPortType.Input);
+            EntityManager.AddComponentData(ramp, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts parts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(ramp).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.EastEdge), Is.True,
+                "A ramp belt's high edge must always be hidden.");
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.WestEdge), Is.True,
+                "A ramp belt's low edge must always be hidden.");
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.NorthEdge), Is.False,
+                "A ramp belt's lateral edges must remain visible.");
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                parts.SouthEdge), Is.False,
+                "A ramp belt's lateral edges must remain visible.");
+        }
+
+        [Test]
+        public void RampBeltTopologyRefresh_UsesBeltTopologyForBothSides()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(0, 0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(1, 0, 0) });
+
+            Entity source = CreateVisualBelt(
+                new GridCell(0, 0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new GridCell(1, 0, 0), East, BuildingPortType.Input);
+            EntityManager.AddComponentData(target, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+            EntityManager.RemoveComponent<BuildingPort>(source);
+            EntityManager.RemoveComponent<BuildingPort>(target);
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.True);
+        }
+
+        [Test]
+        public void RampBeltTopologyRefresh_HidesExplicitConnectionEdges()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(0, 0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(1, 0, 0) });
+
+            Entity source = CreateVisualBelt(
+                new GridCell(0, 0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new GridCell(1, 0, 0), East, BuildingPortType.Input);
+            BeltTopology sourceTopology =
+                EntityManager.GetComponentData<BeltTopology>(source);
+            sourceTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(source, sourceTopology);
+            BeltTopology targetTopology =
+                EntityManager.GetComponentData<BeltTopology>(target);
+            targetTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(target, targetTopology);
+            EntityManager.AddComponentData(source, new RampBelt());
+            EntityManager.AddComponentData(target, new RampBelt());
+            EntityManager.AddBuffer<TransportExplicitEdge>(grid).Add(
+                new TransportExplicitEdge
+                {
+                    Source = source,
+                    Target = target
+                });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.True);
+        }
+
+        [Test]
+        public void BeltTopologyRefresh_UsesConnectedGridCellsForExplicitEdges()
+        {
+            Entity grid = CreateGrid();
+            DynamicBuffer<BeltVisualDirtyCell> dirty =
+                EntityManager.AddBuffer<BeltVisualDirtyCell>(grid);
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(0, 0, 0) });
+            dirty.Add(new BeltVisualDirtyCell { Value = new GridCell(0, 0, 1) });
+
+            Entity source = CreateVisualBelt(
+                new GridCell(0, 0, 0), East, BuildingPortType.Output);
+            Entity target = CreateVisualBelt(
+                new GridCell(0, 0, 1), East, BuildingPortType.Input);
+            BeltTopology sourceTopology =
+                EntityManager.GetComponentData<BeltTopology>(source);
+            sourceTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(source, sourceTopology);
+            BeltTopology targetTopology =
+                EntityManager.GetComponentData<BeltTopology>(target);
+            targetTopology.ConnectionMode = TransportConnectionMode.ExplicitOnly;
+            EntityManager.SetComponentData(target, targetTopology);
+            EntityManager.AddBuffer<TransportExplicitEdge>(grid).Add(
+                new TransportExplicitEdge
+                {
+                    Source = source,
+                    Target = target
+                });
+
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            UpdateSystem(GetOrCreateManagedSystem<BeltTopologyVisualSystem>());
+
+            BeltVisualParts sourceParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(source).Value);
+            BeltVisualParts targetParts = EntityManager.GetComponentData<
+                BeltVisualParts>(EntityManager.GetComponentData<
+                    BuildingVisualReference>(target).Value);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.NorthEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.SouthEdge), Is.True);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                sourceParts.EastEdge), Is.False);
+            Assert.That(EntityManager.HasComponent<DisableRendering>(
+                targetParts.WestEdge), Is.False);
         }
 
         [Test]
@@ -273,7 +483,7 @@ namespace Factory.Tests
                     belt,
                     new GridPlacement
                     {
-                        AnchorCell = int2.zero,
+                        AnchorCell = new GridCell(int2.zero),
                         FootprintSize = new int2(1, 1),
                         QuarterTurns = 0,
                         Kind = BuildingKind.Belt
@@ -293,10 +503,16 @@ namespace Factory.Tests
                     new GridBuildCommand
                     {
                         Type = GridBuildCommandType.Remove,
-                        StartCell = int2.zero
+                        StartCell = new GridCell(int2.zero)
                     });
-                UpdateSystem(
-                    GetOrCreateManagedSystem<GridBuildCommandSystem>());
+                GridBuildCommandSystem build =
+                    GetOrCreateManagedSystem<GridBuildCommandSystem>();
+                UpdateSystem(build);
+
+                Assert.That(build.DiagnosticBatchCount, Is.EqualTo(1));
+                Assert.That(build.LastBatchPlacementScanCount, Is.EqualTo(1));
+                Assert.That(build.LastBatchTemporaryRecordCount, Is.EqualTo(1));
+                Assert.That(build.LastBatchPathValidationCellCount, Is.Zero);
 
                 Assert.That(EntityManager.Exists(item), Is.True);
                 Assert.That(
@@ -350,10 +566,10 @@ namespace Factory.Tests
                 inventory[1] = default;
 
                 Entity first = CreateRemovableBelt(
-                    new int2(2, 2),
+                    new GridCell(2, 0, 2),
                     CreateItem(1));
                 Entity second = CreateRemovableBelt(
-                    new int2(3, 2),
+                    new GridCell(3, 0, 2),
                     CreateItem(1));
 
                 GridOccupancyIndexSystem occupancy =
@@ -365,7 +581,7 @@ namespace Factory.Tests
                     {
                         Player = playerId,
                         Type = GridBuildCommandType.RemoveBeltLine,
-                        StartCell = new int2(2, 2)
+                        StartCell = new GridCell(2, 0, 2)
                     });
                 UpdateSystem(
                     GetOrCreateManagedSystem<GridBuildCommandSystem>());
@@ -419,7 +635,7 @@ namespace Factory.Tests
                     storage,
                     new GridPlacement
                     {
-                        AnchorCell = new int2(4, 4),
+                        AnchorCell = new GridCell(4, 0, 4),
                         FootprintSize = new int2(1, 1),
                         Kind = BuildingKind.Storage
                     });
@@ -441,7 +657,7 @@ namespace Factory.Tests
                     {
                         Player = playerId,
                         Type = GridBuildCommandType.Remove,
-                        StartCell = new int2(4, 4)
+                        StartCell = new GridCell(4, 0, 4)
                     });
                 UpdateSystem(
                     GetOrCreateManagedSystem<GridBuildCommandSystem>());
@@ -481,7 +697,7 @@ namespace Factory.Tests
 
                 Entity owner = CreatePortOwner(new GridPlacement
                 {
-                    AnchorCell = int2.zero,
+                    AnchorCell = new GridCell(int2.zero),
                     FootprintSize = new int2(1, 1),
                     Kind = BuildingKind.Storage
                 });
@@ -656,12 +872,8 @@ namespace Factory.Tests
         private Entity CreateGrid()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
+            EntityManager.AddComponentData(grid, new BuildingOccupancyRevision { Value = 1 });
             return grid;
         }
 
@@ -673,7 +885,7 @@ namespace Factory.Tests
             return grid;
         }
 
-        private Entity CreateRemovableBelt(int2 cell, Entity item)
+        private Entity CreateRemovableBelt(GridCell cell, Entity item)
         {
             Entity belt = EntityManager.CreateEntity();
             EntityManager.AddComponentData(
@@ -700,7 +912,7 @@ namespace Factory.Tests
         }
 
         private Entity CreateVisualBelt(
-            int2 cell,
+            GridCell cell,
             int2 direction,
             BuildingPortType portType)
         {

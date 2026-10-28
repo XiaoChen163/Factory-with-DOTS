@@ -6,7 +6,8 @@
 - `items.csv`：稳定 `ItemId`、显示 Key、堆叠、分类、`prefab_key` 和可选的 `icon_key`。
 - `machine_types.csv`：配方要求的加工能力 key。
 - `buildings.csv`：建筑类型、能力、占地和共享端口布局。
-- `building_levels.csv`：所有建筑共有的等级身份、表现 Prefab 和菜单顺序。
+- `building_levels.csv`：所有建筑共有的等级身份、表现 Prefab 和菜单顺序；斜面项另用
+  `ramp_rise_height_units` 保存坡高（每层 8 单位，当前允许 8、4、2）。
 - `belt_level_stats.csv`：传送带等级的绝对空间速度（格/秒）。
 - `processor_level_stats.csv`：加工建筑等级相对于配方基础耗时的工作倍率（千分比）。
 - `storage_level_stats.csv`：仓库等级可存放的物品总数。
@@ -42,6 +43,7 @@ Authoring。建筑逻辑、占地和端口由 CSV 生成；同一建筑类型的
 中恰好出现一次，每个加工建筑等级必须在 `processor_level_stats.csv`
 中恰好出现一次，每个仓库等级必须在 `storage_level_stats.csv` 中恰好
 出现一次；无关建筑等级不得出现在这些行为专属表中。
+斜面地基表现 Prefab 还允许包含用于坡面拾取/碰撞的 `MeshCollider`。
 `work_rate_permille` 只影响实际加工速度，不修改配方基础时间。
 
 加工建筑不配置固定容量。每个配方输入物品种类占用一个输入槽，输出物品

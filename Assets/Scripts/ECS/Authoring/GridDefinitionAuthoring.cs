@@ -7,6 +7,10 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
 {
     [SerializeField] private Vector2Int size = new Vector2Int(32, 32);
     [SerializeField] private Vector3 origin = Vector3.zero;
+    [SerializeField, Min(0.01f)] private float layerHeight =
+        EcsGridUtility.DefaultLayerHeight;
+    [SerializeField] private InitialSurfaceMode initialSurfaceMode =
+        InitialSurfaceMode.Empty;
 
     private void OnValidate()
     {
@@ -16,7 +20,9 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
         // Integer X/Z origins keep the runtime grid on Unity's editor grid
         // lines when one grid cell is exactly one Unity unit.
         origin.x = Mathf.Round(origin.x);
+        origin.y = 0f;
         origin.z = Mathf.Round(origin.z);
+        layerHeight = Mathf.Max(0.01f, layerHeight);
     }
 
     private sealed class GridDefinitionBaker
@@ -26,18 +32,37 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
         {
             Entity entity = GetEntity(TransformUsageFlags.None);
             Vector3 configuredOrigin = authoring.origin;
+            configuredOrigin.y = 0f;
 
-            AddComponent(entity, new GridDefinition
+            AddComponent(entity, new WorldGridConfig
             {
-                Size = new int2(
-                    Mathf.Max(1, authoring.size.x),
-                    Mathf.Max(1, authoring.size.y)),
+                CellSize = EcsGridUtility.DefaultCellSize,
+                LayerHeight = Mathf.Max(0.01f, authoring.layerHeight),
                 Origin = new float3(
                     Mathf.Round(configuredOrigin.x),
                     configuredOrigin.y,
-                    Mathf.Round(configuredOrigin.z)),
-                CellSize = EcsGridUtility.DefaultCellSize,
+                    Mathf.Round(configuredOrigin.z))
+            });
+            AddComponent(entity, new GridLayerViewState
+            {
+                SelectedLevel = 0,
+                PickingMode = GridLayerPickingMode.FirstHit,
                 Revision = 1
+            });
+            AddComponent(entity, new SurfaceTopologyRevision { Value = 1 });
+            DynamicBuffer<InitialSurfaceCell> initialCells = AddBuffer<InitialSurfaceCell>(entity);
+            if (authoring.initialSurfaceMode == InitialSurfaceMode.Rectangle)
+            {
+                for (int z = 0; z < authoring.size.y; z++)
+                for (int x = 0; x < authoring.size.x; x++)
+                    initialCells.Add(new InitialSurfaceCell { Cell = new GridCell(x, 0, z) });
+            }
+            AddComponent(entity, new BuildingOccupancyRevision { Value = 1 });
+            AddComponent(entity, new TransportTopologyRevision { Value = 1 });
+            AddComponent(entity, new TransportVisualRevision { Value = 1 });
+            AddComponent(entity, new BuildingRuntimeIdAllocator
+            {
+                NextValue = 0x8000000000000000UL
             });
             AddBuffer<GridBuildCommand>(entity);
             AddBuffer<PlayerGridCommandPending>(entity);
@@ -46,6 +71,14 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                 NextGridRequestId = 1
             });
             AddBuffer<GridBuildResult>(entity);
+            AddBuffer<TransportExplicitEdge>(entity);
+            AddBuffer<SurfaceRenderDirtyChunk>(entity);
+            AddBuffer<SurfacePhysicsDirtyChunk>(entity);
+            AddComponent(entity, new FoundationCollisionSettings
+            {
+                Filter = FoundationCollisionCategories.FoundationFilter,
+                Material = Unity.Physics.Material.Default
+            });
         }
     }
 }

@@ -15,13 +15,13 @@ namespace Factory.Tests
             CreateGrid();
             Entity item = CreateItem();
             Entity belt = CreateBelt(
-                new int2(0, 0),
+                new GridCell(0, 0, 0),
                 East,
                 item,
                 1f);
             Entity owner = CreatePortOwner(new GridPlacement
             {
-                AnchorCell = new int2(0, 0),
+                AnchorCell = new GridCell(0, 0, 0),
                 FootprintSize = new int2(1, 1),
                 Kind = BuildingKind.Storage
             });
@@ -65,8 +65,8 @@ namespace Factory.Tests
         {
             CreateGrid();
             CreateItemCatalog();
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            Entity owner = CreateOutputOwner(new int2(0, 0));
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            Entity owner = CreateOutputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -89,8 +89,8 @@ namespace Factory.Tests
         {
             CreateGrid();
             CreateItemCatalog();
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            Entity owner = CreateOutputOwner(new int2(0, 0), 64);
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            Entity owner = CreateOutputOwner(new GridCell(0, 0, 0), 64);
 
             UpdateTransferTick();
 
@@ -110,8 +110,8 @@ namespace Factory.Tests
             CreateItemCatalog(
                 includeItemComponent: false,
                 includeLocalTransform: true);
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            Entity owner = CreateOutputOwner(new int2(0, 0));
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            Entity owner = CreateOutputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -145,8 +145,8 @@ namespace Factory.Tests
             CreateItemCatalog(
                 includeItemComponent: false,
                 includeLocalTransform: false);
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            Entity owner = CreateOutputOwner(new int2(0, 0));
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            Entity owner = CreateOutputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -167,28 +167,29 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void PortOwnerOrder_RebuildsOnlyAfterGridRevisionChanges()
+        public void PortOwnerOrder_RebuildsOnlyAfterOccupancyRevisionChanges()
         {
             Entity grid = CreateGrid();
             CreateItemCatalog();
             CreatePortOwner(new GridPlacement
             {
-                AnchorCell = new int2(5, 5),
+                AnchorCell = new GridCell(5, 0, 5),
                 FootprintSize = new int2(1, 1),
                 Kind = BuildingKind.Storage
             });
             UpdateTransferTick();
 
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            CreateOutputOwner(new int2(0, 0));
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            CreateOutputOwner(new GridCell(0, 0, 0));
+            EntityManager.AddComponentData(grid, new TransportTopologyRevision { Value = 1 });
             UpdateTransferTick();
             Assert.That(
                 EntityManager.GetComponentData<BeltState>(belt).CurrentItem,
                 Is.EqualTo(Entity.Null));
 
-            GridDefinition definition =
-                EntityManager.GetComponentData<GridDefinition>(grid);
-            definition.Revision++;
+            BuildingOccupancyRevision definition =
+                EntityManager.GetComponentData<BuildingOccupancyRevision>(grid);
+            definition.Value++;
             EntityManager.SetComponentData(grid, definition);
             UpdateTransferTick();
             Assert.That(
@@ -199,12 +200,8 @@ namespace Factory.Tests
         private Entity CreateGrid()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
+            EntityManager.AddComponentData(grid, new BuildingOccupancyRevision { Value = 1 });
             return grid;
         }
 
@@ -236,7 +233,7 @@ namespace Factory.Tests
                 });
         }
 
-        private Entity CreateOutputOwner(int2 targetCell, int availableCount = 1)
+        private Entity CreateOutputOwner(GridCell targetCell, int availableCount = 1)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {

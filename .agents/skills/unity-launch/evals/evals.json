@@ -1,0 +1,29 @@
+{
+  "skill_name": "unity-launch",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "An Editor for another project is open. Compile this Unity project anyway.",
+      "expected_output": "Stop before project writes or launch; ask user to close all Editors; do not kill/attach.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Run a compile-only batch check of the selected Unity project on this Windows machine.",
+      "expected_output": "Read exact project version; locate matching Editor; use explicit project and guarded timeout; verify compilation log.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Run an asynchronous executeMethod which exits after Play Mode completes.",
+      "expected_output": "Do not pass quit; use bounded launch and task completion artifacts; respect current permissions.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "The Unity project and output paths contain spaces.",
+      "expected_output": "Correct Windows quoting; never print credentials or override project/log options via ExtraArgs.",
+      "files": []
+    }
+  ]
+}

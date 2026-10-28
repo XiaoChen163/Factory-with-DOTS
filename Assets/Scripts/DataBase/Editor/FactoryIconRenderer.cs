@@ -8,7 +8,8 @@ public static class FactoryIconRenderer
 
     public static byte[] RenderPng(
         GameObject prefab,
-        FactoryIconBakeSettings settings)
+        FactoryIconBakeSettings settings,
+        GameObject framingPrefab = null)
     {
         if (prefab == null)
             throw new ArgumentNullException(nameof(prefab));
@@ -28,7 +29,7 @@ public static class FactoryIconRenderer
                     $"Prefab '{prefab.name}' has no enabled Renderer to bake.");
 
             settings.GetFraming(
-                prefab,
+                framingPrefab != null ? framingPrefab : prefab,
                 out Vector3 viewDirection,
                 out float padding,
                 out Vector3 centerOffset);

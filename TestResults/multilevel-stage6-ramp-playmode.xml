@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-15 13:02:03Z" end-time="2026-08-15 13:02:11Z" duration="8.3523716">
+  <test-suite type="TestSuite" id="1019" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-08-15 13:02:03Z" end-time="2026-08-15 13:02:11Z" duration="8.352372" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1013" name="Factory.PlayModeTests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.PlayModeTests.dll" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-08-15 13:02:03Z" end-time="2026-08-15 13:02:11Z" duration="8.344157" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="34936" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1014" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-08-15 13:02:03Z" end-time="2026-08-15 13:02:11Z" duration="8.342747" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1015" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-08-15 13:02:03Z" end-time="2026-08-15 13:02:11Z" duration="8.341792" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="Phase2UiPlayModeTests" fullname="Factory.Tests.Phase2UiPlayModeTests" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-08-15 13:02:03Z" end-time="2026-08-15 13:02:11Z" duration="8.340163" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1011" name="RampSelection_PlacesStraightConnectedLineAboveFoundation" fullname="Factory.Tests.Phase2UiPlayModeTests.RampSelection_PlacesStraightConnectedLineAboveFoundation" methodname="RampSelection_PlacesStraightConnectedLineAboveFoundation" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="717859577" result="Passed" start-time="2026-08-15 13:02:03Z" end-time="2026-08-15 13:02:11Z" duration="8.326606" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[[ECS Grid Raycast] Cell=(2, L0, 2), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(4, L0, 3), Inside=True, Occupied=False.
+<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

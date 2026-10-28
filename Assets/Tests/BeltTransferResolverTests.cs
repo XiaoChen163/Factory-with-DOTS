@@ -14,8 +14,8 @@ namespace Factory.Tests
         {
             using TransportScenario scenario = new TransportScenario();
             Entity item = scenario.CreateItem();
-            scenario.AddBelt(new int2(0, 0), East, item, 0.999f);
-            scenario.AddBelt(new int2(1, 0), East);
+            scenario.AddBelt(new GridCell(0, 0, 0), East, item, 0.999f);
+            scenario.AddBelt(new GridCell(1, 0, 0), East);
             TransportStateSnapshot before = scenario.CaptureState();
 
             TransportTickResult result = scenario.ResolveTick();
@@ -23,10 +23,10 @@ namespace Factory.Tests
 
             Assert.That(result.AcceptedTransferCount, Is.EqualTo(0));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(0, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(0, 0, 0)).CurrentItem,
                 Is.EqualTo(item));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(1, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(1, 0, 0)).CurrentItem,
                 Is.EqualTo(Entity.Null));
             TransportAssertions.AssertItemSetPreserved(before, after);
         }
@@ -36,17 +36,17 @@ namespace Factory.Tests
         {
             using TransportScenario scenario = new TransportScenario();
             Entity item = scenario.CreateItem();
-            scenario.AddBelt(new int2(0, 0), East, item, 1f);
-            scenario.AddBelt(new int2(1, 0), East);
+            scenario.AddBelt(new GridCell(0, 0, 0), East, item, 1f);
+            scenario.AddBelt(new GridCell(1, 0, 0), East);
             TransportStateSnapshot before = scenario.CaptureState();
 
             TransportTickResult result = scenario.ResolveTick();
             TransportStateSnapshot after = scenario.CaptureState();
 
             TransportNodeSnapshot source =
-                TransportAssertions.NodeAt(after, new int2(0, 0));
+                TransportAssertions.NodeAt(after, new GridCell(0, 0, 0));
             TransportNodeSnapshot target =
-                TransportAssertions.NodeAt(after, new int2(1, 0));
+                TransportAssertions.NodeAt(after, new GridCell(1, 0, 0));
             Assert.That(result.AcceptedTransferCount, Is.EqualTo(1));
             Assert.That(source.CurrentItem, Is.EqualTo(Entity.Null));
             Assert.That(source.Progress, Is.EqualTo(0f));
@@ -61,9 +61,9 @@ namespace Factory.Tests
             using TransportScenario scenario = new TransportScenario();
             Entity firstItem = scenario.CreateItem(1);
             Entity secondItem = scenario.CreateItem(2);
-            scenario.AddBelt(new int2(0, 0), East, firstItem, 1f);
-            scenario.AddBelt(new int2(1, 0), East, secondItem, 1f);
-            scenario.AddBelt(new int2(2, 0), East);
+            scenario.AddBelt(new GridCell(0, 0, 0), East, firstItem, 1f);
+            scenario.AddBelt(new GridCell(1, 0, 0), East, secondItem, 1f);
+            scenario.AddBelt(new GridCell(2, 0, 0), East);
             TransportStateSnapshot before = scenario.CaptureState();
 
             TransportTickResult result = scenario.ResolveTick();
@@ -71,13 +71,13 @@ namespace Factory.Tests
 
             Assert.That(result.AcceptedTransferCount, Is.EqualTo(2));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(0, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(0, 0, 0)).CurrentItem,
                 Is.EqualTo(Entity.Null));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(1, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(1, 0, 0)).CurrentItem,
                 Is.EqualTo(firstItem));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(2, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(2, 0, 0)).CurrentItem,
                 Is.EqualTo(secondItem));
             TransportAssertions.AssertItemSetPreserved(before, after);
         }
@@ -88,8 +88,8 @@ namespace Factory.Tests
             using TransportScenario scenario = new TransportScenario();
             Entity sourceItem = scenario.CreateItem(1);
             Entity targetItem = scenario.CreateItem(2);
-            scenario.AddBelt(new int2(0, 0), East, sourceItem, 1f);
-            scenario.AddBelt(new int2(1, 0), East, targetItem, 1f);
+            scenario.AddBelt(new GridCell(0, 0, 0), East, sourceItem, 1f);
+            scenario.AddBelt(new GridCell(1, 0, 0), East, targetItem, 1f);
             TransportStateSnapshot before = scenario.CaptureState();
 
             TransportTickResult result = scenario.ResolveTick();
@@ -97,10 +97,10 @@ namespace Factory.Tests
 
             Assert.That(result.AcceptedTransferCount, Is.EqualTo(0));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(0, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(0, 0, 0)).CurrentItem,
                 Is.EqualTo(sourceItem));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(1, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(1, 0, 0)).CurrentItem,
                 Is.EqualTo(targetItem));
             TransportAssertions.AssertItemSetPreserved(before, after);
         }
@@ -111,9 +111,9 @@ namespace Factory.Tests
             using TransportScenario scenario = new TransportScenario();
             Entity sourceItem = scenario.CreateItem(1);
             Entity targetItem = scenario.CreateItem(2);
-            scenario.AddBelt(new int2(0, 0), East, sourceItem, 1f);
-            scenario.AddBelt(new int2(1, 0), East, targetItem, 0.5f);
-            scenario.AddBelt(new int2(2, 0), East);
+            scenario.AddBelt(new GridCell(0, 0, 0), East, sourceItem, 1f);
+            scenario.AddBelt(new GridCell(1, 0, 0), East, targetItem, 0.5f);
+            scenario.AddBelt(new GridCell(2, 0, 0), East);
             TransportStateSnapshot before = scenario.CaptureState();
 
             TransportTickResult result = scenario.ResolveTick();
@@ -121,13 +121,13 @@ namespace Factory.Tests
 
             Assert.That(result.AcceptedTransferCount, Is.EqualTo(0));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(0, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(0, 0, 0)).CurrentItem,
                 Is.EqualTo(sourceItem));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(1, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(1, 0, 0)).CurrentItem,
                 Is.EqualTo(targetItem));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(2, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(2, 0, 0)).CurrentItem,
                 Is.EqualTo(Entity.Null));
             TransportAssertions.AssertItemSetPreserved(before, after);
         }
@@ -138,24 +138,24 @@ namespace Factory.Tests
             using TransportScenario scenario = new TransportScenario();
             Entity straightItem = scenario.CreateItem(1);
             Entity sideItem = scenario.CreateItem(2);
-            scenario.AddBelt(new int2(0, 0), East, straightItem, 1f);
-            scenario.AddBelt(new int2(1, 1), South, sideItem, 1f);
-            scenario.AddMerger(new int2(1, 0), East, nextInputIndex: 0);
+            scenario.AddBelt(new GridCell(0, 0, 0), East, straightItem, 1f);
+            scenario.AddBelt(new GridCell(1, 0, 1), South, sideItem, 1f);
+            scenario.AddMerger(new GridCell(1, 0, 0), East, nextInputIndex: 0);
             TransportStateSnapshot before = scenario.CaptureState();
 
             TransportTickResult result = scenario.ResolveTick();
             TransportStateSnapshot after = scenario.CaptureState();
 
             TransportNodeSnapshot merger =
-                TransportAssertions.NodeAt(after, new int2(1, 0));
+                TransportAssertions.NodeAt(after, new GridCell(1, 0, 0));
             Assert.That(result.AcceptedTransferCount, Is.EqualTo(1));
             Assert.That(merger.CurrentItem, Is.EqualTo(straightItem));
             Assert.That(merger.Cursor, Is.EqualTo(1));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(0, 0)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(0, 0, 0)).CurrentItem,
                 Is.EqualTo(Entity.Null));
             Assert.That(
-                TransportAssertions.NodeAt(after, new int2(1, 1)).CurrentItem,
+                TransportAssertions.NodeAt(after, new GridCell(1, 0, 1)).CurrentItem,
                 Is.EqualTo(sideItem));
             TransportAssertions.AssertItemSetPreserved(before, after);
         }
@@ -175,16 +175,16 @@ namespace Factory.Tests
             Entity sideItem = scenario.CreateItem(2);
             if (sideFirst)
             {
-                scenario.AddBelt(new int2(1, 1), South, sideItem, 1f);
-                scenario.AddBelt(new int2(0, 0), East, straightItem, 1f);
+                scenario.AddBelt(new GridCell(1, 0, 1), South, sideItem, 1f);
+                scenario.AddBelt(new GridCell(0, 0, 0), East, straightItem, 1f);
             }
             else
             {
-                scenario.AddBelt(new int2(0, 0), East, straightItem, 1f);
-                scenario.AddBelt(new int2(1, 1), South, sideItem, 1f);
+                scenario.AddBelt(new GridCell(0, 0, 0), East, straightItem, 1f);
+                scenario.AddBelt(new GridCell(1, 0, 1), South, sideItem, 1f);
             }
 
-            scenario.AddMerger(new int2(1, 0), East, nextInputIndex: 1);
+            scenario.AddMerger(new GridCell(1, 0, 0), East, nextInputIndex: 1);
             return scenario;
         }
 
@@ -198,25 +198,25 @@ namespace Factory.Tests
 
                 Entity straightItem = TransportAssertions.NodeAt(
                     before,
-                    new int2(0, 0)).CurrentItem;
+                    new GridCell(0, 0, 0)).CurrentItem;
                 Entity sideItem = TransportAssertions.NodeAt(
                     before,
-                    new int2(1, 1)).CurrentItem;
+                    new GridCell(1, 0, 1)).CurrentItem;
                 Assert.That(result.AcceptedTransferCount, Is.EqualTo(1));
                 Assert.That(
                     TransportAssertions.NodeAt(
                         after,
-                        new int2(1, 0)).CurrentItem,
+                        new GridCell(1, 0, 0)).CurrentItem,
                     Is.EqualTo(sideItem));
                 Assert.That(
                     TransportAssertions.NodeAt(
                         after,
-                        new int2(0, 0)).CurrentItem,
+                        new GridCell(0, 0, 0)).CurrentItem,
                     Is.EqualTo(straightItem));
                 Assert.That(
                     TransportAssertions.NodeAt(
                         after,
-                        new int2(1, 1)).CurrentItem,
+                        new GridCell(1, 0, 1)).CurrentItem,
                     Is.EqualTo(Entity.Null));
                 TransportAssertions.AssertItemSetPreserved(before, after);
             }

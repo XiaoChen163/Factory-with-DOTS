@@ -63,8 +63,24 @@ public sealed class FactoryIconBakePostprocessor : AssetPostprocessor
             .Concat(deletedAssets)
             .Concat(movedAssets)
             .Concat(movedFromAssetPaths);
-        if (changedAssets.Any(IsFactoryPrefab))
+        if (changedAssets.Any(IsFactoryPrefab) || changedAssets.Any(IsIconSource))
             QueueIncrementalBake();
+    }
+
+    private static bool IsIconSource(string path)
+    {
+        if (path == FactoryIconBaker.SettingsAssetPath) return true;
+        FactoryIconBakeSettings settings = AssetDatabase.LoadAssetAtPath<FactoryIconBakeSettings>(FactoryIconBaker.SettingsAssetPath);
+        if (settings == null) return false;
+        foreach (FactoryIconBakeOverride value in settings.overrides)
+        {
+            if (value == null) continue;
+            string model = AssetDatabase.GetAssetPath(value.iconPrefab);
+            string sprite = AssetDatabase.GetAssetPath(value.customIcon);
+            if (path == model || path == sprite) return true;
+            if (!string.IsNullOrEmpty(model) && AssetDatabase.GetDependencies(model).Contains(path)) return true;
+        }
+        return false;
     }
 
     private static bool IsFactoryPrefab(string path)

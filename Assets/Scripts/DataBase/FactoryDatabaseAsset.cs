@@ -15,7 +15,8 @@ public enum FactoryBuildingBehavior : byte
     Processor = 2,
     Storage = 3,
     Merger = 4,
-    Splitter = 5
+    Splitter = 5,
+    Foundation = 6
 }
 
 [Serializable]
@@ -98,6 +99,7 @@ public struct FactoryBuildingLevelTableRow
     public string iconKey;
     public Sprite icon;
     public int menuOrder;
+    public sbyte rampRiseHeightUnits;
 }
 
 [Serializable]

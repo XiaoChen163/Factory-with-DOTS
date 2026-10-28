@@ -23,6 +23,10 @@ public sealed class GameUiController : MonoBehaviour
     private PlayerCommandBus commandBus;
     private VisualElement notificationLayer;
     private VisualElement demolitionModeHint;
+    private Label gridLayerLabel;
+    private Button gridLayerDownButton;
+    private Button gridLayerUpButton;
+    private Button gridLayerAutoButton;
     private ulong pendingRecipeRequest;
     private BuildingRuntimeId openBuildingId;
     private bool buildCatalogRendered;
@@ -89,6 +93,13 @@ public sealed class GameUiController : MonoBehaviour
         });
         notificationLayer = Require(uiRoot, "notification-layer");
         demolitionModeHint = Require(uiRoot, "demolition-mode-hint");
+        gridLayerLabel = Require<Label>(uiRoot, "grid-layer-label");
+        gridLayerDownButton = Require<Button>(uiRoot, "grid-layer-down");
+        gridLayerUpButton = Require<Button>(uiRoot, "grid-layer-up");
+        gridLayerAutoButton = Require<Button>(uiRoot, "grid-layer-auto");
+        gridLayerDownButton.clicked += SelectPreviousGridLayer;
+        gridLayerUpButton.clicked += SelectNextGridLayer;
+        gridLayerAutoButton.clicked += UseAutomaticGridLayer;
         UpdateDemolitionModeHint();
         dragController = new ItemDragController(
             Require(uiRoot, "drag-layer"),
@@ -109,6 +120,12 @@ public sealed class GameUiController : MonoBehaviour
 
     private void OnDisable()
     {
+        if (gridLayerDownButton != null)
+            gridLayerDownButton.clicked -= SelectPreviousGridLayer;
+        if (gridLayerUpButton != null)
+            gridLayerUpButton.clicked -= SelectNextGridLayer;
+        if (gridLayerAutoButton != null)
+            gridLayerAutoButton.clicked -= UseAutomaticGridLayer;
         if (buildCatalogView != null)
             buildCatalogView.BuildingSelected -= OnBuildingSelected;
         if (buildingView != null && dragController != null)
@@ -130,6 +147,10 @@ public sealed class GameUiController : MonoBehaviour
         commandBus = null;
         notificationLayer = null;
         demolitionModeHint = null;
+        gridLayerLabel = null;
+        gridLayerDownButton = null;
+        gridLayerUpButton = null;
+        gridLayerAutoButton = null;
         pendingRecipeRequest = 0;
         buildCatalogRendered = false;
         buildShortcutBarView = null;
@@ -154,6 +175,7 @@ public sealed class GameUiController : MonoBehaviour
 
         UpdateDemolitionModeHint();
         UpdateBuildShortcutBar();
+        UpdateGridLayerControls();
 
         if (!inputMode.IsBuildMode &&
             !inputMode.IsDemolitionMode &&
@@ -276,17 +298,23 @@ public sealed class GameUiController : MonoBehaviour
         if (inputMode != null && inputMode.IsDemolitionMode)
         {
             inputMode.SetDemolitionMode(false);
+            inputMode.SetPointerReleased(false);
             UpdateDemolitionModeHint();
             return;
         }
         if (inputMode != null && inputMode.IsBuildMode)
         {
+            gridInteraction?.CancelPlacementGesture();
             CloseBuildCatalog();
             inputMode.SetBuildMode(false);
+            inputMode.SetPointerReleased(false);
             return;
         }
+        bool hadWindow = Windows != null &&
+            (Windows.IsOpen(UiWindowId.Backpack) || Windows.IsOpen(UiWindowId.Building));
         CloseBuilding();
         CloseBackpack();
+        if (!hadWindow) inputMode?.SetPointerReleased(true);
     }
 
     public void OpenBuildCatalog()
@@ -430,6 +458,29 @@ public sealed class GameUiController : MonoBehaviour
                 ? gridInteraction.SelectedBuildingLevel
                 : default,
             inputMode != null && inputMode.IsBuildMode);
+    }
+
+    public void SelectPreviousGridLayer() =>
+        gridInteraction?.SelectGridLevel(
+            gridInteraction.SelectedGridLevel - 1);
+
+    public void SelectNextGridLayer() =>
+        gridInteraction?.SelectGridLevel(
+            gridInteraction.SelectedGridLevel + 1);
+
+    public void UseAutomaticGridLayer() =>
+        gridInteraction?.UseFirstHitLayer();
+
+    private void UpdateGridLayerControls()
+    {
+        if (gridInteraction == null || gridLayerLabel == null)
+            return;
+        string picking = gridInteraction.LayerPickingMode ==
+                         GridLayerPickingMode.FirstHit
+            ? "AUTO"
+            : "LOCK";
+        gridLayerLabel.text =
+            $"{picking} · L{gridInteraction.SelectedGridLevel}";
     }
 
     private static VisualElement Require(VisualElement root, string name) =>

@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="30" result="Passed" total="30" passed="30" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-28 17:40:08Z" end-time="2026-10-28 17:40:42Z" duration="33.7339462">
+  <test-suite type="TestSuite" id="1042" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-10-28 17:40:08Z" end-time="2026-10-28 17:40:42Z" duration="33.733946" total="30" passed="30" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1036" name="Factory.PlayModeTests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.PlayModeTests.dll" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-10-28 17:40:08Z" end-time="2026-10-28 17:40:42Z" duration="33.726534" total="30" passed="30" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="3188" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1037" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-10-28 17:40:08Z" end-time="2026-10-28 17:40:42Z" duration="33.725327" total="30" passed="30" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1038" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-10-28 17:40:08Z" end-time="2026-10-28 17:40:42Z" duration="33.724475" total="30" passed="30" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="EcsCharacterCollisionPlayModeTests" fullname="Factory.Tests.EcsCharacterCollisionPlayModeTests" classname="Factory.Tests.EcsCharacterCollisionPlayModeTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-28 17:40:08Z" end-time="2026-10-28 17:40:20Z" duration="12.319078" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1003" name="ChunkSeam_RemainsGroundedAndStopsWhenControlBlocked" fullname="Factory.Tests.EcsCharacterCollisionPlayModeTests.ChunkSeam_RemainsGroundedAndStopsWhenControlBlocked" methodname="ChunkSeam_RemainsGroundedAndStopsWhenControlBlocked" classname="Factory.Tests.EcsCharacterCollisionPlayModeTests" runstate="Runnable" seed="728570314" result="Passed" start-time="2026-10-28 17:40:08Z" end-time="2026-10-28 17:40:18Z" duration="9.594571" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1002" name="EntranceEdge_ZeroFractionContact_AllowsOutwardAndTangentialEscape" fullname="Factory.Tests.EcsCharacterCollisionPlayModeTests.EntranceEdge_ZeroFractionContact_AllowsOutwardAndTangentialEscape" methodname="EntranceEdge_ZeroFractionContact_AllowsOutwardAndTangentialEscape" classname="Factory.Tests.EcsCharacterCollisionPlayModeTests" runstate="Runnable" seed="1658137541" result="Passed" start-time="2026-10-28 17:40:18Z" end-time="2026-10-28 17:40:19Z" duration="1.348390" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1004" name="WalkingIntoEntrance_CanReverseAwayAfterContact" fullname="Factory.Tests.EcsCharacterCollisionPlayModeTests.WalkingIntoEntrance_CanReverseAwayAfterContact" methodname="WalkingIntoEntrance_CanReverseAwayAfterContact" classname="Factory.Tests.EcsCharacterCollisionPlayModeTests" runstate="Runnable" seed="2104250363" result="Passed" start-time="2026-10-28 17:40:19Z" end-time="2026-10-28 17:40:20Z" duration="1.361999" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1005" name="FirstPersonInteractionReachPlayModeTests" fullname="Factory.Tests.FirstPersonInteractionReachPlayModeTests" classname="Factory.Tests.FirstPersonInteractionReachPlayModeTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-28 17:40:20Z" end-time="2026-10-28 17:40:21Z" duration="0.833225" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1006" name="ConstructionPlanes_RespectFiftyMetersFromCamera_InEveryPickingMode" fullname="Factory.Tests.FirstPersonInteractionReachPlayModeTests.ConstructionPlanes_RespectFiftyMetersFromCamera_InEveryPickingMode" methodname="ConstructionPlanes_RespectFiftyMetersFromCamera_InEveryPickingMode" classname="Factory.Tests.FirstPersonInteractionReachPlayModeTests" runstate="Runnable" seed="1483170613" result="Passed" start-time="2026-10-28 17:40:20Z" end-time="2026-10-28 17:40:21Z" duration="0.383805" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[[ECS Grid Raycast] Cell=(1000, L0, 1000), Inside=True, Occupied=False.
+]]></output>
+            </test-case>
+            <test-case id="1007" name="DotsSurfaceRay_RejectsFarTarget_DespiteLongCameraFarClip" fullname="Factory.Tests.FirstPersonInteractionReachPlayModeTests.DotsSurfaceRay_RejectsFarTarget_DespiteLongCameraFarClip" methodname="DotsSurfaceRay_RejectsFarTarget_DespiteLongCameraFarClip" classname="Factory.Tests.FirstPersonInteractionReachPlayModeTests" runstate="Runnable" seed="1683387757" result="Passed" start-time="2026-10-28 17:40:21Z" end-time="2026-10-28 17:40:21Z" duration="0.447216" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1008" name="FirstPersonPlayerPlayModeTests" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" testcasecount="10" result="Passed" start-time="2026-10-28 17:40:21Z" end-time="2026-10-28 17:40:34Z" duration="13.088693" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1017" name="Backpack_BlocksMovementAndPreventsFlightTapAcrossUi" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Backpack_BlocksMovementAndPreventsFlightTapAcrossUi" methodname="Backpack_BlocksMovementAndPreventsFlightTapAcrossUi" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="1713358363" result="Passed" start-time="2026-10-28 17:40:21Z" end-time="2026-10-28 17:40:22Z" duration="0.624777" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1016" name="Ctrl_AcceleratesWalkingAndFlight_AnimationFollowsMovement" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Ctrl_AcceleratesWalkingAndFlight_AnimationFollowsMovement" methodname="Ctrl_AcceleratesWalkingAndFlight_AnimationFollowsMovement" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="1892105940" result="Passed" start-time="2026-10-28 17:40:22Z" end-time="2026-10-28 17:40:24Z" duration="2.409858" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1015" name="DoubleTap_TogglesFlight_HoversAscendsDescendsAndFalls" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.DoubleTap_TogglesFlight_HoversAscendsDescendsAndFalls" methodname="DoubleTap_TogglesFlight_HoversAscendsDescendsAndFalls" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="965032428" result="Passed" start-time="2026-10-28 17:40:24Z" end-time="2026-10-28 17:40:26Z" duration="1.468990" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1010" name="Escape_LeavesBuildModeCaptured_ThenReleasesPointerInNormalMode" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Escape_LeavesBuildModeCaptured_ThenReleasesPointerInNormalMode" methodname="Escape_LeavesBuildModeCaptured_ThenReleasesPointerInNormalMode" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="1405863434" result="Passed" start-time="2026-10-28 17:40:26Z" end-time="2026-10-28 17:40:27Z" duration="1.294449" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1014" name="Flight_HoveringOrOpposingVerticalInputs_DoesNotExitFlightNearGround" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Flight_HoveringOrOpposingVerticalInputs_DoesNotExitFlightNearGround" methodname="Flight_HoveringOrOpposingVerticalInputs_DoesNotExitFlightNearGround" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="148544508" result="Passed" start-time="2026-10-28 17:40:27Z" end-time="2026-10-28 17:40:28Z" duration="0.702161" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1013" name="Flight_ShiftLandingExitsFlight_ForEitherShiftKey" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Flight_ShiftLandingExitsFlight_ForEitherShiftKey" methodname="Flight_ShiftLandingExitsFlight_ForEitherShiftKey" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="755609219" result="Passed" start-time="2026-10-28 17:40:28Z" end-time="2026-10-28 17:40:30Z" duration="2.237651" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1018" name="Motor_LandsOnDotsFoundationInsteadOfPassingThrough" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Motor_LandsOnDotsFoundationInsteadOfPassingThrough" methodname="Motor_LandsOnDotsFoundationInsteadOfPassingThrough" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="33372769" result="Passed" start-time="2026-10-28 17:40:30Z" end-time="2026-10-28 17:40:31Z" duration="1.353548" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1012" name="Scene_HasRobotAnimatorAndEyeCamera" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Scene_HasRobotAnimatorAndEyeCamera" methodname="Scene_HasRobotAnimatorAndEyeCamera" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="766491621" result="Passed" start-time="2026-10-28 17:40:31Z" end-time="2026-10-28 17:40:32Z" duration="0.602366" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1011" name="SingleSpace_JumpsAndReturnsToGround_WithoutEnteringFlight" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.SingleSpace_JumpsAndReturnsToGround_WithoutEnteringFlight" methodname="SingleSpace_JumpsAndReturnsToGround_WithoutEnteringFlight" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="1894069286" result="Passed" start-time="2026-10-28 17:40:32Z" end-time="2026-10-28 17:40:34Z" duration="1.813100" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1009" name="Spawn_CreatesTenByTenEcsFoundationOnce_WithoutFactoryFloor" fullname="Factory.Tests.FirstPersonPlayerPlayModeTests.Spawn_CreatesTenByTenEcsFoundationOnce_WithoutFactoryFloor" methodname="Spawn_CreatesTenByTenEcsFoundationOnce_WithoutFactoryFloor" classname="Factory.Tests.FirstPersonPlayerPlayModeTests" runstate="Runnable" seed="1757484691" result="Passed" start-time="2026-10-28 17:40:34Z" end-time="2026-10-28 17:40:34Z" duration="0.578203" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1019" name="FoundationRenderingPlayModeTests" fullname="Factory.Tests.FoundationRenderingPlayModeTests" classname="Factory.Tests.FoundationRenderingPlayModeTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-28 17:40:34Z" end-time="2026-10-28 17:40:35Z" duration="0.860343" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1020" name="RebuiltChunk_UpdatesLocalAndWorldBounds_WhenExpandedAndShrunk" fullname="Factory.Tests.FoundationRenderingPlayModeTests.RebuiltChunk_UpdatesLocalAndWorldBounds_WhenExpandedAndShrunk" methodname="RebuiltChunk_UpdatesLocalAndWorldBounds_WhenExpandedAndShrunk" classname="Factory.Tests.FoundationRenderingPlayModeTests" runstate="Runnable" seed="1574063588" result="Passed" start-time="2026-10-28 17:40:34Z" end-time="2026-10-28 17:40:35Z" duration="0.417061" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1021" name="SelectingBuildLevel_KeepsAllFoundationLevelsRenderable" fullname="Factory.Tests.FoundationRenderingPlayModeTests.SelectingBuildLevel_KeepsAllFoundationLevelsRenderable" methodname="SelectingBuildLevel_KeepsAllFoundationLevelsRenderable" classname="Factory.Tests.FoundationRenderingPlayModeTests" runstate="Runnable" seed="1771476453" result="Passed" start-time="2026-10-28 17:40:35Z" end-time="2026-10-28 17:40:35Z" duration="0.436556" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1022" name="Phase2UiPlayModeTests" fullname="Factory.Tests.Phase2UiPlayModeTests" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" testcasecount="13" result="Passed" start-time="2026-10-28 17:40:35Z" end-time="2026-10-28 17:40:42Z" duration="6.620120" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1026" name="DemolitionMode_TogglesHintAndKeepsOtherModesClosed" fullname="Factory.Tests.Phase2UiPlayModeTests.DemolitionMode_TogglesHintAndKeepsOtherModesClosed" methodname="DemolitionMode_TogglesHintAndKeepsOtherModesClosed" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="737185683" result="Passed" start-time="2026-10-28 17:40:35Z" end-time="2026-10-28 17:40:35Z" duration="0.352146" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1023" name="EcsScene_GameUiRootInitializesAndTogglesEmptyWindows" fullname="Factory.Tests.Phase2UiPlayModeTests.EcsScene_GameUiRootInitializesAndTogglesEmptyWindows" methodname="EcsScene_GameUiRootInitializesAndTogglesEmptyWindows" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1227477729" result="Passed" start-time="2026-10-28 17:40:35Z" end-time="2026-10-28 17:40:36Z" duration="0.374548" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1035" name="IncrementalFoundationBatches_ReuseValidChunkRenderMesh" fullname="Factory.Tests.Phase2UiPlayModeTests.IncrementalFoundationBatches_ReuseValidChunkRenderMesh" methodname="IncrementalFoundationBatches_ReuseValidChunkRenderMesh" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1170985840" result="Passed" start-time="2026-10-28 17:40:36Z" end-time="2026-10-28 17:40:36Z" duration="0.576350" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[[ECS Grid Raycast] Cell=(100, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(100, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(101, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(101, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(102, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(102, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(103, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(103, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(104, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(104, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(105, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(105, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(106, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(106, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(107, L0, 100), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(107, L0, 100), Inside=True, Occupied=False.
+]]></output>
+            </test-case>
+            <test-case id="1025" name="Phase3_EscapeClosesBackpackAndBuildingTogether" fullname="Factory.Tests.Phase2UiPlayModeTests.Phase3_EscapeClosesBackpackAndBuildingTogether" methodname="Phase3_EscapeClosesBackpackAndBuildingTogether" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1455660774" result="Passed" start-time="2026-10-28 17:40:36Z" end-time="2026-10-28 17:40:37Z" duration="0.375524" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1024" name="Phase3_InputModes_KeepBuildAndRegularWindowsExclusive" fullname="Factory.Tests.Phase2UiPlayModeTests.Phase3_InputModes_KeepBuildAndRegularWindowsExclusive" methodname="Phase3_InputModes_KeepBuildAndRegularWindowsExclusive" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="873807307" result="Passed" start-time="2026-10-28 17:40:37Z" end-time="2026-10-28 17:40:37Z" duration="0.366420" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1029" name="Phase5_BuildCatalogSelectionSurvivesSnapshotRefresh" fullname="Factory.Tests.Phase2UiPlayModeTests.Phase5_BuildCatalogSelectionSurvivesSnapshotRefresh" methodname="Phase5_BuildCatalogSelectionSurvivesSnapshotRefresh" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="352887723" result="Passed" start-time="2026-10-28 17:40:37Z" end-time="2026-10-28 17:40:38Z" duration="0.683424" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1028" name="Phase5_EcsSceneUsesRetainedUiAndInputSystemBuildActions" fullname="Factory.Tests.Phase2UiPlayModeTests.Phase5_EcsSceneUsesRetainedUiAndInputSystemBuildActions" methodname="Phase5_EcsSceneUsesRetainedUiAndInputSystemBuildActions" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1732271885" result="Passed" start-time="2026-10-28 17:40:38Z" end-time="2026-10-28 17:40:38Z" duration="0.382817" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1030" name="Phase5_RTogglesBeltPathPriorityAfterStart" fullname="Factory.Tests.Phase2UiPlayModeTests.Phase5_RTogglesBeltPathPriorityAfterStart" methodname="Phase5_RTogglesBeltPathPriorityAfterStart" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1825186675" result="Passed" start-time="2026-10-28 17:40:38Z" end-time="2026-10-28 17:40:39Z" duration="1.059480" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1027" name="Phase6_BuildShortcut_BindsSelectionAndReentersBatchBuildMode" fullname="Factory.Tests.Phase2UiPlayModeTests.Phase6_BuildShortcut_BindsSelectionAndReentersBatchBuildMode" methodname="Phase6_BuildShortcut_BindsSelectionAndReentersBatchBuildMode" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1490781767" result="Passed" start-time="2026-10-28 17:40:39Z" end-time="2026-10-28 17:40:40Z" duration="0.387537" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1032" name="RampSelection_PlacesStraightConnectedLineAboveFoundation" fullname="Factory.Tests.Phase2UiPlayModeTests.RampSelection_PlacesStraightConnectedLineAboveFoundation" methodname="RampSelection_PlacesStraightConnectedLineAboveFoundation" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1287255212" result="Passed" start-time="2026-10-28 17:40:40Z" end-time="2026-10-28 17:40:40Z" duration="0.632240" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[[ECS Grid Raycast] Cell=(2, L0, 2), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(4, L0, 3), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(2, L0, 2), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(4, L1, 2), Inside=True, Occupied=False.
+]]></output>
+            </test-case>
+            <test-case id="1031" name="SimulatedBuild_BypassesPlayerModeAndPlacesBeltPath" fullname="Factory.Tests.Phase2UiPlayModeTests.SimulatedBuild_BypassesPlayerModeAndPlacesBeltPath" methodname="SimulatedBuild_BypassesPlayerModeAndPlacesBeltPath" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1983653143" result="Passed" start-time="2026-10-28 17:40:40Z" end-time="2026-10-28 17:40:41Z" duration="0.416230" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[[ECS Grid Raycast] Cell=(0, L0, 0), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(1, L0, 0), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(0, L0, 0), Inside=True, Occupied=False.
+[ECS Grid Raycast] Cell=(1, L0, 0), Inside=True, Occupied=False.
+]]></output>
+            </test-case>
+            <test-case id="1034" name="VerticalBelts_BuildFromCatalogAndRemainPickableInPhysicsWorld" fullname="Factory.Tests.Phase2UiPlayModeTests.VerticalBelts_BuildFromCatalogAndRemainPickableInPhysicsWorld" methodname="VerticalBelts_BuildFromCatalogAndRemainPickableInPhysicsWorld" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="681128475" result="Passed" start-time="2026-10-28 17:40:41Z" end-time="2026-10-28 17:40:41Z" duration="0.455377" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1033" name="VerticalBelts_TwoClickGestureBuildsUpAndDownAndRotatesOnlyExit" fullname="Factory.Tests.Phase2UiPlayModeTests.VerticalBelts_TwoClickGestureBuildsUpAndDownAndRotatesOnlyExit" methodname="VerticalBelts_TwoClickGestureBuildsUpAndDownAndRotatesOnlyExit" classname="Factory.Tests.Phase2UiPlayModeTests" runstate="Runnable" seed="1756049598" result="Passed" start-time="2026-10-28 17:40:41Z" end-time="2026-10-28 17:40:42Z" duration="0.549536" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

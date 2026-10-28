@@ -32,6 +32,21 @@ namespace Factory.Tests
             TestWorld = null;
         }
 
+        protected void ConfigureWorldGrid(Entity grid, int2 surfaceSize, WorldGridConfig config)
+        {
+            EntityManager.AddComponentData(grid, config);
+            SeedSurfaceRectangle(grid, surfaceSize);
+        }
+
+        protected void SeedSurfaceRectangle(Entity grid, int2 size)
+        {
+            DynamicBuffer<InitialSurfaceCell> cells = EntityManager.AddBuffer<InitialSurfaceCell>(grid);
+            for (int z = 0; z < size.y; z++)
+            for (int x = 0; x < size.x; x++)
+                cells.Add(new InitialSurfaceCell { Cell = new GridCell(x, 0, z) });
+            UpdateSystem(GetOrCreateManagedSystem<SurfaceRegistrySystem>());
+        }
+
         protected Entity CreateItem(ushort itemType = 1)
         {
             Entity entity = EntityManager.CreateEntity();
@@ -43,7 +58,7 @@ namespace Factory.Tests
         }
 
         protected Entity CreateBelt(
-            int2 cell,
+            GridCell cell,
             int2 direction,
             Entity item = default,
             float progress = 0f)

@@ -27,6 +27,8 @@ namespace Factory.Tests
             new List<Entity>();
         private readonly List<Splitter> splitters =
             new List<Splitter>();
+        private readonly List<TransportExplicitEdge> explicitEdges =
+            new List<TransportExplicitEdge>();
         private readonly HashSet<Entity> processedJunctions =
             new HashSet<Entity>();
         private readonly FactoryLinearTransferResolver linearResolver =
@@ -44,6 +46,7 @@ namespace Factory.Tests
         public IReadOnlyList<Splitter> Splitters => splitters;
         public int LinearTopologyRebuildCount =>
             linearResolver.TopologyRebuildCount;
+        public int LinearTopologyEdgeCount => linearResolver.EdgeCount;
         public int LinearCandidateInspectionCount =>
             linearResolver.LastCandidateInspectionCount;
         public int LinearRoutingPassCount =>
@@ -66,7 +69,7 @@ namespace Factory.Tests
         }
 
         public Entity AddBelt(
-            int2 cell,
+            GridCell cell,
             int2 direction,
             Entity item = default,
             float progress = 0f,
@@ -89,7 +92,7 @@ namespace Factory.Tests
         }
 
         public Entity AddMerger(
-            int2 cell,
+            GridCell cell,
             int2 direction,
             Entity item = default,
             int nextInputIndex = 0)
@@ -107,7 +110,7 @@ namespace Factory.Tests
         }
 
         public Entity AddSplitter(
-            int2 cell,
+            GridCell cell,
             int2 direction,
             Entity item = default,
             int nextOutputIndex = 0)
@@ -122,6 +125,21 @@ namespace Factory.Tests
                 NextOutputIndex = nextOutputIndex
             });
             return entity;
+        }
+
+        public void AddExplicitEdge(
+            Entity source,
+            Entity target,
+            byte sourceOutputIndex = 0,
+            byte targetInputIndex = 0)
+        {
+            explicitEdges.Add(new TransportExplicitEdge
+            {
+                Source = source,
+                Target = target,
+                SourceOutputIndex = sourceOutputIndex,
+                TargetInputIndex = targetInputIndex
+            });
         }
 
         public TransportTickResult ResolveTick()
@@ -209,6 +227,10 @@ namespace Factory.Tests
                 new NativeArray<Splitter>(
                     splitters.ToArray(),
                     Allocator.TempJob);
+            using NativeArray<TransportExplicitEdge> explicitEdgeSnapshot =
+                new NativeArray<TransportExplicitEdge>(
+                    explicitEdges.ToArray(),
+                    Allocator.TempJob);
 
             linearResolver.EnsureTopology(
                 revision,
@@ -217,7 +239,8 @@ namespace Factory.Tests
                 mergerEntitySnapshot,
                 mergerSnapshot,
                 splitterEntitySnapshot,
-                splitterSnapshot);
+                splitterSnapshot,
+                explicitEdgeSnapshot);
 
             FactoryTransferArbitrationJob job =
                 linearResolver.CreateArbitrationJob();
@@ -342,7 +365,7 @@ namespace Factory.Tests
     {
         public TransportNodeSnapshot(
             TransportNodeKind kind,
-            int2 cell,
+            GridCell cell,
             Entity currentItem,
             float progress,
             int cursor)
@@ -355,7 +378,7 @@ namespace Factory.Tests
         }
 
         public TransportNodeKind Kind { get; }
-        public int2 Cell { get; }
+        public GridCell Cell { get; }
         public Entity CurrentItem { get; }
         public float Progress { get; }
         public int Cursor { get; }
@@ -364,13 +387,19 @@ namespace Factory.Tests
             TransportNodeSnapshot left,
             TransportNodeSnapshot right)
         {
-            int x = left.Cell.x.CompareTo(right.Cell.x);
+            int level = left.Cell.Level.CompareTo(right.Cell.Level);
+            if (level != 0)
+            {
+                return level;
+            }
+
+            int x = left.Cell.X.CompareTo(right.Cell.X);
             if (x != 0)
             {
                 return x;
             }
 
-            int y = left.Cell.y.CompareTo(right.Cell.y);
+            int y = left.Cell.Z.CompareTo(right.Cell.Z);
             return y != 0 ? y : left.Kind.CompareTo(right.Kind);
         }
     }

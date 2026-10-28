@@ -1,10 +1,12 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Collections;
 
 public struct BuildingPrefabCatalog : IComponentData
 {
     public Entity InputPortVisual;
     public Entity OutputPortVisual;
+    public Entity RampFoundationVisual;
 }
 
 public struct BuildingVisualPrefabEntry : IBufferElementData
@@ -27,20 +29,37 @@ public enum GridBuildCommandType : byte
     Place,
     Remove,
     PlaceBeltPath,
-    RemoveBeltLine
+    RemoveBeltLine,
+    PlaceFoundation,
+    RemoveFoundation,
+    PlaceFoundationArea,
+    PlaceRampFoundation,
+    RemoveRampFoundation,
+    PlaceRampBelt,
+    RemoveRampBelt,
+    PlaceRampBeltPath,
+    PlaceVerticalBeltPath,
+    CancelVerticalBeltPlacement
 }
 
 public struct GridBuildCommand : IBufferElementData
 {
     public uint RequestId;
+    public ulong PlacementRequestId;
     public PlayerId Player;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;
-    public int2 StartCell;
-    public int2 EndCell;
+    public GridCell StartCell;
+    public GridCell EndCell;
     public byte QuarterTurns;
     public byte HorizontalFirst;
+    public ushort VisualMaterialId;
+    // Ramp heights use fixed eighth-layer units. StartCell.Level remains the
+    // address of a flat grid plane and is deliberately not overloaded with a
+    // fractional meaning.
+    public int RampStartHeightUnits;
+    public sbyte RampRiseHeightUnits;
 }
 
 public enum GridBuildFailureReason : byte
@@ -55,7 +74,26 @@ public enum GridBuildFailureReason : byte
     SplitterDirectionConflict,
     MergerOutputFaceConflict,
     InvalidPath,
-    TargetIsNotBelt
+    TargetIsNotBelt,
+    SurfaceMissing,
+    FoundationAlreadyExists,
+    FoundationUnsupported,
+    FoundationSupportsBuilding,
+    InvalidFoundationLevel,
+    FoundationAreaTooLarge,
+    InvalidRampSlope,
+    RampOccupied,
+    RampMissing,
+    RampHasBelt,
+    RampDirectionInvalid,
+    RampPathMustStayOnRamp,
+    RampPathNotCollinear,
+    RampPathIncomplete,
+    RampPathSlopeMismatch,
+    VerticalSupportMissing,
+    VerticalDirectionConflict,
+    VerticalContainsItem,
+    InvalidVerticalPath
 }
 
 public struct GridBuildResult : IBufferElementData
@@ -64,7 +102,7 @@ public struct GridBuildResult : IBufferElementData
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;
-    public int2 Cell;
+    public GridCell Cell;
     public byte Success;
     public int AffectedCount;
     public GridBuildFailureReason FailureReason;
@@ -134,14 +172,35 @@ public static class BuildingPrefabCatalogUtility
         }
         return Entity.Null;
     }
+
+    public static Entity GetPrefab(
+        in NativeArray<BuildingVisualPrefabEntry> prefabs,
+        BuildingLevelId buildingLevel)
+    {
+        for (int i = 0; i < prefabs.Length; i++)
+            if (prefabs[i].BuildingLevel == buildingLevel)
+                return prefabs[i].Prefab;
+        return Entity.Null;
+    }
 }
 
-public static class ItemContainerRuntimeIdUtility
+public struct BuildingRuntimeIdAllocator : IComponentData
 {
-    public static ulong FromCell(int2 cell)
+    public ulong NextValue;
+
+    public ulong Allocate()
     {
-        return 0x8000000000000000UL |
-               ((ulong)(uint)cell.x << 32) |
-               (uint)cell.y;
+        if (NextValue < 0x8000000000000000UL)
+        {
+            NextValue = 0x8000000000000000UL;
+        }
+
+        if (NextValue == ulong.MaxValue)
+        {
+            throw new System.InvalidOperationException(
+                "Building runtime ID space is exhausted.");
+        }
+
+        return NextValue++;
     }
 }

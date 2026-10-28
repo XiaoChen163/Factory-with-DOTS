@@ -65,6 +65,8 @@ public partial struct PlayerGridCommandAdapterSystem : ISystem
             gridCommands.Add(new GridBuildCommand
             {
                 RequestId = gridRequestId,
+                PlacementRequestId = value.Type == GridBuildCommandType.Place
+                    ? value.Header.RequestId : value.PlacementRequestId,
                 Player = value.Header.Player,
                 Type = value.Type,
                 Kind = value.Kind,
@@ -72,7 +74,10 @@ public partial struct PlayerGridCommandAdapterSystem : ISystem
                 StartCell = value.StartCell,
                 EndCell = value.EndCell,
                 QuarterTurns = value.QuarterTurns,
-                HorizontalFirst = value.HorizontalFirst
+                HorizontalFirst = value.HorizontalFirst,
+                VisualMaterialId = value.VisualMaterialId,
+                RampStartHeightUnits = value.RampStartHeightUnits,
+                RampRiseHeightUnits = value.RampRiseHeightUnits
             });
         }
         state.EntityManager.SetComponentData(grid, adapter);

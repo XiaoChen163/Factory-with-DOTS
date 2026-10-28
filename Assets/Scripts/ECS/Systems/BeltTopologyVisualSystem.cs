@@ -15,6 +15,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
     private ComponentLookup<BuildingVisualReference> visualReferenceLookup;
     private ComponentLookup<BeltVisualParts> visualPartsLookup;
     private EntityQuery needsRefreshQuery;
+    private EntityQuery allBeltsQuery;
     private EntityCommandBuffer pendingVisualEcb;
     private NativeParallelHashSet<Entity> pendingVisibleEdges;
     private NativeParallelHashSet<Entity> pendingHiddenEdges;
@@ -31,11 +32,13 @@ public partial class BeltTopologyVisualSystem : SystemBase
             ComponentType.ReadOnly<BeltTopology>(),
             ComponentType.ReadOnly<GridPlacement>(),
             ComponentType.ReadOnly<BuildingVisualReference>());
+        allBeltsQuery = GetEntityQuery(
+            ComponentType.ReadOnly<BeltTopology>());
         pendingVisibleEdges =
             new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
         pendingHiddenEdges =
             new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
-        RequireForUpdate<GridDefinition>();
+        RequireForUpdate<WorldGridConfig>();
     }
 
     protected override void OnDestroy()
@@ -70,7 +73,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
         }
 
         Entity gridEntity =
-            SystemAPI.GetSingletonEntity<GridDefinition>();
+            SystemAPI.GetSingletonEntity<WorldGridConfig>();
         bool hasDirty =
             EntityManager.HasBuffer<BeltVisualDirtyCell>(gridEntity) &&
             !EntityManager.GetBuffer<BeltVisualDirtyCell>(gridEntity)
@@ -81,6 +84,24 @@ public partial class BeltTopologyVisualSystem : SystemBase
         }
 
         Dependency.Complete();
+        Dictionary<GridCell, Entity> beltsByCell = BuildBeltCellLookup();
+        Dictionary<Entity, Entity> explicitInputs =
+            new Dictionary<Entity, Entity>();
+        Dictionary<Entity, Entity> explicitOutputs =
+            new Dictionary<Entity, Entity>();
+        if (EntityManager.HasBuffer<TransportExplicitEdge>(gridEntity))
+        {
+            DynamicBuffer<TransportExplicitEdge> explicitEdges =
+                EntityManager.GetBuffer<TransportExplicitEdge>(
+                    gridEntity,
+                    true);
+            for (int i = 0; i < explicitEdges.Length; i++)
+            {
+                TransportExplicitEdge edge = explicitEdges[i];
+                explicitOutputs[edge.Source] = edge.Target;
+                explicitInputs[edge.Target] = edge.Source;
+            }
+        }
         pendingVisualEcb = new EntityCommandBuffer(Allocator.Temp);
         pendingVisibleEdges.Clear();
         pendingHiddenEdges.Clear();
@@ -89,8 +110,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
         {
             dirtyCells =
                 EntityManager.GetBuffer<BeltVisualDirtyCell>(gridEntity);
-            using NativeParallelHashSet<int2> dirtyCellSet =
-                new NativeParallelHashSet<int2>(
+            using NativeParallelHashSet<GridCell> dirtyCellSet =
+                new NativeParallelHashSet<GridCell>(
                     math.max(16, dirtyCells.Length * 2),
                     Allocator.Temp);
             for (int i = 0; i < dirtyCells.Length; i++)
@@ -98,11 +119,13 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 dirtyCellSet.Add(dirtyCells[i].Value);
             }
 
-            foreach (int2 cell in dirtyCellSet)
+            foreach (GridCell cell in dirtyCellSet)
             {
-                if (!occupancySystem.TryGetOccupant(
-                        cell,
-                        out Entity building) ||
+                bool foundBuilding = occupancySystem.TryGetOccupant(
+                    cell,
+                    out Entity building) ||
+                    beltsByCell.TryGetValue(cell, out building);
+                if (!foundBuilding ||
                     !beltTopologyLookup.HasComponent(building) ||
                     !gridPlacementLookup.HasComponent(building) ||
                     !visualReferenceLookup.HasComponent(building))
@@ -119,10 +142,14 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 }
 
                 RefreshBeltVisual(
+                    building,
                     beltTopologyLookup[building],
                     gridPlacementLookup[building],
                     visualPartsLookup[visualEntity],
-                    occupancySystem);
+                    occupancySystem,
+                    beltsByCell,
+                    explicitInputs,
+                    explicitOutputs);
             }
 
             dirtyCells.Clear();
@@ -150,10 +177,14 @@ public partial class BeltTopologyVisualSystem : SystemBase
             }
 
             RefreshBeltVisual(
+                building,
                 beltTopologyLookup[building],
                 gridPlacementLookup[building],
                 visualPartsLookup[visualEntity],
-                occupancySystem);
+                occupancySystem,
+                beltsByCell,
+                explicitInputs,
+                explicitOutputs);
             processedRefresh.Add(building);
         }
 
@@ -170,37 +201,93 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private void RefreshBeltVisual(
+        Entity entity,
         in BeltTopology belt,
         in GridPlacement placement,
         in BeltVisualParts visual,
-        GridOccupancyIndexSystem occupancySystem)
+        GridOccupancyIndexSystem occupancySystem,
+        Dictionary<GridCell, Entity> beltsByCell,
+        Dictionary<Entity, Entity> explicitInputs,
+        Dictionary<Entity, Entity> explicitOutputs)
     {
         SetAllEdgesVisible(visual, true);
-
-        bool hasInput = TryFindIncomingDirection(
-            belt.Cell,
-            belt.Direction,
-            occupancySystem,
-            out int2 incomingDirection);
+        bool isRampBelt = EntityManager.HasComponent<RampBelt>(entity);
+        if (isRampBelt)
+        {
+            // A ramp belt always exposes only its two lateral rails. Its
+            // local East/West edges are the slope's high and low ends.
+            SetVisible(visual.EastEdge, false);
+            SetVisible(visual.WestEdge, false);
+        }
+        bool hasExplicitInput = explicitInputs.TryGetValue(
+            entity,
+            out Entity inputBelt);
+        bool hasExplicitOutput = explicitOutputs.TryGetValue(
+            entity,
+            out Entity outputBelt);
+        int2 incomingDirection = belt.Direction;
+        bool hasPlanarInput = RampUtility.AllowsPlanarInput(
+            belt.ConnectionMode) &&
+            TryFindIncomingDirection(
+                belt.Cell,
+                belt.Direction,
+                occupancySystem,
+                beltsByCell,
+                out incomingDirection);
+        bool hasInput = hasExplicitInput || hasPlanarInput;
         if (hasInput)
         {
-            SetWorldEdgeVisible(
-                visual,
-                -incomingDirection,
-                placement.QuarterTurns,
-                false);
+            if (!hasExplicitInput)
+            {
+                beltsByCell.TryGetValue(
+                    belt.Cell - incomingDirection,
+                    out inputBelt);
+            }
+
+            if (!TrySetConnectedBeltEdgeVisible(
+                    visual,
+                    belt.Cell,
+                    inputBelt,
+                    placement.QuarterTurns,
+                    false))
+            {
+                SetWorldEdgeVisible(
+                    visual,
+                    -incomingDirection,
+                    placement.QuarterTurns,
+                    false);
+            }
         }
 
-        bool hasOutput = HasOutputConnection(
-            belt,
-            occupancySystem);
+        bool hasPlanarOutput = RampUtility.AllowsPlanarOutput(
+                                   belt.ConnectionMode) &&
+                               HasOutputConnection(
+                                   belt,
+                                   occupancySystem,
+                                   beltsByCell);
+        bool hasOutput = hasExplicitOutput || hasPlanarOutput;
         if (hasOutput)
         {
-            SetWorldEdgeVisible(
-                visual,
-                belt.Direction,
-                placement.QuarterTurns,
-                false);
+            if (!hasExplicitOutput)
+            {
+                beltsByCell.TryGetValue(
+                    belt.Cell + belt.Direction,
+                    out outputBelt);
+            }
+
+            if (!TrySetConnectedBeltEdgeVisible(
+                    visual,
+                    belt.Cell,
+                    outputBelt,
+                    placement.QuarterTurns,
+                    false))
+            {
+                SetWorldEdgeVisible(
+                    visual,
+                    belt.Direction,
+                    placement.QuarterTurns,
+                    false);
+            }
         }
 
         int2 displayDirection = belt.Direction;
@@ -222,15 +309,17 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private bool TryFindIncomingDirection(
-        int2 targetCell,
+        GridCell targetCell,
         int2 targetDirection,
         GridOccupancyIndexSystem occupancySystem,
+        Dictionary<GridCell, Entity> beltsByCell,
         out int2 incomingDirection)
     {
         if (HasIncomingFromDirection(
                 targetCell,
                 targetDirection,
-                occupancySystem))
+                occupancySystem,
+                beltsByCell))
         {
             incomingDirection = targetDirection;
             return true;
@@ -241,7 +330,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
         if (HasIncomingFromDirection(
                 targetCell,
                 right,
-                occupancySystem))
+                occupancySystem,
+                beltsByCell))
         {
             incomingDirection = right;
             return true;
@@ -251,7 +341,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
         if (HasIncomingFromDirection(
                 targetCell,
                 left,
-                occupancySystem))
+                occupancySystem,
+                beltsByCell))
         {
             incomingDirection = left;
             return true;
@@ -262,20 +353,35 @@ public partial class BeltTopologyVisualSystem : SystemBase
     }
 
     private bool HasIncomingFromDirection(
-        int2 targetCell,
+        GridCell targetCell,
         int2 travelDirection,
-        GridOccupancyIndexSystem occupancySystem)
+        GridOccupancyIndexSystem occupancySystem,
+        Dictionary<GridCell, Entity> beltsByCell)
     {
-        int2 sourceCell = targetCell - travelDirection;
-        if (!occupancySystem.TryGetOccupant(
-                sourceCell,
-                out Entity source) ||
-            !EntityManager.HasComponent<GridPlacement>(source) ||
-            !EntityManager.HasBuffer<BuildingPort>(source))
+        GridCell sourceCell = targetCell - travelDirection;
+        bool foundSource = occupancySystem.TryGetOccupant(
+            sourceCell,
+            out Entity source) ||
+            beltsByCell.TryGetValue(sourceCell, out source);
+        if (!foundSource)
         {
             return false;
         }
 
+        if (EntityManager.HasComponent<BeltTopology>(source))
+        {
+            BeltTopology sourceBelt =
+                EntityManager.GetComponentData<BeltTopology>(source);
+            return RampUtility.AllowsPlanarOutput(
+                       sourceBelt.ConnectionMode) &&
+                   math.all(sourceBelt.Direction == travelDirection);
+        }
+
+        if (!EntityManager.HasComponent<GridPlacement>(source) ||
+            !EntityManager.HasBuffer<BuildingPort>(source))
+        {
+            return false;
+        }
         GridPlacement sourcePlacement =
             EntityManager.GetComponentData<GridPlacement>(source);
         DynamicBuffer<BuildingPort> sourcePorts =
@@ -288,13 +394,13 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 continue;
             }
 
-            int2 outputCell = EcsGridUtility.GetBuildingCell(
+            GridCell outputCell = EcsGridUtility.GetBuildingCell(
                 sourcePlacement,
                 port.CellOffset);
             int2 outputDirection = EcsGridUtility.Rotate(
                 port.Direction,
                 sourcePlacement.QuarterTurns);
-            if (math.all(outputCell == targetCell) &&
+            if (outputCell == targetCell &&
                 math.all(outputDirection == travelDirection))
             {
                 return true;
@@ -306,14 +412,15 @@ public partial class BeltTopologyVisualSystem : SystemBase
 
     private bool HasOutputConnection(
         in BeltTopology belt,
-        GridOccupancyIndexSystem occupancySystem)
+        GridOccupancyIndexSystem occupancySystem,
+        Dictionary<GridCell, Entity> beltsByCell)
     {
-        int2 targetCell = belt.Cell + belt.Direction;
-        if (!occupancySystem.TryGetOccupant(
-                targetCell,
-                out Entity target) ||
-            !EntityManager.HasComponent<GridPlacement>(target) ||
-            !EntityManager.HasBuffer<BuildingPort>(target))
+        GridCell targetCell = belt.Cell + belt.Direction;
+        bool foundTarget = occupancySystem.TryGetOccupant(
+            targetCell,
+            out Entity target) ||
+            beltsByCell.TryGetValue(targetCell, out target);
+        if (!foundTarget)
         {
             return false;
         }
@@ -322,13 +429,22 @@ public partial class BeltTopologyVisualSystem : SystemBase
         {
             BeltTopology targetBelt =
                 EntityManager.GetComponentData<BeltTopology>(target);
+            if (!RampUtility.AllowsPlanarInput(targetBelt.ConnectionMode))
+                return false;
             return TryFindIncomingDirection(
                        targetBelt.Cell,
                        targetBelt.Direction,
                        occupancySystem,
+                       beltsByCell,
                        out int2 selectedInputDirection) &&
                    math.all(
                        selectedInputDirection == belt.Direction);
+        }
+
+        if (!EntityManager.HasComponent<GridPlacement>(target) ||
+            !EntityManager.HasBuffer<BuildingPort>(target))
+        {
+            return false;
         }
 
         GridPlacement targetPlacement =
@@ -343,13 +459,13 @@ public partial class BeltTopologyVisualSystem : SystemBase
                 continue;
             }
 
-            int2 sourceCell = EcsGridUtility.GetBuildingCell(
+            GridCell sourceCell = EcsGridUtility.GetBuildingCell(
                 targetPlacement,
                 port.CellOffset);
             int2 travelDirection = EcsGridUtility.Rotate(
                 port.Direction,
                 targetPlacement.QuarterTurns);
-            if (math.all(sourceCell == belt.Cell) &&
+            if (sourceCell == belt.Cell &&
                 math.all(travelDirection == belt.Direction))
             {
                 return true;
@@ -357,6 +473,21 @@ public partial class BeltTopologyVisualSystem : SystemBase
         }
 
         return false;
+    }
+
+    private Dictionary<GridCell, Entity> BuildBeltCellLookup()
+    {
+        using NativeArray<Entity> entities =
+            allBeltsQuery.ToEntityArray(Allocator.Temp);
+        using NativeArray<BeltTopology> topologies =
+            allBeltsQuery.ToComponentDataArray<BeltTopology>(Allocator.Temp);
+        Dictionary<GridCell, Entity> result =
+            new Dictionary<GridCell, Entity>(entities.Length);
+        for (int i = 0; i < entities.Length; i++)
+        {
+            result[topologies[i].Cell] = entities[i];
+        }
+        return result;
     }
 
     private void SetAllEdgesVisible(
@@ -394,6 +525,44 @@ public partial class BeltTopologyVisualSystem : SystemBase
         {
             SetVisible(visual.SouthEdge, visible);
         }
+    }
+
+    private bool TrySetConnectedBeltEdgeVisible(
+        in BeltVisualParts visual,
+        GridCell currentCell,
+        Entity connectedBelt,
+        int quarterTurns,
+        bool visible)
+    {
+        if (connectedBelt == Entity.Null ||
+            !beltTopologyLookup.HasComponent(connectedBelt))
+        {
+            return false;
+        }
+
+        GridCell connectedCell = beltTopologyLookup[connectedBelt].Cell;
+        int deltaX = connectedCell.X - currentCell.X;
+        int deltaZ = connectedCell.Z - currentCell.Z;
+        int2 edgeDirection;
+        if (deltaX != 0 && deltaZ == 0)
+        {
+            edgeDirection = new int2(deltaX > 0 ? 1 : -1, 0);
+        }
+        else if (deltaZ != 0 && deltaX == 0)
+        {
+            edgeDirection = new int2(0, deltaZ > 0 ? 1 : -1);
+        }
+        else
+        {
+            return false;
+        }
+
+        SetWorldEdgeVisible(
+            visual,
+            edgeDirection,
+            quarterTurns,
+            visible);
+        return true;
     }
 
     private void SetVisible(Entity visualEntity, bool visible)

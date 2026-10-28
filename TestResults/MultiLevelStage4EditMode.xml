@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="18" result="Passed" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-28 16:50:26Z" end-time="2026-10-28 16:50:27Z" duration="0.4770474">
+  <test-suite type="TestSuite" id="1000" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="241" result="Passed" start-time="2026-10-28 16:50:26Z" end-time="2026-10-28 16:50:27Z" duration="0.477047" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1285" name="Factory.Tests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.Tests.dll" runstate="Runnable" testcasecount="241" result="Passed" start-time="2026-10-28 16:50:26Z" end-time="2026-10-28 16:50:27Z" duration="0.468409" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="17456" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1286" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="241" result="Passed" start-time="2026-10-28 16:50:26Z" end-time="2026-10-28 16:50:27Z" duration="0.466720" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1287" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="241" result="Passed" start-time="2026-10-28 16:50:26Z" end-time="2026-10-28 16:50:27Z" duration="0.465503" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1114" name="MultiLevelStage4Tests" fullname="Factory.Tests.MultiLevelStage4Tests" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" testcasecount="18" result="Passed" start-time="2026-10-28 16:50:26Z" end-time="2026-10-28 16:50:27Z" duration="0.461196" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1132" name="BuildCommands_PlaceSameHorizontalCellOnTwoLevels" fullname="Factory.Tests.MultiLevelStage4Tests.BuildCommands_PlaceSameHorizontalCellOnTwoLevels" methodname="BuildCommands_PlaceSameHorizontalCellOnTwoLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1331038263" result="Passed" start-time="2026-10-28 16:50:26Z" end-time="2026-10-28 16:50:27Z" duration="0.340979" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1131" name="CompoundRaycast_SelectsFirstActualFoundationSurface" fullname="Factory.Tests.MultiLevelStage4Tests.CompoundRaycast_SelectsFirstActualFoundationSurface" methodname="CompoundRaycast_SelectsFirstActualFoundationSurface" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="534714" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.047630" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1133" name="DirtyPlacementTransform_UsesAnchorLevelHeight" fullname="Factory.Tests.MultiLevelStage4Tests.DirtyPlacementTransform_UsesAnchorLevelHeight" methodname="DirtyPlacementTransform_UsesAnchorLevelHeight" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1426240596" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.011225" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1134" name="ItemVisualCapture_UsesTransportCellLevel" fullname="Factory.Tests.MultiLevelStage4Tests.ItemVisualCapture_UsesTransportCellLevel" methodname="ItemVisualCapture_UsesTransportCellLevel" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="879769334" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.010714" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1120" name="LayerHeight_RoundTripsPositiveAndNegativeLevels" fullname="Factory.Tests.MultiLevelStage4Tests.LayerHeight_RoundTripsPositiveAndNegativeLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.005940" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1115" name="LayerHeight_RoundTripsPositiveAndNegativeLevels(-1024)" fullname="Factory.Tests.MultiLevelStage4Tests.LayerHeight_RoundTripsPositiveAndNegativeLevels(-1024)" methodname="LayerHeight_RoundTripsPositiveAndNegativeLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="321097344" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.001312" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1116" name="LayerHeight_RoundTripsPositiveAndNegativeLevels(-1)" fullname="Factory.Tests.MultiLevelStage4Tests.LayerHeight_RoundTripsPositiveAndNegativeLevels(-1)" methodname="LayerHeight_RoundTripsPositiveAndNegativeLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="192224299" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000619" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1117" name="LayerHeight_RoundTripsPositiveAndNegativeLevels(0)" fullname="Factory.Tests.MultiLevelStage4Tests.LayerHeight_RoundTripsPositiveAndNegativeLevels(0)" methodname="LayerHeight_RoundTripsPositiveAndNegativeLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1242533639" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000445" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1118" name="LayerHeight_RoundTripsPositiveAndNegativeLevels(1)" fullname="Factory.Tests.MultiLevelStage4Tests.LayerHeight_RoundTripsPositiveAndNegativeLevels(1)" methodname="LayerHeight_RoundTripsPositiveAndNegativeLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1193844533" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000437" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1119" name="LayerHeight_RoundTripsPositiveAndNegativeLevels(1024)" fullname="Factory.Tests.MultiLevelStage4Tests.LayerHeight_RoundTripsPositiveAndNegativeLevels(1024)" methodname="LayerHeight_RoundTripsPositiveAndNegativeLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1835889978" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000375" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1128" name="Occupancy_AllowsSameHorizontalCellOnDifferentLevels" fullname="Factory.Tests.MultiLevelStage4Tests.Occupancy_AllowsSameHorizontalCellOnDifferentLevels" methodname="Occupancy_AllowsSameHorizontalCellOnDifferentLevels" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1939452936" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.001817" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1130" name="PhysicsBand_MergesVerticallyStackedFoundationsIntoOneBody" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsBand_MergesVerticallyStackedFoundationsIntoOneBody" methodname="PhysicsBand_MergesVerticallyStackedFoundationsIntoOneBody" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1768262225" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.022140" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1127" name="PhysicsLevelBand_UsesFloorDivision" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsLevelBand_UsesFloorDivision" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.004391" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1121" name="PhysicsLevelBand_UsesFloorDivision(-1,-1)" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsLevelBand_UsesFloorDivision(-1,-1)" methodname="PhysicsLevelBand_UsesFloorDivision" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="144887063" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.001006" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1122" name="PhysicsLevelBand_UsesFloorDivision(0,0)" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsLevelBand_UsesFloorDivision(0,0)" methodname="PhysicsLevelBand_UsesFloorDivision" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1526797049" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000525" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1123" name="PhysicsLevelBand_UsesFloorDivision(7,0)" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsLevelBand_UsesFloorDivision(7,0)" methodname="PhysicsLevelBand_UsesFloorDivision" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1309672023" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000373" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1124" name="PhysicsLevelBand_UsesFloorDivision(8,1)" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsLevelBand_UsesFloorDivision(8,1)" methodname="PhysicsLevelBand_UsesFloorDivision" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1153696866" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000337" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1125" name="PhysicsLevelBand_UsesFloorDivision(-8,-1)" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsLevelBand_UsesFloorDivision(-8,-1)" methodname="PhysicsLevelBand_UsesFloorDivision" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="1514732322" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000367" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1126" name="PhysicsLevelBand_UsesFloorDivision(-9,-2)" fullname="Factory.Tests.MultiLevelStage4Tests.PhysicsLevelBand_UsesFloorDivision(-9,-2)" methodname="PhysicsLevelBand_UsesFloorDivision" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="2096624084" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.000339" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1129" name="VerticalFoundationChange_DirtiesAdjacentRenderLayers" fullname="Factory.Tests.MultiLevelStage4Tests.VerticalFoundationChange_DirtiesAdjacentRenderLayers" methodname="VerticalFoundationChange_DirtiesAdjacentRenderLayers" classname="Factory.Tests.MultiLevelStage4Tests" runstate="Runnable" seed="2126956295" result="Passed" start-time="2026-10-28 16:50:27Z" end-time="2026-10-28 16:50:27Z" duration="0.001274" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Failed(Child)" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-28 17:38:48Z" end-time="2026-10-28 17:38:50Z" duration="2.149876">
+  <test-suite type="TestSuite" id="1042" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="30" result="Failed" site="Child" start-time="2026-10-28 17:38:48Z" end-time="2026-10-28 17:38:50Z" duration="2.149876" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1036" name="Factory.PlayModeTests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.PlayModeTests.dll" runstate="Runnable" testcasecount="30" result="Failed" site="Child" start-time="2026-10-28 17:38:48Z" end-time="2026-10-28 17:38:50Z" duration="2.142034" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="31528" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1037" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="30" result="Failed" site="Child" start-time="2026-10-28 17:38:48Z" end-time="2026-10-28 17:38:50Z" duration="2.140315" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1038" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="30" result="Failed" site="Child" start-time="2026-10-28 17:38:48Z" end-time="2026-10-28 17:38:50Z" duration="2.139590" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestFixture" id="1001" name="EcsCharacterCollisionPlayModeTests" fullname="Factory.Tests.EcsCharacterCollisionPlayModeTests" classname="Factory.Tests.EcsCharacterCollisionPlayModeTests" runstate="Runnable" testcasecount="3" result="Failed" site="Child" start-time="2026-10-28 17:38:48Z" end-time="2026-10-28 17:38:50Z" duration="2.137680" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-case id="1003" name="BlockingControl_StopsGroundMovementWithoutDrift" fullname="Factory.Tests.EcsCharacterCollisionPlayModeTests.BlockingControl_StopsGroundMovementWithoutDrift" methodname="BlockingControl_StopsGroundMovementWithoutDrift" classname="Factory.Tests.EcsCharacterCollisionPlayModeTests" runstate="Runnable" seed="1292717498" result="Failed" start-time="2026-10-28 17:38:48Z" end-time="2026-10-28 17:38:50Z" duration="2.122732" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <failure>
+                <message><![CDATA[  pose=float3(16f, 0.01010004f, -3.14701f), velocity=float3(0f, 0f, 3.969378f), normal=float3(0f, 1f, 0f)
+  Expected: True
+  But was:  False
+]]></message>
+                <stack-trace><![CDATA[at Factory.Tests.EcsCharacterCollisionPlayModeTests+<BlockingControl_StopsGroundMovementWithoutDrift>d__9.MoveNext () [0x000b5] in D:\UnityProject\Factory-with-DOTS\Assets\Tests\PlayMode\EcsCharacterCollisionPlayModeTests.cs:104
+at UnityEngine.TestTools.TestEnumerator+<Execute>d__7.MoveNext () [0x0003a] in .\Library\PackageCache\com.unity.test-framework@bd7f943e9647\UnityEngine.TestRunner\NUnitExtensions\Attributes\TestEnumerator.cs:44
+]]></stack-trace>
+              </failure>
+              <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

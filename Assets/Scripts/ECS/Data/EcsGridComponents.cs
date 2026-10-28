@@ -1,13 +1,7 @@
+using System;
+using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
-
-public struct GridDefinition : IComponentData
-{
-    public int2 Size;
-    public float3 Origin;
-    public float CellSize;
-    public uint Revision;
-}
 
 public struct PendingOccupancyAdd : IComponentData
 {
@@ -16,12 +10,12 @@ public struct PendingOccupancyAdd : IComponentData
 [InternalBufferCapacity(64)]
 public struct BeltVisualDirtyCell : IBufferElementData
 {
-    public int2 Value;
+    public GridCell Value;
 }
 
 public struct GridPlacement : IComponentData
 {
-    public int2 AnchorCell;
+    public GridCell AnchorCell;
     public int2 FootprintSize;
     public byte QuarterTurns;
     public BuildingKind Kind;
@@ -57,47 +51,123 @@ public struct BuildingPortVisual : IComponentData
     public byte PortIndex;
 }
 
+public struct SurfaceTopologyRevision : IComponentData
+{
+    public uint Value;
+}
+
+public struct BuildingOccupancyRevision : IComponentData
+{
+    public uint Value;
+}
+
+public struct TransportTopologyRevision : IComponentData
+{
+    public uint Value;
+}
+
+public struct TransportVisualRevision : IComponentData
+{
+    public uint Value;
+}
+
+/// <summary>
+/// Explicit opt-in for realigning an existing placement after an editor or
+/// repair operation. Runtime-created buildings receive their final transform
+/// at creation time and never need this marker.
+/// </summary>
+public struct GridTransformDirty : IComponentData
+{
+}
+
+[Serializable]
+public struct GridCell : IEquatable<GridCell>
+{
+    public int X;
+    public int Level;
+    public int Z;
+
+    public GridCell(int x, int z)
+        : this(x, 0, z) { }
+
+    public GridCell(int x, int level, int z)
+    {
+        X = x;
+        Level = level;
+        Z = z;
+    }
+
+    public GridCell(int2 horizontal, int level = 0)
+        : this(horizontal.x, level, horizontal.y) { }
+
+    public int2 Horizontal => new int2(X, Z);
+    public bool Equals(GridCell other) =>
+        X == other.X && Level == other.Level && Z == other.Z;
+    public override bool Equals(object obj) =>
+        obj is GridCell other && Equals(other);
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = X;
+            hash = (hash * 397) ^ Level;
+            return (hash * 397) ^ Z;
+        }
+    }
+    public override string ToString() => $"({X}, L{Level}, {Z})";
+    public static GridCell LevelZero(int2 horizontal) => new GridCell(horizontal);
+    public static GridCell operator +(GridCell cell, int2 offset) =>
+        new GridCell(cell.X + offset.x, cell.Level, cell.Z + offset.y);
+    public static GridCell operator -(GridCell cell, int2 offset) =>
+        new GridCell(cell.X - offset.x, cell.Level, cell.Z - offset.y);
+    public static bool operator ==(GridCell left, GridCell right) => left.Equals(right);
+    public static bool operator !=(GridCell left, GridCell right) => !left.Equals(right);
+}
+
+public struct WorldGridConfig : IComponentData
+{
+    public float CellSize;
+    public float LayerHeight;
+    public float3 Origin;
+}
+
+public enum GridLayerPickingMode : byte
+{
+    FirstHit,
+    SelectedLevel
+}
+
+public struct GridLayerViewState : IComponentData
+{
+    public int SelectedLevel;
+    public GridLayerPickingMode PickingMode;
+    public uint Revision;
+}
+
+public readonly struct BeltPathCell
+{
+    public BeltPathCell(GridCell cell, int2 direction)
+    {
+        Cell = cell;
+        Direction = direction;
+    }
+
+    public GridCell Cell { get; }
+    public int2 Direction { get; }
+}
+
 public static class EcsGridUtility
 {
     public const float DefaultCellSize = 1f;
+    public const float DefaultLayerHeight = 1f;
 
-    public static int2 WorldToCell(float3 worldPosition)
+    public static GridCell WorldToCell(float3 worldPosition)
     {
-        return new int2(
-            (int)math.floor(worldPosition.x),
-            (int)math.floor(worldPosition.z));
-    }
-
-    public static int2 WorldToCell(
-        float3 worldPosition,
-        in GridDefinition grid)
-    {
-        float cellSize = math.max(math.EPSILON, grid.CellSize);
-        return new int2(
-            (int)math.floor(
-                (worldPosition.x - grid.Origin.x) / cellSize),
-            (int)math.floor(
-                (worldPosition.z - grid.Origin.z) / cellSize));
-    }
-
-    public static float3 CellToWorldCenter(
-        int2 cell,
-        float worldY,
-        in GridDefinition grid)
-    {
-        float cellSize = math.max(math.EPSILON, grid.CellSize);
-        return new float3(
-            grid.Origin.x + (cell.x + 0.5f) * cellSize,
-            worldY,
-            grid.Origin.z + (cell.y + 0.5f) * cellSize);
-    }
-
-    public static bool Contains(in GridDefinition grid, int2 cell)
-    {
-        return cell.x >= 0 &&
-               cell.y >= 0 &&
-               cell.x < grid.Size.x &&
-               cell.y < grid.Size.y;
+        return WorldToCell(
+            worldPosition,
+            float3.zero,
+            DefaultCellSize,
+            0);
     }
 
     public static int2 SanitizeDirection(int2 direction)
@@ -175,14 +245,61 @@ public static class EcsGridUtility
         int2 footprintSize,
         int quarterTurns)
     {
-        float2 center = GetVisualCenterOffset(footprintSize);
-        float2 rotated = center + Rotate(
-            new float2(cellOffset.x, cellOffset.y) - center,
-            quarterTurns);
-        return (int2)math.round(rotated);
+        // Keep footprint rotation entirely in integer space. Rotating around
+        // a half-cell center and rounding collapses cells for even-by-odd
+        // footprints (for example 2x3 at 90 degrees).
+        switch (NormalizeQuarterTurns(quarterTurns))
+        {
+            case 0:
+                return cellOffset;
+            case 1:
+                return new int2(
+                    footprintSize.y - 1 - cellOffset.y,
+                    cellOffset.x);
+            case 2:
+                return new int2(
+                    footprintSize.x - 1 - cellOffset.x,
+                    footprintSize.y - 1 - cellOffset.y);
+            default:
+                return new int2(
+                    cellOffset.y,
+                    footprintSize.x - 1 - cellOffset.x);
+        }
     }
 
-    public static int2 GetBuildingCell(
+    public static GridCell WorldToCell(
+        float3 worldPosition,
+        in WorldGridConfig grid)
+    {
+        float cellSize = math.max(math.EPSILON, grid.CellSize);
+        int level = WorldYToLevel(worldPosition.y, grid);
+        return WorldToCell(worldPosition, grid.Origin, cellSize, level);
+    }
+
+    public static float3 CellToWorldCenter(
+        GridCell cell,
+        in WorldGridConfig grid)
+    {
+        return CellToWorldCenter(
+            cell,
+            LevelToWorldY(cell.Level, grid),
+            grid.Origin,
+            grid.CellSize);
+    }
+
+    public static float LevelToWorldY(
+        int level,
+        in WorldGridConfig grid) =>
+        grid.Origin.y + level * math.max(math.EPSILON, grid.LayerHeight);
+
+    public static int WorldYToLevel(
+        float worldY,
+        in WorldGridConfig grid) =>
+        (int)math.round(
+            (worldY - grid.Origin.y) /
+            math.max(math.EPSILON, grid.LayerHeight));
+
+    public static GridCell GetBuildingCell(
         in GridPlacement placement,
         int2 localCellOffset)
     {
@@ -199,9 +316,94 @@ public static class EcsGridUtility
             (math.PI * 0.5f));
     }
 
+    public static List<BeltPathCell> BuildBeltPath(
+        GridCell start,
+        GridCell end,
+        bool horizontalFirst,
+        int2 initialDirection)
+    {
+        if (start.Level != end.Level)
+        {
+            return new List<BeltPathCell>();
+        }
+
+        List<GridCell> cells = new List<GridCell>();
+        GridCell corner = horizontalFirst
+            ? new GridCell(end.X, start.Level, start.Z)
+            : new GridCell(start.X, start.Level, end.Z);
+
+        AppendSegment(cells, start, corner, true);
+        AppendSegment(cells, corner, end, false);
+
+        List<BeltPathCell> path =
+            new List<BeltPathCell>(cells.Count);
+        int2 fallbackDirection = SanitizeDirection(initialDirection);
+        for (int i = 0; i < cells.Count; i++)
+        {
+            int2 direction;
+            if (i < cells.Count - 1)
+            {
+                direction = cells[i + 1].Horizontal - cells[i].Horizontal;
+                fallbackDirection = direction;
+            }
+            else
+            {
+                direction = fallbackDirection;
+            }
+
+            path.Add(new BeltPathCell(cells[i], direction));
+        }
+
+        return path;
+    }
+
+    private static void AppendSegment(
+        List<GridCell> cells,
+        GridCell from,
+        GridCell to,
+        bool includeStart)
+    {
+        int2 delta = to.Horizontal - from.Horizontal;
+        int2 step = new int2(
+            delta.x == 0 ? 0 : delta.x > 0 ? 1 : -1,
+            delta.y == 0 ? 0 : delta.y > 0 ? 1 : -1);
+        int length = math.abs(delta.x) + math.abs(delta.y);
+        int first = includeStart ? 0 : 1;
+        for (int i = first; i <= length; i++)
+        {
+            cells.Add(from + step * i);
+        }
+    }
+
     private static int NormalizeQuarterTurns(int quarterTurns)
     {
         int normalized = quarterTurns % 4;
         return normalized < 0 ? normalized + 4 : normalized;
+    }
+
+    private static GridCell WorldToCell(
+        float3 worldPosition,
+        float3 origin,
+        float cellSize,
+        int level)
+    {
+        cellSize = math.max(math.EPSILON, cellSize);
+        return new GridCell(
+            (int)math.floor((worldPosition.x - origin.x) / cellSize),
+            level,
+            (int)math.floor((worldPosition.z - origin.z) / cellSize));
+    }
+
+    private static float3 CellToWorldCenter(
+        GridCell cell,
+        float worldY,
+        float3 origin,
+        float cellSize)
+    {
+        cellSize = math.max(math.EPSILON, cellSize);
+        return new float3(
+            origin.x + (cell.X + 0.5f) * cellSize,
+            worldY,
+            origin.z + (cell.Z + 0.5f) * cellSize);
     }
 }

@@ -4,11 +4,14 @@
     "references": [
         "Unity.Burst",
         "Unity.Collections",
+        "Unity.CharacterController",
         "Unity.Entities",
         "Unity.Entities.Graphics",
         "Unity.Entities.Hybrid",
         "Unity.InputSystem",
         "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
+        "Unity.Physics",
         "Unity.Transforms",
         "Unity.Transforms.Hybrid"
     ],

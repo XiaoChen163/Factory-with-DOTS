@@ -22,20 +22,39 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        WorldGridConfig worldGrid =
+            SystemAPI.TryGetSingleton(out WorldGridConfig configured)
+                ? configured
+                : new WorldGridConfig
+                {
+                    CellSize = EcsGridUtility.DefaultCellSize,
+                    LayerHeight = EcsGridUtility.DefaultLayerHeight
+                };
         state.Dependency = new CaptureBeltVisualStateJob
         {
+            WorldGrid = worldGrid,
+            VerticalNodeLookup = SystemAPI.GetComponentLookup<VerticalBeltNode>(true),
             ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
         }.ScheduleParallel(state.Dependency);
         state.Dependency = new CaptureMergerVisualStateJob
         {
+            WorldGrid = worldGrid,
+            ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
+            VisualStateLookup =
+                SystemAPI.GetComponentLookup<ItemVisualState>(false)
+        }.ScheduleParallel(state.Dependency);
+        state.Dependency = new CaptureRampBeltVisualStateJob
+        {
+            WorldGrid = worldGrid,
             ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
         }.ScheduleParallel(state.Dependency);
         state.Dependency = new CaptureSplitterVisualStateJob
         {
+            WorldGrid = worldGrid,
             ItemLookup = SystemAPI.GetComponentLookup<Item>(true),
             VisualStateLookup =
                 SystemAPI.GetComponentLookup<ItemVisualState>(false)
@@ -43,8 +62,11 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     }
 
     [BurstCompile]
+    [WithNone(typeof(RampBelt))]
     private partial struct CaptureBeltVisualStateJob : IJobEntity
     {
+        public WorldGridConfig WorldGrid;
+        [ReadOnly] public ComponentLookup<VerticalBeltNode> VerticalNodeLookup;
         [ReadOnly]
         public ComponentLookup<Item> ItemLookup;
 
@@ -52,16 +74,14 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         public ComponentLookup<ItemVisualState> VisualStateLookup;
 
         private void Execute(
+            Entity entity,
             in BeltTopology topology,
             in BeltState state)
         {
-            Capture(
-                state.CurrentItem,
-                new float3(
-                    topology.Cell.x + 0.5f,
-                    0.535f,
-                    topology.Cell.y + 0.5f),
-                state.Progress);
+            float3 target = GetTargetPosition(topology.Cell, WorldGrid);
+            if (VerticalNodeLookup.HasComponent(entity))
+                target.y += (WorldGrid.LayerHeight - 1f) * .5f;
+            Capture(state.CurrentItem, target, state.Progress);
         }
 
         private void Capture(
@@ -93,6 +113,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     [BurstCompile]
     private partial struct CaptureMergerVisualStateJob : IJobEntity
     {
+        public WorldGridConfig WorldGrid;
         [ReadOnly]
         public ComponentLookup<Item> ItemLookup;
 
@@ -103,10 +124,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         {
             Capture(
                 merger.CurrentItem,
-                new float3(
-                    merger.Cell.x + 0.5f,
-                    0.535f,
-                    merger.Cell.y + 0.5f),
+                GetTargetPosition(merger.Cell, WorldGrid),
                 1f);
         }
 
@@ -139,6 +157,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
     [BurstCompile]
     private partial struct CaptureSplitterVisualStateJob : IJobEntity
     {
+        public WorldGridConfig WorldGrid;
         [ReadOnly]
         public ComponentLookup<Item> ItemLookup;
 
@@ -149,10 +168,7 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
         {
             Capture(
                 splitter.CurrentItem,
-                new float3(
-                    splitter.Cell.x + 0.5f,
-                    0.535f,
-                    splitter.Cell.y + 0.5f),
+                GetTargetPosition(splitter.Cell, WorldGrid),
                 1f);
         }
 
@@ -180,5 +196,48 @@ public partial struct ItemVisualStateCaptureSystem : ISystem
             visualState.Progress = math.saturate(progress);
             VisualStateLookup[item] = visualState;
         }
+    }
+
+    [BurstCompile]
+    private partial struct CaptureRampBeltVisualStateJob : IJobEntity
+    {
+        public WorldGridConfig WorldGrid;
+        [ReadOnly] public ComponentLookup<Item> ItemLookup;
+        [NativeDisableParallelForRestriction]
+        public ComponentLookup<ItemVisualState> VisualStateLookup;
+
+        private void Execute(
+            in BeltTopology topology,
+            in BeltState state,
+            in RampBelt ramp)
+        {
+            Entity item = state.CurrentItem;
+            if (item == Entity.Null ||
+                !ItemLookup.HasComponent(item) ||
+                !ItemLookup.IsComponentEnabled(item) ||
+                !VisualStateLookup.HasComponent(item))
+                return;
+
+            float3 target = EcsGridUtility.CellToWorldCenter(topology.Cell, WorldGrid);
+            target.y = (ramp.EntryHeight.ToWorldY(WorldGrid) +
+                        ramp.ExitHeight.ToWorldY(WorldGrid)) * 0.5f + 0.535f;
+            ItemVisualState visual = VisualStateLookup[item];
+            if (math.distance(visual.ToPosition, target) > 0.0001f)
+            {
+                visual.FromPosition = visual.ToPosition;
+                visual.ToPosition = target;
+            }
+            visual.Progress = math.saturate(state.Progress);
+            VisualStateLookup[item] = visual;
+        }
+    }
+
+    private static float3 GetTargetPosition(
+        GridCell cell,
+        in WorldGridConfig grid)
+    {
+        float3 position = EcsGridUtility.CellToWorldCenter(cell, grid);
+        position.y += 0.535f;
+        return position;
     }
 }

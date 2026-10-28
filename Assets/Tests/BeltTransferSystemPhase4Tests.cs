@@ -23,11 +23,11 @@ namespace Factory.Tests
             Entity pool = CreatePool(IronOre);
             Entity item = CreateItemWithVisualState(IronOre);
             Entity belt = CreateBelt(
-                new int2(0, 0),
+                new GridCell(0, 0, 0),
                 East,
                 item,
                 1f);
-            Entity owner = CreateInputOwner(new int2(0, 0));
+            Entity owner = CreateInputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -54,11 +54,11 @@ namespace Factory.Tests
             CreateGrid();
             Entity item = CreateItemWithVisualState(IronOre);
             Entity belt = CreateBelt(
-                new int2(0, 0),
+                new GridCell(0, 0, 0),
                 East,
                 item,
                 1f);
-            Entity owner = CreateInputOwner(new int2(0, 0));
+            Entity owner = CreateInputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -83,8 +83,8 @@ namespace Factory.Tests
             Entity pool = CreatePool(
                 IronOre,
                 pooledItem);
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            Entity owner = CreateOutputOwner(new int2(0, 0));
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            Entity owner = CreateOutputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -119,7 +119,7 @@ namespace Factory.Tests
         public void VisualCaptureSystem_SamplesLatestTransportPosition()
         {
             Entity item = CreateItemWithVisualState(IronOre);
-            CreateBelt(new int2(1, 0), East, item, 0.5f);
+            CreateBelt(new GridCell(1, 0, 0), East, item, 0.5f);
 
             SystemHandle capture =
                 TestWorld.GetOrCreateSystem<ItemVisualStateCaptureSystem>();
@@ -134,6 +134,43 @@ namespace Factory.Tests
             Assert.That(
                 visualState.ToPosition,
                 Is.EqualTo(new float3(1.5f, 0.535f, 0.5f)));
+            Assert.That(visualState.Progress, Is.EqualTo(0.5f));
+        }
+
+        [Test]
+        public void RampVisualCapture_PreservesHorizontalAndVerticalMotion()
+        {
+            Entity item = CreateItemWithVisualState(IronOre);
+            EntityManager.SetComponentData(item, new ItemVisualState
+            {
+                FromPosition = new float3(-0.5f, 0.535f, 0.5f),
+                ToPosition = new float3(0.5f, 0.535f, 0.5f)
+            });
+            Entity belt = CreateBelt(
+                new GridCell(1, 0, 0),
+                East,
+                item,
+                0.5f);
+            EntityManager.AddComponentData(belt, new RampBelt
+            {
+                TravelDirection = East,
+                EntryHeight = new GridHeight(0),
+                ExitHeight = new GridHeight(4)
+            });
+
+            SystemHandle capture =
+                TestWorld.GetOrCreateSystem<ItemVisualStateCaptureSystem>();
+            capture.Update(TestWorld.Unmanaged);
+            EntityManager.CompleteAllTrackedJobs();
+
+            ItemVisualState visualState =
+                EntityManager.GetComponentData<ItemVisualState>(item);
+            Assert.That(
+                visualState.FromPosition,
+                Is.EqualTo(new float3(0.5f, 0.535f, 0.5f)));
+            Assert.That(
+                visualState.ToPosition,
+                Is.EqualTo(new float3(1.5f, 0.785f, 0.5f)));
             Assert.That(visualState.Progress, Is.EqualTo(0.5f));
         }
 
@@ -225,12 +262,7 @@ namespace Factory.Tests
         private Entity CreateGrid()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
             return grid;
         }
 
@@ -289,7 +321,7 @@ namespace Factory.Tests
             return pool;
         }
 
-        private Entity CreateInputOwner(int2 sourceCell)
+        private Entity CreateInputOwner(GridCell sourceCell)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {
@@ -320,7 +352,7 @@ namespace Factory.Tests
             return owner;
         }
 
-        private Entity CreateOutputOwner(int2 targetCell)
+        private Entity CreateOutputOwner(GridCell targetCell)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {

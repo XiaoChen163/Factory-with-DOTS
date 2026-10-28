@@ -8,8 +8,27 @@ using Unity.Mathematics;
 public struct BeltTopology : IComponentData
 {
     public float CellsPerSecond;
-    public int2 Cell;
+    public GridCell Cell;
     public int2 Direction;
+    public TransportConnectionMode ConnectionMode;
+}
+
+/// <summary>
+/// A directed transport edge that cannot be inferred from same-level planar
+/// adjacency. Connector construction writes these edges to the grid buffer;
+/// the topology rebuild resolves the entity endpoints to continuous node
+/// indices. Fixed-tick simulation never performs spatial connector queries.
+/// </summary>
+[InternalBufferCapacity(8)]
+public struct TransportExplicitEdge : IBufferElementData
+{
+    public Entity Source;
+    public Entity Target;
+    public byte SourceOutputIndex;
+    public byte TargetInputIndex;
+    // Zero is reserved for authored/non-ramp connector edges. Ramp topology
+    // refreshes only its own generated entries.
+    public byte Generator;
 }
 
 /// <summary>
@@ -33,7 +52,7 @@ public struct BeltVisualParts : IComponentData
 
 public struct Merger : IComponentData
 {
-    public int2 Cell;
+    public GridCell Cell;
     public int2 Direction;
     public Entity CurrentItem;
     public int NextInputIndex;
@@ -41,7 +60,7 @@ public struct Merger : IComponentData
 
 public struct Splitter : IComponentData
 {
-    public int2 Cell;
+    public GridCell Cell;
     public int2 Direction;
     public Entity CurrentItem;
     public int NextOutputIndex;

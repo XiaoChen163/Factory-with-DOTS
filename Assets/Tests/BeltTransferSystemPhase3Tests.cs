@@ -17,7 +17,7 @@ namespace Factory.Tests
         [Test]
         public void Belt_IsSplitIntoTopologyAndStateComponents()
         {
-            Entity belt = CreateBelt(int2.zero, East);
+            Entity belt = CreateBelt(new GridCell(int2.zero), East);
 
             Assert.That(
                 EntityManager.HasComponent<BeltTopology>(belt),
@@ -27,7 +27,7 @@ namespace Factory.Tests
                 Is.True);
             Assert.That(
                 EntityManager.GetComponentData<BeltTopology>(belt).Cell,
-                Is.EqualTo(int2.zero));
+                Is.EqualTo(GridCell.LevelZero(int2.zero)));
             Assert.That(
                 EntityManager.GetComponentData<BeltTopology>(belt).Direction,
                 Is.EqualTo(East));
@@ -41,8 +41,8 @@ namespace Factory.Tests
         {
             CreateGrid();
             Entity item = CreateItem(1);
-            Entity source = CreateBelt(new int2(0, 0), East, item, 1f);
-            Entity target = CreateBelt(new int2(1, 0), East);
+            Entity source = CreateBelt(new GridCell(0, 0, 0), East, item, 1f);
+            Entity target = CreateBelt(new GridCell(1, 0, 0), East);
 
             UpdateTransferTick();
 
@@ -62,10 +62,10 @@ namespace Factory.Tests
             CreateGrid();
             Entity itemA = CreateItem(1);
             Entity itemB = CreateItem(2);
-            Entity belt0 = CreateBelt(new int2(0, 0), East, itemA, 1f);
-            Entity belt1 = CreateBelt(new int2(1, 0), East, itemB, 1f);
-            Entity belt2 = CreateBelt(new int2(2, 0), East);
-            Entity belt3 = CreateBelt(new int2(3, 0), East);
+            Entity belt0 = CreateBelt(new GridCell(0, 0, 0), East, itemA, 1f);
+            Entity belt1 = CreateBelt(new GridCell(1, 0, 0), East, itemB, 1f);
+            Entity belt2 = CreateBelt(new GridCell(2, 0, 0), East);
+            Entity belt3 = CreateBelt(new GridCell(3, 0, 0), East);
 
             for (int tick = 0; tick < 3; tick++)
             {
@@ -97,8 +97,8 @@ namespace Factory.Tests
         {
             CreateGrid();
             CreateItem();
-            CreateBelt(new int2(0, 0), East);
-            CreateBelt(new int2(1, 0), East);
+            CreateBelt(new GridCell(0, 0, 0), East);
+            CreateBelt(new GridCell(1, 0, 0), East);
 
             UpdateTransferTick();
 
@@ -116,8 +116,8 @@ namespace Factory.Tests
         {
             CreateGrid();
             CreateItemCatalog();
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            Entity owner = CreateOutputOwner(new int2(0, 0));
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            Entity owner = CreateOutputOwner(new GridCell(0, 0, 0));
 
             UpdateSystem(GetOrCreateManagedSystem<BeltTransferSystem>());
 
@@ -151,12 +151,7 @@ namespace Factory.Tests
         private Entity CreateGrid()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
             return grid;
         }
 
@@ -180,7 +175,7 @@ namespace Factory.Tests
                 });
         }
 
-        private Entity CreateOutputOwner(int2 targetCell)
+        private Entity CreateOutputOwner(GridCell targetCell)
         {
             Entity owner = CreatePortOwner(new GridPlacement
             {

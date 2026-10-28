@@ -617,6 +617,106 @@ namespace Factory.Tests
         }
 
         [UnityTest]
+        public IEnumerator VerticalBelts_TwoClickGestureBuildsUpAndDownAndRotatesOnlyExit()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            var interaction=Object.FindFirstObjectByType<EcsGridInteractionController>();
+            bool selected=false;
+            for(int frame=0;frame<240 && !selected;frame++)
+            {
+                selected=interaction.TrySelectBuildingLevel(new BuildingLevelId { Value=14 });
+                yield return null;
+            }
+            Assert.That(selected,Is.True);
+            World world=World.DefaultGameObjectInjectionWorld;
+            var manager=world.EntityManager;
+            var index=world.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>();
+            for(int scenario=0;scenario<2;scenario++)
+            {
+                ushort tier=scenario==0 ? (ushort)14 : (ushort)17;
+                var start=new GridCell(120+scenario*2,scenario==0 ? 0 : 6,120);
+                var exit=start; exit.Level=scenario==0 ? 4 : 2;
+                Assert.That(interaction.TrySelectBuildingLevel(new BuildingLevelId { Value=tier }),Is.True);
+                interaction.SimulateHover(start);
+                interaction.SimulatePrimaryClick(start);
+                Assert.That(interaction.IsVerticalBeltPathStarted,Is.True);
+                Entity entry=Entity.Null;
+                for(int frame=0;frame<120 && !index.TryGet(start,out entry);frame++) yield return null;
+                Assert.That(entry,Is.Not.EqualTo(Entity.Null));
+                byte entryRotation=manager.GetComponentData<GridPlacement>(entry).QuarterTurns;
+                Camera placementCamera=interaction.GetComponent<Camera>();
+                using EntityQuery configQuery=manager.CreateEntityQuery(ComponentType.ReadOnly<WorldGridConfig>());
+                WorldGridConfig config=configQuery.GetSingleton<WorldGridConfig>();
+                Vector3 target=(Vector3)EcsGridUtility.CellToWorldCenter(exit,config);
+                Vector3 screen=placementCamera.WorldToScreenPoint(target);
+                interaction.SimulateVerticalPointer(screen);
+                yield return null;
+                Assert.That(interaction.VerticalPreviewExitCell,Is.EqualTo(exit));
+                Assert.That(interaction.VerticalPreviewValid,Is.True);
+                Vector3 cameraPosition=placementCamera.transform.position;
+                Quaternion cameraRotation=placementCamera.transform.rotation;
+                placementCamera.transform.position+=Vector3.up*(2f*config.LayerHeight);
+                yield return null;
+                var translatedExit=exit; translatedExit.Level+=2;
+                Assert.That(interaction.VerticalPreviewExitCell,Is.EqualTo(translatedExit),
+                    "An unchanged screen pointer must follow the moved camera's current ray.");
+                placementCamera.transform.position=cameraPosition;
+                placementCamera.transform.rotation=Quaternion.LookRotation(Vector3.down,Vector3.forward);
+                yield return null;
+                Assert.That(interaction.VerticalPreviewValid,Is.False);
+                interaction.SimulatePrimaryClick(exit);
+                yield return null;
+                Assert.That(interaction.IsVerticalBeltPathStarted,Is.True,"A missing plane hit must not confirm an old outlet.");
+                placementCamera.transform.rotation=cameraRotation;
+                yield return null;
+                Assert.That(interaction.VerticalPreviewExitCell,Is.EqualTo(exit));
+                Assert.That(interaction.VerticalPreviewValid,Is.True);
+                int2 before=interaction.VerticalPreviewExitDirection;
+                interaction.RotateSelectionOrToggleBeltPathOrder();
+                yield return null;
+                int2 direction=interaction.VerticalPreviewExitDirection;
+                Assert.That(direction,Is.Not.EqualTo(before));
+                Assert.That(manager.GetComponentData<GridPlacement>(entry).QuarterTurns,Is.EqualTo(entryRotation));
+                var arrows=(System.Collections.Generic.List<Transform>)typeof(EcsGridInteractionController)
+                    .GetField("previewPortTriangles",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(interaction);
+                Assert.That(arrows[0].gameObject.activeSelf,Is.True,"The outlet arrow must remain visible during height selection.");
+                Vector3 right=arrows[0].right;
+                Assert.That(Vector3.Dot(right,new Vector3(direction.x,0,direction.y)),Is.GreaterThan(.99f));
+                interaction.SimulatePrimaryClick(exit);
+                for(int frame=0;frame<120 && interaction.IsVerticalBeltPathStarted;frame++) yield return null;
+                Assert.That(interaction.IsVerticalBeltPathStarted,Is.False);
+                Assert.That(index.TryGet(exit,out Entity outlet),Is.True);
+                Assert.That(manager.GetComponentData<BeltTopology>(outlet).Direction,Is.EqualTo(direction));
+                int step=scenario==0 ? 1 : -1;
+                for(int height=start.Level+step;height!=exit.Level;height+=step)
+                {
+                    var cell=start; cell.Level=height;
+                    Assert.That(index.TryGet(cell,out Entity segment),Is.True);
+                    Assert.That(manager.GetComponentData<VerticalBeltNode>(segment).Step,Is.EqualTo(step));
+                }
+            }
+            var cancelled=new GridCell(126,3,120);
+            interaction.SimulateHover(cancelled);
+            interaction.SimulatePrimaryClick(cancelled);
+            for(int frame=0;frame<120 && !index.TryGet(cancelled,out _);frame++) yield return null;
+            var ui=Object.FindFirstObjectByType<GameUiController>();
+            var mode=Object.FindFirstObjectByType<PlayerInputModeController>();
+            mode.SetBuildMode(true);
+            ui.HandleCancel();
+            Assert.That(interaction.IsVerticalBeltPathStarted,Is.False);
+            for(int frame=0;frame<120 && index.TryGet(cancelled,out _);frame++) yield return null;
+            Assert.That(index.TryGet(cancelled,out _),Is.False,"Esc must roll back the placed entry.");
+            var rapid=new GridCell(128,3,120);
+            interaction.SimulateHover(rapid);
+            interaction.SimulatePrimaryClick(rapid);
+            mode.SetBuildMode(true);
+            ui.HandleCancel();
+            for(int frame=0;frame<12;frame++) yield return null;
+            Assert.That(index.TryGet(rapid,out _),Is.False,"Cancelling before the entry command executes must leave no residue.");
+            interaction.StopSimulatedHover();
+        }
+
+        [UnityTest]
         public IEnumerator VerticalBelts_BuildFromCatalogAndRemainPickableInPhysicsWorld()
         {
             yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
@@ -631,21 +731,22 @@ namespace Factory.Tests
             World world = World.DefaultGameObjectInjectionWorld;
             EntityManager manager = world.EntityManager;
             VerticalConnectorIndexSystem index = world.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>();
-            ushort[] levels = { 17, 25, 21 };
             Entity[] nodes = new Entity[3];
-            for (int level = 0; level < 3; level++)
+            var start = new GridCell(110,0,110);
+            interaction.SimulateHover(start);
+            interaction.SimulatePrimaryClick(start);
+            for(int frame=0;frame<120 && !index.TryGet(start,out nodes[0]);frame++) yield return null;
+            Assert.That(nodes[0],Is.Not.EqualTo(Entity.Null));
+            var end=new GridCell(110,2,110);
+            interaction.SimulateHover(end);
+            interaction.SimulatePrimaryClick(end);
+            for(int frame=0;frame<120 && interaction.IsVerticalBeltPathStarted;frame++) yield return null;
+            for(int level=0;level<3;level++)
             {
-                Assert.That(interaction.TrySelectBuildingLevel(new BuildingLevelId { Value = levels[level] }), Is.True);
-                GridCell cell = new GridCell(110, level, 110);
-                interaction.SimulateHover(cell);
-                yield return null;
-                interaction.SimulatePrimaryClick(cell);
-                for (int frame = 0; frame < 120 && !index.TryGet(cell, out nodes[level]); frame++)
-                    yield return null;
-                Assert.That(nodes[level], Is.Not.EqualTo(Entity.Null));
-                Assert.That(manager.GetComponentData<BeltTopology>(nodes[level]).CellsPerSecond, Is.EqualTo(8f));
-                Assert.That(manager.HasComponent<PhysicsWorldIndex>(nodes[level]), Is.True);
-                Assert.That(manager.HasComponent<BuildingVisualReference>(nodes[level]), Is.True);
+                Assert.That(index.TryGet(new GridCell(110,level,110),out nodes[level]),Is.True);
+                Assert.That(manager.GetComponentData<BeltTopology>(nodes[level]).CellsPerSecond,Is.EqualTo(8f));
+                Assert.That(manager.HasComponent<PhysicsWorldIndex>(nodes[level]),Is.True);
+                Assert.That(manager.HasComponent<BuildingVisualReference>(nodes[level]),Is.True);
             }
             yield return new WaitForFixedUpdate();
             yield return new WaitForFixedUpdate();
@@ -660,12 +761,24 @@ namespace Factory.Tests
                 Filter=FoundationCollisionCategories.FoundationQueryFilter };
             Assert.That(physicsWorld.CastRay(ray,out Unity.Physics.RaycastHit hit),Is.True);
             Assert.That(hit.Entity,Is.EqualTo(nodes[1]),"The thin segment must participate in the grid picking physics world.");
+            var visualEntities=new System.Collections.Generic.List<Entity>();
+            foreach(Entity node in nodes)
+            {
+                Entity visual=manager.GetComponentData<BuildingVisualReference>(node).Value;
+                visualEntities.Add(visual);
+                if(manager.HasBuffer<LinkedEntityGroup>(visual))
+                    foreach(var linked in manager.GetBuffer<LinkedEntityGroup>(visual)) visualEntities.Add(linked.Value);
+            }
             interaction.SimulateRemove(new GridCell(110,1,110),false);
             for (int frame = 0; frame < 120 && index.TryGet(new GridCell(110,1,110),out _); frame++)
                 yield return null;
             Assert.That(index.TryGet(new GridCell(110,1,110),out _),Is.False);
-            Assert.That(manager.Exists(nodes[0]),Is.True);
-            Assert.That(manager.Exists(nodes[2]),Is.True);
+            // ParentSystem retires transform cleanup entities after their gameplay components are removed.
+            for(int frame=0;frame<120 && (nodes.Any(manager.Exists) || visualEntities.Any(manager.Exists));frame++)
+                yield return null;
+            Assert.That(manager.Exists(nodes[0]),Is.False);
+            Assert.That(manager.Exists(nodes[2]),Is.False);
+            foreach(Entity visual in visualEntities) Assert.That(manager.Exists(visual),Is.False,"Whole-chain demolition must remove all visual parts.");
         }
 
         [UnityTest]

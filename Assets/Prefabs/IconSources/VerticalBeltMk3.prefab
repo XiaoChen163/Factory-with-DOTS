@@ -1,0 +1,222 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &8947655723019464399
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2389070042364779476}
+  m_Layer: 0
+  m_Name: VerticalBeltMk3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2389070042364779476
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8947655723019464399}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 89354470828348609}
+  - {fileID: 7934786875039152181}
+  - {fileID: 8347760196804995268}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &1829409889624580793
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2389070042364779476}
+    m_Modifications:
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8263080865558837001, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+      propertyPath: m_Name
+      value: VerticalBeltEntryMk3
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+--- !u!4 &89354470828348609 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1755891417554220664, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+  m_PrefabInstance: {fileID: 1829409889624580793}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &5929974290594231616
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2389070042364779476}
+    m_Modifications:
+    - target: {fileID: 3340782413726316499, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_Name
+      value: VerticalBeltSegmentMk3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+--- !u!4 &7934786875039152181 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4347529095856426357, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+  m_PrefabInstance: {fileID: 5929974290594231616}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &7891838814071880629
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2389070042364779476}
+    m_Modifications:
+    - target: {fileID: 975789746718991501, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_Name
+      value: VerticalBeltExitMk3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+--- !u!4 &8347760196804995268 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2187696348786070385, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+  m_PrefabInstance: {fileID: 7891838814071880629}
+  m_PrefabAsset: {fileID: 0}

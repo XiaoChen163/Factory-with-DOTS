@@ -106,7 +106,8 @@ public static class FactoryDatabaseCsvImporter
             ushort id = ParseUShort(table.Get(row, "id"), "item id");
             string key = RequiredKey(table.Get(row, "key"), "item key");
             string prefabKey = RequiredKey(table.Get(row, "prefab_key"), "item prefab key");
-            bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon);
+            bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon) &&
+                !string.IsNullOrWhiteSpace(configuredIcon);
             string iconKey = hasConfiguredIcon
                 ? RequiredKey(configuredIcon, "item icon key")
                 : prefabKey;
@@ -273,12 +274,14 @@ public static class FactoryDatabaseCsvImporter
             if (!buildingsByKey.TryGetValue(buildingKey, out FactoryBuildingTableRow building))
                 throw new InvalidDataException($"Building level '{key}' references unknown building '{buildingKey}'.");
             string prefabKey = RequiredKey(table.Get(row, "visual_prefab_key"), "building visual prefab key");
-            bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon);
+            bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon) &&
+                !string.IsNullOrWhiteSpace(configuredIcon);
             string iconKey = hasConfiguredIcon
                 ? RequiredKey(configuredIcon, "building icon key")
                 : prefabKey;
             GameObject prefab = ResolvePrefab(prefabs, prefabKey, BuildingPrefabDirectory);
             ValidateBuildingVisualPrefab(prefab, prefabKey, building.kind);
+            Sprite suppliedIcon = FactoryIconBaker.GetSuppliedBuildingIcon(prefab);
             sbyte rampRiseHeightUnits = table.TryGet(
                 row,
                 "ramp_rise_height_units",
@@ -312,7 +315,7 @@ public static class FactoryDatabaseCsvImporter
                 iconKey = iconKey,
                 icon = hasConfiguredIcon
                     ? ResolveSprite(icons, iconKey, BuildingIconDirectory)
-                    : TryResolveSprite(icons, iconKey),
+                    : suppliedIcon != null ? suppliedIcon : TryResolveSprite(icons, iconKey),
                 menuOrder = ParseInt(table.Get(row, "menu_order"), "menu order"),
                 rampRiseHeightUnits = rampRiseHeightUnits
             });

@@ -101,20 +101,121 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void Removal_RefusesLoadedNodeThenDisconnectsAndAllowsReplacement()
+        public void Removal_RecoversItemsFromWholeChainAndClearsTopology()
         {
-            Place(14, 0); Place(22, 1); Place(18, 2);
-            var index = GetOrCreateManagedSystem<VerticalConnectorIndexSystem>();
-            Assert.That(index.TryGet(Cell(1), out Entity segment), Is.True);
-            Entity item = CreateItem();
-            EntityManager.SetComponentData(segment, new BeltState { CurrentItem = item });
-            Assert.That(Remove(1).FailureReason, Is.EqualTo(GridBuildFailureReason.VerticalContainsItem));
-            Assert.That(EntityManager.Exists(item), Is.True);
-            EntityManager.SetComponentData(segment, new BeltState());
-            Assert.That(Remove(1).Success, Is.EqualTo(1));
+            Place(14,0); Place(22,1); Place(18,2);
+            var player=EntityManager.CreateEntity();
+            EntityManager.AddComponentData(player,new PlayerIdentity { Value=new PlayerId { Value=7 } });
+            EntityManager.AddComponentData(player,new PlayerInventory { SlotCount=2 });
+            var inventory=EntityManager.AddBuffer<InventorySlot>(player);
+            inventory.Add(default); inventory.Add(default);
+            var index=GetOrCreateManagedSystem<VerticalConnectorIndexSystem>();
+            Entity[] items=new Entity[3];
+            for(int i=0;i<3;i++)
+            {
+                Assert.That(index.TryGet(Cell(i),out var node),Is.True);
+                items[i]=CreateItem();
+                EntityManager.SetComponentData(node,new BeltState { CurrentItem=items[i] });
+            }
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
+            { Type=GridBuildCommandType.Remove,StartCell=Cell(1),Player=new PlayerId { Value=7 } });
+            UpdateSystem(build);
+            Assert.That(EntityManager.GetBuffer<GridBuildResult>(grid)[0].AffectedCount,Is.EqualTo(3));
+            foreach(var item in items) Assert.That(EntityManager.Exists(item),Is.False);
+            Assert.That(EntityManager.GetBuffer<InventorySlot>(player)[0].Count,Is.EqualTo(3));
             UpdateSystem(GetOrCreateManagedSystem<VerticalBeltTopologySystem>());
-            Assert.That(EntityManager.GetBuffer<TransportExplicitEdge>(grid).Length, Is.Zero);
-            Assert.That(Place(22, 1).Success, Is.EqualTo(1));
+            Assert.That(EntityManager.GetBuffer<TransportExplicitEdge>(grid).Length,Is.Zero);
+            Assert.That(Place(14,0).Success,Is.EqualTo(1));
+        }
+
+        [TestCase(0,1)]
+        [TestCase(1,1)]
+        [TestCase(2,1)]
+        [TestCase(0,-1)]
+        [TestCase(1,-1)]
+        [TestCase(2,-1)]
+        public void Removal_FromAnyNodeRemovesOnlyItsConnectedVerticalChain(int selected,int step)
+        {
+            int start=step>0 ? 0 : 4;
+            Place(14,start); Place(22,start+step,step>0 ? (byte)0 : (byte)2); Place(18,start+step*2);
+            int other=step>0 ? 3 : 5;
+            Place(14,other); Place(22,other+1); Place(18,other+2);
+            Entity horizontal=CreateBelt(new GridCell(-1,start,0),East);
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
+            { Type=GridBuildCommandType.PlaceFoundation,StartCell=Cell(start+step) });
+            UpdateSystem(build);
+            var result=Remove(start+selected*step);
+            Assert.That(result.Success,Is.EqualTo(1));
+            Assert.That(result.AffectedCount,Is.EqualTo(3));
+            var index=GetOrCreateManagedSystem<VerticalConnectorIndexSystem>();
+            for(int i=0;i<3;i++)
+            {
+                Assert.That(index.TryGet(Cell(start+i*step),out _),Is.False);
+                Assert.That(index.TryGet(Cell(other+i),out _),Is.True);
+            }
+            Assert.That(EntityManager.Exists(horizontal),Is.True);
+            Assert.That(GetOrCreateManagedSystem<SurfaceRegistrySystem>().HasFoundationVoxel(Cell(start+step)),Is.True);
+        }
+
+        [Test]
+        public void Removal_LineModifierOnVerticalNodeStillRemovesWholeVerticalChain()
+        {
+            Place(14,0); Place(22,1); Place(18,2);
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
+            { Type=GridBuildCommandType.RemoveBeltLine,StartCell=Cell(1) });
+            UpdateSystem(build);
+            var result=EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success,Is.EqualTo(1));
+            Assert.That(result.AffectedCount,Is.EqualTo(3));
+            using var nodes=EntityManager.CreateEntityQuery(ComponentType.ReadOnly<VerticalBeltNode>());
+            Assert.That(nodes.CalculateEntityCount(),Is.Zero);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Cancellation_BeforePlaybackRemovesEntryAndAnyQueuedBody(bool complete)
+        {
+            var commands=EntityManager.GetBuffer<GridBuildCommand>(grid);
+            commands.Add(new GridBuildCommand { Type=GridBuildCommandType.Place,
+                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),PlacementRequestId=100,
+                Player=new PlayerId { Value=1 } });
+            if(complete) commands.Add(new GridBuildCommand { Type=GridBuildCommandType.PlaceVerticalBeltPath,
+                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),EndCell=Cell(3) });
+            commands.Add(new GridBuildCommand { Type=GridBuildCommandType.CancelVerticalBeltPlacement,
+                StartCell=Cell(0),PlacementRequestId=100,Player=new PlayerId { Value=1 } });
+            UpdateSystem(build);
+            var results=EntityManager.GetBuffer<GridBuildResult>(grid);
+            foreach(var result in results) Assert.That(result.Success,Is.EqualTo(1),result.FailureReason.ToString());
+            Assert.That(results[results.Length-1].AffectedCount,Is.EqualTo(complete ? 4 : 1));
+            using var nodes=EntityManager.CreateEntityQuery(ComponentType.ReadOnly<VerticalBeltNode>());
+            Assert.That(nodes.CalculateEntityCount(),Is.Zero);
+            using var visuals=EntityManager.CreateEntityQuery(ComponentType.ReadOnly<Parent>());
+            Assert.That(visuals.CalculateEntityCount(),Is.Zero,"Cancelled roots must not leave visual entities behind.");
+        }
+
+        [TestCase(101,1)]
+        [TestCase(100,2)]
+        [TestCase(0,1)]
+        public void Cancellation_MatchesOriginalPlacementAndIsIdempotent(int token,int player)
+        {
+            var commands=EntityManager.GetBuffer<GridBuildCommand>(grid);
+            commands.Add(new GridBuildCommand { Type=GridBuildCommandType.Place,
+                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),PlacementRequestId=100,
+                Player=new PlayerId { Value=1 } });
+            commands.Add(new GridBuildCommand { Type=GridBuildCommandType.CancelVerticalBeltPlacement,
+                StartCell=Cell(0),PlacementRequestId=(ulong)token,Player=new PlayerId { Value=(ulong)player } });
+            UpdateSystem(build);
+            var index=GetOrCreateManagedSystem<VerticalConnectorIndexSystem>();
+            Assert.That(index.TryGet(Cell(0),out _),Is.True,"A failed or stale placement must not remove another entry.");
+            for(int i=0;i<2;i++)
+            {
+                EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
+                { Type=GridBuildCommandType.CancelVerticalBeltPlacement,StartCell=Cell(0),
+                    PlacementRequestId=100,Player=new PlayerId { Value=1 } });
+                UpdateSystem(build);
+                Assert.That(EntityManager.GetBuffer<GridBuildResult>(grid)[0].Success,Is.EqualTo(1));
+                Assert.That(index.TryGet(Cell(0),out _),Is.False);
+            }
         }
 
         [TestCase(1)]
@@ -216,6 +317,95 @@ namespace Factory.Tests
             Assert.That(VerticalBeltUtility.Validate(BuildingKind.VerticalBeltSegment,Cell(1),0,
                 cell=>cells.TryGetValue(cell,out var placement) ? placement : (GridPlacement?)null,out var failure),Is.False);
             Assert.That(failure,Is.EqualTo(GridBuildFailureReason.VerticalDirectionConflict));
+        }
+
+        [TestCase(14, 0, 3)]
+        [TestCase(15, 5, 1)]
+        [TestCase(16, 0, 4)]
+        [TestCase(17, 6, 2)]
+        public void UnifiedPath_CreatesMatchingTierAndKeepsEntryRotation(int tier, int start, int end)
+        {
+            Assert.That(Place((ushort)tier,start,1).Success,Is.EqualTo(1));
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
+            {
+                Type=GridBuildCommandType.PlaceVerticalBeltPath,BuildingLevel=new BuildingLevelId { Value=(ushort)tier },
+                StartCell=Cell(start),EndCell=Cell(end),QuarterTurns=3
+            });
+            UpdateSystem(build);
+            var result=EntityManager.GetBuffer<GridBuildResult>(grid)[0];
+            Assert.That(result.Success,Is.EqualTo(1),result.FailureReason.ToString());
+            Assert.That(result.AffectedCount,Is.EqualTo(math.abs(end-start)));
+            var index=GetOrCreateManagedSystem<VerticalConnectorIndexSystem>();
+            Assert.That(index.TryGet(Cell(start),out var entry),Is.True);
+            Assert.That(EntityManager.GetComponentData<GridPlacement>(entry).QuarterTurns,Is.EqualTo(1));
+            Assert.That(index.TryGet(Cell(end),out var exit),Is.True);
+            Assert.That(EntityManager.GetComponentData<GridPlacement>(exit).QuarterTurns,Is.EqualTo(3));
+            int step=end>start ? 1 : -1;
+            for(int height=start+step;height!=end;height+=step)
+            {
+                Assert.That(index.TryGet(Cell(height),out var segment),Is.True);
+                Assert.That(EntityManager.GetComponentData<VerticalBeltNode>(segment).Step,Is.EqualTo(step));
+                Assert.That(EntityManager.GetComponentData<BuildingIdentity>(segment).Level,Is.EqualTo(tier-13));
+            }
+        }
+
+        [Test]
+        public void UnifiedPath_ConflictRollsBackWholeBodyAndBatchOverlay()
+        {
+            Place(14,0); Place(14,2);
+            var commands=EntityManager.GetBuffer<GridBuildCommand>(grid);
+            commands.Add(new GridBuildCommand { Type=GridBuildCommandType.PlaceVerticalBeltPath,
+                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),EndCell=Cell(4) });
+            commands.Add(new GridBuildCommand { Type=GridBuildCommandType.Place,
+                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(1) });
+            UpdateSystem(build);
+            var results=EntityManager.GetBuffer<GridBuildResult>(grid);
+            Assert.That(results[0].Success,Is.Zero);
+            Assert.That(results[0].AffectedCount,Is.Zero);
+            Assert.That(results[1].Success,Is.EqualTo(1),"Rolled back temporary nodes must not block the next command.");
+            var index=GetOrCreateManagedSystem<VerticalConnectorIndexSystem>();
+            Assert.That(index.TryGet(Cell(3),out _),Is.False);
+            Assert.That(index.TryGet(Cell(4),out _),Is.False);
+            Assert.That(index.TryGet(Cell(0),out _),Is.True);
+        }
+
+        [TestCase(0,1,14)]
+        [TestCase(0,3,15)]
+        [TestCase(0,-3,14)]
+        [TestCase(0,300,14)]
+        public void UnifiedPath_RejectsInvalidLengthGradeAndNegativeLevels(int start,int end,int tier)
+        {
+            Place(14,start);
+            EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
+            { Type=GridBuildCommandType.PlaceVerticalBeltPath,BuildingLevel=new BuildingLevelId { Value=(ushort)tier },
+                StartCell=Cell(start),EndCell=Cell(end) });
+            UpdateSystem(build);
+            Assert.That(EntityManager.GetBuffer<GridBuildResult>(grid)[0].Success,Is.Zero);
+            var index=GetOrCreateManagedSystem<VerticalConnectorIndexSystem>();
+            UpdateSystem(index);
+            Assert.That(index.Count,Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Catalog_GroupsOnlyVisibleVerticalItemsAndKeepsInternalNodes()
+        {
+            var hub=new UiDataHub();
+            UiRuntimeServices.Attach(TestWorld,hub);
+            try
+            {
+                BuildCatalogSnapshot received=default;
+                using var subscription=hub.BuildCatalog.Subscribe(0,value=>received=value);
+                UpdateSystem(GetOrCreateManagedSystem<UiSnapshotExportSystem>());
+                Assert.That(received.Levels.Length,Is.EqualTo(database.Value.BuildingLevelMenu.Length-8));
+                foreach(var id in received.Levels)
+                {
+                    Assert.That(FactoryDatabaseUtility.TryGetBuildingLevel(ref database.Value,id,out _,out var building),Is.True);
+                    Assert.That(building.Kind,Is.Not.EqualTo(BuildingKind.VerticalBeltSegment));
+                    Assert.That(building.Kind,Is.Not.EqualTo(BuildingKind.VerticalBeltExit));
+                }
+                Assert.That(FactoryDatabaseUtility.TryGetBuildingLevel(ref database.Value,new BuildingLevelId { Value=25 },out _,out _),Is.True);
+            }
+            finally { UiRuntimeServices.Detach(TestWorld,hub); }
         }
 
         private Entity Node(int level, BuildingKind kind, int step) => NodeAt(Cell(level),kind,step,East);

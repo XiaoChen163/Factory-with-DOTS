@@ -37,12 +37,15 @@ public enum GridBuildCommandType : byte
     RemoveRampFoundation,
     PlaceRampBelt,
     RemoveRampBelt,
-    PlaceRampBeltPath
+    PlaceRampBeltPath,
+    PlaceVerticalBeltPath,
+    CancelVerticalBeltPlacement
 }
 
 public struct GridBuildCommand : IBufferElementData
 {
     public uint RequestId;
+    public ulong PlacementRequestId;
     public PlayerId Player;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
@@ -89,7 +92,8 @@ public enum GridBuildFailureReason : byte
     RampPathSlopeMismatch,
     VerticalSupportMissing,
     VerticalDirectionConflict,
-    VerticalContainsItem
+    VerticalContainsItem,
+    InvalidVerticalPath
 }
 
 public struct GridBuildResult : IBufferElementData

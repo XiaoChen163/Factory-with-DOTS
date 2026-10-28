@@ -23,7 +23,10 @@ public partial class GridBuildCommandSystem : SystemBase
     private sealed class PlacementRecord
     {
         public Entity Entity;
+        public bool PendingInstantiation;
+        public VerticalBeltPlacementToken PlacementToken;
         public GridPlacement Placement;
+        public BuildingLevelId BuildingLevel;
         public GridCell[] OccupiedCells;
         public BuildingPort[] Ports;
     }
@@ -84,6 +87,10 @@ public partial class GridBuildCommandSystem : SystemBase
                     owner.EntityManager.GetComponentData<GridPlacement>(entity),
                     owner.EntityManager.GetBuffer<OccupiedCellOffset>(entity, true),
                     owner.EntityManager.GetBuffer<BuildingPort>(entity, true));
+                if (owner.EntityManager.HasComponent<BuildingIdentity>(entity))
+                    record.BuildingLevel = owner.EntityManager.GetComponentData<BuildingIdentity>(entity).BuildingLevel;
+                if (owner.EntityManager.HasComponent<VerticalBeltPlacementToken>(entity))
+                    record.PlacementToken = owner.EntityManager.GetComponentData<VerticalBeltPlacementToken>(entity);
                 recordsByEntity.Add(entity, record);
                 owner.RecordPlacementScan(1);
                 owner.RecordTemporaryRecords(1);
@@ -125,6 +132,7 @@ public partial class GridBuildCommandSystem : SystemBase
         }
     }
 
+    private EntityQuery pendingVerticalRemovalQuery;
     private EntityQuery gridQuery;
     private EntityQuery catalogQuery;
     private EntityQuery itemPoolQuery;
@@ -142,6 +150,7 @@ public partial class GridBuildCommandSystem : SystemBase
 
     protected override void OnCreate()
     {
+        pendingVerticalRemovalQuery = GetEntityQuery(ComponentType.ReadOnly<PendingVerticalRemoval>());
         gridQuery = GetEntityQuery(
             ComponentType.ReadWrite<GridDefinition>(),
             ComponentType.ReadWrite<GridBuildCommand>(),
@@ -383,8 +392,22 @@ public partial class GridBuildCommandSystem : SystemBase
                         occupancySystem,
                         ref transportChanged,
                         ref ecb,
+                        out affectedCount,
                         out failureReason);
-                    affectedCount = success ? 1 : 0;
+                    break;
+
+                case GridBuildCommandType.CancelVerticalBeltPlacement:
+                    failureReason = GridBuildFailureReason.None;
+                    affectedCount = 0;
+                    success = true;
+                    if (placements.TryGet(command.StartCell, out PlacementRecord provisional) &&
+                        provisional.Placement.Kind == BuildingKind.VerticalBeltEntry &&
+                        command.PlacementRequestId != 0 &&
+                        provisional.PlacementToken.Player == command.Player &&
+                        provisional.PlacementToken.RequestId == command.PlacementRequestId)
+                        success = TryRemoveVerticalChain(provisional, GetPlayer(command.Player, players),
+                            ref database, placements, dirtyCells, ref transportChanged, ref ecb,
+                            out affectedCount, out failureReason);
                     break;
 
                 case GridBuildCommandType.RemoveBeltLine:
@@ -399,6 +422,12 @@ public partial class GridBuildCommandSystem : SystemBase
                         ref ecb,
                         out affectedCount,
                         out failureReason);
+                    break;
+
+                case GridBuildCommandType.PlaceVerticalBeltPath:
+                    success = TryPlaceVerticalBeltPath(command, grid, worldGrid, catalog,
+                        visualPrefabSnapshot, ref database, placements, dirtyCells,
+                        ref transportChanged, ref ecb, out affectedCount, out failureReason);
                     break;
 
                 case GridBuildCommandType.PlaceBeltPath:
@@ -431,7 +460,7 @@ public partial class GridBuildCommandSystem : SystemBase
                         dirtyCells,
                         ref transportChanged,
                         ref ecb,
-                        out failureReason);
+                        out failureReason, command.Player, command.PlacementRequestId);
                     affectedCount = success ? 1 : 0;
                     break;
             }
@@ -444,7 +473,8 @@ public partial class GridBuildCommandSystem : SystemBase
                 Kind = command.Kind,
                 BuildingLevel = command.BuildingLevel,
                 Cell = command.Type == GridBuildCommandType.PlaceBeltPath ||
-                       command.Type == GridBuildCommandType.PlaceRampBeltPath
+                       command.Type == GridBuildCommandType.PlaceRampBeltPath ||
+                       command.Type == GridBuildCommandType.PlaceVerticalBeltPath
                     ? command.EndCell
                     : command.StartCell,
                 Success = success ? (byte)1 : (byte)0,
@@ -455,6 +485,13 @@ public partial class GridBuildCommandSystem : SystemBase
 
         ecb.Playback(EntityManager);
         ecb.Dispose();
+        // LinkedEntityGroup buffers created in this ECB have their entity references fixed up only
+        // after playback finishes. Destroy cancelled new roots now, before transport can observe them.
+        if (!pendingVerticalRemovalQuery.IsEmptyIgnoreFilter)
+        {
+            using NativeArray<Entity> cancelled = pendingVerticalRemovalQuery.ToEntityArray(Allocator.Temp);
+            EntityManager.DestroyEntity(cancelled);
+        }
         EntityManager.GetBuffer<GridBuildCommand>(gridEntity).Clear();
         results = EntityManager.GetBuffer<GridBuildResult>(gridEntity);
         for (int i = 0; i < stagedResults.Count; i++)
@@ -1163,7 +1200,7 @@ public partial class GridBuildCommandSystem : SystemBase
         HashSet<GridCell> dirtyCells,
         ref bool transportChanged,
         ref EntityCommandBuffer ecb,
-        out GridBuildFailureReason failureReason)
+        out GridBuildFailureReason failureReason, PlayerId player, ulong placementRequestId)
     {
         if (!TryCreateStagedRecord(
                 buildingLevelId,
@@ -1206,7 +1243,7 @@ public partial class GridBuildCommandSystem : SystemBase
             failureReason = GridBuildFailureReason.MissingPrefab;
             return false;
         }
-        Instantiate(
+        Entity instance = Instantiate(
             visualPrefab,
             building,
             level,
@@ -1216,9 +1253,79 @@ public partial class GridBuildCommandSystem : SystemBase
             catalog,
             ref database,
             ref ecb);
+        if (VerticalBeltUtility.IsVertical(building.Kind))
+        {
+            candidate.Entity = instance;
+            candidate.PendingInstantiation = true;
+            if (building.Kind == BuildingKind.VerticalBeltEntry && placementRequestId != 0)
+            {
+                candidate.PlacementToken = new VerticalBeltPlacementToken { Player = player, RequestId = placementRequestId };
+                ecb.AddComponent(instance, candidate.PlacementToken);
+            }
+        }
         MarkCellsDirty(candidate.OccupiedCells, dirtyCells);
         transportChanged |= UsesTransportTopology(candidate);
         failureReason = GridBuildFailureReason.None;
+        return true;
+    }
+
+    private bool TryPlaceVerticalBeltPath(
+        in GridBuildCommand command, in GridDefinition grid, in WorldGridConfig worldGrid,
+        in BuildingPrefabCatalog catalog, in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
+        ref FactoryDatabaseBlob database, BatchPlacementState placements,
+        HashSet<GridCell> dirtyCells, ref bool transportChanged, ref EntityCommandBuffer ecb,
+        out int affectedCount, out GridBuildFailureReason failure)
+    {
+        affectedCount = 0;
+        failure = GridBuildFailureReason.InvalidVerticalPath;
+        long difference = (long)command.EndCell.Level - command.StartCell.Level;
+        long distance = System.Math.Abs(difference);
+        if (command.StartCell.X != command.EndCell.X || command.StartCell.Z != command.EndCell.Z ||
+            command.EndCell.Level < 0 || distance < 2 || distance > VerticalBeltUtility.MaxPathNodes ||
+            !placements.TryGet(command.StartCell, out PlacementRecord entry) ||
+            entry.Placement.Kind != BuildingKind.VerticalBeltEntry || entry.BuildingLevel != command.BuildingLevel ||
+            !VerticalBeltUtility.TryGetPathLevels(ref database, command.BuildingLevel, out var segmentId, out var exitId))
+            return false;
+
+        int step = difference > 0 ? 1 : -1;
+        List<PlacementRecord> staged = new List<PlacementRecord>((int)distance);
+        var definitions = new List<(FactoryBuildingBlob Building, FactoryBuildingLevelBlob Level, Entity Prefab)>((int)distance);
+        for (int i = 1; i <= distance; i++)
+        {
+            GridCell cell = command.StartCell;
+            cell.Level += step * i;
+            BuildingLevelId levelId = i == distance ? exitId : segmentId;
+            byte turns = i == distance ? command.QuarterTurns : step > 0 ? (byte)0 : (byte)2;
+            Entity prefab = BuildingPrefabCatalogUtility.GetPrefab(visualPrefabs, levelId);
+            if (!IsValidVisualPrefab(prefab) || !TryCreateStagedRecord(levelId, cell, turns,
+                ref database, out var level, out var building, out var record))
+            {
+                RollBackStaged(staged, placements);
+                failure = GridBuildFailureReason.MissingPrefab;
+                return false;
+            }
+            RecordTemporaryRecords(1);
+            RecordPathValidationCells(1);
+            if (!CanPlace(record, grid, placements, out failure))
+            {
+                RollBackStaged(staged, placements);
+                return false;
+            }
+            placements.Add(record);
+            staged.Add(record);
+            definitions.Add((building, level, prefab));
+        }
+        for (int i = 0; i < staged.Count; i++)
+        {
+            var definition = definitions[i];
+            staged[i].Entity = Instantiate(definition.Prefab, definition.Building, definition.Level,
+                staged[i].Placement, grid, worldGrid, catalog, ref database, ref ecb);
+            staged[i].PendingInstantiation = true;
+            MarkCellsDirty(staged[i].OccupiedCells, dirtyCells);
+        }
+        affectedCount = staged.Count;
+        transportChanged = true;
+        failure = GridBuildFailureReason.None;
         return true;
     }
 
@@ -1341,8 +1448,9 @@ public partial class GridBuildCommandSystem : SystemBase
         GridOccupancyIndexSystem occupancySystem,
         ref bool transportChanged,
         ref EntityCommandBuffer ecb,
-        out GridBuildFailureReason failureReason)
+        out int removedCount, out GridBuildFailureReason failureReason)
     {
+        removedCount = 0;
         if (!placements.TryGet(cell, out PlacementRecord record) ||
             record.Entity == Entity.Null)
         {
@@ -1351,12 +1459,9 @@ public partial class GridBuildCommandSystem : SystemBase
             return false;
         }
 
-        if (VerticalBeltUtility.IsVertical(record.Placement.Kind) &&
-            GetOwnedItem(record.Entity) != Entity.Null)
-        {
-            failureReason = GridBuildFailureReason.VerticalContainsItem;
-            return false;
-        }
+        if (VerticalBeltUtility.IsVertical(record.Placement.Kind))
+            return TryRemoveVerticalChain(record, player, ref database, placements, dirtyCells,
+                ref transportChanged, ref ecb, out removedCount, out failureReason);
         placements.Remove(record);
         RemoveOccupancy(record, occupancySystem);
         MarkCellsDirty(record.OccupiedCells, dirtyCells);
@@ -1364,8 +1469,65 @@ public partial class GridBuildCommandSystem : SystemBase
         RecoverOwnedItems(record.Entity, player, ref database, ref ecb);
         ecb.DestroyEntity(record.Entity);
         transportChanged |= UsesTransportTopology(record);
+        removedCount = 1;
         failureReason = GridBuildFailureReason.None;
         return true;
+    }
+
+    private bool TryRemoveVerticalChain(PlacementRecord start, Entity player,
+        ref FactoryDatabaseBlob database, BatchPlacementState placements,
+        HashSet<GridCell> dirtyCells, ref bool transportChanged, ref EntityCommandBuffer ecb,
+        out int removedCount, out GridBuildFailureReason failure)
+    {
+        // Only follow vertical transport connections. Adjacent exit/entry pairs belong to separate chains.
+        List<PlacementRecord> chain = new List<PlacementRecord> { start };
+        HashSet<GridCell> visited = new HashSet<GridCell> { start.Placement.AnchorCell };
+        for (int i = 0; i < chain.Count; i++)
+        {
+            PlacementRecord current = chain[i];
+            for (int step = -1; step <= 1; step += 2)
+            {
+                GridCell neighbor = current.Placement.AnchorCell;
+                if (step < 0 && neighbor.Level == int.MinValue || step > 0 && neighbor.Level == int.MaxValue)
+                    continue;
+                neighbor.Level += step;
+                if (visited.Contains(neighbor) || !placements.TryGet(neighbor, out PlacementRecord next) ||
+                    !VerticalBeltUtility.IsVertical(next.Placement.Kind) ||
+                    !(HasVerticalConnection(current.Placement, next.Placement) ||
+                      HasVerticalConnection(next.Placement, current.Placement))) continue;
+                visited.Add(neighbor);
+                chain.Add(next);
+            }
+        }
+        foreach (PlacementRecord record in chain)
+        {
+            placements.Remove(record);
+            MarkCellsDirty(record.OccupiedCells, dirtyCells);
+            if (record.PendingInstantiation)
+                ecb.AddComponent<PendingVerticalRemoval>(record.Entity);
+            else
+            {
+                RecoverOwnedItems(record.Entity, player, ref database, ref ecb);
+                ecb.DestroyEntity(record.Entity);
+            }
+        }
+        removedCount = chain.Count;
+        transportChanged = true;
+        failure = GridBuildFailureReason.None;
+        return true;
+    }
+
+    private static bool HasVerticalConnection(in GridPlacement source, in GridPlacement target)
+    {
+        long difference = (long)target.AnchorCell.Level - source.AnchorCell.Level;
+        if (source.AnchorCell.X != target.AnchorCell.X || source.AnchorCell.Z != target.AnchorCell.Z ||
+            System.Math.Abs(difference) != 1 || source.Kind == BuildingKind.VerticalBeltExit ||
+            target.Kind == BuildingKind.VerticalBeltEntry) return false;
+        int step = difference > 0 ? 1 : -1;
+        if (source.Kind == BuildingKind.VerticalBeltSegment &&
+            VerticalBeltUtility.Step(source.QuarterTurns) != step) return false;
+        return target.Kind == BuildingKind.VerticalBeltExit && source.Kind == BuildingKind.VerticalBeltSegment ||
+            target.Kind == BuildingKind.VerticalBeltSegment && VerticalBeltUtility.Step(target.QuarterTurns) == step;
     }
 
     private bool TryRemoveBeltLine(
@@ -1388,6 +1550,10 @@ public partial class GridBuildCommandSystem : SystemBase
                 GridBuildFailureReason.NothingToRemove;
             return false;
         }
+
+        if (VerticalBeltUtility.IsVertical(start.Placement.Kind))
+            return TryRemoveVerticalChain(start, player, ref database, placements, dirtyCells,
+                ref transportChanged, ref ecb, out removedCount, out failureReason);
 
         if (start.Placement.Kind != BuildingKind.Belt)
         {
@@ -1716,6 +1882,7 @@ public partial class GridBuildCommandSystem : SystemBase
             Kind = building.Kind
         };
         record = CreateRecordFromDefinition(building, placement, ref database);
+        record.BuildingLevel = levelId;
         return true;
     }
 

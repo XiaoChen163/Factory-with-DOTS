@@ -72,6 +72,11 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
             return "斜面地基 1/4";
         if (nameKey != null && nameKey.StartsWith("building.vertical_belt_", StringComparison.Ordinal))
         {
+            if (nameKey.Contains("entry"))
+            {
+                int tierMarker = nameKey.LastIndexOf(".mk", StringComparison.Ordinal);
+                return tierMarker >= 0 ? nameKey.Substring(tierMarker + 3) + "级垂直传送带" : "垂直传送带";
+            }
             string label = nameKey.Contains("entry") ? "垂直带入口" :
                 nameKey.Contains("exit") ? "垂直带出口" : "垂直传送节点";
             int marker = nameKey.LastIndexOf(".mk", StringComparison.Ordinal);

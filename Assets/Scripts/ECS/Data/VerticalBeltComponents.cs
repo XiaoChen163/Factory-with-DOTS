@@ -8,8 +8,37 @@ public struct VerticalBeltNode : IComponentData
     public int Step;
 }
 
+// Correlates a provisional entry with the player command that created it.
+public struct VerticalBeltPlacementToken : IComponentData
+{
+    public PlayerId Player;
+    public ulong RequestId;
+}
+
+public struct PendingVerticalRemoval : IComponentData { }
+
 public static class VerticalBeltUtility
 {
+    public const int MaxPathNodes = 256;
+
+    public static bool TryGetPathLevels(ref FactoryDatabaseBlob database, BuildingLevelId entry,
+        out BuildingLevelId segment, out BuildingLevelId exit)
+    {
+        segment = default;
+        exit = default;
+        if (!FactoryDatabaseUtility.TryGetBuildingLevel(ref database, entry, out var entryLevel, out var building) ||
+            building.Kind != BuildingKind.VerticalBeltEntry) return false;
+        for (int i = 1; i < database.BuildingLevelsById.Length; i++)
+        {
+            var id = database.BuildingLevelsById[i].Id;
+            if (!FactoryDatabaseUtility.TryGetBuildingLevel(ref database, id, out var level, out var kind) ||
+                level.Level != entryLevel.Level) continue;
+            if (kind.Kind == BuildingKind.VerticalBeltSegment) segment = id;
+            if (kind.Kind == BuildingKind.VerticalBeltExit) exit = id;
+        }
+        return segment.IsValid && exit.IsValid;
+    }
+
     public static bool IsVertical(BuildingKind kind) =>
         kind == BuildingKind.VerticalBeltEntry ||
         kind == BuildingKind.VerticalBeltExit ||

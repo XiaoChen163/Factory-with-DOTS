@@ -222,10 +222,18 @@ public partial class UiSnapshotExportSystem : SystemBase
         BlobAssetReference<FactoryDatabaseBlob> reference =
             databaseQuery.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref reference.Value;
-        BuildingLevelId[] levels = new BuildingLevelId[database.BuildingLevelMenu.Length];
-        for (int i = 0; i < levels.Length; i++)
-            levels[i] = database.BuildingLevelMenu[i];
-        hub.PublishBuildCatalog(new BuildCatalogSnapshot(levels));
+        List<BuildingLevelId> levels = new List<BuildingLevelId>();
+        for (int i = 0; i < database.BuildingLevelMenu.Length; i++)
+        {
+            BuildingLevelId id = database.BuildingLevelMenu[i];
+            if (!FactoryDatabaseUtility.TryGetBuildingLevel(ref database, id, out _, out FactoryBuildingBlob building))
+                continue;
+            // Internal nodes remain addressable by commands and saves; only the picker is grouped.
+            if (building.Kind == BuildingKind.VerticalBeltSegment || building.Kind == BuildingKind.VerticalBeltExit)
+                continue;
+            levels.Add(id);
+        }
+        hub.PublishBuildCatalog(new BuildCatalogSnapshot(levels.ToArray()));
     }
 
     private ushort GetItemCapacity(ItemId itemId)

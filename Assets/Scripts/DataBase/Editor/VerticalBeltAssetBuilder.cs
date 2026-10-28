@@ -3,6 +3,53 @@ using UnityEngine;
 
 public static class VerticalBeltAssetBuilder
 {
+    [MenuItem("Factory/Assets/Rebuild Vertical Belt Catalog Icons")]
+    public static void RebuildCatalogIcons()
+    {
+        RebuildIconSources();
+        AssetDatabase.SaveAssets();
+        FactoryIconBaker.BakeAll(false);
+    }
+
+    public static void RebuildIconSources()
+    {
+        const string directory = "Assets/Prefabs/IconSources";
+        if (!AssetDatabase.IsValidFolder(directory)) AssetDatabase.CreateFolder("Assets/Prefabs", "IconSources");
+        FactoryIconBakeSettings settings = AssetDatabase.LoadAssetAtPath<FactoryIconBakeSettings>(FactoryIconBaker.SettingsAssetPath);
+        if (settings == null) throw new System.InvalidOperationException("Factory icon settings are missing.");
+        var overrides = new System.Collections.Generic.List<FactoryIconBakeOverride>(settings.overrides);
+        for (int tier = 1; tier <= 4; tier++)
+        {
+            GameObject root = new GameObject("VerticalBeltMk" + tier);
+            GameObject entry = null;
+            GameObject source;
+            try
+            {
+                string[] kinds = { "Entry", "Segment", "Exit" };
+                for (int i = 0; i < kinds.Length; i++)
+                {
+                    GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                        "Assets/Prefabs/Buildings/VerticalBelt" + kinds[i] + "Mk" + tier + ".prefab");
+                    if (i == 0) entry = prefab;
+                    GameObject part = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                    part.transform.SetParent(root.transform, false);
+                    part.transform.localPosition = new Vector3(0,i,0);
+                }
+                source = PrefabUtility.SaveAsPrefabAsset(root, directory + "/VerticalBeltMk" + tier + ".prefab");
+            }
+            finally { Object.DestroyImmediate(root); }
+            FactoryIconBakeOverride configured = overrides.Find(value => value != null && value.prefab == entry);
+            if (configured == null)
+            {
+                configured = new FactoryIconBakeOverride { prefab = entry };
+                overrides.Add(configured);
+            }
+            configured.iconPrefab = source;
+        }
+        settings.overrides = overrides.ToArray();
+        EditorUtility.SetDirty(settings);
+    }
+
     [MenuItem("Factory/Assets/Rebuild Vertical Belt Prefabs")]
     public static void Rebuild()
     {
@@ -69,8 +116,7 @@ public static class VerticalBeltAssetBuilder
                 finally { Object.DestroyImmediate(root); }
             }
         }
-        AssetDatabase.SaveAssets();
-        FactoryIconBaker.BakeAll(false);
+        RebuildCatalogIcons();
         Debug.Log("[Vertical Belt Assets] Completed 12 prefabs and database rebuild.");
     }
 }

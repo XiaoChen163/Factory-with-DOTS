@@ -117,6 +117,7 @@ public struct MoveItemPlayerResult : IBufferElementData
 public struct GridBuildPlayerCommand : IBufferElementData
 {
     public PlayerCommandHeader Header;
+    public ulong PlacementRequestId;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
     public BuildingLevelId BuildingLevel;

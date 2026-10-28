@@ -24,4 +24,28 @@ MonoBehaviour:
   fillLightColor: {r: 0.7, g: 0.8, b: 1, a: 1}
   fillLightIntensity: 0.45
   fillLightEuler: {x: 340, y: 215, z: 0}
-  overrides: []
+  overrides:
+  - prefab: {fileID: 849880541941752008, guid: 427e9682af365624db4f8093bc5a5272, type: 3}
+    iconPrefab: {fileID: 3485062946616331020, guid: f73d5edc5f553ef42b3bdd04ac5c6e85, type: 3}
+    customIcon: {fileID: 0}
+    viewDirection: {x: -1, y: -0.75, z: -1}
+    padding: 1.12
+    centerOffset: {x: 0, y: 0, z: 0}
+  - prefab: {fileID: 756550717548969875, guid: 550ad97ca2b33fc41af712c62f46eb9a, type: 3}
+    iconPrefab: {fileID: 2955303644219097842, guid: aaef6f74269a0dc42aa40e2d5aa419b4, type: 3}
+    customIcon: {fileID: 0}
+    viewDirection: {x: -1, y: -0.75, z: -1}
+    padding: 1.12
+    centerOffset: {x: 0, y: 0, z: 0}
+  - prefab: {fileID: 8263080865558837001, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+    iconPrefab: {fileID: 8947655723019464399, guid: 3f92285ab35a4c2459500753ffe29858, type: 3}
+    customIcon: {fileID: 0}
+    viewDirection: {x: -1, y: -0.75, z: -1}
+    padding: 1.12
+    centerOffset: {x: 0, y: 0, z: 0}
+  - prefab: {fileID: 8642908834916057529, guid: d9392b01d0a1cfe428a0dcf54ee44787, type: 3}
+    iconPrefab: {fileID: 4584866435968171642, guid: 96b7b6a7e8608f040bbfc8fca3e848b2, type: 3}
+    customIcon: {fileID: 0}
+    viewDirection: {x: -1, y: -0.75, z: -1}
+    padding: 1.12
+    centerOffset: {x: 0, y: 0, z: 0}

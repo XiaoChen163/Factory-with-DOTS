@@ -2,6 +2,9 @@
 
 日期：2026-10-28。Unity：6000.3.19f1。
 
+以下记录为阶段 7 初版验证。当前整链拆除、Esc 撤销及最新验证结果见
+[垂直传送带易用性说明](Vertical-Belt-Usability.md)。
+
 ## 自动化结果
 
 - EditMode：209/209 通过；其中新增 `MultiLevelStage7Tests` 12 项。

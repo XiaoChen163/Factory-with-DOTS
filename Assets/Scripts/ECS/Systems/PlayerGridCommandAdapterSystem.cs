@@ -65,6 +65,8 @@ public partial struct PlayerGridCommandAdapterSystem : ISystem
             gridCommands.Add(new GridBuildCommand
             {
                 RequestId = gridRequestId,
+                PlacementRequestId = value.Type == GridBuildCommandType.Place
+                    ? value.Header.RequestId : value.PlacementRequestId,
                 Player = value.Header.Player,
                 Type = value.Type,
                 Kind = value.Kind,

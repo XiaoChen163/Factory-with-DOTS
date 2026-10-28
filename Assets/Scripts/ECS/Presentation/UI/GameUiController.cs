@@ -311,6 +311,7 @@ public sealed class GameUiController : MonoBehaviour
         }
         if (inputMode != null && inputMode.IsBuildMode)
         {
+            gridInteraction?.CancelPlacementGesture();
             CloseBuildCatalog();
             inputMode.SetBuildMode(false);
             return;

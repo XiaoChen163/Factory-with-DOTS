@@ -152,7 +152,7 @@ public partial class GridBuildCommandSystem : SystemBase
     {
         pendingVerticalRemovalQuery = GetEntityQuery(ComponentType.ReadOnly<PendingVerticalRemoval>());
         gridQuery = GetEntityQuery(
-            ComponentType.ReadWrite<GridDefinition>(),
+            ComponentType.ReadWrite<WorldGridConfig>(),
             ComponentType.ReadWrite<GridBuildCommand>(),
             ComponentType.ReadWrite<GridBuildResult>());
         catalogQuery = GetEntityQuery(
@@ -229,10 +229,9 @@ public partial class GridBuildCommandSystem : SystemBase
         }
 
         Dependency.Complete();
-        GridDefinition grid =
-            EntityManager.GetComponentData<GridDefinition>(
+        WorldGridConfig worldGrid =
+            EntityManager.GetComponentData<WorldGridConfig>(
                 gridEntity);
-        WorldGridConfig worldGrid = GetWorldGridConfig(gridEntity, grid);
         BuildingPrefabCatalog catalog =
             catalogQuery.GetSingleton<BuildingPrefabCatalog>();
         DynamicBuffer<BuildingVisualPrefabEntry> visualPrefabs =
@@ -281,7 +280,6 @@ public partial class GridBuildCommandSystem : SystemBase
                     changesBuildingOccupancy = false;
                     success = TryPlaceRampFoundation(
                         command,
-                        grid,
                         worldGrid,
                         catalog,
                         rampRegistry,
@@ -304,7 +302,6 @@ public partial class GridBuildCommandSystem : SystemBase
                     changesBuildingOccupancy = false;
                     success = TryPlaceRampBelt(
                         command,
-                        grid,
                         worldGrid,
                         catalog,
                         visualPrefabSnapshot,
@@ -321,7 +318,6 @@ public partial class GridBuildCommandSystem : SystemBase
                     changesBuildingOccupancy = false;
                     success = TryPlaceRampBeltPath(
                         command,
-                        grid,
                         worldGrid,
                         catalog,
                         visualPrefabSnapshot,
@@ -425,7 +421,7 @@ public partial class GridBuildCommandSystem : SystemBase
                     break;
 
                 case GridBuildCommandType.PlaceVerticalBeltPath:
-                    success = TryPlaceVerticalBeltPath(command, grid, worldGrid, catalog,
+                    success = TryPlaceVerticalBeltPath(command, worldGrid, catalog,
                         visualPrefabSnapshot, ref database, placements, dirtyCells,
                         ref transportChanged, ref ecb, out affectedCount, out failureReason);
                     break;
@@ -433,7 +429,6 @@ public partial class GridBuildCommandSystem : SystemBase
                 case GridBuildCommandType.PlaceBeltPath:
                     success = TryPlaceBeltPath(
                         command,
-                        grid,
                         worldGrid,
                         catalog,
                         visualPrefabSnapshot,
@@ -451,7 +446,6 @@ public partial class GridBuildCommandSystem : SystemBase
                         command.BuildingLevel,
                         command.StartCell,
                         command.QuarterTurns,
-                        grid,
                         worldGrid,
                         catalog,
                         visualPrefabSnapshot,
@@ -805,20 +799,6 @@ public partial class GridBuildCommandSystem : SystemBase
             EntityManager.AddComponentData(gridEntity, value);
     }
 
-    private WorldGridConfig GetWorldGridConfig(
-        Entity gridEntity,
-        in GridDefinition grid)
-    {
-        return EntityManager.HasComponent<WorldGridConfig>(gridEntity)
-            ? EntityManager.GetComponentData<WorldGridConfig>(gridEntity)
-            : new WorldGridConfig
-            {
-                CellSize = grid.CellSize,
-                LayerHeight = EcsGridUtility.DefaultLayerHeight,
-                Origin = grid.Origin
-            };
-    }
-
     private void IncrementTransportTopologyRevision(Entity gridEntity)
     {
         bool exists = EntityManager.HasComponent<TransportTopologyRevision>(
@@ -849,7 +829,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryPlaceRampFoundation(
         in GridBuildCommand command,
-        in GridDefinition grid,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         RampRegistrySystem rampRegistry,
@@ -903,7 +882,7 @@ public partial class GridBuildCommandSystem : SystemBase
         float3 position = EcsGridUtility.CellToWorldCenter(cell, worldGrid);
         position.y = low.ToWorldY(worldGrid);
         quaternion rotation = RampUtility.GetFoundationVisualRotation(uphill);
-        float cellSize = math.max(math.EPSILON, grid.CellSize);
+        float cellSize = math.max(math.EPSILON, worldGrid.CellSize);
         EntityManager.AddComponentData(entity,
             LocalTransform.FromPositionRotationScale(position, rotation, cellSize));
         EntityManager.AddComponentData(entity, new LocalToWorld
@@ -960,7 +939,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryPlaceRampBelt(
         in GridBuildCommand command,
-        in GridDefinition grid,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
@@ -1015,7 +993,7 @@ public partial class GridBuildCommandSystem : SystemBase
         Entity prefab = BuildingPrefabCatalogUtility.GetPrefab(
             visualPrefabs, command.BuildingLevel);
         Entity instance = Instantiate(
-            prefab, building, level, placement, grid, worldGrid,
+            prefab, building, level, placement, worldGrid,
             catalog, ref database, ref ecb, false);
         bool uphill = math.all(travel == record.Connector.UphillDirection);
         GridHeight entry = uphill ? record.Connector.LowHeight : record.Connector.HighHeight;
@@ -1038,12 +1016,12 @@ public partial class GridBuildCommandSystem : SystemBase
 
         float3 center = RampUtility.GetSurfaceCenter(record.Connector, worldGrid);
         float rise = exit.ToWorldY(worldGrid) - entry.ToWorldY(worldGrid);
-        float angle = math.atan2(rise, math.max(math.EPSILON, grid.CellSize));
+        float angle = math.atan2(rise, math.max(math.EPSILON, worldGrid.CellSize));
         quaternion rotation = math.mul(
             EcsGridUtility.RotationFromQuarterTurns(placement.QuarterTurns),
             quaternion.RotateZ(angle));
         float lengthScale = RampUtility.GetSlopeLength(record.Connector, worldGrid) /
-                            math.max(math.EPSILON, grid.CellSize);
+                            math.max(math.EPSILON, worldGrid.CellSize);
         ecb.SetComponent(instance,
             LocalTransform.FromPositionRotationScale(center, rotation, 1f));
         ecb.SetComponent(instance, new LocalToWorld
@@ -1065,7 +1043,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryPlaceRampBeltPath(
         in GridBuildCommand command,
-        in GridDefinition grid,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
@@ -1132,7 +1109,6 @@ public partial class GridBuildCommandSystem : SystemBase
             segment.EndCell = segment.StartCell;
             if (!TryPlaceRampBelt(
                     segment,
-                    grid,
                     worldGrid,
                     catalog,
                     visualPrefabs,
@@ -1191,7 +1167,6 @@ public partial class GridBuildCommandSystem : SystemBase
         BuildingLevelId buildingLevelId,
         GridCell anchor,
         byte quarterTurns,
-        in GridDefinition grid,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
@@ -1226,7 +1201,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
         if (!CanPlace(
                 candidate,
-                grid,
                 placements,
                 out failureReason))
         {
@@ -1248,7 +1222,6 @@ public partial class GridBuildCommandSystem : SystemBase
             building,
             level,
             candidate.Placement,
-            grid,
             worldGrid,
             catalog,
             ref database,
@@ -1270,7 +1243,7 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private bool TryPlaceVerticalBeltPath(
-        in GridBuildCommand command, in GridDefinition grid, in WorldGridConfig worldGrid,
+        in GridBuildCommand command, in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog, in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
         ref FactoryDatabaseBlob database, BatchPlacementState placements,
         HashSet<GridCell> dirtyCells, ref bool transportChanged, ref EntityCommandBuffer ecb,
@@ -1306,7 +1279,7 @@ public partial class GridBuildCommandSystem : SystemBase
             }
             RecordTemporaryRecords(1);
             RecordPathValidationCells(1);
-            if (!CanPlace(record, grid, placements, out failure))
+            if (!CanPlace(record, placements, out failure))
             {
                 RollBackStaged(staged, placements);
                 return false;
@@ -1319,7 +1292,7 @@ public partial class GridBuildCommandSystem : SystemBase
         {
             var definition = definitions[i];
             staged[i].Entity = Instantiate(definition.Prefab, definition.Building, definition.Level,
-                staged[i].Placement, grid, worldGrid, catalog, ref database, ref ecb);
+                staged[i].Placement, worldGrid, catalog, ref database, ref ecb);
             staged[i].PendingInstantiation = true;
             MarkCellsDirty(staged[i].OccupiedCells, dirtyCells);
         }
@@ -1331,7 +1304,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool TryPlaceBeltPath(
         in GridBuildCommand command,
-        in GridDefinition grid,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         in NativeArray<BuildingVisualPrefabEntry> visualPrefabs,
@@ -1405,7 +1377,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
             if (!CanPlace(
                     candidate,
-                    grid,
                     placements,
                     out failureReason))
             {
@@ -1427,7 +1398,6 @@ public partial class GridBuildCommandSystem : SystemBase
                 beltBuilding,
                 beltLevel,
                 staged[i].Placement,
-                grid,
                 worldGrid,
                 catalog,
                 ref database,
@@ -1694,7 +1664,6 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private bool CanPlace(
         PlacementRecord candidate,
-        in GridDefinition grid,
         BatchPlacementState placements,
         out GridBuildFailureReason failureReason)
     {
@@ -1720,12 +1689,11 @@ public partial class GridBuildCommandSystem : SystemBase
             bool hasPermission = VerticalBeltUtility.IsVertical(candidate.Placement.Kind)
                 ? cell.Level >= 0
                 : registry != null && registry.IsReady
-                ? registry.AllowsFlat(
+                && registry.AllowsFlat(
                     cell,
                     candidate.Placement.Kind == BuildingKind.Belt
                         ? SurfacePermission.Belts
-                        : SurfacePermission.Buildings)
-                : EcsGridUtility.Contains(grid, cell);
+                        : SurfacePermission.Buildings);
             if (!hasPermission)
             {
                 failureReason =
@@ -2000,7 +1968,6 @@ public partial class GridBuildCommandSystem : SystemBase
         in FactoryBuildingBlob building,
         in FactoryBuildingLevelBlob level,
         in GridPlacement placement,
-        in GridDefinition grid,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         ref FactoryDatabaseBlob database,
@@ -2052,7 +2019,7 @@ public partial class GridBuildCommandSystem : SystemBase
             placement.AnchorCell,
             worldGrid);
         float2 visualOffset = EcsGridUtility.GetVisualCenterOffset(
-            placement.FootprintSize) * grid.CellSize;
+            placement.FootprintSize) * worldGrid.CellSize;
         center.x += visualOffset.x;
         center.z += visualOffset.y;
         ecb.AddComponent(instance, LocalTransform.FromPositionRotationScale(
@@ -2117,7 +2084,6 @@ public partial class GridBuildCommandSystem : SystemBase
             instance,
             ports,
             placement,
-            grid,
             worldGrid,
             catalog,
             ref ecb);
@@ -2279,7 +2245,6 @@ public partial class GridBuildCommandSystem : SystemBase
         Entity owner,
         in DynamicBuffer<BuildingPort> ports,
         in GridPlacement placement,
-        in GridDefinition grid,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
         ref EntityCommandBuffer ecb)
@@ -2289,7 +2254,7 @@ public partial class GridBuildCommandSystem : SystemBase
             return;
         }
 
-        float cellSize = math.max(math.EPSILON, grid.CellSize);
+        float cellSize = math.max(math.EPSILON, worldGrid.CellSize);
         for (int i = 0; i < ports.Length; i++)
         {
             BuildingPort port = ports[i];

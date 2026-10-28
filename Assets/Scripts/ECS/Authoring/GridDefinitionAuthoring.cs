@@ -34,18 +34,6 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
             Vector3 configuredOrigin = authoring.origin;
             configuredOrigin.y = 0f;
 
-            AddComponent(entity, new GridDefinition
-            {
-                Size = new int2(
-                    Mathf.Max(1, authoring.size.x),
-                    Mathf.Max(1, authoring.size.y)),
-                Origin = new float3(
-                    Mathf.Round(configuredOrigin.x),
-                    configuredOrigin.y,
-                    Mathf.Round(configuredOrigin.z)),
-                CellSize = EcsGridUtility.DefaultCellSize,
-                Revision = 1
-            });
             AddComponent(entity, new WorldGridConfig
             {
                 CellSize = EcsGridUtility.DefaultCellSize,
@@ -64,10 +52,13 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
                 Revision = 1
             });
             AddComponent(entity, new SurfaceTopologyRevision { Value = 1 });
-            AddComponent(entity, new InitialSurfaceSettings
+            DynamicBuffer<InitialSurfaceCell> initialCells = AddBuffer<InitialSurfaceCell>(entity);
+            if (authoring.initialSurfaceMode == InitialSurfaceMode.Rectangle)
             {
-                Mode = authoring.initialSurfaceMode
-            });
+                for (int z = 0; z < authoring.size.y; z++)
+                for (int x = 0; x < authoring.size.x; x++)
+                    initialCells.Add(new InitialSurfaceCell { Cell = new GridCell(x, 0, z) });
+            }
             AddComponent(entity, new BuildingOccupancyRevision { Value = 1 });
             AddComponent(entity, new TransportTopologyRevision { Value = 1 });
             AddComponent(entity, new TransportVisualRevision { Value = 1 });

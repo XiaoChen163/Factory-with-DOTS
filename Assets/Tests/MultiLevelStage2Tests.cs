@@ -8,15 +8,49 @@ namespace Factory.Tests
     public sealed class MultiLevelStage2Tests : FactoryWorldFixture
     {
         [Test]
+        public void WorldConfigWithoutSurfaceRegistry_DoesNotEnableOccupancy()
+        {
+            Entity grid = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(grid,
+                new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
+            GridOccupancyIndexSystem occupancy =
+                GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
+            UpdateSystem(occupancy);
+            Assert.That(occupancy.IsReady, Is.False);
+            Assert.That(occupancy.OccupiedCellCount, Is.Zero);
+        }
+
+        [Test]
+        public void AuthoredSurfaces_SupportNegativeCoordinatesAndMultipleLevelsWithoutRectangle()
+        {
+            Entity grid = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(grid,
+                new WorldGridConfig { CellSize = 1f, LayerHeight = 2f });
+            GridCell lower = new GridCell(-17, 0, -1);
+            GridCell upper = new GridCell(-17, 3, -1);
+            DynamicBuffer<InitialSurfaceCell> cells = EntityManager.AddBuffer<InitialSurfaceCell>(grid);
+            cells.Add(new InitialSurfaceCell { Cell = lower });
+            cells.Add(new InitialSurfaceCell { Cell = upper });
+            SurfaceRegistrySystem registry = GetOrCreateManagedSystem<SurfaceRegistrySystem>();
+            UpdateSystem(registry);
+            Assert.That(registry.SurfaceCount, Is.EqualTo(2));
+            Assert.That(registry.HasSurface(lower), Is.True);
+            Assert.That(registry.HasSurface(upper), Is.True);
+            Assert.That(registry.HasSurface(new GridCell(-17, 1, -1)), Is.False);
+            Assert.That(registry.HasSurface(new GridCell(0, 0, 0)), Is.False);
+            Assert.That(EntityManager.HasBuffer<InitialSurfaceCell>(grid), Is.False);
+            Assert.That(registry.TryGetFoundation(upper, out Entity original), Is.True);
+            UpdateSystem(registry);
+            Assert.That(registry.SurfaceCount, Is.EqualTo(2));
+            Assert.That(registry.TryGetFoundation(upper, out Entity unchanged), Is.True);
+            Assert.That(unchanged, Is.EqualTo(original));
+        }
+
+        [Test]
         public void BuildingRevision_DoesNotInvalidateTransportTopology()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
             EntityManager.AddComponentData(
                 grid,
                 new BuildingOccupancyRevision { Value = 1 });
@@ -52,13 +86,8 @@ namespace Factory.Tests
         public void PlacementTransform_ChangesOnlyWhenExplicitlyDirty()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                Origin = new float3(10f, 0f, 20f),
-                CellSize = 2f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { Origin = new float3(10f, 0f, 20f),
+                CellSize = 2f, LayerHeight = 1f });
 
             Entity building = EntityManager.CreateEntity();
             EntityManager.AddComponentData(building, new GridPlacement
@@ -96,11 +125,7 @@ namespace Factory.Tests
         public void OccupancyRevision_RebuildsAfterExplicitPlacementEdit()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
             EntityManager.AddComponentData(
                 grid,
                 new BuildingOccupancyRevision { Value = 1 });

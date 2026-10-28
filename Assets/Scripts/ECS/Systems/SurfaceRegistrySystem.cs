@@ -29,7 +29,7 @@ public partial class SurfaceRegistrySystem : SystemBase
     {
         surfaces = new NativeParallelHashMap<GridCell, SurfaceRecord>(256, Allocator.Persistent);
         chunks = new NativeParallelHashMap<SurfaceChunkKey, Entity>(16, Allocator.Persistent);
-        gridQuery = GetEntityQuery(ComponentType.ReadOnly<GridDefinition>());
+        gridQuery = GetEntityQuery(ComponentType.ReadOnly<WorldGridConfig>());
         indexedRevision = uint.MaxValue;
     }
 
@@ -50,11 +50,14 @@ public partial class SurfaceRegistrySystem : SystemBase
         Dependency.Complete();
         Entity grid = gridQuery.GetSingletonEntity();
         EnsureGridState(grid);
-        if (EntityManager.HasComponent<InitialSurfaceSettings>(grid) &&
-            EntityManager.GetComponentData<InitialSurfaceSettings>(grid).Mode ==
-                InitialSurfaceMode.LegacyRectangle &&
-            !EntityManager.HasComponent<LegacySurfaceInitialized>(grid))
-            InitializeLegacyRectangle(grid);
+        if (EntityManager.HasBuffer<InitialSurfaceCell>(grid))
+        {
+            using NativeArray<InitialSurfaceCell> initialCells = EntityManager
+                .GetBuffer<InitialSurfaceCell>(grid).ToNativeArray(Allocator.Temp);
+            for (int i = 0; i < initialCells.Length; i++)
+                AddFoundation(grid, initialCells[i].Cell, 0, SurfacePermission.All, true);
+            EntityManager.RemoveComponent<InitialSurfaceCell>(grid);
+        }
 
         uint revision = EntityManager.GetComponentData<SurfaceTopologyRevision>(grid).Value;
         if (!IsReady || indexedRevision != revision)
@@ -315,16 +318,6 @@ public partial class SurfaceRegistrySystem : SystemBase
         EntityManager.AddBuffer<SurfaceCellData>(chunk);
         chunks[key] = chunk;
         return chunk;
-    }
-
-    private void InitializeLegacyRectangle(Entity grid)
-    {
-        GridDefinition definition = EntityManager.GetComponentData<GridDefinition>(grid);
-        EnsureSurfaceCapacity(definition.Size.x * definition.Size.y);
-        for (int z = 0; z < definition.Size.y; z++)
-        for (int x = 0; x < definition.Size.x; x++)
-            AddFoundation(grid, new GridCell(x, 0, z), 0, SurfacePermission.All, true);
-        EntityManager.AddComponent<LegacySurfaceInitialized>(grid);
     }
 
     private void EnsureGridState(Entity grid)

@@ -97,17 +97,17 @@ public struct SurfacePhysicsDirtyChunk : IBufferElementData
     public FoundationPhysicsChunkKey Value;
 }
 
-public struct LegacySurfaceInitialized : IComponentData { }
-
 public enum InitialSurfaceMode : byte
 {
     Empty,
-    LegacyRectangle
+    Rectangle
 }
 
-public struct InitialSurfaceSettings : IComponentData
+// Authored seed cells are consumed once; runtime buildability comes only from SurfaceRegistry.
+[InternalBufferCapacity(0)]
+public struct InitialSurfaceCell : IBufferElementData
 {
-    public InitialSurfaceMode Mode;
+    public GridCell Cell;
 }
 
 public struct FoundationPhysicsChunk : IComponentData

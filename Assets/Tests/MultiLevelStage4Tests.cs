@@ -331,18 +331,9 @@ namespace Factory.Tests
                 LayerHeight = 1f
             };
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                Origin = config.Origin,
-                CellSize = config.CellSize,
-                Revision = 1
-            });
+
             EntityManager.AddComponentData(grid, config);
-            EntityManager.AddComponentData(grid, new InitialSurfaceSettings
-            {
-                Mode = InitialSurfaceMode.Empty
-            });
+
             EntityManager.AddComponentData(grid,
                 new SurfaceTopologyRevision { Value = 1 });
             EntityManager.AddComponentData(grid,

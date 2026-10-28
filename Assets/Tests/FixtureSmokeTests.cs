@@ -11,8 +11,8 @@ namespace Factory.Tests
         {
             using TransportScenario scenario = new TransportScenario();
             Entity item = scenario.CreateItem();
-            scenario.AddBelt(new int2(0, 0), new int2(1, 0), item, 1f);
-            scenario.AddBelt(new int2(1, 0), new int2(1, 0));
+            scenario.AddBelt(new GridCell(0, 0, 0), new int2(1, 0), item, 1f);
+            scenario.AddBelt(new GridCell(1, 0, 0), new int2(1, 0));
             TransportStateSnapshot before = scenario.CaptureState();
 
             TransportTickResult result = scenario.ResolveTick();
@@ -29,7 +29,7 @@ namespace Factory.Tests
         {
             Entity item = CreateItem();
             Entity belt = CreateBelt(
-                new int2(2, 3),
+                new GridCell(2, 0, 3),
                 new int2(1, 0),
                 item,
                 1f);

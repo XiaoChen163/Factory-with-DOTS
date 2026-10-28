@@ -166,12 +166,7 @@ namespace Factory.Tests
         public void ExplicitEdgeBuffer_RebuildsOnlyAfterTransportRevisionChanges()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
             EntityManager.AddComponentData(
                 grid,
                 new BuildingOccupancyRevision { Value = 1 });

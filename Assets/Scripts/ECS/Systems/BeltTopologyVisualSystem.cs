@@ -38,7 +38,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
             new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
         pendingHiddenEdges =
             new NativeParallelHashSet<Entity>(16, Allocator.Persistent);
-        RequireForUpdate<GridDefinition>();
+        RequireForUpdate<WorldGridConfig>();
     }
 
     protected override void OnDestroy()
@@ -73,7 +73,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
         }
 
         Entity gridEntity =
-            SystemAPI.GetSingletonEntity<GridDefinition>();
+            SystemAPI.GetSingletonEntity<WorldGridConfig>();
         bool hasDirty =
             EntityManager.HasBuffer<BeltVisualDirtyCell>(gridEntity) &&
             !EntityManager.GetBuffer<BeltVisualDirtyCell>(gridEntity)

@@ -110,7 +110,7 @@ public sealed partial class EcsGridInteractionController
 
     private void UpdateVerticalPathPreview()
     {
-        if (!TryGetGrid(out World world, out _, out GridDefinition grid) ||
+        if (!TryGetGrid(out World world, out _, out WorldGridConfig grid) ||
             !TryGetDatabase(out var reference))
         {
             HidePlacementPreview();

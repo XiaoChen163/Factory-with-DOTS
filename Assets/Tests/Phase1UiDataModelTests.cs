@@ -217,7 +217,7 @@ namespace Factory.Tests
             Entity processor = EntityManager.CreateEntity();
             EntityManager.AddComponentData(processor, new GridPlacement
             {
-                AnchorCell = new Unity.Mathematics.int2(0, 0)
+                AnchorCell = new GridCell(new Unity.Mathematics.int2(0, 0))
             });
             EntityManager.AddComponentData(processor, new ItemProcessor
             {
@@ -238,7 +238,7 @@ namespace Factory.Tests
                 EntityManager.AddBuffer<RecipeSelectionCommand>(nonPlayerOwner);
             commands.Add(new RecipeSelectionCommand
             {
-                BuildingCell = new Unity.Mathematics.int2(0, 0),
+                BuildingCell = new GridCell(new Unity.Mathematics.int2(0, 0)),
                 Recipe = new RecipeId { Value = 1 }
             });
 

@@ -32,18 +32,18 @@ namespace Factory.Tests
         [TestCase(-17, 31)]
         public void WorldAndCellConversion_RoundTripsCellCenters(int x, int z)
         {
-            GridDefinition grid = new GridDefinition
+            WorldGridConfig grid = new WorldGridConfig
             {
                 Origin = new float3(-3.5f, 4f, 8.25f),
                 CellSize = 2.5f,
-                Size = new int2(64, 64)
+                LayerHeight = 1f
             };
             GridCell cell = new GridCell(x, 0, z);
 
-            float3 world = EcsGridUtility.CellToWorldCenter(cell, 9f, grid);
+            float3 world = EcsGridUtility.CellToWorldCenter(cell, grid);
 
             Assert.That(EcsGridUtility.WorldToCell(world, grid), Is.EqualTo(cell));
-            Assert.That(world.y, Is.EqualTo(9f));
+            Assert.That(world.y, Is.EqualTo(4f));
         }
 
         [TestCase(0, 2, 3)]
@@ -57,7 +57,7 @@ namespace Factory.Tests
         {
             GridPlacement placement = new GridPlacement
             {
-                AnchorCell = new int2(10, 20),
+                AnchorCell = new GridCell(10, 0, 20),
                 FootprintSize = new int2(2, 3),
                 QuarterTurns = quarterTurns,
                 Kind = BuildingKind.Storage
@@ -85,7 +85,7 @@ namespace Factory.Tests
             {
                 GridPlacement placement = new GridPlacement
                 {
-                    AnchorCell = new int2(5, 7),
+                    AnchorCell = new GridCell(5, 0, 7),
                     FootprintSize = new int2(1, 1),
                     QuarterTurns = quarterTurns
                 };
@@ -96,24 +96,11 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void RectangularGrid_ContainsIncludesOriginAndExcludesEveryBoundary()
-        {
-            GridDefinition grid = new GridDefinition { Size = new int2(4, 3) };
-
-            Assert.That(EcsGridUtility.Contains(grid, new int2(0, 0)), Is.True);
-            Assert.That(EcsGridUtility.Contains(grid, new int2(3, 2)), Is.True);
-            Assert.That(EcsGridUtility.Contains(grid, new int2(-1, 0)), Is.False);
-            Assert.That(EcsGridUtility.Contains(grid, new int2(0, -1)), Is.False);
-            Assert.That(EcsGridUtility.Contains(grid, new int2(4, 0)), Is.False);
-            Assert.That(EcsGridUtility.Contains(grid, new int2(0, 3)), Is.False);
-        }
-
-        [Test]
         public void BeltPath_HorizontalFirstFreezesXPriorityCornerAndDirections()
         {
             List<BeltPathCell> path = EcsGridUtility.BuildBeltPath(
-                new int2(1, 2),
-                new int2(4, 4),
+                new GridCell(1, 0, 2),
+                new GridCell(4, 0, 4),
                 true,
                 new int2(-1, 0));
 
@@ -130,8 +117,8 @@ namespace Factory.Tests
         public void BeltPath_VerticalFirstFreezesZPriorityCornerAndDirections()
         {
             List<BeltPathCell> path = EcsGridUtility.BuildBeltPath(
-                new int2(1, 2),
-                new int2(4, 4),
+                new GridCell(1, 0, 2),
+                new GridCell(4, 0, 4),
                 false,
                 new int2(-1, 0));
 
@@ -160,12 +147,12 @@ namespace Factory.Tests
                 {
                     new BeltTopology
                     {
-                        Cell = int2.zero,
+                        Cell = new GridCell(int2.zero),
                         Direction = new int2(1, 0)
                     },
                     new BeltTopology
                     {
-                        Cell = new int2(1, 0),
+                        Cell = new GridCell(1, 0, 0),
                         Direction = new int2(1, 0)
                     }
                 }, Allocator.Temp);
@@ -254,22 +241,6 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void LegacyRectangularGrid_AcceptsOnlyLevelZero()
-        {
-            GridDefinition grid = new GridDefinition
-            {
-                Size = new int2(8, 8)
-            };
-
-            Assert.That(EcsGridUtility.Contains(
-                grid,
-                new GridCell(3, 0, 4)), Is.True);
-            Assert.That(EcsGridUtility.Contains(
-                grid,
-                new GridCell(3, 1, 4)), Is.False);
-        }
-
-        [Test]
         public void BeltPath_CrossLevelEndpointsAreRejected()
         {
             List<BeltPathCell> path = EcsGridUtility.BuildBeltPath(
@@ -330,19 +301,15 @@ namespace Factory.Tests
             {
                 database = CreateBeltDatabase(out visualObject, out asset);
                 Entity grid = EntityManager.CreateEntity();
-                EntityManager.AddComponentData(grid, new GridDefinition
-                {
-                    Size = new int2(128, 16),
-                    CellSize = 1f,
-                    Revision = 1
-                });
+                ConfigureWorldGrid(grid, new int2(128, 16),
+                    new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
                 EntityManager.AddBuffer<GridBuildCommand>(grid).Add(
                     new GridBuildCommand
                     {
                         Type = GridBuildCommandType.PlaceBeltPath,
                         BuildingLevel = new BuildingLevelId { Value = 1 },
-                        StartCell = int2.zero,
-                        EndCell = new int2(3, 0),
+                        StartCell = new GridCell(int2.zero),
+                        EndCell = new GridCell(3, 0, 0),
                         HorizontalFirst = 1
                     });
                 EntityManager.AddBuffer<GridBuildResult>(grid);
@@ -370,7 +337,7 @@ namespace Factory.Tests
                 Entity blocker = EntityManager.CreateEntity();
                 EntityManager.AddComponentData(blocker, new GridPlacement
                 {
-                    AnchorCell = new int2(2, 0),
+                    AnchorCell = new GridCell(2, 0, 0),
                     FootprintSize = new int2(1, 1),
                     Kind = BuildingKind.Storage
                 });

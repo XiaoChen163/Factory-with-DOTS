@@ -1174,6 +1174,13 @@ Interval = [BottomLevel, TopLevel]
 
 ### 13.3 旧代码退役
 
+完成状态（2026-10-28）：本次仅完成旧系统清理。运行时 `GridDefinition`、矩形边界回退、
+配置与全局 Revision 回退、`int2` 隐式世界地址转换和交互重载已删除；现有场景保留
+Authoring 脚本身份，矩形输入在 Baking 时展开为一次性初始表面格。普通建筑拾取依赖
+实际表面，保留地基、垂直入口和选层所需工作平面。EditMode 242/242、PlayMode 13/13
+通过。连通缓存、区块流式和存档不在本次实施范围内；阶段 8 整体尚未完成。
+详细范围和复现方式见 [旧系统清理验证](Stage8-Legacy-Cleanup-Verification.md)。
+
 完成所有场景迁移后删除：
 
 - 运行时矩形 `GridDefinition.Size` 边界判定；

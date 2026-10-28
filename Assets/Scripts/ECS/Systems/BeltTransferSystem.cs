@@ -85,7 +85,7 @@ public partial class BeltTransferSystem : SystemBase
             ComponentType.ReadOnly<BuildingPrefabCatalog>(),
             ComponentType.ReadOnly<ItemPrefabEntry>());
         gridQuery = GetEntityQuery(
-            ComponentType.ReadOnly<GridDefinition>());
+            ComponentType.ReadOnly<WorldGridConfig>());
         transportRevisionQuery = GetEntityQuery(
             ComponentType.ReadOnly<TransportTopologyRevision>());
         occupancyRevisionQuery = GetEntityQuery(
@@ -148,14 +148,10 @@ public partial class BeltTransferSystem : SystemBase
         bool hasGrid = gridQuery.CalculateEntityCount() == 1;
         uint topologyRevision = transportRevisionQuery.CalculateEntityCount() == 1
             ? transportRevisionQuery.GetSingleton<TransportTopologyRevision>().Value
-            : hasGrid
-                ? gridQuery.GetSingleton<GridDefinition>().Revision
-                : 0;
+            : 0;
         uint portOwnerRevision = occupancyRevisionQuery.CalculateEntityCount() == 1
             ? occupancyRevisionQuery.GetSingleton<BuildingOccupancyRevision>().Value
-            : hasGrid
-                ? gridQuery.GetSingleton<GridDefinition>().Revision
-                : 0;
+            : 0;
         if (!hasCachedTopologyRevision ||
             topologyRevision != cachedTopologyRevision)
         {
@@ -221,33 +217,13 @@ public partial class BeltTransferSystem : SystemBase
         transferEcbSystem.AddJobHandleForProducer(Dependency);
     }
 
-    private WorldGridConfig GetWorldGridConfig()
-    {
-        if (gridQuery.CalculateEntityCount() == 1)
-        {
-            Entity gridEntity = gridQuery.GetSingletonEntity();
-            if (EntityManager.HasComponent<WorldGridConfig>(gridEntity))
-            {
-                return EntityManager.GetComponentData<WorldGridConfig>(
-                    gridEntity);
-            }
-            GridDefinition grid =
-                EntityManager.GetComponentData<GridDefinition>(gridEntity);
-            return new WorldGridConfig
-            {
-                CellSize = math.max(
-                    EcsGridUtility.DefaultCellSize,
-                    grid.CellSize),
-                LayerHeight = EcsGridUtility.DefaultLayerHeight,
-                Origin = grid.Origin
-            };
-        }
-        return new WorldGridConfig
+    private WorldGridConfig GetWorldGridConfig() => gridQuery.CalculateEntityCount() == 1
+        ? gridQuery.GetSingleton<WorldGridConfig>()
+        : new WorldGridConfig
         {
             CellSize = EcsGridUtility.DefaultCellSize,
             LayerHeight = EcsGridUtility.DefaultLayerHeight
         };
-    }
 
     private void RefreshTopology(uint gridRevision, bool hasGrid)
     {

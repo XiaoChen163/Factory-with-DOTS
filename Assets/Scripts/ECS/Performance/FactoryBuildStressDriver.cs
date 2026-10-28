@@ -92,9 +92,9 @@ public sealed class FactoryBuildStressDriver : MonoBehaviour
                 : definition.Scale - 1 - removalIndex;
             int row = beltIndex * 2;
             int2 startCell = new int2(0, row);
-            interaction.SimulateHover(startCell);
+            interaction.SimulateHover(new GridCell(startCell));
             yield return null;
-            interaction.SimulateRemove(startCell, true);
+            interaction.SimulateRemove(new GridCell(startCell), true);
             CompletedRemovals++;
             yield return WaitForDelay(definition.TimeDelaySeconds);
         }
@@ -126,9 +126,9 @@ public sealed class FactoryBuildStressDriver : MonoBehaviour
     private IEnumerator RunPlacement(int2 start, int2 end)
     {
         interaction.CancelBeltPath();
-        interaction.SimulateHover(start);
+        interaction.SimulateHover(new GridCell(start));
         yield return null;
-        interaction.SimulatePrimaryClick(start);
+        interaction.SimulatePrimaryClick(new GridCell(start));
 
         List<int2> path = BuildPath(start, end);
         float dragStart = Time.realtimeSinceStartup;
@@ -145,13 +145,13 @@ public sealed class FactoryBuildStressDriver : MonoBehaviour
                 (int)(progress * path.Count),
                 0,
                 path.Count - 1);
-            interaction.SimulateHover(path[pathIndex]);
+            interaction.SimulateHover(new GridCell(path[pathIndex]));
             yield return null;
         }
 
-        interaction.SimulateHover(end);
+        interaction.SimulateHover(new GridCell(end));
         yield return null;
-        interaction.SimulatePrimaryClick(end);
+        interaction.SimulatePrimaryClick(new GridCell(end));
     }
 
     private static List<int2> BuildPath(int2 start, int2 end)

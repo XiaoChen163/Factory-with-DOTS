@@ -331,7 +331,7 @@ namespace Factory.Tests
             Assert.That(selected, Is.True,
                 "Foundation must become available after SubScene loading.");
 
-            interaction.SimulateHover(new int2(0, 0));
+            interaction.SimulateHover(new GridCell(0, 0, 0));
             GameObject preview = null;
             for (int i = 0; i < 240 && preview == null; i++)
             {
@@ -396,14 +396,14 @@ namespace Factory.Tests
                 ComponentType.ReadOnly<BeltTopology>());
             int beltCountBeforeBuild = belts.CalculateEntityCount();
 
-            interaction.SimulatePrimaryClick(new int2(0, 0));
+            interaction.SimulatePrimaryClick(new GridCell(0, 0, 0));
             yield return null;
             Assert.That(interaction.IsBeltPathStarted, Is.True,
                 "Player-mode checks must not clear a simulated belt path.");
 
-            interaction.SimulateHover(new int2(1, 0));
+            interaction.SimulateHover(new GridCell(1, 0, 0));
             yield return null;
-            interaction.SimulatePrimaryClick(new int2(1, 0));
+            interaction.SimulatePrimaryClick(new GridCell(1, 0, 0));
 
             for (int i = 0;
                  i < 120 &&
@@ -440,7 +440,7 @@ namespace Factory.Tests
             SurfaceRegistrySystem surfaces =
                 world.GetExistingSystemManaged<SurfaceRegistrySystem>();
             EntityQuery gridQuery = world.EntityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<GridDefinition>());
+                ComponentType.ReadOnly<WorldGridConfig>());
             Entity gridEntity = gridQuery.GetSingletonEntity();
             gridQuery.Dispose();
             if (!surfaces.HasFoundationVoxel(new GridCell(2, 0, 2)))
@@ -807,8 +807,8 @@ namespace Factory.Tests
             for (int x = 0; x < 8; x++)
             {
                 int2 cell = new int2(100 + x, 100);
-                interaction.SimulatePrimaryClick(cell);
-                interaction.SimulatePrimaryClick(cell);
+                interaction.SimulatePrimaryClick(new GridCell(cell));
+                interaction.SimulatePrimaryClick(new GridCell(cell));
                 for (int frame = 0;
                      frame < 120 &&
                      (registry == null ||

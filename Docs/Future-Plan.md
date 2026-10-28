@@ -41,7 +41,7 @@ GridAddress
 
 详细的数据模型、实施顺序、测试矩阵和性能门槛见 [多层稀疏网格建造系统分阶段改造方案](Multi-Level-Sparse-Grid-Migration-Plan.md)。
 
-这是当前最主要的返工风险：现有 [EcsGridComponents.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/ECS/Data/EcsGridComponents.cs:4) 使用二维格子，而 [GridOccupancyIndexSystem.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/ECS/Systems/GridOccupancyIndexSystem.cs:61) 明确要求世界中只能有一个 `GridDefinition`。
+空间系统进度（2026-10-28）：阶段 7 已完成，阶段 8 的旧系统清理已完成；世界地址使用 `GridCell`，统一配置使用 `WorldGridConfig`，可建造表面由稀疏 Surface Registry 提供，不再依赖单一矩形 `GridDefinition`。连通缓存、区块流式和存档尚未实施，详见 [旧系统清理验证](Stage8-Legacy-Cleanup-Verification.md)。
 
 几个具体建议：
 

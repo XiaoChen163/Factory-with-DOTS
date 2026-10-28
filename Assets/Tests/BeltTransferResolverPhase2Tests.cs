@@ -20,9 +20,9 @@ namespace Factory.Tests
             {
                 Entity first = scenario.CreateItem(1);
                 Entity second = scenario.CreateItem(2);
-                scenario.AddBelt(new int2(0, 0), East, first, 1f);
-                scenario.AddBelt(new int2(1, 0), East, second, 1f);
-                scenario.AddBelt(new int2(2, 0), East);
+                scenario.AddBelt(new GridCell(0, 0, 0), East, first, 1f);
+                scenario.AddBelt(new GridCell(1, 0, 0), East, second, 1f);
+                scenario.AddBelt(new GridCell(2, 0, 0), East);
             });
         }
 
@@ -33,9 +33,9 @@ namespace Factory.Tests
             {
                 Entity first = scenario.CreateItem(1);
                 Entity second = scenario.CreateItem(2);
-                scenario.AddBelt(new int2(0, 0), East, first, 1f);
-                scenario.AddBelt(new int2(1, 0), East, second, 0.5f);
-                scenario.AddBelt(new int2(2, 0), East);
+                scenario.AddBelt(new GridCell(0, 0, 0), East, first, 1f);
+                scenario.AddBelt(new GridCell(1, 0, 0), East, second, 0.5f);
+                scenario.AddBelt(new GridCell(2, 0, 0), East);
             });
         }
 
@@ -47,17 +47,17 @@ namespace Factory.Tests
                 Entity straight = scenario.CreateItem(1);
                 Entity side = scenario.CreateItem(2);
                 scenario.AddBelt(
-                    new int2(0, 0),
+                    new GridCell(0, 0, 0),
                     East,
                     straight,
                     1f);
                 scenario.AddBelt(
-                    new int2(1, 1),
+                    new GridCell(1, 0, 1),
                     South,
                     side,
                     1f);
                 scenario.AddMerger(
-                    new int2(1, 0),
+                    new GridCell(1, 0, 0),
                     East,
                     nextInputIndex: 1);
             });
@@ -70,13 +70,13 @@ namespace Factory.Tests
             {
                 Entity item = scenario.CreateItem();
                 scenario.AddSplitter(
-                    int2.zero,
+                    new GridCell(int2.zero),
                     East,
                     item,
                     nextOutputIndex: 1);
-                scenario.AddBelt(new int2(1, 0), East);
-                scenario.AddBelt(new int2(0, 1), North);
-                scenario.AddBelt(new int2(0, -1), South);
+                scenario.AddBelt(new GridCell(1, 0, 0), East);
+                scenario.AddBelt(new GridCell(0, 0, 1), North);
+                scenario.AddBelt(new GridCell(0, 0, -1), South);
             });
         }
 
@@ -88,18 +88,18 @@ namespace Factory.Tests
                 Entity splitterItem = scenario.CreateItem(1);
                 Entity sideItem = scenario.CreateItem(2);
                 scenario.AddSplitter(
-                    int2.zero,
+                    new GridCell(int2.zero),
                     East,
                     splitterItem,
                     nextOutputIndex: 0);
                 scenario.AddBelt(
-                    new int2(1, 1),
+                    new GridCell(1, 0, 1),
                     South,
                     sideItem,
                     1f);
-                scenario.AddBelt(new int2(0, -1), South);
+                scenario.AddBelt(new GridCell(0, 0, -1), South);
                 scenario.AddMerger(
-                    new int2(1, 0),
+                    new GridCell(1, 0, 0),
                     East,
                     nextInputIndex: 1);
             });
@@ -111,22 +111,22 @@ namespace Factory.Tests
             AssertResolversEquivalent(scenario =>
             {
                 scenario.AddBelt(
-                    new int2(0, 0),
+                    new GridCell(0, 0, 0),
                     East,
                     scenario.CreateItem(1),
                     1f);
                 scenario.AddBelt(
-                    new int2(1, 0),
+                    new GridCell(1, 0, 0),
                     North,
                     scenario.CreateItem(2),
                     1f);
                 scenario.AddBelt(
-                    new int2(1, 1),
+                    new GridCell(1, 0, 1),
                     West,
                     scenario.CreateItem(3),
                     1f);
                 scenario.AddBelt(
-                    new int2(0, 1),
+                    new GridCell(0, 0, 1),
                     South,
                     scenario.CreateItem(4),
                     1f);
@@ -137,8 +137,8 @@ namespace Factory.Tests
         public void Topology_RebuildsOnlyWhenRevisionChanges()
         {
             using TransportScenario scenario = new TransportScenario();
-            scenario.AddBelt(new int2(0, 0), East);
-            scenario.AddBelt(new int2(1, 0), East);
+            scenario.AddBelt(new GridCell(0, 0, 0), East);
+            scenario.AddBelt(new GridCell(1, 0, 0), East);
 
             scenario.ResolveTickLinear(revision: 7);
             Assert.That(scenario.LinearTopologyRebuildCount, Is.EqualTo(1));
@@ -164,7 +164,7 @@ namespace Factory.Tests
                 for (int i = 0; i < nodeCount; i++)
                 {
                     scenario.AddBelt(
-                        new int2(i, 0),
+                        new GridCell(i, 0, 0),
                         East,
                         scenario.CreateItem(),
                         1f);

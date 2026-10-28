@@ -244,7 +244,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             return;
         }
         World world;
-        GridDefinition grid;
+        WorldGridConfig grid;
         GridCell hoveredCell;
         ResolvedBuildAnchor buildAnchor;
         if (simulatedHoverActive)
@@ -367,7 +367,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                         address => GetPlacement(world, address), out _))
                     canPlace = false;
             }
-            else if (!HasSurface(world, grid, cell) ||
+            else if (!HasSurface(world, cell) ||
                 occupancySystem == null ||
                 TryGetBuilding(world, cell, out _))
             {
@@ -673,7 +673,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
     }
 
     private void ShowPlacementPreview(
-        in GridDefinition grid,
+        in WorldGridConfig grid,
         bool canPlace)
     {
         EnsurePreviewObjects(previewCells.Count);
@@ -1194,11 +1194,6 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             HandlePrimaryClickAtAnchor(buildAnchor);
     }
 
-    public void SimulatePrimaryClick(int2 cell)
-    {
-        SimulatePrimaryClick(GridCell.LevelZero(cell));
-    }
-
     public void SimulatePrimaryClick(GridCell cell) =>
         HandlePrimaryClickAtAnchor(CreateDirectBuildAnchor(cell));
 
@@ -1234,7 +1229,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         if (!TryGetGrid(
                 out World world,
                 out Entity gridEntity,
-                out GridDefinition grid))
+                out WorldGridConfig grid))
         {
             return;
         }
@@ -1257,7 +1252,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         bool isInside = VerticalBeltUtility.IsVertical(SelectedKind) || SelectedKind == BuildingKind.Foundation
             || SelectedKind == BuildingKind.RampFoundation
             ? cell.Level >= 0
-            : HasSurface(world, grid, cell) ||
+            : HasSurface(world, cell) ||
               SelectedKind == BuildingKind.Belt &&
               TryGetRamp(world, cell, out _);
         bool isOccupied =
@@ -1503,11 +1498,6 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         HandleRemoveAtCell(cell, removeBeltLine);
     }
 
-    public void SimulateRemove(int2 cell, bool removeBeltLine)
-    {
-        SimulateRemove(GridCell.LevelZero(cell), removeBeltLine);
-    }
-
     public void SimulateRemove(GridCell cell, bool removeBeltLine) =>
         HandleRemoveAtCell(cell, removeBeltLine);
 
@@ -1560,11 +1550,6 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                 QuarterTurns = 0,
                 HorizontalFirst = 0
             });
-    }
-
-    public void SimulateHover(int2 cell)
-    {
-        SimulateHover(GridCell.LevelZero(cell));
     }
 
     public void SimulateHover(GridCell cell)
@@ -1644,7 +1629,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     private bool TryRaycastBuildAnchor(
         out World world,
-        out GridDefinition grid,
+        out WorldGridConfig grid,
         out Entity currentGrid,
         out ResolvedBuildAnchor buildAnchor,
         bool logFailure)
@@ -1680,7 +1665,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     private bool TryRaycastGrid(
         out World world,
-        out GridDefinition grid,
+        out WorldGridConfig grid,
         out Entity gridEntity,
         out GridCell cell,
         out Vector3 hitPoint,
@@ -1711,7 +1696,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                 else
                 {
                     Debug.LogWarning(
-                        "[ECS Grid Raycast] Exactly one GridDefinition is required; found " +
+                        "[ECS Grid Raycast] Exactly one WorldGridConfig is required; found " +
                         cachedGridCount + ".");
                 }
             }
@@ -1772,7 +1757,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             cell.Level = layerView.SelectedLevel;
             isInside = (foundationPlacement || VerticalBeltUtility.IsVertical(SelectedKind))
                 ? cell.Level >= 0
-                : HasSurface(world, grid, cell) ||
+                : HasSurface(world, cell) ||
                   TryGetRamp(world, cell, out _);
             surfaceHit = GridSurfaceHit.Direct(
                 cell,
@@ -1788,12 +1773,16 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             cell = surfaceHit.SourceCell;
             hitPoint = surfaceHit.Position;
             isInside = foundationPlacement || VerticalBeltUtility.IsVertical(SelectedKind) ||
-                       TryGetBuilding(world, cell, out _) || HasSurface(world, grid, cell) ||
+                       TryGetBuilding(world, cell, out _) || HasSurface(world, cell) ||
                        TryGetRamp(world, cell, out _);
             if (!foundationPlacement)
                 SetSelectedGridLevel(cell.Level);
             return true;
         }
+
+        // Only free-standing foundations and vertical entrances use the empty-world work plane.
+        if (!foundationPlacement && !VerticalBeltUtility.IsVertical(SelectedKind))
+            return false;
 
         Plane gridPlane = new Plane(
             Vector3.up,
@@ -1819,7 +1808,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                 hitPoint.z),
             grid);
         isInside = VerticalBeltUtility.IsVertical(SelectedKind) ||
-                   TryGetBuilding(world, cell, out _) || HasSurface(world, grid, cell) ||
+                   TryGetBuilding(world, cell, out _) || HasSurface(world, cell) ||
                    TryGetRamp(world, cell, out _);
         if (foundationPlacement)
         {
@@ -1929,26 +1918,8 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         return false;
     }
 
-    private WorldGridConfig GetWorldGridConfig()
-    {
-        if (cachedWorld != null && cachedWorld.IsCreated &&
-            gridEntity != Entity.Null &&
-            cachedWorld.EntityManager.Exists(gridEntity) &&
-            cachedWorld.EntityManager.HasComponent<WorldGridConfig>(gridEntity))
-        {
-            return cachedWorld.EntityManager.GetComponentData<WorldGridConfig>(
-                gridEntity);
-        }
-
-        GridDefinition grid = cachedWorld.EntityManager.GetComponentData<
-            GridDefinition>(gridEntity);
-        return new WorldGridConfig
-        {
-            CellSize = grid.CellSize,
-            LayerHeight = EcsGridUtility.DefaultLayerHeight,
-            Origin = grid.Origin
-        };
-    }
+    private WorldGridConfig GetWorldGridConfig() =>
+        cachedWorld.EntityManager.GetComponentData<WorldGridConfig>(gridEntity);
 
     public int SelectedGridLevel => GetLayerViewState().SelectedLevel;
 
@@ -2031,14 +2002,12 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     private static bool HasSurface(
         World world,
-        in GridDefinition grid,
         GridCell cell)
     {
         SurfaceRegistrySystem registry =
             world?.GetExistingSystemManaged<SurfaceRegistrySystem>();
         return registry != null && registry.IsReady
-            ? registry.HasSurface(cell)
-            : EcsGridUtility.Contains(grid, cell);
+            && registry.HasSurface(cell);
     }
 
     private static bool TryGetRamp(
@@ -2156,7 +2125,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
     private bool TryGetGrid(
         out World world,
         out Entity currentGridEntity,
-        out GridDefinition grid)
+        out WorldGridConfig grid)
     {
         world = null;
         currentGridEntity = Entity.Null;
@@ -2170,7 +2139,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         EntityManager entityManager = cachedWorld.EntityManager;
         if (gridEntity == Entity.Null ||
             !entityManager.Exists(gridEntity) ||
-            !entityManager.HasComponent<GridDefinition>(gridEntity))
+            !entityManager.HasComponent<WorldGridConfig>(gridEntity))
         {
             RefreshGridSingleton();
         }
@@ -2181,7 +2150,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         }
 
         currentGridEntity = gridEntity;
-        grid = entityManager.GetComponentData<GridDefinition>(gridEntity);
+        grid = entityManager.GetComponentData<WorldGridConfig>(gridEntity);
         return true;
     }
 
@@ -2203,7 +2172,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         cachedWorld = currentWorld;
         EntityManager entityManager = currentWorld.EntityManager;
         gridQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadOnly<GridDefinition>());
+            ComponentType.ReadOnly<WorldGridConfig>());
         databaseQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<FactoryDatabase>());
         physicsWorldQuery = entityManager.CreateEntityQuery(

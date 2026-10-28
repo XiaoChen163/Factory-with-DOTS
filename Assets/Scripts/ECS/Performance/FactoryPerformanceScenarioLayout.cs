@@ -447,7 +447,7 @@ public static class FactoryPerformanceScenarioLayout
 
         for (int i = 0; i < route.Count; i += 2)
         {
-            builder.AddInitialItem(route[i]);
+            builder.AddInitialItem(new GridCell(route[i]));
         }
 
         return builder.Build(
@@ -476,7 +476,7 @@ public static class FactoryPerformanceScenarioLayout
             new int2(0, 1));
         for (int i = 0; i < inputTrunk.Count; i++)
         {
-            builder.AddInitialItem(inputTrunk[i]);
+            builder.AddInitialItem(new GridCell(inputTrunk[i]));
         }
 
         int[] branchLengths = new int[16];
@@ -535,7 +535,7 @@ public static class FactoryPerformanceScenarioLayout
             new int2(-1, 0));
         for (int i = 0; i < mainRoute.Count; i++)
         {
-            builder.AddInitialItem(mainRoute[i]);
+            builder.AddInitialItem(new GridCell(mainRoute[i]));
         }
 
         builder.AddBelt(
@@ -628,34 +628,34 @@ public static class FactoryPerformanceScenarioLayout
 
         public void AddBelt(int2 cell, int2 direction, ushort levelId)
         {
-            ReserveCell(cell, BuildingKind.Belt);
-            AddTransportCell(cell);
+            ReserveCell(new GridCell(cell), BuildingKind.Belt);
+            AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Belt,
                 new BuildingLevelId { Value = levelId },
-                cell,
+                new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
 
         public void AddSplitter(int2 cell, int2 direction)
         {
-            ReserveCell(cell, BuildingKind.Splitter);
-            AddTransportCell(cell);
+            ReserveCell(new GridCell(cell), BuildingKind.Splitter);
+            AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Splitter,
                 new BuildingLevelId { Value = SplitterLevelId },
-                cell,
+                new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
 
         public void AddMerger(int2 cell, int2 direction)
         {
-            ReserveCell(cell, BuildingKind.Merger);
-            AddTransportCell(cell);
+            ReserveCell(new GridCell(cell), BuildingKind.Merger);
+            AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Merger,
                 new BuildingLevelId { Value = MergerLevelId },
-                cell,
+                new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
 
@@ -675,7 +675,7 @@ public static class FactoryPerformanceScenarioLayout
             placements.Add(new FactoryPerformancePlacement(
                 kind,
                 new BuildingLevelId { Value = levelId },
-                anchor,
+                new GridCell(anchor),
                 EcsGridUtility.QuarterTurnsFromDirection(direction),
                 recipeKey));
         }
@@ -687,7 +687,7 @@ public static class FactoryPerformanceScenarioLayout
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Storage,
                 new BuildingLevelId { Value = StorageLevelId },
-                anchor,
+                new GridCell(anchor),
                 EcsGridUtility.QuarterTurnsFromDirection(inputDirection)));
         }
 
@@ -760,10 +760,10 @@ public static class FactoryPerformanceScenarioLayout
 
         private void ReserveSquareBuilding(int2 anchor, BuildingKind kind)
         {
-            ReserveCell(anchor, kind);
-            ReserveCell(anchor + new int2(1, 0), kind);
-            ReserveCell(anchor + new int2(0, 1), kind);
-            ReserveCell(anchor + new int2(1, 1), kind);
+            ReserveCell(new GridCell(anchor), kind);
+            ReserveCell(new GridCell(anchor + new int2(1, 0)), kind);
+            ReserveCell(new GridCell(anchor + new int2(0, 1)), kind);
+            ReserveCell(new GridCell(anchor + new int2(1, 1)), kind);
         }
     }
 }

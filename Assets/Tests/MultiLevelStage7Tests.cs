@@ -22,9 +22,9 @@ namespace Factory.Tests
         {
             base.SetUpWorld();
             grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition { Size = new int2(32,32), CellSize = 1f });
+
             EntityManager.AddComponentData(grid, new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
-            EntityManager.AddComponentData(grid, new InitialSurfaceSettings { Mode = InitialSurfaceMode.Empty });
+
             EntityManager.AddComponentData(grid, new SurfaceTopologyRevision { Value = 1 });
             EntityManager.AddComponentData(grid, new BuildingOccupancyRevision { Value = 1 });
             EntityManager.AddComponentData(grid, new TransportTopologyRevision { Value = 1 });

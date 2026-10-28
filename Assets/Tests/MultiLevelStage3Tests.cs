@@ -44,7 +44,7 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void LegacyRectangle_InitializesSparseRegistryAndStableOwners()
+        public void AuthoredSurfaceCells_InitializeSparseRegistryAndStableOwners()
         {
             Entity grid = CreateGrid(new int2(17, 2));
             SurfaceRegistrySystem registry = GetOrCreateManagedSystem<SurfaceRegistrySystem>();
@@ -54,7 +54,7 @@ namespace Factory.Tests
             Assert.That(registry.ChunkCount, Is.EqualTo(2));
             Assert.That(registry.TryGetFoundation(new GridCell(16, 0, 1), out Entity owner));
             Assert.That(EntityManager.HasComponent<Foundation>(owner));
-            Assert.That(EntityManager.HasComponent<LegacySurfaceInitialized>(grid));
+            Assert.That(EntityManager.HasBuffer<InitialSurfaceCell>(grid), Is.False);
         }
 
         [Test]
@@ -309,13 +309,7 @@ namespace Factory.Tests
         private Entity CreateGrid(int2 size)
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = size,
-                Origin = float3.zero,
-                CellSize = 1f,
-                Revision = 1
-            });
+
             EntityManager.AddComponentData(grid, new WorldGridConfig
             {
                 CellSize = 1f,
@@ -323,10 +317,7 @@ namespace Factory.Tests
                 Origin = float3.zero
             });
             EntityManager.AddComponentData(grid, new SurfaceTopologyRevision { Value = 1 });
-            EntityManager.AddComponentData(grid, new InitialSurfaceSettings
-            {
-                Mode = InitialSurfaceMode.LegacyRectangle
-            });
+            SeedSurfaceRectangle(grid, size);
             EntityManager.AddComponentData(grid, new BuildingOccupancyRevision { Value = 1 });
             EntityManager.AddBuffer<GridBuildCommand>(grid);
             EntityManager.AddBuffer<GridBuildResult>(grid);

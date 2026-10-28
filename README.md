@@ -96,7 +96,7 @@ MonoBehaviour 分散执行 `Update`。这种对象式布局容易产生随机内
 - 由 `ISystem/SystemBase` 按组件查询批量处理同构数据；
 - 使用 `[BurstCompile]` 的 `IJobEntity` 和 Native 容器并行推进进度、捕获视觉
   状态和执行仲裁；
-- 通过拓扑缓存与 `GridDefinition.Revision` 失效机制，只在网格变化时重建拓扑，
+- 通过拓扑缓存与独立的 `TransportTopologyRevision`，只在运输结构变化时重建拓扑，
   稳态 Tick 不重复扫描静态关系；
 - 传送解析器采用近似 `O(N)` 的单轮路由，候选检查量在测试中严格保持 `N - 1`，
   避免目标数 × 来源数的 `O(N²)` 搜索；

@@ -144,7 +144,7 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
         EntityManager entityManager = world.EntityManager;
         EntityQuery gridQuery = entityManager.CreateEntityQuery(
-            ComponentType.ReadWrite<GridDefinition>(),
+            ComponentType.ReadWrite<WorldGridConfig>(),
             ComponentType.ReadWrite<GridBuildCommand>(),
             ComponentType.ReadWrite<GridBuildResult>());
         EntityQuery catalogQuery = entityManager.CreateEntityQuery(
@@ -164,17 +164,16 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
         {
             gridQuery.Dispose();
             catalogQuery.Dispose();
-            Fail("GridDefinition or BuildingPrefabCatalog failed to load.");
+            Fail("WorldGridConfig or BuildingPrefabCatalog failed to load.");
             yield break;
         }
 
         Entity gridEntity = gridQuery.GetSingletonEntity();
-        GridDefinition grid =
-            entityManager.GetComponentData<GridDefinition>(gridEntity);
-        grid.Size = definition.GridSize;
+        WorldGridConfig grid =
+            entityManager.GetComponentData<WorldGridConfig>(gridEntity);
         grid.Origin = float3.zero;
         grid.CellSize = EcsGridUtility.DefaultCellSize;
-        grid.Revision++;
+        grid.LayerHeight = EcsGridUtility.DefaultLayerHeight;
         entityManager.SetComponentData(gridEntity, grid);
         if (entityManager.HasComponent<TransportTopologyRevision>(gridEntity))
         {

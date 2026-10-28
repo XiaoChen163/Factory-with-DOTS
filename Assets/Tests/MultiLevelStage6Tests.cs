@@ -434,12 +434,7 @@ namespace Factory.Tests
         public void RampBelt_IsExcludedFromPlanarOccupancyIndex()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(4, 4),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(4, 4), GridConfig());
             Entity rampBelt = EntityManager.CreateEntity();
             EntityManager.AddComponentData(rampBelt, new GridPlacement
             {

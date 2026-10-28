@@ -23,11 +23,11 @@ namespace Factory.Tests
             Entity pool = CreatePool(IronOre);
             Entity item = CreateItemWithVisualState(IronOre);
             Entity belt = CreateBelt(
-                new int2(0, 0),
+                new GridCell(0, 0, 0),
                 East,
                 item,
                 1f);
-            Entity owner = CreateInputOwner(new int2(0, 0));
+            Entity owner = CreateInputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -54,11 +54,11 @@ namespace Factory.Tests
             CreateGrid();
             Entity item = CreateItemWithVisualState(IronOre);
             Entity belt = CreateBelt(
-                new int2(0, 0),
+                new GridCell(0, 0, 0),
                 East,
                 item,
                 1f);
-            Entity owner = CreateInputOwner(new int2(0, 0));
+            Entity owner = CreateInputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -83,8 +83,8 @@ namespace Factory.Tests
             Entity pool = CreatePool(
                 IronOre,
                 pooledItem);
-            Entity belt = CreateBelt(new int2(0, 0), East);
-            Entity owner = CreateOutputOwner(new int2(0, 0));
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East);
+            Entity owner = CreateOutputOwner(new GridCell(0, 0, 0));
 
             UpdateTransferTick();
 
@@ -119,7 +119,7 @@ namespace Factory.Tests
         public void VisualCaptureSystem_SamplesLatestTransportPosition()
         {
             Entity item = CreateItemWithVisualState(IronOre);
-            CreateBelt(new int2(1, 0), East, item, 0.5f);
+            CreateBelt(new GridCell(1, 0, 0), East, item, 0.5f);
 
             SystemHandle capture =
                 TestWorld.GetOrCreateSystem<ItemVisualStateCaptureSystem>();
@@ -262,12 +262,7 @@ namespace Factory.Tests
         private Entity CreateGrid()
         {
             Entity grid = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(grid, new GridDefinition
-            {
-                Size = new int2(16, 16),
-                CellSize = 1f,
-                Revision = 1
-            });
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
             return grid;
         }
 

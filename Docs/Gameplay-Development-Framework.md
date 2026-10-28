@@ -149,7 +149,7 @@ Input / UI
 6. Merger/Splitter 保持确定性 round-robin。
 7. 仲裁结果不依赖 Job 线程顺序、HashMap 枚举顺序或 Chunk 顺序。
 8. ECS 组件是正式运行时状态的唯一来源。
-9. 建造、拆除、旋转和 Grid 参数变化必须推进 `GridDefinition.Revision`。
+9. 按职责推进 Revision：表面变化更新 `SurfaceTopologyRevision`，普通建筑占用变化更新 `BuildingOccupancyRevision`，运输结构或方向变化更新 `TransportTopologyRevision`；运输外观通过独立 Revision 或 Dirty Cells 刷新。世界坐标配置只读取 `WorldGridConfig`，不因普通建造变化。
 10. 稳态 Tick 不产生持续结构变化和托管 GC 分配。
 
 ## 6. 性能规则

@@ -3,14 +3,6 @@ using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 
-public struct GridDefinition : IComponentData
-{
-    public int2 Size;
-    public float3 Origin;
-    public float CellSize;
-    public uint Revision;
-}
-
 public struct PendingOccupancyAdd : IComponentData
 {
 }
@@ -109,8 +101,6 @@ public struct GridCell : IEquatable<GridCell>
         : this(horizontal.x, level, horizontal.y) { }
 
     public int2 Horizontal => new int2(X, Z);
-    public static implicit operator GridCell(int2 horizontal) =>
-        new GridCell(horizontal, 0);
     public bool Equals(GridCell other) =>
         X == other.X && Level == other.Level && Z == other.Z;
     public override bool Equals(object obj) =>
@@ -187,30 +177,6 @@ public static class EcsGridUtility
             float3.zero,
             DefaultCellSize,
             0);
-    }
-
-    public static GridCell WorldToCell(
-        float3 worldPosition,
-        in GridDefinition grid)
-    {
-        return WorldToCell(worldPosition, grid.Origin, grid.CellSize, 0);
-    }
-
-    public static float3 CellToWorldCenter(
-        GridCell cell,
-        float worldY,
-        in GridDefinition grid)
-    {
-        return CellToWorldCenter(cell, worldY, grid.Origin, grid.CellSize);
-    }
-
-    public static bool Contains(in GridDefinition grid, GridCell cell)
-    {
-        return cell.Level == 0 &&
-               cell.X >= 0 &&
-               cell.Z >= 0 &&
-               cell.X < grid.Size.x &&
-               cell.Z < grid.Size.y;
     }
 
     public static int2 SanitizeDirection(int2 direction)

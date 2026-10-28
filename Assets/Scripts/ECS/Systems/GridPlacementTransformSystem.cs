@@ -11,7 +11,7 @@ public partial struct GridPlacementTransformSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        state.RequireForUpdate<GridDefinition>();
+        state.RequireForUpdate<WorldGridConfig>();
         state.RequireForUpdate<GridTransformDirty>();
         dirtyQuery = new EntityQueryBuilder(Unity.Collections.Allocator.Temp)
             .WithAll<GridPlacement, GridTransformDirty>()
@@ -21,20 +21,10 @@ public partial struct GridPlacementTransformSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        GridDefinition grid =
-            SystemAPI.GetSingleton<GridDefinition>();
         WorldGridConfig worldGrid =
-            SystemAPI.TryGetSingleton(out WorldGridConfig configured)
-                ? configured
-                : new WorldGridConfig
-                {
-                    CellSize = grid.CellSize,
-                    LayerHeight = EcsGridUtility.DefaultLayerHeight,
-                    Origin = grid.Origin
-                };
+            SystemAPI.GetSingleton<WorldGridConfig>();
         state.Dependency = new AlignToGridJob
         {
-            Grid = grid,
             WorldGrid = worldGrid
         }.ScheduleParallel(state.Dependency);
         state.Dependency.Complete();
@@ -44,7 +34,6 @@ public partial struct GridPlacementTransformSystem : ISystem
     [BurstCompile]
     private partial struct AlignToGridJob : IJobEntity
     {
-        public GridDefinition Grid;
         public WorldGridConfig WorldGrid;
 
         private void Execute(
@@ -59,7 +48,7 @@ public partial struct GridPlacementTransformSystem : ISystem
             Unity.Mathematics.float2 visualOffset =
                 EcsGridUtility.GetVisualCenterOffset(
                     placement.FootprintSize) *
-                Grid.CellSize;
+                WorldGrid.CellSize;
             center.x += visualOffset.x;
             center.z += visualOffset.y;
             transform.Position = center;

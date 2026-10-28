@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(-100)]
 public sealed class PlayerInputModeController : MonoBehaviour
 {
     [SerializeField] private InputActionAsset actions;
@@ -23,6 +24,15 @@ public sealed class PlayerInputModeController : MonoBehaviour
     private InputAction remove;
     private InputAction cancel;
     private readonly InputAction[] buildShortcuts = new InputAction[9];
+    private GameUiController gameUi;
+
+    public bool IsPointerReleased { get; private set; }
+    private int pointerCaptureFrame = -1;
+    public bool RequiresPointer => IsPointerReleased || IsModalOpen || IsDragging ||
+        (gameUi != null && gameUi.Windows != null &&
+         (gameUi.Windows.IsOpen(UiWindowId.Backpack) ||
+          gameUi.Windows.IsOpen(UiWindowId.Building) ||
+          gameUi.Windows.IsOpen(UiWindowId.BuildCatalog)));
 
     public bool IsBuildMode { get; private set; }
     public bool IsDemolitionMode { get; private set; }
@@ -31,7 +41,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
     public event Action CancelRequested;
 
     public bool BlocksWorldInput =>
-        IsDragging || IsModalOpen || IsPointerOverInteractiveUi();
+        RequiresPointer || pointerCaptureFrame == Time.frameCount || IsPointerOverInteractiveUi();
 
     public bool IsGameplayActionMapEnabled => gameplay?.enabled == true;
     public bool IsBuildActionMapEnabled => build?.enabled == true;
@@ -70,6 +80,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
 
     private void OnEnable()
     {
+        gameUi = GetComponent<GameUiController>();
         if (actions == null)
             return;
         runtimeActions = Instantiate(actions);
@@ -127,6 +138,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
 
     public void SetBuildMode(bool value)
     {
+        if (value) SetPointerReleased(false);
         IsBuildMode = value;
         if (value)
             IsDemolitionMode = false;
@@ -135,6 +147,7 @@ public sealed class PlayerInputModeController : MonoBehaviour
 
     public void SetDemolitionMode(bool value)
     {
+        if (value) SetPointerReleased(false);
         IsDemolitionMode = value;
         if (value)
             IsBuildMode = false;
@@ -153,8 +166,25 @@ public sealed class PlayerInputModeController : MonoBehaviour
         ApplyMode();
     }
 
+    public void SetPointerReleased(bool value) => IsPointerReleased = value;
+
+    private void Update()
+    {
+        // The click that returns to first person must not also open/place/remove a building.
+        if (IsPointerReleased && !IsModalOpen && !IsDragging &&
+            (gameUi == null || gameUi.Windows == null ||
+             (!gameUi.Windows.IsOpen(UiWindowId.Backpack) && !gameUi.Windows.IsOpen(UiWindowId.Building))) &&
+            PrimaryPointerPressedThisFrame && !IsPointerOverInteractiveUi())
+        {
+            IsPointerReleased = false;
+            pointerCaptureFrame = Time.frameCount;
+        }
+    }
+
     public bool IsPointerOverInteractiveUi()
     {
+        if (UnityEngine.Cursor.lockState == CursorLockMode.Locked)
+            return false;
         if (uiDocument == null || Mouse.current == null)
             return false;
         VisualElement root = uiDocument.rootVisualElement;

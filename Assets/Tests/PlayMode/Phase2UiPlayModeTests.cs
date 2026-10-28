@@ -620,6 +620,8 @@ namespace Factory.Tests
         public IEnumerator VerticalBelts_TwoClickGestureBuildsUpAndDownAndRotatesOnlyExit()
         {
             yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            // This test owns the camera pose while checking projected simulated pointers.
+            Object.FindFirstObjectByType<FirstPersonPlayerController>().enabled = false;
             var interaction=Object.FindFirstObjectByType<EcsGridInteractionController>();
             bool selected=false;
             for(int frame=0;frame<240 && !selected;frame++)

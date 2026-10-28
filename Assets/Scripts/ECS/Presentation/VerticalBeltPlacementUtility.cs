@@ -5,7 +5,7 @@ using UnityEngine;
 public static class VerticalBeltPlacementUtility
 {
     public static bool TryResolveExit(Ray pointerRay, Vector3 viewForward, GridCell entry,
-        in WorldGridConfig grid, out GridCell exit)
+        in WorldGridConfig grid, out GridCell exit, float maxDistance = float.PositiveInfinity)
     {
         exit = entry;
         Vector3 normal = new Vector3(viewForward.x, 0f, viewForward.z);
@@ -16,7 +16,7 @@ public static class VerticalBeltPlacementUtility
             return false;
         Vector3 center = (Vector3)EcsGridUtility.CellToWorldCenter(entry, grid);
         Plane plane = new Plane(normal, center);
-        if (!plane.Raycast(pointerRay, out float distance) || !math.isfinite(distance))
+        if (!plane.Raycast(pointerRay, out float distance) || !math.isfinite(distance) || distance > maxDistance)
             return false;
         Vector3 hit = pointerRay.GetPoint(distance);
         if (!math.all(math.isfinite((float3)hit))) return false;

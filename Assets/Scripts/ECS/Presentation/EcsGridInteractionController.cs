@@ -8,6 +8,15 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(Camera))]
 public sealed partial class EcsGridInteractionController : MonoBehaviour
 {
+    public const float MaxInteractionDistance = 50f;
+
+    private Ray CreateInteractionRay()
+    {
+        Ray ray = inputCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        // Measure reach from the eye, rather than the camera's near clipping plane.
+        ray.origin = inputCamera.transform.position;
+        return ray;
+    }
     private static readonly Color ValidPreviewColor =
         new Color(0.08f, 0.42f, 1f, 0.48f);
     private static readonly Color InvalidPreviewColor =
@@ -1704,8 +1713,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             return false;
         }
 
-        Ray ray = inputCamera.ScreenPointToRay(
-            Input.mousePosition);
+        Ray ray = CreateInteractionRay();
 
         if (foundationPlacement &&
             (foundationAreaStarted || rampLineStarted))
@@ -1722,7 +1730,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                         foundationLevel,
                         foundationGrid),
                     0f));
-            if (!foundationPlane.Raycast(ray, out float planeDistance))
+            if (!foundationPlane.Raycast(ray, out float planeDistance) || planeDistance > MaxInteractionDistance)
                 return false;
             hitPoint = ray.GetPoint(planeDistance);
             cell = EcsGridUtility.WorldToCell(
@@ -1748,7 +1756,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                         layerView.SelectedLevel,
                         worldGrid),
                     0f));
-            if (!selectedPlane.Raycast(ray, out float selectedDistance))
+            if (!selectedPlane.Raycast(ray, out float selectedDistance) || selectedDistance > MaxInteractionDistance)
                 return false;
             hitPoint = ray.GetPoint(selectedDistance);
             cell = EcsGridUtility.WorldToCell(
@@ -1787,7 +1795,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         Plane gridPlane = new Plane(
             Vector3.up,
             Vector3.zero);
-        if (!gridPlane.Raycast(ray, out float distance))
+        if (!gridPlane.Raycast(ray, out float distance) || distance > MaxInteractionDistance)
         {
             if (logFailure)
             {
@@ -1837,11 +1845,10 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         manager.CompleteDependencyBeforeRO<Unity.Physics.PhysicsWorldSingleton>();
         Unity.Physics.PhysicsWorldSingleton physicsWorld =
             physicsWorldQuery.GetSingleton<Unity.Physics.PhysicsWorldSingleton>();
-        float maxDistance = math.max(1f, inputCamera.farClipPlane);
         Unity.Physics.RaycastInput input = new Unity.Physics.RaycastInput
         {
             Start = ray.origin,
-            End = ray.origin + ray.direction * maxDistance,
+            End = ray.origin + ray.direction * MaxInteractionDistance,
             Filter = FoundationCollisionCategories.FoundationQueryFilter
         };
         if (!physicsWorld.CastRay(input, out Unity.Physics.RaycastHit hit))
@@ -1926,9 +1933,6 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
     public GridLayerPickingMode LayerPickingMode =>
         GetLayerViewState().PickingMode;
 
-    public GridLayerVisibilityMode LayerVisibilityMode =>
-        GetLayerViewState().VisibilityMode;
-
     public void SelectGridLevel(int level)
     {
         GridLayerViewState state = GetLayerViewState();
@@ -1944,13 +1948,6 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         SetLayerViewState(state);
     }
 
-    public void SetLayerVisibility(GridLayerVisibilityMode mode)
-    {
-        GridLayerViewState state = GetLayerViewState();
-        state.VisibilityMode = mode;
-        SetLayerViewState(state);
-    }
-
     private GridLayerViewState GetLayerViewState()
     {
         if (TryGetGrid(out World world, out Entity entity, out _) &&
@@ -1963,8 +1960,6 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         {
             SelectedLevel = 0,
             PickingMode = GridLayerPickingMode.FirstHit,
-            VisibilityMode = GridLayerVisibilityMode.All,
-            VisibleLevelRadius = 2,
             Revision = 1
         };
     }

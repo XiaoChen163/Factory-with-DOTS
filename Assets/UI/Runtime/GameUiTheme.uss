@@ -61,8 +61,7 @@
     -unity-text-align: middle-center;
 }
 
-.grid-layer-auto-button,
-.grid-layer-visibility-button {
+.grid-layer-auto-button {
     height: 26px;
     margin-left: 4px;
     padding-left: 8px;

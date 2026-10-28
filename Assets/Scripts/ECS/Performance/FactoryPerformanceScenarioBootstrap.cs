@@ -841,8 +841,8 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             interactions[i].enabled = keepInteractionEnabled;
         }
 
-        TopDownPlayerController[] controllers =
-            FindObjectsByType<TopDownPlayerController>(
+        FirstPersonPlayerController[] controllers =
+            FindObjectsByType<FirstPersonPlayerController>(
                 FindObjectsSortMode.None);
         for (int i = 0; i < controllers.Length; i++)
         {

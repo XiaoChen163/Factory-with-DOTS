@@ -3,9 +3,12 @@
     "rootNamespace": "Factory.Tests",
     "references": [
         "Factory.Runtime",
+        "Unity.CharacterController",
         "Unity.InputSystem",
         "Unity.Entities",
         "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
+        "Unity.Entities.Graphics",
         "Unity.Physics",
         "Unity.Transforms",
         "Unity.Collections"

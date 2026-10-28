@@ -137,19 +137,10 @@ public enum GridLayerPickingMode : byte
     SelectedLevel
 }
 
-public enum GridLayerVisibilityMode : byte
-{
-    All,
-    SelectedAndBelow,
-    SelectedOnly
-}
-
 public struct GridLayerViewState : IComponentData
 {
     public int SelectedLevel;
     public GridLayerPickingMode PickingMode;
-    public GridLayerVisibilityMode VisibilityMode;
-    public byte VisibleLevelRadius;
     public uint Revision;
 }
 
@@ -307,22 +298,6 @@ public static class EcsGridUtility
         (int)math.round(
             (worldY - grid.Origin.y) /
             math.max(math.EPSILON, grid.LayerHeight));
-
-    public static bool IsLevelVisible(
-        int level,
-        in GridLayerViewState state)
-    {
-        switch (state.VisibilityMode)
-        {
-            case GridLayerVisibilityMode.SelectedOnly:
-                return level == state.SelectedLevel;
-            case GridLayerVisibilityMode.SelectedAndBelow:
-                return level <= state.SelectedLevel &&
-                       level >= state.SelectedLevel - state.VisibleLevelRadius;
-            default:
-                return true;
-        }
-    }
 
     public static GridCell GetBuildingCell(
         in GridPlacement placement,

@@ -5,6 +5,17 @@ namespace Factory.Tests
 {
     public sealed class VerticalBeltUsabilityTests
     {
+        [TestCase(49.9f, true)]
+        [TestCase(50f, true)]
+        [TestCase(50.1f, false)]
+        public void ExitProjection_RespectsInteractionReach(float distance, bool expected)
+        {
+            var grid = new WorldGridConfig { CellSize = 1f, LayerHeight = 1f };
+            var ray = new Ray(new Vector3(0.5f, 5f, 0.5f - distance), Vector3.forward);
+            Assert.That(VerticalBeltPlacementUtility.TryResolveExit(ray, Vector3.forward,
+                new GridCell(0, 0, 0), grid, out _, EcsGridInteractionController.MaxInteractionDistance), Is.EqualTo(expected));
+        }
+
         [TestCase(9.2f,9)]
         [TestCase(2.8f,3)]
         [TestCase(5f,5)]

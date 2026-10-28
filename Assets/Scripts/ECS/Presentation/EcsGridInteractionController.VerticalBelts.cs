@@ -73,11 +73,12 @@ public sealed partial class EcsGridInteractionController
             exit.Level = simulatedHoverCell.Level;
             return true;
         }
-        Vector2 screenPosition = simulatedVerticalPointer
-            ? simulatedVerticalScreenPosition : (Vector2)Input.mousePosition;
-        Ray ray = inputCamera.ScreenPointToRay(screenPosition);
+        Ray ray = simulatedVerticalPointer
+            ? inputCamera.ScreenPointToRay(simulatedVerticalScreenPosition)
+            : CreateInteractionRay();
         return VerticalBeltPlacementUtility.TryResolveExit(ray, inputCamera.transform.forward,
-            verticalPathStart, GetWorldGridConfig(), out exit);
+            verticalPathStart, GetWorldGridConfig(), out exit,
+            simulatedVerticalPointer ? float.PositiveInfinity : MaxInteractionDistance);
     }
 
     private bool ValidateVerticalPreview(World world, GridCell exit)

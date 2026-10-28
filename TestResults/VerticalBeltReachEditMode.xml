@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="14" result="Passed" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.0620086">
+  <test-suite type="TestSuite" id="1000" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="244" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.062009" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1289" name="Factory.Tests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.Tests.dll" runstate="Runnable" testcasecount="244" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.052952" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="40232" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1290" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="244" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.050421" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1291" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="244" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.048203" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1270" name="VerticalBeltUsabilityTests" fullname="Factory.Tests.VerticalBeltUsabilityTests" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.044099" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="ParameterizedMethod" id="1274" name="ExitProjection_RespectsInteractionReach" fullname="Factory.Tests.VerticalBeltUsabilityTests.ExitProjection_RespectsInteractionReach" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.020488" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1271" name="ExitProjection_RespectsInteractionReach(49.9f,True)" fullname="Factory.Tests.VerticalBeltUsabilityTests.ExitProjection_RespectsInteractionReach(49.9f,True)" methodname="ExitProjection_RespectsInteractionReach" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1299848547" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.013164" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1272" name="ExitProjection_RespectsInteractionReach(50.0f,True)" fullname="Factory.Tests.VerticalBeltUsabilityTests.ExitProjection_RespectsInteractionReach(50.0f,True)" methodname="ExitProjection_RespectsInteractionReach" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1398842434" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000157" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1273" name="ExitProjection_RespectsInteractionReach(50.1f,False)" fullname="Factory.Tests.VerticalBeltUsabilityTests.ExitProjection_RespectsInteractionReach(50.1f,False)" methodname="ExitProjection_RespectsInteractionReach" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="2112646880" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000074" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="ParameterizedMethod" id="1283" name="FixedScreenPointer_TracksCameraTranslationAndRotation" fullname="Factory.Tests.VerticalBeltUsabilityTests.FixedScreenPointer_TracksCameraTranslationAndRotation" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.007195" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1281" name="FixedScreenPointer_TracksCameraTranslationAndRotation(False)" fullname="Factory.Tests.VerticalBeltUsabilityTests.FixedScreenPointer_TracksCameraTranslationAndRotation(False)" methodname="FixedScreenPointer_TracksCameraTranslationAndRotation" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1276406523" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.006254" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1282" name="FixedScreenPointer_TracksCameraTranslationAndRotation(True)" fullname="Factory.Tests.VerticalBeltUsabilityTests.FixedScreenPointer_TracksCameraTranslationAndRotation(True)" methodname="FixedScreenPointer_TracksCameraTranslationAndRotation" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="190054401" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000220" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1288" name="IconSource_DefaultModelCustomModelAndSuppliedSprite" fullname="Factory.Tests.VerticalBeltUsabilityTests.IconSource_DefaultModelCustomModelAndSuppliedSprite" methodname="IconSource_DefaultModelCustomModelAndSuppliedSprite" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1710958083" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.004131" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1287" name="InvalidRayOrVerticalView_DoesNotProduceAnExit" fullname="Factory.Tests.VerticalBeltUsabilityTests.InvalidRayOrVerticalView_DoesNotProduceAnExit" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.001902" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1284" name="InvalidRayOrVerticalView_DoesNotProduceAnExit(0)" fullname="Factory.Tests.VerticalBeltUsabilityTests.InvalidRayOrVerticalView_DoesNotProduceAnExit(0)" methodname="InvalidRayOrVerticalView_DoesNotProduceAnExit" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1672699721" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000598" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1285" name="InvalidRayOrVerticalView_DoesNotProduceAnExit(1)" fullname="Factory.Tests.VerticalBeltUsabilityTests.InvalidRayOrVerticalView_DoesNotProduceAnExit(1)" methodname="InvalidRayOrVerticalView_DoesNotProduceAnExit" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1430334413" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000078" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1286" name="InvalidRayOrVerticalView_DoesNotProduceAnExit(2)" fullname="Factory.Tests.VerticalBeltUsabilityTests.InvalidRayOrVerticalView_DoesNotProduceAnExit(2)" methodname="InvalidRayOrVerticalView_DoesNotProduceAnExit" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="470510504" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000045" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="ParameterizedMethod" id="1280" name="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn" fullname="Factory.Tests.VerticalBeltUsabilityTests.RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.001412" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1275" name="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(9.2f,9)" fullname="Factory.Tests.VerticalBeltUsabilityTests.RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(9.2f,9)" methodname="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1529110032" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000592" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1276" name="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(2.8f,3)" fullname="Factory.Tests.VerticalBeltUsabilityTests.RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(2.8f,3)" methodname="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="673594222" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000061" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1277" name="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(5.0f,5)" fullname="Factory.Tests.VerticalBeltUsabilityTests.RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(5.0f,5)" methodname="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="277630264" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000044" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1278" name="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(-4.0f,0)" fullname="Factory.Tests.VerticalBeltUsabilityTests.RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(-4.0f,0)" methodname="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="2104952517" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000041" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1279" name="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(100000.0f,261)" fullname="Factory.Tests.VerticalBeltUsabilityTests.RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn(100000.0f,261)" methodname="RayPlaneHeight_SnapsToLevelsAndLocksEntryColumn" classname="Factory.Tests.VerticalBeltUsabilityTests" runstate="Runnable" seed="1567599394" result="Passed" start-time="2026-10-28 17:02:09Z" end-time="2026-10-28 17:02:09Z" duration="0.000037" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

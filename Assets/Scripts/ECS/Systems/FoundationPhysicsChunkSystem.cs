@@ -162,6 +162,8 @@ public partial class FoundationPhysicsChunkSystem : SystemBase
             owner.Value.Dispose();
             DisposedColliderBlobCount++;
         }
+        // The blob was already released above; do not leave a cleanup owner that releases it again.
+        EntityManager.RemoveComponent<FoundationColliderOwner>(entity);
         EntityManager.DestroyEntity(entity);
         physicsChunks.Remove(key);
     }

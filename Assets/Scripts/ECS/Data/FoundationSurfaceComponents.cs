@@ -206,11 +206,12 @@ public static class FoundationCollisionCategories
     public const uint Building = 1u << 1;
     public const uint TransportItem = 1u << 2;
     public const uint QueryRay = 1u << 3;
+    public const uint Character = 1u << 4;
 
     public static CollisionFilter FoundationFilter => new CollisionFilter
     {
         BelongsTo = Foundation,
-        CollidesWith = Building | TransportItem | QueryRay,
+        CollidesWith = Building | TransportItem | QueryRay | Character,
         GroupIndex = 0
     };
 

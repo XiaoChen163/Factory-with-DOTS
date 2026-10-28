@@ -294,33 +294,22 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void LayerVisibility_HidesChunksOutsideSelectedLevel()
+        public void RemovingLastFoundation_ReleasesChunkColliderExactlyOnce()
         {
             Entity grid = CreateGrid();
-            EntityManager.AddComponentData(grid, new GridLayerViewState
-            {
-                SelectedLevel = 1,
-                PickingMode = GridLayerPickingMode.SelectedLevel,
-                VisibilityMode = GridLayerVisibilityMode.SelectedOnly,
-                VisibleLevelRadius = 0,
-                Revision = 2
-            });
-            Entity lower = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(lower, new FoundationRenderChunk
-            {
-                Key = new SurfaceChunkKey(0, 0, 0)
-            });
-            Entity upper = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(upper, new FoundationRenderChunk
-            {
-                Key = new SurfaceChunkKey(0, 1, 0)
-            });
-
-            UpdateSystem(GetOrCreateManagedSystem<SurfaceChunkVisibilitySystem>());
-
-            Assert.That(EntityManager.HasComponent<DisableRendering>(lower));
-            Assert.That(EntityManager.HasComponent<DisableRendering>(upper),
-                Is.False);
+            var registry = GetOrCreateManagedSystem<SurfaceRegistrySystem>();
+            UpdateSystem(registry);
+            Entity foundation = registry.AddFoundation(grid, new GridCell(0, 0, 0), 0, SurfacePermission.All, true);
+            var physics = GetOrCreateManagedSystem<FoundationPhysicsChunkSystem>();
+            UpdateSystem(physics);
+            Assert.That(physics.ActiveColliderBlobCount, Is.EqualTo(1));
+            Assert.That(registry.RemoveFoundation(grid, new GridCell(0, 0, 0), out _), Is.True);
+            EntityManager.DestroyEntity(foundation);
+            UpdateSystem(physics);
+            UpdateSystem(GetOrCreateManagedSystem<FoundationColliderCleanupSystem>());
+            Assert.That(physics.ActiveColliderBlobCount, Is.Zero);
+            using var owners = EntityManager.CreateEntityQuery(typeof(FoundationColliderOwner));
+            Assert.That(owners.CalculateEntityCount(), Is.Zero);
         }
 
         private Entity CreateGrid(WorldGridConfig? configured = null)

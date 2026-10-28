@@ -47,8 +47,6 @@ public sealed class GridDefinitionAuthoring : MonoBehaviour
             {
                 SelectedLevel = 0,
                 PickingMode = GridLayerPickingMode.FirstHit,
-                VisibilityMode = GridLayerVisibilityMode.All,
-                VisibleLevelRadius = 2,
                 Revision = 1
             });
             AddComponent(entity, new SurfaceTopologyRevision { Value = 1 });

@@ -24,7 +24,6 @@ public sealed class GameUiController : MonoBehaviour
     private VisualElement notificationLayer;
     private VisualElement demolitionModeHint;
     private Label gridLayerLabel;
-    private Button gridLayerVisibilityButton;
     private Button gridLayerDownButton;
     private Button gridLayerUpButton;
     private Button gridLayerAutoButton;
@@ -95,16 +94,12 @@ public sealed class GameUiController : MonoBehaviour
         notificationLayer = Require(uiRoot, "notification-layer");
         demolitionModeHint = Require(uiRoot, "demolition-mode-hint");
         gridLayerLabel = Require<Label>(uiRoot, "grid-layer-label");
-        gridLayerVisibilityButton = Require<Button>(
-            uiRoot,
-            "grid-layer-visibility");
         gridLayerDownButton = Require<Button>(uiRoot, "grid-layer-down");
         gridLayerUpButton = Require<Button>(uiRoot, "grid-layer-up");
         gridLayerAutoButton = Require<Button>(uiRoot, "grid-layer-auto");
         gridLayerDownButton.clicked += SelectPreviousGridLayer;
         gridLayerUpButton.clicked += SelectNextGridLayer;
         gridLayerAutoButton.clicked += UseAutomaticGridLayer;
-        gridLayerVisibilityButton.clicked += CycleGridLayerVisibility;
         UpdateDemolitionModeHint();
         dragController = new ItemDragController(
             Require(uiRoot, "drag-layer"),
@@ -131,8 +126,6 @@ public sealed class GameUiController : MonoBehaviour
             gridLayerUpButton.clicked -= SelectNextGridLayer;
         if (gridLayerAutoButton != null)
             gridLayerAutoButton.clicked -= UseAutomaticGridLayer;
-        if (gridLayerVisibilityButton != null)
-            gridLayerVisibilityButton.clicked -= CycleGridLayerVisibility;
         if (buildCatalogView != null)
             buildCatalogView.BuildingSelected -= OnBuildingSelected;
         if (buildingView != null && dragController != null)
@@ -155,7 +148,6 @@ public sealed class GameUiController : MonoBehaviour
         notificationLayer = null;
         demolitionModeHint = null;
         gridLayerLabel = null;
-        gridLayerVisibilityButton = null;
         gridLayerDownButton = null;
         gridLayerUpButton = null;
         gridLayerAutoButton = null;
@@ -306,6 +298,7 @@ public sealed class GameUiController : MonoBehaviour
         if (inputMode != null && inputMode.IsDemolitionMode)
         {
             inputMode.SetDemolitionMode(false);
+            inputMode.SetPointerReleased(false);
             UpdateDemolitionModeHint();
             return;
         }
@@ -314,10 +307,14 @@ public sealed class GameUiController : MonoBehaviour
             gridInteraction?.CancelPlacementGesture();
             CloseBuildCatalog();
             inputMode.SetBuildMode(false);
+            inputMode.SetPointerReleased(false);
             return;
         }
+        bool hadWindow = Windows != null &&
+            (Windows.IsOpen(UiWindowId.Backpack) || Windows.IsOpen(UiWindowId.Building));
         CloseBuilding();
         CloseBackpack();
+        if (!hadWindow) inputMode?.SetPointerReleased(true);
     }
 
     public void OpenBuildCatalog()
@@ -474,22 +471,6 @@ public sealed class GameUiController : MonoBehaviour
     public void UseAutomaticGridLayer() =>
         gridInteraction?.UseFirstHitLayer();
 
-    public void CycleGridLayerVisibility()
-    {
-        if (gridInteraction == null)
-            return;
-        GridLayerVisibilityMode next = gridInteraction.LayerVisibilityMode switch
-        {
-            GridLayerVisibilityMode.All =>
-                GridLayerVisibilityMode.SelectedAndBelow,
-            GridLayerVisibilityMode.SelectedAndBelow =>
-                GridLayerVisibilityMode.SelectedOnly,
-            _ => GridLayerVisibilityMode.All
-        };
-        gridInteraction.SetLayerVisibility(next);
-        UpdateGridLayerControls();
-    }
-
     private void UpdateGridLayerControls()
     {
         if (gridInteraction == null || gridLayerLabel == null)
@@ -500,16 +481,6 @@ public sealed class GameUiController : MonoBehaviour
             : "LOCK";
         gridLayerLabel.text =
             $"{picking} · L{gridInteraction.SelectedGridLevel}";
-        if (gridLayerVisibilityButton != null)
-        {
-            gridLayerVisibilityButton.text =
-                gridInteraction.LayerVisibilityMode switch
-                {
-                    GridLayerVisibilityMode.SelectedAndBelow => "本层以下",
-                    GridLayerVisibilityMode.SelectedOnly => "仅本层",
-                    _ => "全部层"
-                };
-        }
     }
 
     private static VisualElement Require(VisualElement root, string name) =>

@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 [UpdateInGroup(typeof(PresentationSystemGroup))]
+[UpdateBefore(typeof(UpdatePresentationSystemGroup))]
 public partial class SurfaceChunkMeshBuildSystem : SystemBase
 {
     private sealed class RuntimeChunk
@@ -136,6 +137,14 @@ public partial class SurfaceChunkMeshBuildSystem : SystemBase
         {
             EntityManager.SetSharedComponentManaged(runtime.Entity, renderMeshArray);
             EntityManager.SetComponentData(runtime.Entity, meshInfo);
+            EntityManager.SetComponentData(runtime.Entity, new RenderBounds
+            {
+                Value = new AABB
+                {
+                    Center = mesh.bounds.center,
+                    Extents = mesh.bounds.extents
+                }
+            });
             return;
         }
 

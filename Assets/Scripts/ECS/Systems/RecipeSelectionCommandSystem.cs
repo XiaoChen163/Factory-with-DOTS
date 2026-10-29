@@ -129,6 +129,7 @@ public partial struct RecipeSelectionCommandSystem : ISystem
                 if (success)
                 {
                     state.EntityManager.SetComponentData(processorEntity, process);
+                    ClearPorts(state.EntityManager, processorEntity);
                     failure = RecipeSelectionFailureReason.None;
                 }
                 else
@@ -148,6 +149,16 @@ public partial struct RecipeSelectionCommandSystem : ISystem
                 FailureReason = failure
             });
         }
+    }
+
+    private static void ClearPorts(EntityManager manager, Entity entity)
+    {
+        if (manager.HasBuffer<ItemInputPortCurrent>(entity)) manager.GetBuffer<ItemInputPortCurrent>(entity).Clear();
+        if (manager.HasBuffer<ItemInputPortNext>(entity)) manager.GetBuffer<ItemInputPortNext>(entity).Clear();
+        if (manager.HasBuffer<ItemOutputPortCurrent>(entity)) manager.GetBuffer<ItemOutputPortCurrent>(entity).Clear();
+        if (manager.HasBuffer<ItemOutputPortNext>(entity)) manager.GetBuffer<ItemOutputPortNext>(entity).Clear();
+        if (manager.HasBuffer<ItemTransferReceiptCurrent>(entity)) manager.GetBuffer<ItemTransferReceiptCurrent>(entity).Clear();
+        if (manager.HasBuffer<ItemTransferReceiptNext>(entity)) manager.GetBuffer<ItemTransferReceiptNext>(entity).Clear();
     }
 
     private readonly struct CommandEnvelope : IComparable<CommandEnvelope>

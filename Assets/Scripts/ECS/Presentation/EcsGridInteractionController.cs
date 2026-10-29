@@ -178,6 +178,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     private void OnDisable()
     {
+        HideOutputPortLabel();
         CancelPlacementGesture();
         HidePlacementPreview();
         ReleaseEcsCache();
@@ -185,6 +186,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     private void OnDestroy()
     {
+        DestroyOutputPortLabel();
         ReleaseEcsCache();
         if (previewRoot != null)
         {
@@ -2188,6 +2190,8 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             ComponentType.ReadOnly<FactoryDatabase>());
         physicsWorldQuery = entityManager.CreateEntityQuery(
             ComponentType.ReadOnly<Unity.Physics.PhysicsWorldSingleton>());
+        portHoverQuery = entityManager.CreateEntityQuery(
+            ComponentType.ReadOnly<GridPlacement>(), ComponentType.ReadOnly<OccupiedCellOffset>());
         ecsCacheInitialized = true;
         RefreshGridSingleton();
         RefreshDatabaseSingleton();
@@ -2228,6 +2232,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             gridQuery.Dispose();
             databaseQuery.Dispose();
             physicsWorldQuery.Dispose();
+            portHoverQuery.Dispose();
         }
 
         DisconnectVerticalCommandBus();

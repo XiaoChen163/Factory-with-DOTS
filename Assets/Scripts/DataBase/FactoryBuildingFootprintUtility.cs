@@ -49,9 +49,19 @@ public static class FactoryBuildingFootprintUtility
         HashSet<int2> occupied = new HashSet<int2>(offsets);
         HashSet<(BuildingPortType, byte)> identities = new HashSet<(BuildingPortType, byte)>();
         HashSet<(BuildingPortType, int2, int2)> faces = new HashSet<(BuildingPortType, int2, int2)>();
+        HashSet<ushort> outputSlots = new HashSet<ushort>();
+        HashSet<ushort> outputNumbers = new HashSet<ushort>();
         foreach (FactoryBuildingPortTableRow port in building.ports ?? Array.Empty<FactoryBuildingPortTableRow>())
         {
             string label = $"Building '{building.key}' port {port.type}:{port.index}";
+            if (building.kind == BuildingKind.Processor && port.type == BuildingPortType.Output)
+            {
+                if (port.number == 0 || !outputNumbers.Add(port.number) ||
+                    port.outputSlot == 0 || !outputSlots.Add(port.outputSlot))
+                    throw new InvalidDataException($"{label} requires a unique positive number and output_slot (one outlet per slot).");
+            }
+            else if (port.outputSlot != 0 || port.number != 0)
+                throw new InvalidDataException($"{label} cannot declare processor output bindings.");
             int2 cell = new int2(port.cellOffset.x, port.cellOffset.y);
             int2 direction = new int2(port.direction.x, port.direction.y);
             if (port.type != BuildingPortType.Input && port.type != BuildingPortType.Output)

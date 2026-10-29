@@ -1893,7 +1893,9 @@ public partial class GridBuildCommandSystem : SystemBase
                 CellOffset = source.CellOffset,
                 Direction = source.Direction,
                 Type = source.Type,
-                Index = source.Index
+                Index = source.Index,
+                Number = source.Number,
+                OutputSlot = source.OutputSlot
             };
         }
 
@@ -1972,7 +1974,9 @@ public partial class GridBuildCommandSystem : SystemBase
                 CellOffset = source.CellOffset,
                 Direction = source.Direction,
                 Type = source.Type,
-                Index = source.Index
+                Index = source.Index,
+                Number = source.Number,
+                OutputSlot = source.OutputSlot
             });
         }
 

@@ -30,6 +30,7 @@ public sealed partial class EcsGridInteractionController
 
     private void LateUpdate()
     {
+        UpdateOutputPortLabel();
         if (!verticalPathStarted) return;
         if (!simulatedHoverActive && inputMode != null &&
             (!inputMode.IsBuildMode || inputMode.IsDemolitionMode || inputMode.BlocksWorldInput))

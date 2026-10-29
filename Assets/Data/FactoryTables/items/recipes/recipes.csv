@@ -1,7 +1,6 @@
 key,machine_type_key,duration_seconds
 mine_iron,mining,1
 smelt_iron,smelting,2
-test_multi_io,smelting,1
 test_ab_to_c,test_machine_m,1
 test_cd_to_ab,test_machine_m,1
 mine_test_a,mining,1

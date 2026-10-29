@@ -55,6 +55,9 @@ public struct FactoryBuildingPortTableRow
 {
     public BuildingPortType type;
     public byte index;
+    public ushort number;
+    // One-based recipe output ordinal. Zero means this is not a processor output.
+    public ushort outputSlot;
     public Vector2Int cellOffset;
     public Vector2Int direction;
 }

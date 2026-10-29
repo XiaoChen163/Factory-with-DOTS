@@ -42,12 +42,35 @@ furnace,smelting
 ```
 
 ```csv
-key,type,index,cell_x,cell_z,direction_x,direction_z
-furnace,Input,0,-1,0,1,0
-furnace,Output,0,4,0,1,0
+key,type,index,cell_x,cell_z,direction_x,direction_z,number,output_slot
+furnace,Input,0,-1,0,1,0,,
+furnace,Output,0,4,0,1,0,1,1
 ```
 
 一个 Processor 可以执行对应加工种类的配方，多种建筑可以绑定相同加工种类。
+所有输入口接受当前配方需要的任意原料，按物品类型汇入对应输入槽；不同输入口共享
+同一原料槽的容量和在途预约。一个槽满不会阻止其他口输入其他未满原料。
+
+Processor 输出口必须填写 `number` 和 `output_slot`，两者均为从 1 开始的正整数，
+在同一建筑内分别唯一：一个出口绑定一个产物槽，一个产物槽只有一个出口。
+`index` 仍是内部端口身份，不要求与玩家可见的 `number` 相同。
+`output_slot` 对应 `recipe_outputs.csv` 中同一配方条目的相对顺序，不按物品 ID 排序。
+当前配方没有对应槽时出口停用；每条可用配方的所有产物槽都必须有出口。
+输入口及非 Processor 端口的这两列留空。
+
+UI 在产物槽上方显示配置的出口编号；玩家在 10m 内瞄准出口时，在出口处通过世界空间
+TextMesh 显示相同编号，文字朝向相机，移开视线或被遮挡后隐藏，复用一个文字对象。
+该提示由相机交互控制器在 LateUpdate 更新，不依赖 UIDocument、HUD 层或屏幕坐标转换。
+端口命中区覆盖 OutputPortView 的完整可见区域（高 0.75 格、宽 1 格并留少量容差），
+随建筑旋转、楼层及 CellSize 变化。遮挡检测忽略玩家自身及触发器，文字材质使用深度测试。
+建筑尚无物理碰撞时，用实际占格组成的逻辑体积做遮挡（加工/仓储高度暂为 1.2 格，
+其他建筑暂为 0.5 格）；已有 ECS/场景物理碰撞也会阻挡提示。
+
+生产开始前要求所有输入齐备、所有输出槽放得下完整下一批，再统一扣除输入。
+任意产物槽放不下下一批，整机暂停开工；输出排空及未满输入槽的收料仍然继续。
+切换配方时返还/清理原有物料，并清除旧端口快照、预约和回执，随后重新发布绑定。
+
+旧熔炉样例 `test_multi_io` 已由测试机器 M 的两条专用配方替代，避免单出口对应多个产物槽。
 源数据不再包含 `work_rate_permille` 或加工等级属性。
 固定 Tick 下，`process.DurationTicks = recipe.DurationTicks`；增加并联机器增加理论产量，
 物流阻塞和缺料仍会限制实际产量。

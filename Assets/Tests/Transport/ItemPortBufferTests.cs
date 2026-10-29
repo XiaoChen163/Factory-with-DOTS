@@ -114,6 +114,68 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void ProcessorInputs_ShareLastSpaceAcrossPorts_WithoutBlockingOtherIngredients()
+        {
+            CreateTransportGrid();
+            Entity owner = CreatePortOwner(new GridPlacement
+            {
+                AnchorCell = new GridCell(0, 0, 0), FootprintSize = new int2(3, 3),
+                Kind = BuildingKind.Processor
+            });
+            DynamicBuffer<ProcessorItemSlot> slots = EntityManager.AddBuffer<ProcessorItemSlot>(owner);
+            slots.Add(new ProcessorItemSlot { Kind = ProcessorSlotKind.Input,
+                AcceptedItemType = new ItemId { Value = 1 }, Capacity = 64, Count = 63 });
+            slots.Add(new ProcessorItemSlot { Kind = ProcessorSlotKind.Input,
+                AcceptedItemType = new ItemId { Value = 2 }, Capacity = 64, Count = 0 });
+            Entity[] belts = new Entity[3];
+            for (byte p = 0; p < 3; p++)
+            {
+                var cell = new GridCell(0, 0, p);
+                Entity item = CreateItem(p == 2 ? (ushort)2 : (ushort)1);
+                belts[p] = CreateBelt(cell, East, item, 1f);
+                EntityManager.GetBuffer<BuildingPort>(owner).Add(new BuildingPort
+                {
+                    Type = BuildingPortType.Input, Index = p, CellOffset = new int2(0, p), Direction = East
+                });
+                for (ushort type = 1; type <= 2; type++)
+                    EntityManager.GetBuffer<ItemInputPortCurrent>(owner).Add(new ItemInputPortCurrent
+                    {
+                        Value = new ItemInputPortSnapshot { PortIndex = p,
+                            AcceptedItemType = new ItemId { Value = type }, FreeCapacity = type == 1 ? 1 : 64,
+                            Enabled = 1, ShareCapacityByItem = 1, FilterMode = ItemPortFilterMode.ExactItemType }
+                    });
+            }
+            UpdateTransferTick();
+            Assert.That(EntityManager.GetComponentData<BeltState>(belts[0]).CurrentItem, Is.EqualTo(Entity.Null));
+            Assert.That(EntityManager.GetComponentData<BeltState>(belts[1]).CurrentItem, Is.Not.EqualTo(Entity.Null));
+            Assert.That(EntityManager.GetComponentData<BeltState>(belts[2]).CurrentItem, Is.EqualTo(Entity.Null));
+            var receipts = EntityManager.GetBuffer<ItemTransferReceiptNext>(owner);
+            Assert.That(receipts.Length, Is.EqualTo(2));
+            Assert.That(receipts[0].Value.ItemType.Value, Is.EqualTo(1));
+            Assert.That(receipts[1].Value.ItemType.Value, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ProcessorInput_RejectsStaleCapacityAfterManualInsertion()
+        {
+            CreateTransportGrid();
+            Entity item = CreateItem(1);
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East, item, 1f);
+            Entity owner = CreatePortOwner(new GridPlacement { Kind = BuildingKind.Processor,
+                AnchorCell = new GridCell(0, 0, 0), FootprintSize = new int2(1, 1) });
+            EntityManager.AddBuffer<ProcessorItemSlot>(owner).Add(new ProcessorItemSlot
+            { Kind = ProcessorSlotKind.Input, AcceptedItemType = new ItemId { Value = 1 }, Count = 64, Capacity = 64 });
+            EntityManager.GetBuffer<BuildingPort>(owner).Add(new BuildingPort
+            { Type = BuildingPortType.Input, Index = 0, CellOffset = int2.zero, Direction = East });
+            EntityManager.GetBuffer<ItemInputPortCurrent>(owner).Add(new ItemInputPortCurrent
+            { Value = new ItemInputPortSnapshot { AcceptedItemType = new ItemId { Value = 1 },
+                Enabled = 1, FreeCapacity = 1, ShareCapacityByItem = 1 } });
+            UpdateTransferTick();
+            Assert.That(EntityManager.GetComponentData<BeltState>(belt).CurrentItem, Is.EqualTo(item));
+            Assert.That(EntityManager.GetBuffer<ItemTransferReceiptNext>(owner).Length, Is.Zero);
+        }
+
+        [Test]
         public void StorageAdapter_GenerationOneWritesCurrentBuffersWithoutSafetyError()
         {
             BlobAssetReference<FactoryDatabaseBlob> database = default;

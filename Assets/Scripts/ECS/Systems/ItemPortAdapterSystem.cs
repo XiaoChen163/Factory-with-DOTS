@@ -77,7 +77,8 @@ public partial struct ItemPortAdapterSystem : ISystem
                             nextInputs);
                     }
                     else if (port.Type == BuildingPortType.Output &&
-                             slot.Kind == ProcessorSlotKind.Output)
+                             slot.Kind == ProcessorSlotKind.Output &&
+                             port.OutputSlot == slot.RecipeSlotIndex + 1)
                     {
                         PublishProcessorOutput(
                             port.Index,
@@ -222,7 +223,8 @@ public partial struct ItemPortAdapterSystem : ISystem
                 GetInputReservedCount(current, portIndex, slot.AcceptedItemType)),
             PortIndex = portIndex,
             Enabled = free > 0 ? (byte)1 : (byte)0,
-            FilterMode = ItemPortFilterMode.ExactItemType
+            FilterMode = ItemPortFilterMode.ExactItemType,
+            ShareCapacityByItem = 1
         });
     }
 

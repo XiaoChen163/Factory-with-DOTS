@@ -185,6 +185,7 @@ public partial class BeltTransferSystem : SystemBase
         job.GenerationLookup =
             GetComponentLookup<ItemPortBufferGeneration>(true);
         job.BuildingPortLookup = GetBufferLookup<BuildingPort>(true);
+        job.ProcessorSlotLookup = GetBufferLookup<ProcessorItemSlot>(true);
         job.InputPortCurrentLookup =
             GetBufferLookup<ItemInputPortCurrent>(false);
         job.InputPortNextLookup =

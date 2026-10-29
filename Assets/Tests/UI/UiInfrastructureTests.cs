@@ -1,6 +1,8 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using Unity.Entities;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -17,6 +19,85 @@ namespace Factory.Tests
             UiRuntimeServices.Detach(TestWorld, hub);
             hub = null;
             base.TearDownWorld();
+        }
+
+        [Test]
+        public void ProcessorSnapshot_ExportsBoundOutletNumbersAndMachineRelativeRecipe()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath);
+            Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, null, out var database), Is.True);
+            try
+            {
+                Entity singleton = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(singleton, new FactoryDatabase { Value = database });
+                var definition = asset.buildings.Single(b => b.key == "test_machine_m");
+                Entity owner = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(owner, new ItemContainerIdentity { RuntimeId = 123 });
+                EntityManager.AddComponentData(owner, new BuildingIdentity
+                    { BuildingDefinition = new BuildingDefinitionId { Value = definition.id } });
+                EntityManager.AddComponentData(owner, new GridPlacement { Kind = BuildingKind.Processor });
+                var machineType = new MachineTypeId { Value = definition.machineTypeId };
+                EntityManager.AddComponentData(owner, new ItemProcessor { MachineType = machineType });
+                EntityManager.AddComponentData(owner, new ItemProcessState());
+                EntityManager.AddBuffer<ProcessorItemSlot>(owner);
+                var ports = EntityManager.AddBuffer<BuildingPort>(owner);
+                // The UI must read the explicit binding, not derive a number from the slot/port index.
+                ports.Add(new BuildingPort { Type = BuildingPortType.Output, Index = 4, Number = 17, OutputSlot = 1 });
+                ports.Add(new BuildingPort { Type = BuildingPortType.Output, Index = 2, Number = 6, OutputSlot = 2 });
+                ref FactoryDatabaseBlob blob = ref database.Value;
+                FactoryRecipeRangeBlob range = FactoryDatabaseUtility.GetRecipeRange(ref blob, machineType);
+                var slots = EntityManager.GetBuffer<ProcessorItemSlot>(owner);
+                var process = new ItemProcessState { SelectedRecipeIndex = -1, ActiveRecipeIndex = -1 };
+                Assert.That(ItemProcessUtility.TrySelectRecipe(1, range, ref blob, slots, ref process), Is.True);
+                EntityManager.SetComponentData(owner, process);
+                hub = new UiDataHub();
+                UiRuntimeServices.Attach(TestWorld, hub);
+                BuildingSnapshot received = null;
+                using IDisposable subscription = hub.Buildings.Subscribe(new BuildingRuntimeId(123), value => received = value);
+                UpdateSystem(GetOrCreateManagedSystem<UiSnapshotExportSystem>());
+                Assert.That(received.Processor.SelectedRecipeId, Is.EqualTo(blob.Recipes[range.Start + 1].Id));
+                Assert.That(received.Processor.Outputs.Select(s => s.OutputPortNumber), Is.EqualTo(new ushort[] { 17, 6 }));
+                Assert.That(received.Processor.Outputs.Select(s => s.SlotIndex), Is.EqualTo(new ushort[] { 0, 1 }));
+                Assert.That(received.Processor.Inputs.All(s => s.OutputPortNumber == 0), Is.True);
+            }
+            finally { database.Dispose(); }
+        }
+
+        [Test]
+        public void OutputSlotLabel_ShowsConfiguredNumber_AndClearsWhenReused()
+        {
+            VisualElement root = new();
+            var view = new ItemSlotGridView(root, null);
+            view.Render(new[] { new ItemSlotSnapshot(0, default, 0, 64, default, UiSlotAccess.Extract, 17) });
+            Label label = root.Q<Label>("output-port-number");
+            Assert.That(label.text, Is.EqualTo("出口 17"));
+            Assert.That(label.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            view.Render(new[] { new ItemSlotSnapshot(0, default, 0, 64, default, UiSlotAccess.Insert) });
+            Assert.That(label.style.display.value, Is.EqualTo(DisplayStyle.None));
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        public void OutputPortRay_RespectsRotationLayerAndTenMeterReach(int rotation)
+        {
+            var grid = new WorldGridConfig { CellSize = 1f, LayerHeight = 4f };
+            var placement = new GridPlacement { AnchorCell = new GridCell(4, 2, 5),
+                FootprintSize = new Unity.Mathematics.int2(3, 3), QuarterTurns = (byte)rotation };
+            var port = new BuildingPort { Type = BuildingPortType.Output, Index = 0, Number = 17, OutputSlot = 1,
+                CellOffset = new Unity.Mathematics.int2(3, 1), Direction = new Unity.Mathematics.int2(1, 0) };
+            Unity.Mathematics.int2 direction = EcsGridUtility.Rotate(port.Direction, (byte)rotation);
+            Vector3 outward = new(direction.x, 0f, direction.y);
+            Vector3 center = EcsGridUtility.CellToWorldCenter(EcsGridUtility.GetBuildingCell(placement, port.CellOffset), grid);
+            center += -outward * 0.5f + Vector3.up * 0.375f;
+            Assert.That(EcsGridInteractionController.TryHitOutputPort(new Ray(center + outward * 9f, -outward),
+                placement, port, grid, 10f, out _, out Vector3 hit), Is.True);
+            Assert.That(Vector3.Distance(hit, center), Is.LessThan(0.001f));
+            Assert.That(EcsGridInteractionController.TryHitOutputPort(new Ray(center + outward * 11f, -outward),
+                placement, port, grid, 50f, out _, out _), Is.False);
+            Assert.That(EcsGridInteractionController.TryHitOutputPort(new Ray(center + outward * 9f + Vector3.up, -outward),
+                placement, port, grid, 10f, out _, out _), Is.False);
         }
 
         [Test]

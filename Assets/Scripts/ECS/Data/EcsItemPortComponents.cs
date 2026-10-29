@@ -15,6 +15,8 @@ public struct ItemInputPortSnapshot
     public byte PortIndex;
     public byte Enabled;
     public ItemPortFilterMode FilterMode;
+    // Input ports of a processor share one capacity budget per ingredient.
+    public byte ShareCapacityByItem;
 }
 
 public struct ItemOutputPortSnapshot

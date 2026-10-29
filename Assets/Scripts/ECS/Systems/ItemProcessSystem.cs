@@ -351,11 +351,13 @@ public static class ItemProcessUtility
 
         if (remaining != transferredCount)
             process.InventoryRevision++;
-        if (process.Status == ItemProcessStatus.OutputBlocked &&
-            CanFitNextBatch(slots))
-        {
+        ResumeIfOutputFits(slots, ref process);
+    }
+
+    public static void ResumeIfOutputFits(in DynamicBuffer<ProcessorItemSlot> slots, ref ItemProcessState process)
+    {
+        if (process.Status == ItemProcessStatus.OutputBlocked && CanFitNextBatch(slots))
             ResetToIdle(ref process);
-        }
     }
 
     public static float GetNormalizedProgress(in ItemProcessState process)
@@ -459,6 +461,8 @@ public partial struct ItemProcessSystem : ISystem
                 ref database,
                 processor.MachineType);
             int selected = process.SelectedRecipeIndex;
+            // Manual extraction changes the slots without a transport acknowledgement.
+            ItemProcessUtility.ResumeIfOutputFits(slots, ref process);
             if (process.Status == ItemProcessStatus.Idle &&
                 selected >= 0 && selected < range.Count)
             {

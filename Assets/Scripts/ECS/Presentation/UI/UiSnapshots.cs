@@ -45,7 +45,8 @@ public readonly struct ItemSlotSnapshot
         ushort count,
         ushort capacity,
         ItemId acceptedItemId,
-        UiSlotAccess access)
+        UiSlotAccess access,
+        ushort outputPortNumber = 0)
     {
         SlotIndex = slotIndex;
         ItemId = itemId;
@@ -53,6 +54,7 @@ public readonly struct ItemSlotSnapshot
         Capacity = capacity;
         AcceptedItemId = acceptedItemId;
         Access = access;
+        OutputPortNumber = outputPortNumber;
     }
 
     public ushort SlotIndex { get; }
@@ -61,6 +63,7 @@ public readonly struct ItemSlotSnapshot
     public ushort Capacity { get; }
     public ItemId AcceptedItemId { get; }
     public UiSlotAccess Access { get; }
+    public ushort OutputPortNumber { get; }
 }
 
 public sealed class InventorySnapshot

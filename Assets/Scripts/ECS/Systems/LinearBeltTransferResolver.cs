@@ -1006,6 +1006,7 @@ public partial struct FactoryTransferArbitrationJob : IJob
     public ComponentLookup<ItemPortBufferGeneration> GenerationLookup;
     [ReadOnly]
     public BufferLookup<BuildingPort> BuildingPortLookup;
+    [ReadOnly] public BufferLookup<ProcessorItemSlot> ProcessorSlotLookup;
     public BufferLookup<ItemInputPortCurrent> InputPortCurrentLookup;
     public BufferLookup<ItemInputPortNext> InputPortNextLookup;
     public BufferLookup<ItemOutputPortCurrent> OutputPortCurrentLookup;
@@ -1236,10 +1237,10 @@ public partial struct FactoryTransferArbitrationJob : IJob
                     continue;
                 }
 
-                int availableCapacity = GetEffectiveCount(
-                    port.ReservedTransferCount,
-                    port.AppliedTransferCount,
-                    port.FreeCapacity);
+                int availableCapacity = GetInputCapacity(ports, i);
+                if (ProcessorSlotLookup.HasBuffer(owner))
+                    availableCapacity = math.min(availableCapacity,
+                        GetLiveProcessorCount(owner, port.AcceptedItemType, ProcessorSlotKind.Input, receipts));
                 if (availableCapacity <= 0 ||
                     !TryGetBuildingPort(
                         buildingPorts,
@@ -1342,6 +1343,9 @@ public partial struct FactoryTransferArbitrationJob : IJob
                     port.ReservedTransferCount,
                     port.AppliedTransferCount,
                     port.AvailableCount);
+                if (ProcessorSlotLookup.HasBuffer(owner))
+                    availableCount = math.min(availableCount,
+                        GetLiveProcessorCount(owner, port.ItemType, ProcessorSlotKind.Output, receipts));
                 if (availableCount <= 0 ||
                     !TryGetBuildingPort(
                         buildingPorts,
@@ -2065,6 +2069,44 @@ public partial struct FactoryTransferArbitrationJob : IJob
         return outstanding >= (ulong)math.max(0, publishedCount)
             ? 0
             : publishedCount - (int)outstanding;
+    }
+
+    private int GetLiveProcessorCount(Entity owner, ItemId item, ProcessorSlotKind kind,
+        DynamicBuffer<ItemTransferReceiptNext> receipts)
+    {
+        DynamicBuffer<ProcessorItemSlot> slots = ProcessorSlotLookup[owner];
+        int available = 0;
+        for (int s = 0; s < slots.Length; s++)
+            if (slots[s].Kind == kind && slots[s].AcceptedItemType == item)
+            {
+                available = kind == ProcessorSlotKind.Input
+                    ? slots[s].Capacity - slots[s].Count : slots[s].Count;
+                break;
+            }
+        ItemTransferReceiptKind receiptKind = kind == ProcessorSlotKind.Input
+            ? ItemTransferReceiptKind.InputAccepted : ItemTransferReceiptKind.OutputTransferred;
+        for (int r = 0; r < receipts.Length; r++)
+            if (receipts[r].Value.Kind == receiptKind && receipts[r].Value.ItemType == item)
+                available -= receipts[r].Value.Count;
+        return math.max(0, available);
+    }
+
+    private static int GetInputCapacity(DynamicBuffer<ItemInputPortSnapshot> ports, int index)
+    {
+        ItemInputPortSnapshot port = ports[index];
+        if (port.ShareCapacityByItem == 0)
+            return GetEffectiveCount(port.ReservedTransferCount,
+                port.AppliedTransferCount, port.FreeCapacity);
+
+        int remaining = math.max(0, port.FreeCapacity);
+        for (int i = 0; i < ports.Length && remaining > 0; i++)
+        {
+            ItemInputPortSnapshot other = ports[i];
+            if (other.ShareCapacityByItem != 0 && other.AcceptedItemType == port.AcceptedItemType)
+                remaining = GetEffectiveCount(other.ReservedTransferCount,
+                    other.AppliedTransferCount, remaining);
+        }
+        return remaining;
     }
 
     private static int FindInputIndex(

@@ -42,6 +42,8 @@ public struct BuildingPort : IBufferElementData
     public int2 Direction;
     public BuildingPortType Type;
     public byte Index;
+    public ushort Number;
+    public ushort OutputSlot;
 }
 
 public struct BuildingPortVisual : IComponentData

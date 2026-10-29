@@ -12,6 +12,8 @@
 - `processor_level_stats.csv`：加工建筑等级相对于配方基础耗时的工作倍率（千分比）。
 - `storage_level_stats.csv`：仓库等级可存放的物品总数。
 - `building_ports.csv`：按布局 key 定义的逻辑输入/输出端口。
+- Processor 输出口的 `number` 为显示编号，`output_slot` 为从 1 开始的配方产物槽序号；
+  同一建筑内编号与绑定槽分别唯一，其他端口两列留空。每条可用配方的产物必须全部有出口。
 - `recipes.csv`：配方 key、加工能力 key 和基础生产时间。
 - `recipe_inputs.csv`：配方输入。
 - `recipe_outputs.csv`：配方输出。

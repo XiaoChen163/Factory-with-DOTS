@@ -97,22 +97,32 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
     - type: 0
       index: 1
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: -1}
       direction: {x: 0, y: 1}
     - type: 0
       index: 2
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: -1, y: 0}
     - type: 0
       index: 3
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: 1}
       direction: {x: 0, y: -1}
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 2
@@ -136,22 +146,32 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
     - type: 0
       index: 1
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: -1}
       direction: {x: 0, y: 1}
     - type: 0
       index: 2
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: -1, y: 0}
     - type: 0
       index: 3
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: 1}
       direction: {x: 0, y: -1}
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 3
@@ -175,22 +195,32 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
     - type: 0
       index: 1
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: -1}
       direction: {x: 0, y: 1}
     - type: 0
       index: 2
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: -1, y: 0}
     - type: 0
       index: 3
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: 1}
       direction: {x: 0, y: -1}
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 4
@@ -214,22 +244,32 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
     - type: 0
       index: 1
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: -1}
       direction: {x: 0, y: 1}
     - type: 0
       index: 2
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: -1, y: 0}
     - type: 0
       index: 3
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: 1}
       direction: {x: 0, y: -1}
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 5
@@ -253,6 +293,8 @@ MonoBehaviour:
     ports:
     - type: 1
       index: 0
+      number: 1
+      outputSlot: 1
       cellOffset: {x: 3, y: 1}
       direction: {x: 1, y: 0}
   - id: 6
@@ -276,10 +318,14 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 1}
       direction: {x: 1, y: 0}
     - type: 1
       index: 0
+      number: 1
+      outputSlot: 1
       cellOffset: {x: 3, y: 1}
       direction: {x: 1, y: 0}
   - id: 7
@@ -303,6 +349,8 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 1}
       direction: {x: 1, y: 0}
   - id: 8
@@ -326,18 +374,26 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
     - type: 0
       index: 1
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: 1}
       direction: {x: 0, y: -1}
     - type: 0
       index: 2
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: -1}
       direction: {x: 0, y: 1}
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 9
@@ -361,18 +417,26 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
     - type: 1
       index: 1
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: 1}
       direction: {x: 0, y: 1}
     - type: 1
       index: 2
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 0, y: -1}
       direction: {x: 0, y: -1}
   - id: 10
@@ -472,6 +536,8 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
   - id: 15
@@ -495,6 +561,8 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
   - id: 16
@@ -518,6 +586,8 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
   - id: 17
@@ -541,6 +611,8 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
   - id: 18
@@ -564,6 +636,8 @@ MonoBehaviour:
     ports:
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 19
@@ -587,6 +661,8 @@ MonoBehaviour:
     ports:
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 20
@@ -610,6 +686,8 @@ MonoBehaviour:
     ports:
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 21
@@ -633,6 +711,8 @@ MonoBehaviour:
     ports:
     - type: 1
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 22
@@ -732,26 +812,38 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 0}
       direction: {x: 1, y: 0}
     - type: 0
       index: 1
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 1}
       direction: {x: 1, y: 0}
     - type: 0
       index: 2
+      number: 0
+      outputSlot: 0
       cellOffset: {x: -1, y: 2}
       direction: {x: 1, y: 0}
     - type: 1
       index: 0
+      number: 1
+      outputSlot: 1
       cellOffset: {x: 3, y: 0}
       direction: {x: 1, y: 0}
     - type: 1
       index: 1
+      number: 2
+      outputSlot: 2
       cellOffset: {x: 3, y: 1}
       direction: {x: 1, y: 0}
     - type: 1
       index: 2
+      number: 3
+      outputSlot: 3
       cellOffset: {x: 3, y: 2}
       direction: {x: 1, y: 0}
   recipes:
@@ -852,23 +944,4 @@ MonoBehaviour:
       count: 1
     - itemKey: test_b
       itemId: 4
-      count: 1
-  - id: 9
-    key: test_multi_io
-    machineTypeKey: smelting
-    machineTypeId: 2
-    durationSeconds: 1
-    inputs:
-    - itemKey: iron_ore
-      itemId: 1
-      count: 1
-    - itemKey: iron_ingot
-      itemId: 2
-      count: 1
-    outputs:
-    - itemKey: iron_ore
-      itemId: 1
-      count: 1
-    - itemKey: iron_ingot
-      itemId: 2
       count: 1

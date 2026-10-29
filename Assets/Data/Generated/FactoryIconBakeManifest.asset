@@ -54,7 +54,7 @@ MonoBehaviour:
     hash: c633ebb9df945c78f597f7774ce7addb
   - prefabPath: Assets/Prefabs/Buildings/TestMachineM.prefab
     outputPath: Assets/Art/Icons/Buildings/TestMachineM.png
-    hash: da4bc63680131068a7b497d7fcf28aed
+    hash: 040a9c03e431f6261aff24653ef83e75
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk1.png
     hash: c064b49a9015fdc7b6e5b3ebc75a65cb

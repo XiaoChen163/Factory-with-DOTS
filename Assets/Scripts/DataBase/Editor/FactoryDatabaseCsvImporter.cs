@@ -237,6 +237,10 @@ public static class FactoryDatabaseCsvImporter
             {
                 type = ParseEnum<BuildingPortType>(ports.Get(row, "type"), "port type"),
                 index = ParseByte(ports.Get(row, "index"), "port index"),
+                number = ports.TryGet(row, "number", out string number) && !string.IsNullOrWhiteSpace(number)
+                    ? ParseUShort(number, "port number") : (ushort)0,
+                outputSlot = ports.TryGet(row, "output_slot", out string outputSlot) && !string.IsNullOrWhiteSpace(outputSlot)
+                    ? ParseUShort(outputSlot, "output slot") : (ushort)0,
                 cellOffset = new Vector2Int(ParseInt(ports.Get(row, "cell_x"), "port x"), ParseInt(ports.Get(row, "cell_z"), "port z")),
                 direction = new Vector2Int(ParseInt(ports.Get(row, "direction_x"), "port direction x"), ParseInt(ports.Get(row, "direction_z"), "port direction z"))
             });

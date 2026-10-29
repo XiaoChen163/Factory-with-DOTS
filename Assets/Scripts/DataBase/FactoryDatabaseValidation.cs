@@ -64,6 +64,19 @@ public static class FactoryDatabaseValidation
                 Require(items.Contains(ingredient.itemId) && ingredient.count > 0, "Invalid recipe input.");
             foreach (var ingredient in recipe.outputs)
                 Require(items.Contains(ingredient.itemId) && ingredient.count > 0, "Invalid recipe output.");
+            foreach (var building in source.buildings)
+            {
+                if (building.kind != BuildingKind.Processor || building.machineTypeId != recipe.machineTypeId)
+                    continue;
+                for (int slot = 1; slot <= recipe.outputs.Length; slot++)
+                {
+                    bool bound = false;
+                    foreach (var port in building.ports ?? Array.Empty<FactoryBuildingPortTableRow>())
+                        if (port.type == BuildingPortType.Output && port.outputSlot == slot)
+                            bound = true;
+                    Require(bound, $"Building '{building.key}' has no outlet for recipe '{recipe.key}' output slot {slot}.");
+                }
+            }
         }
     }
 

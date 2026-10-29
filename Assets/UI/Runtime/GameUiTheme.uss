@@ -253,6 +253,18 @@
     border-color: rgb(101, 206, 255);
 }
 
+.item-slot--output-port { margin-top: 25px; }
+.item-slot__port-number {
+    position: absolute;
+    top: -22px;
+    left: -4px;
+    right: -4px;
+    height: 20px;
+    font-size: 12px;
+    color: rgb(125, 230, 180);
+    -unity-text-align: middle-center;
+}
+
 .item-slot__icon {
     position: absolute;
     left: 6px;

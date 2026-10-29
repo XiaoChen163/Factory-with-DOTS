@@ -192,7 +192,9 @@ public partial class UiSnapshotExportSystem : SystemBase
             else
             {
                 ItemSlotSnapshot[] slots = ExportProcessorSlots(
-                    EntityManager.GetBuffer<ProcessorItemSlot>(entity, true));
+                    EntityManager.GetBuffer<ProcessorItemSlot>(entity, true),
+                    EntityManager.HasBuffer<BuildingPort>(entity)
+                        ? EntityManager.GetBuffer<BuildingPort>(entity, true) : default);
                 BuildingBufferReadsLastUpdate++;
                 SplitProcessorSlots(slots, out inputs, out outputs);
                 buildingCache[id] = new BuildingCache(
@@ -200,7 +202,7 @@ public partial class UiSnapshotExportSystem : SystemBase
             }
             snapshot.Processor = new ProcessorSnapshot
             {
-                SelectedRecipeId = GetSelectedRecipe(state.SelectedRecipeIndex),
+                SelectedRecipeId = GetSelectedRecipe(processor.MachineType, state.SelectedRecipeIndex),
                 Status = state.Status,
                 Progress01 = state.DurationTicks <= 0
                     ? 0f
@@ -248,14 +250,15 @@ public partial class UiSnapshotExportSystem : SystemBase
             : (ushort)0;
     }
 
-    private RecipeId GetSelectedRecipe(int index)
+    private RecipeId GetSelectedRecipe(MachineTypeId machineType, int index)
     {
         if (index < 0 || databaseQuery.CalculateEntityCount() != 1)
             return default;
         BlobAssetReference<FactoryDatabaseBlob> reference =
             databaseQuery.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref reference.Value;
-        return index < database.Recipes.Length ? database.Recipes[index].Id : default;
+        FactoryRecipeRangeBlob range = FactoryDatabaseUtility.GetRecipeRange(ref database, machineType);
+        return index < range.Count ? database.Recipes[range.Start + index].Id : default;
     }
 
     private RecipeId[] GetAvailableRecipes(MachineTypeId machineType)
@@ -285,12 +288,18 @@ public partial class UiSnapshotExportSystem : SystemBase
         return result;
     }
 
-    private static ItemSlotSnapshot[] ExportProcessorSlots(DynamicBuffer<ProcessorItemSlot> slots)
+    private static ItemSlotSnapshot[] ExportProcessorSlots(
+        DynamicBuffer<ProcessorItemSlot> slots, DynamicBuffer<BuildingPort> ports)
     {
         ItemSlotSnapshot[] result = new ItemSlotSnapshot[slots.Length];
         for (int i = 0; i < slots.Length; i++)
         {
             ProcessorItemSlot slot = slots[i];
+            ushort number = 0;
+            if (slot.Kind == ProcessorSlotKind.Output && ports.IsCreated)
+                for (int p = 0; p < ports.Length; p++)
+                    if (ports[p].Type == BuildingPortType.Output && ports[p].OutputSlot == slot.RecipeSlotIndex + 1)
+                        number = ports[p].Number;
             result[i] = new ItemSlotSnapshot(
                 (ushort)i,
                 slot.Count == 0 ? default : slot.AcceptedItemType,
@@ -299,7 +308,8 @@ public partial class UiSnapshotExportSystem : SystemBase
                 slot.AcceptedItemType,
                 slot.Kind == ProcessorSlotKind.Input
                     ? UiSlotAccess.Insert
-                    : UiSlotAccess.Extract);
+                    : UiSlotAccess.Extract,
+                number);
         }
         return result;
     }
@@ -328,7 +338,7 @@ public partial class UiSnapshotExportSystem : SystemBase
 
     private static ItemSlotSnapshot WithLogicalIndex(ItemSlotSnapshot value, ushort index) =>
         new(index, value.ItemId, value.Count, value.Capacity,
-            value.AcceptedItemId, value.Access);
+            value.AcceptedItemId, value.Access, value.OutputPortNumber);
 
     private sealed class InventoryCache
     {

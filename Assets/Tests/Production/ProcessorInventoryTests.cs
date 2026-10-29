@@ -16,6 +16,32 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void ProcessorOutputBlock_ResumesAfterManualExtractionOnlyWhenWholeBatchFits()
+        {
+            database = CreateMultiRecipeDatabase();
+            Entity singleton = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(singleton, new FactoryDatabase { Value = database });
+            Entity processor = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(processor, new ItemProcessor { MachineType = new MachineTypeId { Value = 1 } });
+            EntityManager.AddComponentData(processor, new ItemProcessState
+                { SelectedRecipeIndex = 0, ActiveRecipeIndex = 0, Status = ItemProcessStatus.OutputBlocked });
+            var slots = EntityManager.AddBuffer<ProcessorItemSlot>(processor);
+            slots.Add(new ProcessorItemSlot { Kind = ProcessorSlotKind.Input, Capacity = 64, RequiredOrProducedCount = 1 });
+            slots.Add(new ProcessorItemSlot { Kind = ProcessorSlotKind.Output, Capacity = 64, Count = 63, RequiredOrProducedCount = 3 });
+            SystemHandle system = TestWorld.GetOrCreateSystem<ItemProcessSystem>();
+            system.Update(TestWorld.Unmanaged);
+            EntityManager.CompleteAllTrackedJobs();
+            Assert.That(EntityManager.GetComponentData<ItemProcessState>(processor).Status, Is.EqualTo(ItemProcessStatus.OutputBlocked));
+            slots = EntityManager.GetBuffer<ProcessorItemSlot>(processor);
+            ProcessorItemSlot output = slots[1];
+            output.Count = 61;
+            slots[1] = output;
+            system.Update(TestWorld.Unmanaged);
+            EntityManager.CompleteAllTrackedJobs();
+            Assert.That(EntityManager.GetComponentData<ItemProcessState>(processor).Status, Is.EqualTo(ItemProcessStatus.Idle));
+        }
+
+        [Test]
         public void MultiInputOutputRecipe_ConsumesAndPublishesAtomically()
         {
             database = CreateMultiRecipeDatabase();
@@ -231,6 +257,13 @@ namespace Factory.Tests
             });
             EntityManager.AddBuffer<ProcessorItemSlot>(processor);
 
+            EntityManager.AddBuffer<ItemInputPortCurrent>(processor).Add(default);
+            EntityManager.AddBuffer<ItemInputPortNext>(processor).Add(default);
+            EntityManager.AddBuffer<ItemOutputPortCurrent>(processor).Add(default);
+            EntityManager.AddBuffer<ItemOutputPortNext>(processor).Add(default);
+            EntityManager.AddBuffer<ItemTransferReceiptCurrent>(processor).Add(default);
+            EntityManager.AddBuffer<ItemTransferReceiptNext>(processor).Add(default);
+
             Entity nonPlayerOwner = EntityManager.CreateEntity();
             EntityManager.AddBuffer<RecipeSelectionResult>(nonPlayerOwner);
             DynamicBuffer<RecipeSelectionCommand> commands =
@@ -252,6 +285,12 @@ namespace Factory.Tests
             Assert.That(results[0].Success, Is.EqualTo(1));
             Assert.That(results[0].FailureReason,
                 Is.EqualTo(RecipeSelectionFailureReason.None));
+            Assert.That(EntityManager.GetBuffer<ItemInputPortCurrent>(processor).Length, Is.Zero);
+            Assert.That(EntityManager.GetBuffer<ItemInputPortNext>(processor).Length, Is.Zero);
+            Assert.That(EntityManager.GetBuffer<ItemOutputPortCurrent>(processor).Length, Is.Zero);
+            Assert.That(EntityManager.GetBuffer<ItemOutputPortNext>(processor).Length, Is.Zero);
+            Assert.That(EntityManager.GetBuffer<ItemTransferReceiptCurrent>(processor).Length, Is.Zero);
+            Assert.That(EntityManager.GetBuffer<ItemTransferReceiptNext>(processor).Length, Is.Zero);
             Assert.That(
                 EntityManager.GetComponentData<ItemProcessState>(processor)
                     .SelectedRecipeIndex,
@@ -303,7 +342,7 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void ProcessorPortAdapter_PublishesEachRecipeItemOnOnePhysicalPort()
+        public void ProcessorPortAdapter_InputsAcceptAllIngredients_OutputsBindOneSlotEach()
         {
             database = CreateMultiRecipeDatabase();
             Entity databaseEntity = EntityManager.CreateEntity();
@@ -335,7 +374,9 @@ namespace Factory.Tests
             DynamicBuffer<BuildingPort> ports =
                 EntityManager.GetBuffer<BuildingPort>(processor);
             ports.Add(new BuildingPort { Type = BuildingPortType.Input, Index = 0 });
-            ports.Add(new BuildingPort { Type = BuildingPortType.Output, Index = 0 });
+            ports.Add(new BuildingPort { Type = BuildingPortType.Output, Index = 4, Number = 7, OutputSlot = 2 });
+            ports.Add(new BuildingPort { Type = BuildingPortType.Output, Index = 1, Number = 3, OutputSlot = 1 });
+            ports.Add(new BuildingPort { Type = BuildingPortType.Output, Index = 2, Number = 9, OutputSlot = 3 });
 
             SystemHandle adapter =
                 TestWorld.GetOrCreateSystem<ItemPortAdapterSystem>();
@@ -352,6 +393,12 @@ namespace Factory.Tests
             Assert.That(inputs[1].Value.PortIndex, Is.Zero);
             Assert.That(inputs[0].Value.AcceptedItemType,
                 Is.Not.EqualTo(inputs[1].Value.AcceptedItemType));
+            Assert.That(inputs[0].Value.ShareCapacityByItem, Is.EqualTo(1));
+            slots = EntityManager.GetBuffer<ProcessorItemSlot>(processor);
+            Assert.That(outputs[0].Value.PortIndex, Is.EqualTo(4));
+            Assert.That(outputs[0].Value.ItemType, Is.EqualTo(slots[3].AcceptedItemType));
+            Assert.That(outputs[1].Value.PortIndex, Is.EqualTo(1));
+            Assert.That(outputs[1].Value.ItemType, Is.EqualTo(slots[2].AcceptedItemType));
         }
 
         [Test]

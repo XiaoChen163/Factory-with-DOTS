@@ -143,6 +143,8 @@ public struct FactoryBuildingPortBlob
     public Unity.Mathematics.int2 Direction;
     public BuildingPortType Type;
     public byte Index;
+    public ushort Number;
+    public ushort OutputSlot;
 }
 
 public struct FactoryBuildingDefinitionBlob

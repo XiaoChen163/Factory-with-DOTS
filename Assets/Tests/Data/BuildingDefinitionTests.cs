@@ -93,6 +93,32 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void ProcessorBindings_AreImportedAndBaked_AndRejectDuplicateSlotsOrMissingCoverage()
+        {
+            var machine = asset.buildings.Single(b => b.key == "test_machine_m");
+            var ports = machine.ports.Where(p => p.type == BuildingPortType.Output).ToArray();
+            Assert.That(ports.Select(p => p.number), Is.EqualTo(new ushort[] { 1, 2, 3 }));
+            Assert.That(ports.Select(p => p.outputSlot), Is.EqualTo(new ushort[] { 1, 2, 3 }));
+            Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, null, out var blob), Is.True);
+            try
+            {
+                var definition = blob.Value.BuildingDefinitionsById[machine.id];
+                var output = blob.Value.BuildingPorts[definition.PortStart + 4];
+                Assert.That(output.Number, Is.EqualTo(2));
+                Assert.That(output.OutputSlot, Is.EqualTo(2));
+            }
+            finally { blob.Dispose(); }
+            int index = Array.FindIndex(asset.buildings, b => b.key == "test_machine_m");
+            asset.buildings[index].ports[4].outputSlot = 1;
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
+            asset.buildings[index].ports[4].outputSlot = 4;
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
+            asset.buildings[index].ports[4].outputSlot = 2;
+            asset.buildings[index].ports[4].number = 1;
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
+        }
+
+        [Test]
         public void ProcessorMappings_AreReadFromExtension_AndCanShareMachineType()
         {
             Write("processor_stats", "key,machine_type_key", "miner,smelting", "furnace,smelting",

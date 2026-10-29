@@ -111,7 +111,9 @@ public static class FactoryDatabaseBakingUtility
                     CellOffset = new int2(port.cellOffset.x, port.cellOffset.y),
                     Direction = new int2(port.direction.x, port.direction.y),
                     Type = port.type,
-                    Index = port.index
+                    Index = port.index,
+                    Number = port.number,
+                    OutputSlot = port.outputSlot
                 };
             }
         }

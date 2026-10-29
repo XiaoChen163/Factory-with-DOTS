@@ -37,6 +37,10 @@ public sealed class ItemSlotGridView
             slot.userData = binding;
             VisualElement icon = slot.Q("icon");
             Label count = slot.Q<Label>("count");
+            Label portNumber = slot.Q<Label>("output-port-number");
+            portNumber.text = value.OutputPortNumber > 0 ? $"出口 {value.OutputPortNumber}" : string.Empty;
+            portNumber.style.display = value.OutputPortNumber > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            slot.EnableInClassList("item-slot--output-port", value.OutputPortNumber > 0);
             icon.style.backgroundImage = new StyleBackground(
                 value.ItemId.IsValid ? catalog?.GetItemIcon(value.ItemId) : null);
             count.text = value.Count > 0 ? value.Count.ToString() : string.Empty;
@@ -58,6 +62,9 @@ public sealed class ItemSlotGridView
         count.AddToClassList("item-slot__count");
         slot.Add(icon);
         slot.Add(count);
+        Label portNumber = new() { name = "output-port-number", pickingMode = PickingMode.Ignore };
+        portNumber.AddToClassList("item-slot__port-number");
+        slot.Add(portNumber);
         slot.RegisterCallback<PointerDownEvent>(evt =>
         {
             if (slot.userData is ItemSlotBinding binding)

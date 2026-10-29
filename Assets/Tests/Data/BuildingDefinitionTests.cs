@@ -47,7 +47,7 @@ namespace Factory.Tests
             Assert.That(File.ReadLines(Path.Combine(directory, "buildings.csv")).First(),
                 Is.EqualTo("key,behavior,width,length,prefab_path,is_rectangle,bitmap"));
             var rows = Read();
-            Assert.That(rows.Length, Is.EqualTo(25));
+            Assert.That(rows.Length, Is.EqualTo(26));
             Assert.That(rows.Single(b => b.key == "furnace").kind, Is.EqualTo(BuildingKind.Processor));
             Assert.That(rows.Single(b => b.key == "furnace").displayName, Is.EqualTo("熔炉"));
             Assert.That(rows.Any(b => b.key == "furnace_mk1"), Is.False);
@@ -57,9 +57,46 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void TestMachineContent_HasColoredSpheresAndRequiredRecipes()
+        {
+            FactoryDatabaseValidation.Validate(asset);
+            var machine = asset.buildings.Single(b => b.key == "test_machine_m");
+            Assert.That(machine.footprintWidth, Is.EqualTo(3));
+            Assert.That(machine.footprintHeight, Is.EqualTo(3));
+            Assert.That(machine.ports.Count(p => p.type == BuildingPortType.Input), Is.EqualTo(3));
+            Assert.That(machine.ports.Count(p => p.type == BuildingPortType.Output), Is.EqualTo(3));
+            Assert.That(asset.recipes.Count(r => r.machineTypeId == machine.machineTypeId), Is.EqualTo(2));
+            var forward = asset.recipes.Single(r => r.key == "test_ab_to_c");
+            var reverse = asset.recipes.Single(r => r.key == "test_cd_to_ab");
+            Assert.That(forward.inputs.Select(i => (i.itemKey, i.count)),
+                Is.EquivalentTo(new[] { ("test_a", 1), ("test_b", 1) }));
+            Assert.That(forward.outputs.Select(i => (i.itemKey, i.count)),
+                Is.EquivalentTo(new[] { ("test_c", 1) }));
+            Assert.That(reverse.inputs.Select(i => (i.itemKey, i.count)),
+                Is.EquivalentTo(new[] { ("test_c", 1), ("test_d", 1) }));
+            Assert.That(reverse.outputs.Select(i => (i.itemKey, i.count)),
+                Is.EquivalentTo(new[] { ("test_a", 1), ("test_b", 1) }));
+            ushort mining = asset.buildings.Single(b => b.key == "miner").machineTypeId;
+            foreach (string suffix in new[] { "a", "b", "c", "d" })
+            {
+                var item = asset.items.Single(i => i.key == "test_" + suffix);
+                var recipe = asset.recipes.Single(r => r.key == "mine_test_" + suffix);
+                Assert.That(recipe.machineTypeId, Is.EqualTo(mining));
+                Assert.That(recipe.inputs, Is.Empty);
+                Assert.That(recipe.outputs.Select(i => (i.itemKey, i.count)),
+                    Is.EquivalentTo(new[] { (item.key, 1) }));
+                Assert.That(item.prefab.GetComponent<MeshFilter>().sharedMesh.name, Is.EqualTo("Sphere"));
+                Assert.That(item.prefab.GetComponentsInChildren<MonoBehaviour>(), Is.Empty);
+                Assert.That(item.icon, Is.Not.Null);
+            }
+            Assert.That(machine.icon, Is.Not.Null);
+        }
+
+        [Test]
         public void ProcessorMappings_AreReadFromExtension_AndCanShareMachineType()
         {
-            Write("processor_stats", "key,machine_type_key", "miner,smelting", "furnace,smelting");
+            Write("processor_stats", "key,machine_type_key", "miner,smelting", "furnace,smelting",
+                "test_machine_m,test_machine_m");
             var rows = Read();
             ushort smelting = asset.machineTypes.Single(m => m.key == "smelting").id;
             Assert.That(rows.Single(b => b.key == "miner").machineTypeId, Is.EqualTo(smelting));

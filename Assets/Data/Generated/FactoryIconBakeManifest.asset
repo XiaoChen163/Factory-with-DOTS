@@ -52,6 +52,9 @@ MonoBehaviour:
   - prefabPath: Assets/Prefabs/Buildings/Storage.prefab
     outputPath: Assets/Art/Icons/Buildings/Storage.png
     hash: c633ebb9df945c78f597f7774ce7addb
+  - prefabPath: Assets/Prefabs/Buildings/TestMachineM.prefab
+    outputPath: Assets/Art/Icons/Buildings/TestMachineM.png
+    hash: da4bc63680131068a7b497d7fcf28aed
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk1.png
     hash: c064b49a9015fdc7b6e5b3ebc75a65cb
@@ -94,3 +97,15 @@ MonoBehaviour:
   - prefabPath: Assets/Prefabs/Items/IronOre.prefab
     outputPath: Assets/Art/Icons/Items/IronOre.png
     hash: ac7b028c439ca77ffb39520d607bad42
+  - prefabPath: Assets/Prefabs/Items/TestA.prefab
+    outputPath: Assets/Art/Icons/Items/TestA.png
+    hash: f9de48c63cef5230274502dda28aafa4
+  - prefabPath: Assets/Prefabs/Items/TestB.prefab
+    outputPath: Assets/Art/Icons/Items/TestB.png
+    hash: 062a4ac7b35bb01f3a11e6049bf82e80
+  - prefabPath: Assets/Prefabs/Items/TestC.prefab
+    outputPath: Assets/Art/Icons/Items/TestC.png
+    hash: 3f61a3d2b24514eca7e463b55adacfa5
+  - prefabPath: Assets/Prefabs/Items/TestD.prefab
+    outputPath: Assets/Art/Icons/Items/TestD.png
+    hash: e6ee91185496c9a7c8a7b66b4d6b91ff

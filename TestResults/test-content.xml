@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="28" result="Passed" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.5430096">
+  <test-suite type="TestSuite" id="1000" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="294" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.543010" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1349" name="Factory.Tests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.Tests.dll" runstate="Runnable" testcasecount="294" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.534457" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="44876" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1350" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="294" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.533546" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1351" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="294" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.532954" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1132" name="BuildingDefinitionTests" fullname="Factory.Tests.BuildingDefinitionTests" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.440017" total="20" passed="20" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1153" name="Belts_ShareTierSpeed_AndVerticalPartsMatchByTier" fullname="Factory.Tests.BuildingDefinitionTests.Belts_ShareTierSpeed_AndVerticalPartsMatchByTier" methodname="Belts_ShareTierSpeed_AndVerticalPartsMatchByTier" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="885548168" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.250060" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1141" name="InvalidProcessorExtensions_AreRejected" fullname="Factory.Tests.BuildingDefinitionTests.InvalidProcessorExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.041468" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1136" name="InvalidProcessorExtensions_AreRejected(&quot;miner,mining&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.InvalidProcessorExtensions_AreRejected(&quot;miner,mining&quot;)" methodname="InvalidProcessorExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="2079374886" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.010525" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1137" name="InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,smelting\nfurnace,smelting&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,smelting\nfurnace,smelting&quot;)" methodname="InvalidProcessorExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="464387935" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007356" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1138" name="InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,smelting\nstorage,smelting&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,smelting\nstorage,smelting&quot;)" methodname="InvalidProcessorExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="1882080175" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007324" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1139" name="InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,smelting\nunknown,smelting&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,smelting\nunknown,smelting&quot;)" methodname="InvalidProcessorExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="70761794" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.006350" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1140" name="InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,unknown&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.InvalidProcessorExtensions_AreRejected(&quot;miner,mining\nfurnace,unknown&quot;)" methodname="InvalidProcessorExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="1326395471" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007095" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1133" name="MainTable_ContainsOnlyUniversalFields" fullname="Factory.Tests.BuildingDefinitionTests.MainTable_ContainsOnlyUniversalFields" methodname="MainTable_ContainsOnlyUniversalFields" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="2119288232" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.011291" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1147" name="MissingRequiredExtensions_AreRejected" fullname="Factory.Tests.BuildingDefinitionTests.MissingRequiredExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.037156" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1142" name="MissingRequiredExtensions_AreRejected(&quot;storage_stats&quot;,&quot;key,capacity,slot_count&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.MissingRequiredExtensions_AreRejected(&quot;storage_stats&quot;,&quot;key,capacity,slot_count&quot;)" methodname="MissingRequiredExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="1457903577" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007491" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1143" name="MissingRequiredExtensions_AreRejected(&quot;ramp_stats&quot;,&quot;key,rise_height_units&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.MissingRequiredExtensions_AreRejected(&quot;ramp_stats&quot;,&quot;key,rise_height_units&quot;)" methodname="MissingRequiredExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="1911763567" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.006765" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1144" name="MissingRequiredExtensions_AreRejected(&quot;belt_stats&quot;,&quot;key,tier,cells_per_second&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.MissingRequiredExtensions_AreRejected(&quot;belt_stats&quot;,&quot;key,tier,cells_per_second&quot;)" methodname="MissingRequiredExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="1216714101" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007033" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1145" name="MissingRequiredExtensions_AreRejected(&quot;building_presentation&quot;,&quot;key,icon_path,menu_order&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.MissingRequiredExtensions_AreRejected(&quot;building_presentation&quot;,&quot;key,icon_path,menu_order&quot;)" methodname="MissingRequiredExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="181211109" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007006" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1146" name="MissingRequiredExtensions_AreRejected(&quot;building_names&quot;,&quot;key,locale,name&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.MissingRequiredExtensions_AreRejected(&quot;building_names&quot;,&quot;key,locale,name&quot;)" methodname="MissingRequiredExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="166380145" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007873" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1155" name="ParallelProcessors_UseExactRecipeDuration_AndProduceOneBatchEach" fullname="Factory.Tests.BuildingDefinitionTests.ParallelProcessors_UseExactRecipeDuration_AndProduceOneBatchEach" methodname="ParallelProcessors_UseExactRecipeDuration_AndProduceOneBatchEach" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="1404074224" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.021299" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1135" name="ProcessorMappings_AreReadFromExtension_AndCanShareMachineType" fullname="Factory.Tests.BuildingDefinitionTests.ProcessorMappings_AreReadFromExtension_AndCanShareMachineType" methodname="ProcessorMappings_AreReadFromExtension_AndCanShareMachineType" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="1219703602" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.009744" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1154" name="ReorderingMainRows_PreservesKeyAssociations_AndResolvesNewRuntimeIds" fullname="Factory.Tests.BuildingDefinitionTests.ReorderingMainRows_PreservesKeyAssociations_AndResolvesNewRuntimeIds" methodname="ReorderingMainRows_PreservesKeyAssociations_AndResolvesNewRuntimeIds" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="701766557" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.011077" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1134" name="TestMachineContent_HasColoredSpheresAndRequiredRecipes" fullname="Factory.Tests.BuildingDefinitionTests.TestMachineContent_HasColoredSpheresAndRequiredRecipes" methodname="TestMachineContent_HasColoredSpheresAndRequiredRecipes" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="863181007" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.013208" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1152" name="UnknownOrIncompatibleExtensions_AreRejected" fullname="Factory.Tests.BuildingDefinitionTests.UnknownOrIncompatibleExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.030650" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1148" name="UnknownOrIncompatibleExtensions_AreRejected(&quot;building_ports&quot;,&quot;key,type,index,cell_x,cell_z,direction_x,direction_z&quot;,&quot;unknown,Output,0,1,0,1,0&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.UnknownOrIncompatibleExtensions_AreRejected(&quot;building_ports&quot;,&quot;key,type,index,cell_x,cell_z,direction_x,direction_z&quot;,&quot;unknown,Output,0,1,0,1,0&quot;)" methodname="UnknownOrIncompatibleExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="972779580" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.008654" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1149" name="UnknownOrIncompatibleExtensions_AreRejected(&quot;building_names&quot;,&quot;key,locale,name&quot;,&quot;unknown,zh-CN,不存在&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.UnknownOrIncompatibleExtensions_AreRejected(&quot;building_names&quot;,&quot;key,locale,name&quot;,&quot;unknown,zh-CN,不存在&quot;)" methodname="UnknownOrIncompatibleExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="887850525" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007283" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1150" name="UnknownOrIncompatibleExtensions_AreRejected(&quot;storage_stats&quot;,&quot;key,capacity,slot_count&quot;,&quot;furnace,100,8&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.UnknownOrIncompatibleExtensions_AreRejected(&quot;storage_stats&quot;,&quot;key,capacity,slot_count&quot;,&quot;furnace,100,8&quot;)" methodname="UnknownOrIncompatibleExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="514637700" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.006532" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1151" name="UnknownOrIncompatibleExtensions_AreRejected(&quot;ramp_stats&quot;,&quot;key,rise_height_units&quot;,&quot;furnace,8&quot;)" fullname="Factory.Tests.BuildingDefinitionTests.UnknownOrIncompatibleExtensions_AreRejected(&quot;ramp_stats&quot;,&quot;key,rise_height_units&quot;,&quot;furnace,8&quot;)" methodname="UnknownOrIncompatibleExtensions_AreRejected" classname="Factory.Tests.BuildingDefinitionTests" runstate="Runnable" seed="700878973" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.007218" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+          </test-suite>
+          <test-suite type="TestFixture" id="1240" name="ProcessorInventoryTests" fullname="Factory.Tests.ProcessorInventoryTests" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.085061" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1248" name="ManualMove_PlayerToStorage_UpdatesBothStableSlotsAndRevisions" fullname="Factory.Tests.ProcessorInventoryTests.ManualMove_PlayerToStorage_UpdatesBothStableSlotsAndRevisions" methodname="ManualMove_PlayerToStorage_UpdatesBothStableSlotsAndRevisions" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="1689696589" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.035600" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1241" name="MultiInputOutputRecipe_ConsumesAndPublishesAtomically" fullname="Factory.Tests.ProcessorInventoryTests.MultiInputOutputRecipe_ConsumesAndPublishesAtomically" methodname="MultiInputOutputRecipe_ConsumesAndPublishesAtomically" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="185015629" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.004009" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1242" name="MultiOutputCapacityFailure_DoesNotConsumeAnyInput" fullname="Factory.Tests.ProcessorInventoryTests.MultiOutputCapacityFailure_DoesNotConsumeAnyInput" methodname="MultiOutputCapacityFailure_DoesNotConsumeAnyInput" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="924124969" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.001669" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1246" name="Processor_OnlyBlocksWhenOutputStackCannotFitAnotherBatch" fullname="Factory.Tests.ProcessorInventoryTests.Processor_OnlyBlocksWhenOutputStackCannotFitAnotherBatch" methodname="Processor_OnlyBlocksWhenOutputStackCannotFitAnotherBatch" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="1161445202" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.001762" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1247" name="ProcessorPortAdapter_PublishesEachRecipeItemOnOnePhysicalPort" fullname="Factory.Tests.ProcessorInventoryTests.ProcessorPortAdapter_PublishesEachRecipeItemOnOnePhysicalPort" methodname="ProcessorPortAdapter_PublishesEachRecipeItemOnOnePhysicalPort" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="33491187" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.023005" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1244" name="RecipeChange_ReturnsCompletedOutputWithoutRefundingConsumedInputs" fullname="Factory.Tests.ProcessorInventoryTests.RecipeChange_ReturnsCompletedOutputWithoutRefundingConsumedInputs" methodname="RecipeChange_ReturnsCompletedOutputWithoutRefundingConsumedInputs" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="1852852495" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.001920" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1243" name="RecipeChange_StopsProductionAndReturnsInputsToPlayerInventory" fullname="Factory.Tests.ProcessorInventoryTests.RecipeChange_StopsProductionAndReturnsInputsToPlayerInventory" methodname="RecipeChange_StopsProductionAndReturnsInputsToPlayerInventory" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="1594392737" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.001780" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1245" name="RecipeSelectionCommand_NonPlayerOwner_ConfiguresProcessor" fullname="Factory.Tests.ProcessorInventoryTests.RecipeSelectionCommand_NonPlayerOwner_ConfiguresProcessor" methodname="RecipeSelectionCommand_NonPlayerOwner_ConfiguresProcessor" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="627630750" result="Passed" start-time="2026-10-29 19:34:08Z" end-time="2026-10-29 19:34:08Z" duration="0.012798" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

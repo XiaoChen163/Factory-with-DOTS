@@ -22,6 +22,12 @@ belt_mk4,Output,0,1,0,1,0
 miner,Output,0,3,1,1,0
 furnace,Input,0,-1,1,1,0
 furnace,Output,0,3,1,1,0
+test_machine_m,Input,0,-1,0,1,0
+test_machine_m,Input,1,-1,1,1,0
+test_machine_m,Input,2,-1,2,1,0
+test_machine_m,Output,0,3,0,1,0
+test_machine_m,Output,1,3,1,1,0
+test_machine_m,Output,2,3,2,1,0
 storage,Input,0,-1,1,1,0
 merger,Input,0,-1,0,1,0
 merger,Input,1,0,1,0,-1

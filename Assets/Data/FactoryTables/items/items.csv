@@ -1,3 +1,7 @@
 id,key,name_key,max_stack,category,prefab_key
 1,iron_ore,item.iron_ore,64,Ore,iron_ore
 2,iron_ingot,item.iron_ingot,64,Ingot,iron_ingot
+3,test_a,红色物品A,64,Component,test_a
+4,test_b,绿色物品B,64,Component,test_b
+5,test_c,蓝色物品C,64,Component,test_c
+6,test_d,黄色物品D,64,Component,test_d

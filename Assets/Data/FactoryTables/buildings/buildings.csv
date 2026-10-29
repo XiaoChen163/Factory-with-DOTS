@@ -24,3 +24,4 @@ vertical_belt_segment_mk1,VerticalBeltSegment,1,1,Assets/Prefabs/Buildings/Verti
 vertical_belt_segment_mk2,VerticalBeltSegment,1,1,Assets/Prefabs/Buildings/VerticalBeltSegmentMk2.prefab,true,
 vertical_belt_segment_mk3,VerticalBeltSegment,1,1,Assets/Prefabs/Buildings/VerticalBeltSegmentMk3.prefab,true,
 vertical_belt_segment_mk4,VerticalBeltSegment,1,1,Assets/Prefabs/Buildings/VerticalBeltSegmentMk4.prefab,true,
+test_machine_m,Processor,3,3,Assets/Prefabs/Buildings/TestMachineM.prefab,true,

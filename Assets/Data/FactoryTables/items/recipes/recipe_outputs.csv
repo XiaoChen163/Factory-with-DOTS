@@ -3,3 +3,10 @@ mine_iron,iron_ore,1
 smelt_iron,iron_ingot,1
 test_multi_io,iron_ore,1
 test_multi_io,iron_ingot,1
+test_ab_to_c,test_c,1
+test_cd_to_ab,test_a,1
+test_cd_to_ab,test_b,1
+mine_test_a,test_a,1
+mine_test_b,test_b,1
+mine_test_c,test_c,1
+mine_test_d,test_d,1

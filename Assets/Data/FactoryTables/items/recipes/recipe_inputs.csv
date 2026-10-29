@@ -2,3 +2,7 @@ recipe_key,item_key,count
 smelt_iron,iron_ore,2
 test_multi_io,iron_ore,1
 test_multi_io,iron_ingot,1
+test_ab_to_c,test_a,1
+test_ab_to_c,test_b,1
+test_cd_to_ab,test_c,1
+test_cd_to_ab,test_d,1

@@ -32,11 +32,49 @@ MonoBehaviour:
     prefab: {fileID: 220000, guid: d42df505a758468db0c476485424dffd, type: 3}
     iconKey: iron_ingot
     icon: {fileID: 21300000, guid: aafebab3a53944b4ea554efc6ca042a4, type: 3}
+  - id: 3
+    key: test_a
+    nameKey: "\u7EA2\u8272\u7269\u54C1A"
+    maxStack: 64
+    category: 3
+    prefabKey: test_a
+    prefab: {fileID: 210000, guid: 0b25e0e5a5a94fa9b92134152f6dfcb2, type: 3}
+    iconKey: test_a
+    icon: {fileID: 21300000, guid: 43b7418465fc2ee45814ce84fe7aa471, type: 3}
+  - id: 4
+    key: test_b
+    nameKey: "\u7EFF\u8272\u7269\u54C1B"
+    maxStack: 64
+    category: 3
+    prefabKey: test_b
+    prefab: {fileID: 210000, guid: ed30f689f3d94da1b0d62387f807973e, type: 3}
+    iconKey: test_b
+    icon: {fileID: 21300000, guid: 713b544a8b0bf7f4dbd46c30221101d8, type: 3}
+  - id: 5
+    key: test_c
+    nameKey: "\u84DD\u8272\u7269\u54C1C"
+    maxStack: 64
+    category: 3
+    prefabKey: test_c
+    prefab: {fileID: 210000, guid: 72b4f5b6836c49e3ae8d424618c59b4d, type: 3}
+    iconKey: test_c
+    icon: {fileID: 21300000, guid: 37e003ba40fb1ce4986e58eb93b3b912, type: 3}
+  - id: 6
+    key: test_d
+    nameKey: "\u9EC4\u8272\u7269\u54C1D"
+    maxStack: 64
+    category: 3
+    prefabKey: test_d
+    prefab: {fileID: 210000, guid: d82ba76fc31942eb92bbfdc7760c13d4, type: 3}
+    iconKey: test_d
+    icon: {fileID: 21300000, guid: 2846773377b4e5648a2dd0dd85c2bb0d, type: 3}
   machineTypes:
   - id: 1
     key: mining
   - id: 2
     key: smelting
+  - id: 3
+    key: test_machine_m
   buildings:
   - id: 1
     key: belt_mk1
@@ -673,6 +711,49 @@ MonoBehaviour:
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports: []
+  - id: 26
+    key: test_machine_m
+    kind: 2
+    footprintWidth: 3
+    footprintHeight: 3
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/TestMachineM.prefab
+    visualPrefab: {fileID: 210000, guid: fe6055f407864a38bd1a339b42c3b921, type: 3}
+    displayName: "\u6D4B\u8BD5\u673A\u5668M"
+    icon: {fileID: 21300000, guid: feaad6a9f302d99439208a760d1ed65a, type: 3}
+    menuOrder: 350
+    machineTypeId: 3
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      cellOffset: {x: -1, y: 1}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 2
+      cellOffset: {x: -1, y: 2}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 0
+      cellOffset: {x: 3, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 1
+      cellOffset: {x: 3, y: 1}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 2
+      cellOffset: {x: 3, y: 2}
+      direction: {x: 1, y: 0}
   recipes:
   - id: 1
     key: mine_iron
@@ -685,6 +766,46 @@ MonoBehaviour:
       itemId: 1
       count: 1
   - id: 2
+    key: mine_test_a
+    machineTypeKey: mining
+    machineTypeId: 1
+    durationSeconds: 1
+    inputs: []
+    outputs:
+    - itemKey: test_a
+      itemId: 3
+      count: 1
+  - id: 3
+    key: mine_test_b
+    machineTypeKey: mining
+    machineTypeId: 1
+    durationSeconds: 1
+    inputs: []
+    outputs:
+    - itemKey: test_b
+      itemId: 4
+      count: 1
+  - id: 4
+    key: mine_test_c
+    machineTypeKey: mining
+    machineTypeId: 1
+    durationSeconds: 1
+    inputs: []
+    outputs:
+    - itemKey: test_c
+      itemId: 5
+      count: 1
+  - id: 5
+    key: mine_test_d
+    machineTypeKey: mining
+    machineTypeId: 1
+    durationSeconds: 1
+    inputs: []
+    outputs:
+    - itemKey: test_d
+      itemId: 6
+      count: 1
+  - id: 6
     key: smelt_iron
     machineTypeKey: smelting
     machineTypeId: 2
@@ -697,7 +818,42 @@ MonoBehaviour:
     - itemKey: iron_ingot
       itemId: 2
       count: 1
-  - id: 3
+  - id: 7
+    key: test_ab_to_c
+    machineTypeKey: test_machine_m
+    machineTypeId: 3
+    durationSeconds: 1
+    inputs:
+    - itemKey: test_a
+      itemId: 3
+      count: 1
+    - itemKey: test_b
+      itemId: 4
+      count: 1
+    outputs:
+    - itemKey: test_c
+      itemId: 5
+      count: 1
+  - id: 8
+    key: test_cd_to_ab
+    machineTypeKey: test_machine_m
+    machineTypeId: 3
+    durationSeconds: 1
+    inputs:
+    - itemKey: test_c
+      itemId: 5
+      count: 1
+    - itemKey: test_d
+      itemId: 6
+      count: 1
+    outputs:
+    - itemKey: test_a
+      itemId: 3
+      count: 1
+    - itemKey: test_b
+      itemId: 4
+      count: 1
+  - id: 9
     key: test_multi_io
     machineTypeKey: smelting
     machineTypeId: 2

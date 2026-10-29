@@ -395,8 +395,10 @@ namespace Factory.Tests
                 Id = new BuildingTypeId { Value = 1 },
                 Kind = BuildingKind.Foundation,
                 FootprintWidth = 1,
-                FootprintHeight = 1
+                FootprintHeight = 1,
+                OccupiedCellCount = 1
             };
+            builder.Allocate(ref root.BuildingOccupiedCells, 1)[0] = int2.zero;
             BlobBuilderArray<FactoryBuildingLevelBlob> levels =
                 builder.Allocate(ref root.BuildingLevelsById, 2);
             levels[1] = new FactoryBuildingLevelBlob

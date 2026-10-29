@@ -498,11 +498,13 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         int2 footprintSize = new int2(
             building.FootprintWidth,
             building.FootprintHeight);
-        for (int y = 0; y < building.FootprintHeight; y++)
-        for (int x = 0; x < building.FootprintWidth; x++)
+        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> footprintReference))
+            return;
+        ref FactoryDatabaseBlob footprintDatabase = ref footprintReference.Value;
+        for (int i = 0; i < building.OccupiedCellCount; i++)
             previewCells.Add(hoveredCell +
                 EcsGridUtility.RotateBuildingCellOffset(
-                    new int2(x, y),
+                    footprintDatabase.BuildingOccupiedCells[building.OccupiedCellStart + i],
                     footprintSize,
                     quarterTurns));
         if (SelectedKind == BuildingKind.Belt)

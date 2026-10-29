@@ -45,7 +45,7 @@ GridAddress
 
 几个具体建议：
 
-- 非长方形建筑使用显式 `OccupiedCellOffsets`；宽高只作为包围盒和旋转中心。项目已经有这个 Buffer，但 [GridBuildCommandSystem.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/ECS/Systems/GridBuildCommandSystem.cs:866) 仍自动填满整个矩形。
+- 非长方形建筑占格已实施（2026-10-30）：源表使用长宽、`is_rectangle` 和 `footprint_bitmap`，烘焙为共享占用偏移列表，放置、预览、占用及拆除统一使用真实占格；端口保留显式位置和物流方向，并校验真实形状边界。碰撞尚未实施。定义方式见 [建筑占格与端口定义](../Guide/Building-Footprints.md)。
 - 多端口应增加 `PortBinding`：指定端口对应哪个配方输入/输出槽、允许的物品或过滤规则，避免所有输入口都接受所有原料。
 - 第 1、3 项最好做成同一个编辑器工具，包含“物品、配方、建筑、占格、端口、矿点、翻译”多个页面，共用稳定 ID、引用校验和 Undo/Redo。
 - 编辑器应修改唯一的源数据并调用现有导入器，不能直接编辑生成的 `FactoryDatabase.asset`，否则会形成双数据源。

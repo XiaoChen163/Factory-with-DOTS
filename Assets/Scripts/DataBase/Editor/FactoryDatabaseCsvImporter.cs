@@ -202,6 +202,8 @@ public static class FactoryDatabaseCsvImporter
                 portLayoutKey = layoutKey,
                 footprintWidth = ParseByte(table.Get(row, "footprint_width"), "footprint width"),
                 footprintHeight = ParseByte(table.Get(row, "footprint_height"), "footprint height"),
+                isRectangle = bool.Parse(table.Get(row, "is_rectangle").Trim()),
+                footprintBitmap = table.Get(row, "footprint_bitmap").Trim(),
                 ports = buildingPorts.ToArray()
             });
         }
@@ -594,6 +596,8 @@ public static class FactoryDatabaseCsvImporter
 
     private static void ValidateBuilding(FactoryBuildingTableRow row)
     {
+        Unity.Mathematics.int2[] offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(row);
+        FactoryBuildingFootprintUtility.ValidatePorts(row, offsets);
         if (row.footprintWidth == 0 || row.footprintHeight == 0)
             throw new InvalidDataException($"Building '{row.key}' footprint must be positive.");
         bool behaviorMatchesKind =

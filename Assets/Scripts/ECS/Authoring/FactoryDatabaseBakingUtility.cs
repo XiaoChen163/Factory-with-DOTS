@@ -30,13 +30,17 @@ public static class FactoryDatabaseBakingUtility
         int inputCount = 0;
         int outputCount = 0;
         int portCount = 0;
+        int occupiedCellCount = 0;
         foreach (FactoryRecipeTableRow recipe in recipes)
         {
             inputCount += recipe.inputs?.Length ?? 0;
             outputCount += recipe.outputs?.Length ?? 0;
         }
         foreach (FactoryBuildingTableRow building in source.buildings)
+        {
             portCount += building.ports?.Length ?? 0;
+            occupiedCellCount += FactoryBuildingFootprintUtility.GetOccupiedOffsets(building).Length;
+        }
 
         using BlobBuilder builder = new BlobBuilder(Allocator.Temp);
         ref FactoryDatabaseBlob root = ref builder.ConstructRoot<FactoryDatabaseBlob>();
@@ -72,8 +76,12 @@ public static class FactoryDatabaseBakingUtility
         BlobBuilderArray<FactoryBuildingBlob> buildings =
             builder.Allocate(ref root.BuildingsById, maxBuildingId + 1);
         int portCursor = 0;
+        BlobBuilderArray<int2> occupiedCells =
+            builder.Allocate(ref root.BuildingOccupiedCells, occupiedCellCount);
+        int occupiedCursor = 0;
         foreach (FactoryBuildingTableRow row in source.buildings)
         {
+            int2[] offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(row);
             FactoryBuildingPortTableRow[] rowPorts =
                 row.ports ?? Array.Empty<FactoryBuildingPortTableRow>();
             buildings[row.id] = new FactoryBuildingBlob
@@ -85,9 +93,13 @@ public static class FactoryDatabaseBakingUtility
                 PortCount = (ushort)rowPorts.Length,
                 FootprintWidth = row.footprintWidth,
                 FootprintHeight = row.footprintHeight,
+                OccupiedCellStart = occupiedCursor,
+                OccupiedCellCount = offsets.Length,
                 Key = new FixedString64Bytes(row.key),
                 NameKey = new FixedString64Bytes(row.nameKey)
             };
+            foreach (int2 offset in offsets)
+                occupiedCells[occupiedCursor++] = offset;
             foreach (FactoryBuildingPortTableRow port in rowPorts)
             {
                 ports[portCursor++] = new FactoryBuildingPortBlob
@@ -252,6 +264,16 @@ public static class FactoryDatabaseBakingUtility
             new Dictionary<ushort, FactoryBuildingTableRow>();
         foreach (FactoryBuildingTableRow building in source.buildings)
         {
+            try
+            {
+                int2[] offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(building);
+                FactoryBuildingFootprintUtility.ValidatePorts(building, offsets);
+            }
+            catch (System.IO.InvalidDataException exception)
+            {
+                Debug.LogError(exception.Message, context);
+                valid = false;
+            }
             bool buildingValid = building.id != 0 && buildingIds.Add(building.id) &&
                                  building.footprintWidth > 0 && building.footprintHeight > 0;
             valid &= buildingValid;

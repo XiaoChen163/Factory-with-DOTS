@@ -47,7 +47,7 @@ public partial struct GridPlacementTransformSystem : ISystem
                     WorldGrid);
             Unity.Mathematics.float2 visualOffset =
                 EcsGridUtility.GetVisualCenterOffset(
-                    placement.FootprintSize) *
+                    placement.FootprintSize, placement.QuarterTurns) *
                 WorldGrid.CellSize;
             center.x += visualOffset.x;
             center.z += visualOffset.y;

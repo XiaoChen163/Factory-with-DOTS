@@ -428,6 +428,7 @@ namespace Factory.Tests
                     kind = BuildingKind.Belt,
                     footprintWidth = 1,
                     footprintHeight = 1,
+                    isRectangle = true,
                     ports = System.Array.Empty<FactoryBuildingPortTableRow>()
                 }
             };

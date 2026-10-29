@@ -82,6 +82,8 @@ public struct FactoryBuildingTableRow
     public string portLayoutKey;
     public byte footprintWidth;
     public byte footprintHeight;
+    public bool isRectangle;
+    public string footprintBitmap;
     public FactoryBuildingPortTableRow[] ports;
 }
 

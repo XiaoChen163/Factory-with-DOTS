@@ -26,7 +26,7 @@ public partial class GridBuildCommandSystem : SystemBase
         public bool PendingInstantiation;
         public VerticalBeltPlacementToken PlacementToken;
         public GridPlacement Placement;
-        public BuildingLevelId BuildingLevel;
+        public BuildingDefinitionId BuildingDefinition;
         public GridCell[] OccupiedCells;
         public BuildingPort[] Ports;
     }
@@ -88,7 +88,7 @@ public partial class GridBuildCommandSystem : SystemBase
                     owner.EntityManager.GetBuffer<OccupiedCellOffset>(entity, true),
                     owner.EntityManager.GetBuffer<BuildingPort>(entity, true));
                 if (owner.EntityManager.HasComponent<BuildingIdentity>(entity))
-                    record.BuildingLevel = owner.EntityManager.GetComponentData<BuildingIdentity>(entity).BuildingLevel;
+                    record.BuildingDefinition = owner.EntityManager.GetComponentData<BuildingIdentity>(entity).BuildingDefinition;
                 if (owner.EntityManager.HasComponent<VerticalBeltPlacementToken>(entity))
                     record.PlacementToken = owner.EntityManager.GetComponentData<VerticalBeltPlacementToken>(entity);
                 recordsByEntity.Add(entity, record);
@@ -239,13 +239,13 @@ public partial class GridBuildCommandSystem : SystemBase
                 catalogQuery.GetSingletonEntity(), true);
         using NativeArray<BuildingVisualPrefabEntry> visualPrefabSnapshot =
             visualPrefabs.ToNativeArray(Allocator.Temp);
-        using NativeArray<FoundationLevelMaterial> foundationMaterialSnapshot =
-            EntityManager.HasBuffer<FoundationLevelMaterial>(
+        using NativeArray<FoundationDefinitionMaterial> foundationMaterialSnapshot =
+            EntityManager.HasBuffer<FoundationDefinitionMaterial>(
                 catalogQuery.GetSingletonEntity())
-                ? EntityManager.GetBuffer<FoundationLevelMaterial>(
+                ? EntityManager.GetBuffer<FoundationDefinitionMaterial>(
                     catalogQuery.GetSingletonEntity(), true)
                     .ToNativeArray(Allocator.Temp)
-                : new NativeArray<FoundationLevelMaterial>(0, Allocator.Temp);
+                : new NativeArray<FoundationDefinitionMaterial>(0, Allocator.Temp);
         BlobAssetReference<FactoryDatabaseBlob> databaseReference =
             catalogQuery.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref databaseReference.Value;
@@ -443,7 +443,7 @@ public partial class GridBuildCommandSystem : SystemBase
 
                 default:
                     success = TryPlaceSingle(
-                        command.BuildingLevel,
+                        command.BuildingDefinition,
                         command.StartCell,
                         command.QuarterTurns,
                         worldGrid,
@@ -465,7 +465,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 RequestId = command.RequestId,
                 Type = command.Type,
                 Kind = command.Kind,
-                BuildingLevel = command.BuildingLevel,
+                BuildingDefinition = command.BuildingDefinition,
                 Cell = command.Type == GridBuildCommandType.PlaceBeltPath ||
                        command.Type == GridBuildCommandType.PlaceRampBeltPath ||
                        command.Type == GridBuildCommandType.PlaceVerticalBeltPath
@@ -555,7 +555,7 @@ public partial class GridBuildCommandSystem : SystemBase
                 RequestId = command.RequestId,
                 Type = command.Type,
                 Kind = command.Kind,
-                BuildingLevel = command.BuildingLevel,
+                BuildingDefinition = command.BuildingDefinition,
                 Cell = command.StartCell,
                 Success = success ? (byte)1 : (byte)0,
                 AffectedCount = success ? 1 : 0,
@@ -619,7 +619,7 @@ public partial class GridBuildCommandSystem : SystemBase
         Entity grid,
         in GridBuildCommand command,
         SurfaceRegistrySystem registry,
-        in NativeArray<FoundationLevelMaterial> materialMappings,
+        in NativeArray<FoundationDefinitionMaterial> materialMappings,
         ref FactoryDatabaseBlob database,
         out int affectedCount,
         out GridBuildFailureReason failure)
@@ -637,18 +637,17 @@ public partial class GridBuildCommandSystem : SystemBase
             failure = GridBuildFailureReason.FoundationUnsupported;
             return false;
         }
-        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+        if (!FactoryDatabaseUtility.TryGetBuildingDefinition(
                 ref database,
-                command.BuildingLevel,
-                out _,
-                out FactoryBuildingBlob building) ||
+                command.BuildingDefinition,
+                out FactoryBuildingDefinitionBlob building) ||
             building.Kind != BuildingKind.Foundation ||
             !TryResolveFoundationMaterial(
-                command.BuildingLevel,
+                command.BuildingDefinition,
                 materialMappings,
                 out ushort visualMaterialId))
         {
-            failure = GridBuildFailureReason.InvalidFoundationLevel;
+            failure = GridBuildFailureReason.InvalidFoundationDefinition;
             return false;
         }
 
@@ -705,13 +704,13 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private static bool TryResolveFoundationMaterial(
-        BuildingLevelId level,
-        in NativeArray<FoundationLevelMaterial> mappings,
+        BuildingDefinitionId level,
+        in NativeArray<FoundationDefinitionMaterial> mappings,
         out ushort materialId)
     {
         for (int i = 0; i < mappings.Length; i++)
         {
-            if (mappings[i].BuildingLevel != level)
+            if (mappings[i].BuildingDefinition != level)
                 continue;
             materialId = mappings[i].VisualMaterialId;
             return true;
@@ -966,17 +965,16 @@ public partial class GridBuildCommandSystem : SystemBase
             failure = GridBuildFailureReason.RampDirectionInvalid;
             return false;
         }
-        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
-                ref database, command.BuildingLevel,
-                out FactoryBuildingLevelBlob level,
-            out FactoryBuildingBlob building) ||
+        if (!FactoryDatabaseUtility.TryGetBuildingDefinition(
+                ref database, command.BuildingDefinition,
+            out FactoryBuildingDefinitionBlob building) ||
             building.Kind != BuildingKind.Belt ||
-            !FactoryDatabaseUtility.TryGetBeltLevel(
+            !FactoryDatabaseUtility.TryGetBeltStats(
                 ref database,
-                command.BuildingLevel,
-                out FactoryBeltLevelBlob beltStats) ||
+                command.BuildingDefinition,
+                out FactoryBuildingDefinitionBlob beltStats) ||
             !IsValidVisualPrefab(BuildingPrefabCatalogUtility.GetPrefab(
-                visualPrefabs, command.BuildingLevel)))
+                visualPrefabs, command.BuildingDefinition)))
         {
             failure = GridBuildFailureReason.MissingPrefab;
             return false;
@@ -991,9 +989,9 @@ public partial class GridBuildCommandSystem : SystemBase
         };
         PlacementRecord candidate = CreateRecordFromDefinition(building, placement, ref database);
         Entity prefab = BuildingPrefabCatalogUtility.GetPrefab(
-            visualPrefabs, command.BuildingLevel);
+            visualPrefabs, command.BuildingDefinition);
         Entity instance = Instantiate(
-            prefab, building, level, placement, worldGrid,
+            prefab, building, placement, worldGrid,
             catalog, ref database, ref ecb, false);
         bool uphill = math.all(travel == record.Connector.UphillDirection);
         GridHeight entry = uphill ? record.Connector.LowHeight : record.Connector.HighHeight;
@@ -1083,19 +1081,18 @@ public partial class GridBuildCommandSystem : SystemBase
             }
         }
 
-        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+        if (!FactoryDatabaseUtility.TryGetBuildingDefinition(
                 ref database,
-                command.BuildingLevel,
-                out _,
-                out FactoryBuildingBlob building) ||
+                command.BuildingDefinition,
+                out FactoryBuildingDefinitionBlob building) ||
             building.Kind != BuildingKind.Belt ||
-            !FactoryDatabaseUtility.TryGetBeltLevel(
+            !FactoryDatabaseUtility.TryGetBeltStats(
                 ref database,
-                command.BuildingLevel,
+                command.BuildingDefinition,
                 out _) ||
             !IsValidVisualPrefab(BuildingPrefabCatalogUtility.GetPrefab(
                 visualPrefabs,
-                command.BuildingLevel)))
+                command.BuildingDefinition)))
         {
             failure = GridBuildFailureReason.MissingPrefab;
             return false;
@@ -1164,7 +1161,7 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private bool TryPlaceSingle(
-        BuildingLevelId buildingLevelId,
+        BuildingDefinitionId buildingDefinitionId,
         GridCell anchor,
         byte quarterTurns,
         in WorldGridConfig worldGrid,
@@ -1178,12 +1175,11 @@ public partial class GridBuildCommandSystem : SystemBase
         out GridBuildFailureReason failureReason, PlayerId player, ulong placementRequestId)
     {
         if (!TryCreateStagedRecord(
-                buildingLevelId,
+                buildingDefinitionId,
                 anchor,
                 quarterTurns,
                 ref database,
-                out FactoryBuildingLevelBlob level,
-                out FactoryBuildingBlob building,
+                out FactoryBuildingDefinitionBlob building,
                 out PlacementRecord candidate))
         {
             failureReason =
@@ -1193,7 +1189,7 @@ public partial class GridBuildCommandSystem : SystemBase
         if (building.Kind == BuildingKind.Foundation ||
             building.Kind == BuildingKind.RampFoundation)
         {
-            failureReason = GridBuildFailureReason.InvalidFoundationLevel;
+            failureReason = GridBuildFailureReason.InvalidFoundationDefinition;
             return false;
         }
 
@@ -1210,7 +1206,7 @@ public partial class GridBuildCommandSystem : SystemBase
         placements.Add(candidate);
         Entity visualPrefab = BuildingPrefabCatalogUtility.GetPrefab(
             visualPrefabs,
-            buildingLevelId);
+            buildingDefinitionId);
         if (!IsValidVisualPrefab(visualPrefab))
         {
             placements.RollBack(candidate);
@@ -1220,7 +1216,6 @@ public partial class GridBuildCommandSystem : SystemBase
         Entity instance = Instantiate(
             visualPrefab,
             building,
-            level,
             candidate.Placement,
             worldGrid,
             catalog,
@@ -1256,22 +1251,22 @@ public partial class GridBuildCommandSystem : SystemBase
         if (command.StartCell.X != command.EndCell.X || command.StartCell.Z != command.EndCell.Z ||
             command.EndCell.Level < 0 || distance < 2 || distance > VerticalBeltUtility.MaxPathNodes ||
             !placements.TryGet(command.StartCell, out PlacementRecord entry) ||
-            entry.Placement.Kind != BuildingKind.VerticalBeltEntry || entry.BuildingLevel != command.BuildingLevel ||
-            !VerticalBeltUtility.TryGetPathLevels(ref database, command.BuildingLevel, out var segmentId, out var exitId))
+            entry.Placement.Kind != BuildingKind.VerticalBeltEntry || entry.BuildingDefinition != command.BuildingDefinition ||
+            !VerticalBeltUtility.TryGetPathDefinitions(ref database, command.BuildingDefinition, out var segmentId, out var exitId))
             return false;
 
         int step = difference > 0 ? 1 : -1;
         List<PlacementRecord> staged = new List<PlacementRecord>((int)distance);
-        var definitions = new List<(FactoryBuildingBlob Building, FactoryBuildingLevelBlob Level, Entity Prefab)>((int)distance);
+        var definitions = new List<(FactoryBuildingDefinitionBlob Building, Entity Prefab)>((int)distance);
         for (int i = 1; i <= distance; i++)
         {
             GridCell cell = command.StartCell;
             cell.Level += step * i;
-            BuildingLevelId levelId = i == distance ? exitId : segmentId;
+            BuildingDefinitionId levelId = i == distance ? exitId : segmentId;
             byte turns = i == distance ? command.QuarterTurns : step > 0 ? (byte)0 : (byte)2;
             Entity prefab = BuildingPrefabCatalogUtility.GetPrefab(visualPrefabs, levelId);
             if (!IsValidVisualPrefab(prefab) || !TryCreateStagedRecord(levelId, cell, turns,
-                ref database, out var level, out var building, out var record))
+                ref database, out var building, out var record))
             {
                 RollBackStaged(staged, placements);
                 failure = GridBuildFailureReason.MissingPrefab;
@@ -1286,12 +1281,12 @@ public partial class GridBuildCommandSystem : SystemBase
             }
             placements.Add(record);
             staged.Add(record);
-            definitions.Add((building, level, prefab));
+            definitions.Add((building, prefab));
         }
         for (int i = 0; i < staged.Count; i++)
         {
             var definition = definitions[i];
-            staged[i].Entity = Instantiate(definition.Prefab, definition.Building, definition.Level,
+            staged[i].Entity = Instantiate(definition.Prefab, definition.Building,
                 staged[i].Placement, worldGrid, catalog, ref database, ref ecb);
             staged[i].PendingInstantiation = true;
             MarkCellsDirty(staged[i].OccupiedCells, dirtyCells);
@@ -1314,15 +1309,14 @@ public partial class GridBuildCommandSystem : SystemBase
         ref EntityCommandBuffer ecb,
         out GridBuildFailureReason failureReason)
     {
-        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+        if (!FactoryDatabaseUtility.TryGetBuildingDefinition(
                 ref database,
-                command.BuildingLevel,
-                out FactoryBuildingLevelBlob beltLevel,
-                out FactoryBuildingBlob beltBuilding) ||
+                command.BuildingDefinition,
+                out FactoryBuildingDefinitionBlob beltBuilding) ||
             beltBuilding.Kind != BuildingKind.Belt ||
-            !FactoryDatabaseUtility.TryGetBeltLevel(
+            !FactoryDatabaseUtility.TryGetBeltStats(
                 ref database,
-                command.BuildingLevel,
+                command.BuildingDefinition,
                 out _))
         {
             failureReason =
@@ -1331,7 +1325,7 @@ public partial class GridBuildCommandSystem : SystemBase
         }
         Entity beltPrefab = BuildingPrefabCatalogUtility.GetPrefab(
             visualPrefabs,
-            command.BuildingLevel);
+            command.BuildingDefinition);
         if (!IsValidVisualPrefab(beltPrefab))
         {
             failureReason = GridBuildFailureReason.MissingPrefab;
@@ -1396,7 +1390,6 @@ public partial class GridBuildCommandSystem : SystemBase
             Instantiate(
                 beltPrefab,
                 beltBuilding,
-                beltLevel,
                 staged[i].Placement,
                 worldGrid,
                 catalog,
@@ -1818,23 +1811,18 @@ public partial class GridBuildCommandSystem : SystemBase
                 ? record.Placement : (GridPlacement?)null, out failure);
 
     private bool TryCreateStagedRecord(
-        BuildingLevelId levelId,
+        BuildingDefinitionId levelId,
         GridCell anchor,
         byte quarterTurns,
         ref FactoryDatabaseBlob database,
-        out FactoryBuildingLevelBlob level,
-        out FactoryBuildingBlob building,
+        out FactoryBuildingDefinitionBlob building,
         out PlacementRecord record)
     {
-        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+        if (!FactoryDatabaseUtility.TryGetBuildingDefinition(
                 ref database,
                 levelId,
-                out level,
                 out building) ||
-            !HasRequiredLevelStats(
-                building.Kind,
-                levelId,
-                ref database))
+            !HasRequiredStats(building))
         {
             record = null;
             return false;
@@ -1850,36 +1838,24 @@ public partial class GridBuildCommandSystem : SystemBase
             Kind = building.Kind
         };
         record = CreateRecordFromDefinition(building, placement, ref database);
-        record.BuildingLevel = levelId;
+        record.BuildingDefinition = levelId;
         return true;
     }
 
-    private static bool HasRequiredLevelStats(
-        BuildingKind kind,
-        BuildingLevelId levelId,
-        ref FactoryDatabaseBlob database)
+    private static bool HasRequiredStats(in FactoryBuildingDefinitionBlob building)
     {
-        switch (kind)
+        switch (building.Kind)
         {
+            case BuildingKind.Belt:
             case BuildingKind.VerticalBeltEntry:
             case BuildingKind.VerticalBeltExit:
             case BuildingKind.VerticalBeltSegment:
-            case BuildingKind.Belt:
-                return FactoryDatabaseUtility.TryGetBeltLevel(
-                    ref database,
-                    levelId,
-                    out _);
-            case BuildingKind.Miner:
-            case BuildingKind.Furnace:
-                return FactoryDatabaseUtility.TryGetProcessorLevel(
-                    ref database,
-                    levelId,
-                    out _);
+                return building.BeltTier > 0 && building.CellsPerSecond > 0f &&
+                    !float.IsNaN(building.CellsPerSecond) && !float.IsInfinity(building.CellsPerSecond);
+            case BuildingKind.Processor:
+                return building.MachineType.IsValid;
             case BuildingKind.Storage:
-                return FactoryDatabaseUtility.TryGetStorageLevel(
-                    ref database,
-                    levelId,
-                    out _);
+                return building.Capacity > 0 && building.SlotCount > 0;
             default:
                 return true;
         }
@@ -1894,7 +1870,7 @@ public partial class GridBuildCommandSystem : SystemBase
     }
 
     private static PlacementRecord CreateRecordFromDefinition(
-        in FactoryBuildingBlob building,
+        in FactoryBuildingDefinitionBlob building,
         in GridPlacement placement,
         ref FactoryDatabaseBlob database)
     {
@@ -1963,8 +1939,7 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private Entity Instantiate(
         Entity visualPrefab,
-        in FactoryBuildingBlob building,
-        in FactoryBuildingLevelBlob level,
+        in FactoryBuildingDefinitionBlob building,
         in GridPlacement placement,
         in WorldGridConfig worldGrid,
         in BuildingPrefabCatalog catalog,
@@ -1978,9 +1953,7 @@ public partial class GridBuildCommandSystem : SystemBase
         ecb.AddComponent(instance, placement);
         ecb.AddComponent(instance, new BuildingIdentity
         {
-            BuildingType = building.Id,
-            BuildingLevel = level.Id,
-            Level = level.Level
+            BuildingDefinition = building.Id
         });
         DynamicBuffer<OccupiedCellOffset> occupied =
             ecb.AddBuffer<OccupiedCellOffset>(instance);
@@ -2041,10 +2014,8 @@ public partial class GridBuildCommandSystem : SystemBase
         AddLogicComponents(
             instance,
             building,
-            level,
             placement,
             direction,
-            ref database,
             ref ecb);
 
         DynamicBuffer<LinkedEntityGroup> linked =
@@ -2107,11 +2078,9 @@ public partial class GridBuildCommandSystem : SystemBase
 
     private void AddLogicComponents(
         Entity instance,
-        in FactoryBuildingBlob building,
-        in FactoryBuildingLevelBlob level,
+        in FactoryBuildingDefinitionBlob building,
         in GridPlacement placement,
         int2 direction,
-        ref FactoryDatabaseBlob database,
         ref EntityCommandBuffer ecb)
     {
         switch (placement.Kind)
@@ -2120,13 +2089,9 @@ public partial class GridBuildCommandSystem : SystemBase
             case BuildingKind.VerticalBeltExit:
             case BuildingKind.VerticalBeltSegment:
             case BuildingKind.Belt:
-                FactoryDatabaseUtility.TryGetBeltLevel(
-                    ref database,
-                    level.Id,
-                    out FactoryBeltLevelBlob beltLevel);
                 ecb.AddComponent(instance, new BeltTopology
                 {
-                    CellsPerSecond = beltLevel.CellsPerSecond,
+                    CellsPerSecond = building.CellsPerSecond,
                     Cell = placement.AnchorCell,
                     Direction = direction,
                     ConnectionMode = VerticalBeltUtility.IsVertical(placement.Kind)
@@ -2161,16 +2126,10 @@ public partial class GridBuildCommandSystem : SystemBase
                     CurrentItem = Entity.Null
                 });
                 break;
-            case BuildingKind.Miner:
-            case BuildingKind.Furnace:
-                FactoryDatabaseUtility.TryGetProcessorLevel(
-                    ref database,
-                    level.Id,
-                    out FactoryProcessorLevelBlob processorLevel);
+            case BuildingKind.Processor:
                 ecb.AddComponent(instance, new ItemProcessor
                 {
-                    MachineType = building.MachineType,
-                    WorkRatePermille = processorLevel.WorkRatePermille
+                    MachineType = building.MachineType
                 });
                 ecb.AddBuffer<ProcessorItemSlot>(instance);
                 ecb.AddComponent(instance, new ItemProcessState
@@ -2186,18 +2145,14 @@ public partial class GridBuildCommandSystem : SystemBase
                 AddItemPortBuffers(instance, ref ecb);
                 break;
             case BuildingKind.Storage:
-                FactoryDatabaseUtility.TryGetStorageLevel(
-                    ref database,
-                    level.Id,
-                    out FactoryStorageLevelBlob storageLevel);
                 ecb.AddComponent(instance, new StorageState
                 {
-                    Capacity = storageLevel.Capacity,
-                    SlotCount = storageLevel.SlotCount
+                    Capacity = building.Capacity,
+                    SlotCount = building.SlotCount
                 });
                 DynamicBuffer<InventorySlot> storageSlots =
                     ecb.AddBuffer<InventorySlot>(instance);
-                for (int i = 0; i < storageLevel.SlotCount; i++)
+                for (int i = 0; i < building.SlotCount; i++)
                 {
                     storageSlots.Add(default);
                 }
@@ -2310,8 +2265,7 @@ public partial class GridBuildCommandSystem : SystemBase
     {
         return kind == BuildingKind.VerticalBeltEntry ||
                kind == BuildingKind.VerticalBeltExit ||
-               kind == BuildingKind.Miner ||
-               kind == BuildingKind.Furnace ||
+               kind == BuildingKind.Processor ||
                kind == BuildingKind.Storage;
     }
 

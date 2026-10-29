@@ -166,39 +166,39 @@ namespace Factory.Tests
             controller.HandleBuildCatalogToggle();
             controller.CloseBuildCatalog();
             for (int i = 0;
-                 i < 120 && !interaction.SelectedBuildingLevel.IsValid;
+                 i < 120 && !interaction.SelectedBuildingDefinition.IsValid;
                  i++)
             {
                 yield return null;
             }
 
-            BuildingLevelId selected = interaction.SelectedBuildingLevel;
+            BuildingDefinitionId selected = interaction.SelectedBuildingDefinition;
             Assert.That(selected.IsValid, Is.True);
             controller.HandleBuildShortcut(2);
             Assert.That(controller.GetBuildShortcut(2), Is.EqualTo(selected));
 
             controller.HandleBuildCatalogToggle();
             for (int i = 0;
-                 i < 120 && (controller.LatestBuildCatalog.Levels == null ||
-                             controller.LatestBuildCatalog.Levels.Length < 2);
+                 i < 120 && (controller.LatestBuildCatalog.Definitions == null ||
+                             controller.LatestBuildCatalog.Definitions.Length < 2);
                  i++)
             {
                 yield return null;
             }
-            BuildingLevelId alternate =
-                controller.LatestBuildCatalog.Levels.First(
+            BuildingDefinitionId alternate =
+                controller.LatestBuildCatalog.Definitions.First(
                     value => value != selected);
-            controller.SelectCatalogBuildingLevel(alternate);
+            controller.SelectCatalogBuildingDefinition(alternate);
             controller.HandleBuildShortcut(3);
             controller.CloseBuildCatalog();
             Assert.That(controller.GetBuildShortcut(3), Is.EqualTo(alternate));
 
             controller.HandleBuildShortcut(3);
-            Assert.That(interaction.SelectedBuildingLevel, Is.EqualTo(alternate));
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(alternate));
             Assert.That(controller.GetBuildShortcut(2), Is.EqualTo(selected),
                 "Switching shortcuts must not overwrite another occupied slot.");
             controller.HandleBuildShortcut(2);
-            Assert.That(interaction.SelectedBuildingLevel, Is.EqualTo(selected));
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(selected));
             Assert.That(controller.GetBuildShortcut(3), Is.EqualTo(alternate));
 
             controller.HandleCancel();
@@ -206,7 +206,7 @@ namespace Factory.Tests
             controller.HandleBuildShortcut(2);
 
             Assert.That(input.IsBuildMode, Is.True);
-            Assert.That(interaction.SelectedBuildingLevel, Is.EqualTo(selected));
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(selected));
             VisualElement bar = controller.GetComponent<UIDocument>()
                 .rootVisualElement.Q("build-shortcut-bar");
             Assert.That(bar, Is.Not.Null);
@@ -262,26 +262,26 @@ namespace Factory.Tests
             controller.HandleBuildCatalogToggle();
 
             for (int i = 0;
-                 i < 120 && (controller.LatestBuildCatalog.Levels == null ||
-                             controller.LatestBuildCatalog.Levels.Length < 2);
+                 i < 120 && (controller.LatestBuildCatalog.Definitions == null ||
+                             controller.LatestBuildCatalog.Definitions.Length < 2);
                  i++)
                 yield return null;
 
-            BuildingLevelId[] levels = controller.LatestBuildCatalog.Levels;
+            BuildingDefinitionId[] levels = controller.LatestBuildCatalog.Definitions;
             Assert.That(levels, Is.Not.Null.And.Length.GreaterThanOrEqualTo(2));
-            BuildingLevelId requested = levels[0] == interaction.SelectedBuildingLevel
+            BuildingDefinitionId requested = levels[0] == interaction.SelectedBuildingDefinition
                 ? levels[1]
                 : levels[0];
 
-            controller.SelectCatalogBuildingLevel(requested);
+            controller.SelectCatalogBuildingDefinition(requested);
             yield return null;
             yield return null;
-            Assert.That(controller.SelectedCatalogBuildingLevel,
+            Assert.That(controller.SelectedCatalogBuildingDefinition,
                 Is.EqualTo(requested),
                 "Repeated catalog snapshots must not reset the pending selection.");
 
             controller.ConfirmCatalogBuildingSelection();
-            Assert.That(interaction.SelectedBuildingLevel, Is.EqualTo(requested));
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(requested));
             Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.False);
             Assert.That(controller.GetComponent<PlayerInputModeController>().IsBuildMode,
                 Is.True, "Selecting a building must keep batch build mode active.");
@@ -294,7 +294,7 @@ namespace Factory.Tests
             EcsGridInteractionController interaction =
                 Object.FindFirstObjectByType<EcsGridInteractionController>();
             for (int i = 0;
-                 i < 120 && !interaction.SelectedBuildingLevel.IsValid;
+                 i < 120 && !interaction.SelectedBuildingDefinition.IsValid;
                  i++)
                 yield return null;
 
@@ -324,8 +324,8 @@ namespace Factory.Tests
             bool selected = false;
             for (int i = 0; i < 240 && !selected; i++)
             {
-                selected = interaction.TrySelectBuildingLevel(
-                    new BuildingLevelId { Value = 10 });
+                selected = interaction.TrySelectBuildingDefinition(
+                    new BuildingDefinitionId { Value = 10 });
                 yield return null;
             }
             Assert.That(selected, Is.True,
@@ -388,8 +388,8 @@ namespace Factory.Tests
             Assert.That(registry?.SurfaceCount,
                 Is.EqualTo(surfaceCountBeforeBuild + 2));
 
-            Assert.That(interaction.TrySelectBuildingLevel(
-                new BuildingLevelId { Value = 4 }), Is.True,
+            Assert.That(interaction.TrySelectBuildingDefinition(
+                new BuildingDefinitionId { Value = 4 }), Is.True,
                 "The Mk4 belt must remain available after foundation placement.");
 
             EntityQuery belts = world.EntityManager.CreateEntityQuery(
@@ -428,8 +428,8 @@ namespace Factory.Tests
             bool selected = false;
             for (int i = 0; i < 240 && !selected; i++)
             {
-                selected = interaction.TrySelectBuildingLevel(
-                    new BuildingLevelId { Value = 12 });
+                selected = interaction.TrySelectBuildingDefinition(
+                    new BuildingDefinitionId { Value = 12 });
                 yield return null;
             }
             Assert.That(selected, Is.True);
@@ -516,8 +516,8 @@ namespace Factory.Tests
             Assert.That(raycastRamp.Cell, Is.EqualTo(first.Connector.Cell));
             physicsQuery.Dispose();
 
-            Assert.That(interaction.TrySelectBuildingLevel(
-                new BuildingLevelId { Value = 1 }), Is.True);
+            Assert.That(interaction.TrySelectBuildingDefinition(
+                new BuildingDefinitionId { Value = 1 }), Is.True);
             interaction.SimulateHover(first.Connector.Cell);
             yield return null;
             interaction.SimulatePrimaryClick(first.Connector.Cell);
@@ -626,7 +626,7 @@ namespace Factory.Tests
             bool selected=false;
             for(int frame=0;frame<240 && !selected;frame++)
             {
-                selected=interaction.TrySelectBuildingLevel(new BuildingLevelId { Value=14 });
+                selected=interaction.TrySelectBuildingDefinition(new BuildingDefinitionId { Value=14 });
                 yield return null;
             }
             Assert.That(selected,Is.True);
@@ -638,7 +638,7 @@ namespace Factory.Tests
                 ushort tier=scenario==0 ? (ushort)14 : (ushort)17;
                 var start=new GridCell(120+scenario*2,scenario==0 ? 0 : 6,120);
                 var exit=start; exit.Level=scenario==0 ? 4 : 2;
-                Assert.That(interaction.TrySelectBuildingLevel(new BuildingLevelId { Value=tier }),Is.True);
+                Assert.That(interaction.TrySelectBuildingDefinition(new BuildingDefinitionId { Value=tier }),Is.True);
                 interaction.SimulateHover(start);
                 interaction.SimulatePrimaryClick(start);
                 Assert.That(interaction.IsVerticalBeltPathStarted,Is.True);
@@ -726,7 +726,7 @@ namespace Factory.Tests
             bool selected = false;
             for (int frame = 0; frame < 240 && !selected; frame++)
             {
-                selected = interaction.TrySelectBuildingLevel(new BuildingLevelId { Value = 17 });
+                selected = interaction.TrySelectBuildingDefinition(new BuildingDefinitionId { Value = 17 });
                 yield return null;
             }
             Assert.That(selected, Is.True);
@@ -792,8 +792,8 @@ namespace Factory.Tests
             bool selected = false;
             for (int i = 0; i < 240 && !selected; i++)
             {
-                selected = interaction.TrySelectBuildingLevel(
-                    new BuildingLevelId { Value = 10 });
+                selected = interaction.TrySelectBuildingDefinition(
+                    new BuildingDefinitionId { Value = 10 });
                 yield return null;
             }
             Assert.That(selected, Is.True);

@@ -124,7 +124,7 @@ public sealed class BuildingWindowView
 
     public void Render(BuildingSnapshot snapshot)
     {
-        title.text = catalog?.GetBuildingName(snapshot.BuildingLevelId) ?? "建筑";
+        title.text = catalog?.GetBuildingName(snapshot.BuildingDefinitionId) ?? "建筑";
         bool buildingChanged = !runtimeId.Equals(snapshot.RuntimeId);
         runtimeId = snapshot.RuntimeId;
         if (buildingChanged)
@@ -268,9 +268,9 @@ public sealed class BuildCatalogView
     private readonly Label detailName;
     private readonly Label detailDescription;
     private readonly Button confirm;
-    private BuildingLevelId selected;
-    public event Action<BuildingLevelId> BuildingSelected;
-    public BuildingLevelId SelectedBuildingLevel => selected;
+    private BuildingDefinitionId selected;
+    public event Action<BuildingDefinitionId> BuildingSelected;
+    public BuildingDefinitionId SelectedBuildingDefinition => selected;
 
     public BuildCatalogView(VisualElement root, FactoryPresentationCatalog catalog)
     {
@@ -289,7 +289,7 @@ public sealed class BuildCatalogView
         UpdateDetails();
     }
 
-    public void SetSelected(BuildingLevelId value)
+    public void SetSelected(BuildingDefinitionId value)
     {
         selected = value;
         RefreshSelection();
@@ -298,16 +298,16 @@ public sealed class BuildCatalogView
 
     public void Render(BuildCatalogSnapshot snapshot)
     {
-        while (list.childCount < snapshot.Levels.Length)
+        while (list.childCount < snapshot.Definitions.Length)
             list.Add(CreateCatalogCard());
         for (int i = 0; i < list.childCount; i++)
         {
             Button card = (Button)list[i];
-            bool visible = i < snapshot.Levels.Length;
+            bool visible = i < snapshot.Definitions.Length;
             card.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
             if (!visible)
                 continue;
-            BuildingLevelId id = snapshot.Levels[i];
+            BuildingDefinitionId id = snapshot.Definitions[i];
             card.userData = id;
             VisualElement icon = card.Q("catalog-card-icon");
             icon.style.backgroundImage = new StyleBackground(catalog?.GetBuildingIcon(id));
@@ -337,14 +337,14 @@ public sealed class BuildCatalogView
         card.Add(label);
         card.clicked += () =>
         {
-            if (card.userData is BuildingLevelId id)
+            if (card.userData is BuildingDefinitionId id)
                 SelectBuilding(id);
         };
         return card;
     }
 
     /// <summary>Handles a catalog card activation, including repeat confirmation.</summary>
-    public void SelectBuilding(BuildingLevelId value)
+    public void SelectBuilding(BuildingDefinitionId value)
     {
         if (value.IsValid && value == selected)
         {
@@ -360,7 +360,7 @@ public sealed class BuildCatalogView
         {
             VisualElement card = list[i];
             card.EnableInClassList("catalog-card--selected",
-                card.userData is BuildingLevelId id && id == selected);
+                card.userData is BuildingDefinitionId id && id == selected);
         }
     }
 
@@ -409,13 +409,13 @@ public sealed class BuildShortcutBarView
     }
 
     public void Render(
-        BuildingLevelId[] assignments,
-        BuildingLevelId activeBuilding,
+        BuildingDefinitionId[] assignments,
+        BuildingDefinitionId activeBuilding,
         bool isBuildMode)
     {
         for (int i = 0; i < SlotCount; i++)
         {
-            BuildingLevelId assignment =
+            BuildingDefinitionId assignment =
                 assignments != null && i < assignments.Length
                     ? assignments[i]
                     : default;

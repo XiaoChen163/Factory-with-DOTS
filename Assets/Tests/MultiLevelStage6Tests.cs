@@ -53,15 +53,15 @@ namespace Factory.Tests
         {
             string buildings = File.ReadAllText(
                 "Assets/Data/FactoryTables/buildings/buildings.csv");
-            string levels = File.ReadAllText(
-                "Assets/Data/FactoryTables/buildings/levels/building_levels.csv");
-            Assert.That(buildings, Does.Contain("8,ramp_foundation_1_1,"));
-            Assert.That(buildings, Does.Contain("9,ramp_foundation_1_2,"));
-            Assert.That(buildings, Does.Contain("10,ramp_foundation_1_4,"));
-            Assert.That(levels, Does.Contain("ramp_foundation,51,8"));
-            Assert.That(levels, Does.Contain("ramp_foundation_half,52,4"));
-            Assert.That(levels, Does.Contain("ramp_foundation_quarter,53,2"));
-            Assert.That(levels, Does.Not.Contain("ramp_foundation_1_8"));
+            string ramps = File.ReadAllText(
+                "Assets/Data/FactoryTables/buildings/ramp_stats.csv");
+            Assert.That(buildings, Does.Contain("ramp_foundation_1_1,RampFoundation,"));
+            Assert.That(buildings, Does.Contain("ramp_foundation_1_2,RampFoundation,"));
+            Assert.That(buildings, Does.Contain("ramp_foundation_1_4,RampFoundation,"));
+            Assert.That(ramps, Does.Contain("ramp_foundation_1_1,8"));
+            Assert.That(ramps, Does.Contain("ramp_foundation_1_2,4"));
+            Assert.That(ramps, Does.Contain("ramp_foundation_1_4,2"));
+            Assert.That(ramps, Does.Not.Contain("ramp_foundation_1_8"));
             Assert.That(File.Exists(
                 "Assets/Art/Icons/Buildings/RampFoundation.png"), Is.True);
             Assert.That(File.Exists(

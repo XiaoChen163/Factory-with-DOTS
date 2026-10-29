@@ -39,7 +39,7 @@ namespace Factory.Tests
             first.Count = first.RequiredOrProducedCount;
             slots[0] = first;
             Assert.That(ItemProcessUtility.TryStart(
-                0, 1000, blob.Recipes[0], slots, ref process), Is.False);
+                0, blob.Recipes[0], slots, ref process), Is.False);
             Assert.That(slots[0].Count, Is.EqualTo(first.Count),
                 "A missing later input must not consume an earlier input.");
 
@@ -47,7 +47,7 @@ namespace Factory.Tests
             second.Count = second.RequiredOrProducedCount;
             slots[1] = second;
             Assert.That(ItemProcessUtility.TryStart(
-                0, 1000, blob.Recipes[0], slots, ref process), Is.True);
+                0, blob.Recipes[0], slots, ref process), Is.True);
             Assert.That(slots[0].Count, Is.Zero);
             Assert.That(slots[1].Count, Is.Zero);
 
@@ -88,7 +88,7 @@ namespace Factory.Tests
             slots[3] = blockedOutput;
 
             Assert.That(ItemProcessUtility.TryStart(
-                0, 1000, blob.Recipes[0], slots, ref process), Is.False);
+                0, blob.Recipes[0], slots, ref process), Is.False);
             Assert.That(slots[0].Count, Is.EqualTo(slots[0].RequiredOrProducedCount));
             Assert.That(slots[1].Count, Is.EqualTo(slots[1].RequiredOrProducedCount));
         }
@@ -133,7 +133,7 @@ namespace Factory.Tests
             secondInput.Count = 4;
             processorSlots[1] = secondInput;
             Assert.That(ItemProcessUtility.TryStart(
-                0, 1000, blob.Recipes[0], processorSlots, ref process), Is.True);
+                0, blob.Recipes[0], processorSlots, ref process), Is.True);
 
             Assert.That(ItemProcessUtility.TryChangeRecipe(
                 1,
@@ -187,7 +187,7 @@ namespace Factory.Tests
                 processorSlots[i] = input;
             }
             ItemProcessUtility.TryStart(
-                0, 1000, blob.Recipes[0], processorSlots, ref process);
+                0, blob.Recipes[0], processorSlots, ref process);
             ItemProcessUtility.AdvanceOneTick(ref process);
             ItemProcessUtility.PublishCompletedOutputs(processorSlots, ref process);
 
@@ -222,7 +222,6 @@ namespace Factory.Tests
             EntityManager.AddComponentData(processor, new ItemProcessor
             {
                 MachineType = new MachineTypeId { Value = 1 },
-                WorkRatePermille = 1000
             });
             EntityManager.AddComponentData(processor, new ItemProcessState
             {
@@ -283,7 +282,7 @@ namespace Factory.Tests
                 input.Count = input.RequiredOrProducedCount;
                 slots[0] = input;
                 Assert.That(ItemProcessUtility.TryStart(
-                    1, 1000, blob.Recipes[1], slots, ref process), Is.True);
+                    1, blob.Recipes[1], slots, ref process), Is.True);
                 while (!ItemProcessUtility.AdvanceOneTick(ref process))
                 {
                 }
@@ -315,7 +314,6 @@ namespace Factory.Tests
             EntityManager.AddComponentData(processor, new ItemProcessor
             {
                 MachineType = new MachineTypeId { Value = 1 },
-                WorkRatePermille = 1000
             });
             ItemProcessState process = new ItemProcessState
             {
@@ -470,12 +468,11 @@ namespace Factory.Tests
                 MaxStack = 64
             };
             builder.Allocate(ref root.MachineTypesById, 2);
-            builder.Allocate(ref root.BuildingsById, 1);
-            builder.Allocate(ref root.BuildingLevelsById, 1);
-            builder.Allocate(ref root.BeltLevelsById, 1);
-            builder.Allocate(ref root.ProcessorLevelsById, 1);
-            builder.Allocate(ref root.StorageLevelsById, 1);
-            builder.Allocate(ref root.BuildingLevelMenu, 0);
+            builder.Allocate(ref root.BuildingDefinitionsById, 1);
+
+
+
+            builder.Allocate(ref root.BuildingDefinitionMenu, 0);
             builder.Allocate(ref root.BuildingPorts, 0);
             BlobBuilderArray<FactoryRecipeBlob> recipes =
                 builder.Allocate(ref root.Recipes, 2);

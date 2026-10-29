@@ -18,7 +18,7 @@ namespace Factory.Tests
         private BlobAssetReference<FactoryDatabaseBlob> database;
         private FactoryDatabaseAsset asset;
         private Entity grid;
-        private BuildingLevelId level;
+        private BuildingDefinitionId level;
         private readonly GridCell anchor = new GridCell(5, 0, 5);
 
         public override void TearDownWorld()
@@ -28,8 +28,8 @@ namespace Factory.Tests
             if (asset != null) Object.DestroyImmediate(asset);
         }
 
-        private static FactoryBuildingTableRow Shape(string bitmap = "1111/1111/1100") =>
-            new FactoryBuildingTableRow
+        private static FactoryBuildingDefinitionRow Shape(string bitmap = "1111/1111/1100") =>
+            new FactoryBuildingDefinitionRow
             {
                 key = "irregular", footprintWidth = 4, footprintHeight = 3,
                 isRectangle = false, footprintBitmap = bitmap
@@ -66,7 +66,7 @@ namespace Factory.Tests
             {
                 World.DefaultGameObjectInjectionWorld = TestWorld;
                 EcsGridInteractionController controller = go.AddComponent<EcsGridInteractionController>();
-                Assert.That(controller.TrySelectBuildingLevel(level), Is.True);
+                Assert.That(controller.TrySelectBuildingDefinition(level), Is.True);
                 typeof(EcsGridInteractionController).GetField("quarterTurns", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(controller, (byte)turns);
                 MethodInfo buildPreview = typeof(EcsGridInteractionController).GetMethod(
@@ -134,7 +134,7 @@ namespace Factory.Tests
         [Test]
         public void Rectangle_ExpandsWithoutBitmap_AndRejectsConflictingBitmap()
         {
-            FactoryBuildingTableRow row = Shape(null);
+            FactoryBuildingDefinitionRow row = Shape(null);
             row.isRectangle = true;
             Assert.That(FactoryBuildingFootprintUtility.GetOccupiedOffsets(row).Length, Is.EqualTo(12));
             row.footprintBitmap = "1111/1111/1111";
@@ -154,7 +154,7 @@ namespace Factory.Tests
         [TestCase(BuildingPortType.Output, 1, 0)]
         public void ConcavePort_AcceptsEitherBoundaryDirection(BuildingPortType type, int dx, int dz)
         {
-            FactoryBuildingTableRow row = Shape();
+            FactoryBuildingDefinitionRow row = Shape();
             row.ports = new[] { new FactoryBuildingPortTableRow
             {
                 type = type, cellOffset = new Vector2Int(2, 2), direction = new Vector2Int(dx, dz)
@@ -169,7 +169,7 @@ namespace Factory.Tests
         [TestCase(2, 2, 0, 0)]
         public void InvalidPort_IsRejected(int x, int z, int dx, int dz)
         {
-            FactoryBuildingTableRow row = Shape();
+            FactoryBuildingDefinitionRow row = Shape();
             row.ports = new[] { new FactoryBuildingPortTableRow
             {
                 type = BuildingPortType.Input, cellOffset = new Vector2Int(x, z), direction = new Vector2Int(dx, dz)
@@ -185,7 +185,7 @@ namespace Factory.Tests
             UpdateSystem(GetOrCreateManagedSystem<GridOccupancyIndexSystem>());
             EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
             {
-                Type = type, Kind = BuildingKind.Storage, BuildingLevel = level,
+                Type = type, Kind = BuildingKind.Storage, BuildingDefinition = level,
                 StartCell = cell, EndCell = cell, QuarterTurns = (byte)turns
             });
             UpdateSystem(GetOrCreateManagedSystem<GridBuildCommandSystem>());
@@ -196,7 +196,7 @@ namespace Factory.Tests
             asset = Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(
                 FactoryDatabaseCsvImporter.DatabaseAssetPath));
             int index = Array.FindIndex(asset.buildings, b => b.kind == BuildingKind.Storage);
-            FactoryBuildingTableRow row = asset.buildings[index];
+            FactoryBuildingDefinitionRow row = asset.buildings[index];
             row.footprintWidth = 4;
             row.footprintHeight = 3;
             row.isRectangle = false;
@@ -206,7 +206,7 @@ namespace Factory.Tests
                 type = BuildingPortType.Input, cellOffset = new Vector2Int(2, 2), direction = Vector2Int.down
             }};
             asset.buildings[index] = row;
-            level = new BuildingLevelId { Value = Array.Find(asset.buildingLevels, l => l.buildingId == row.id).id };
+            level = new BuildingDefinitionId { Value = row.id };
             Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, null, out database), Is.True);
             grid = EntityManager.CreateEntity();
             EntityManager.AddComponentData(grid, new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
@@ -221,7 +221,7 @@ namespace Factory.Tests
             EntityManager.AddComponentData(catalog, new BuildingPrefabCatalog());
             EntityManager.AddComponentData(catalog, new FactoryDatabase { Value = database });
             EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog).Add(
-                new BuildingVisualPrefabEntry { BuildingLevel = level, Prefab = visual });
+                new BuildingVisualPrefabEntry { BuildingDefinition = level, Prefab = visual });
             UpdateSystem(GetOrCreateManagedSystem<GridOccupancyIndexSystem>());
         }
 

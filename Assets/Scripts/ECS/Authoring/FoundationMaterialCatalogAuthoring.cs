@@ -6,9 +6,9 @@ public struct FoundationVisualMaterial : IBufferElementData
     public UnityObjectRef<Material> Value;
 }
 
-public struct FoundationLevelMaterial : IBufferElementData
+public struct FoundationDefinitionMaterial : IBufferElementData
 {
-    public BuildingLevelId BuildingLevel;
+    public BuildingDefinitionId BuildingDefinition;
     public ushort VisualMaterialId;
 }
 

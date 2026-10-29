@@ -143,7 +143,7 @@ public partial class UiSnapshotExportSystem : SystemBase
         BuildingSnapshot snapshot = new()
         {
             RuntimeId = id,
-            BuildingLevelId = identity.BuildingLevel,
+            BuildingDefinitionId = identity.BuildingDefinition,
             Kind = placement.Kind,
             GridCell = placement.AnchorCell,
             IsAvailable = true
@@ -222,11 +222,11 @@ public partial class UiSnapshotExportSystem : SystemBase
         BlobAssetReference<FactoryDatabaseBlob> reference =
             databaseQuery.GetSingleton<FactoryDatabase>().Value;
         ref FactoryDatabaseBlob database = ref reference.Value;
-        List<BuildingLevelId> levels = new List<BuildingLevelId>();
-        for (int i = 0; i < database.BuildingLevelMenu.Length; i++)
+        List<BuildingDefinitionId> levels = new List<BuildingDefinitionId>();
+        for (int i = 0; i < database.BuildingDefinitionMenu.Length; i++)
         {
-            BuildingLevelId id = database.BuildingLevelMenu[i];
-            if (!FactoryDatabaseUtility.TryGetBuildingLevel(ref database, id, out _, out FactoryBuildingBlob building))
+            BuildingDefinitionId id = database.BuildingDefinitionMenu[i];
+            if (!FactoryDatabaseUtility.TryGetBuildingDefinition(ref database, id, out FactoryBuildingDefinitionBlob building))
                 continue;
             // Internal nodes remain addressable by commands and saves; only the picker is grouped.
             if (building.Kind == BuildingKind.VerticalBeltSegment || building.Kind == BuildingKind.VerticalBeltExit)

@@ -8,7 +8,7 @@ public static class FactoryBuildingFootprintUtility
 {
     // Bitmap rows run from local Z=0 upwards; columns run from local X=0.
     // Keep empty borders: dimensions also define the model pivot and port coordinates.
-    public static int2[] GetOccupiedOffsets(in FactoryBuildingTableRow building)
+    public static int2[] GetOccupiedOffsets(in FactoryBuildingDefinitionRow building)
     {
         string label = $"Building '{building.key}'";
         if (building.footprintWidth == 0 || building.footprintHeight == 0)
@@ -44,7 +44,7 @@ public static class FactoryBuildingFootprintUtility
         return offsets.ToArray();
     }
 
-    public static void ValidatePorts(in FactoryBuildingTableRow building, int2[] offsets)
+    public static void ValidatePorts(in FactoryBuildingDefinitionRow building, int2[] offsets)
     {
         HashSet<int2> occupied = new HashSet<int2>(offsets);
         HashSet<(BuildingPortType, byte)> identities = new HashSet<(BuildingPortType, byte)>();

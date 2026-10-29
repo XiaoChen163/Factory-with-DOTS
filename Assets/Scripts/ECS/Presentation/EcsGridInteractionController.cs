@@ -85,7 +85,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     public BuildingKind SelectedKind { get; private set; } =
         BuildingKind.Belt;
-    public BuildingLevelId SelectedBuildingLevel { get; private set; }
+    public BuildingDefinitionId SelectedBuildingDefinition { get; private set; }
     public bool IsBeltPathStarted => beltPathStarted;
     public bool IsRampBeltPathStarted => rampBeltPathStarted;
     public bool IsFoundationAreaStarted => foundationAreaStarted;
@@ -98,7 +98,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         int startHeightUnits,
         int riseHeightUnits,
         int2 direction,
-        BuildingLevelId beltLevel = default)
+        BuildingDefinitionId beltStats = default)
     {
         if ((type == GridBuildCommandType.PlaceRampFoundation &&
              !RampUtility.IsAllowedRise(riseHeightUnits)) ||
@@ -113,7 +113,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                    type == GridBuildCommandType.RemoveRampBelt
                 ? BuildingKind.Belt
                 : BuildingKind.Foundation,
-            BuildingLevel = beltLevel,
+            BuildingDefinition = beltStats,
             StartCell = cell,
             EndCell = cell,
             QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(direction),
@@ -155,7 +155,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             HidePlacementPreview();
             return;
         }
-        EnsureSelectedBuildingLevel();
+        EnsureSelectedBuildingDefinition();
         if (usePlayerInput)
             HandleBuildActions();
         if (usePlayerInput &&
@@ -316,7 +316,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                   occupancySystem.ConflictCount == 0;
         int selectedRampRise = 0;
         if (SelectedKind == BuildingKind.RampFoundation &&
-            TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel))
+            TryGetSelectedBuildingDefinition(out FactoryBuildingDefinitionBlob rampLevel))
             selectedRampRise = rampLevel.RampRiseHeightUnits;
         for (int i = 0; i < previewCells.Count; i++)
         {
@@ -420,7 +420,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         }
         if (SelectedKind == BuildingKind.RampFoundation)
         {
-            if (!TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel))
+            if (!TryGetSelectedBuildingDefinition(out FactoryBuildingDefinitionBlob rampLevel))
                 return;
             BuildRampLine(
                 rampLineStarted ? rampLineStart : hoveredCell,
@@ -489,7 +489,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             return;
         }
 
-        if (!TryGetSelectedBuilding(out FactoryBuildingBlob building))
+        if (!TryGetSelectedBuildingDefinition(out FactoryBuildingDefinitionBlob building))
         {
             previewCells.Add(hoveredCell);
             return;
@@ -527,7 +527,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
     private void BuildPortPreview(
         GridCell anchorCell,
         int2 footprintSize,
-        in FactoryBuildingBlob building)
+        in FactoryBuildingDefinitionBlob building)
     {
         if (!TryGetDatabase(
                 out BlobAssetReference<FactoryDatabaseBlob> reference))
@@ -745,7 +745,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             if (isRampPreview)
             {
                 int2 direction = previewDisplayDirections[i];
-                TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel);
+                TryGetSelectedBuildingDefinition(out FactoryBuildingDefinitionBlob rampLevel);
                 center.y = new GridHeight(
                     previewRampStartHeightUnits[i]).ToWorldY(worldGrid);
                 previewCell.transform.position = new Vector3(
@@ -1300,7 +1300,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                     RequestId = 0,
                     Type = GridBuildCommandType.PlaceFoundationArea,
                     Kind = BuildingKind.Foundation,
-                    BuildingLevel = SelectedBuildingLevel,
+                    BuildingDefinition = SelectedBuildingDefinition,
                     StartCell = foundationAreaStart,
                     EndCell = cell
                 });
@@ -1310,7 +1310,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
         if (SelectedKind == BuildingKind.RampFoundation)
         {
-            if (!TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob rampLevel) ||
+            if (!TryGetSelectedBuildingDefinition(out FactoryBuildingDefinitionBlob rampLevel) ||
                 !RampUtility.IsAllowedRise(rampLevel.RampRiseHeightUnits))
                 return;
             if (!rampLineStarted)
@@ -1348,7 +1348,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                     {
                         Type = GridBuildCommandType.PlaceRampFoundation,
                         Kind = BuildingKind.RampFoundation,
-                        BuildingLevel = SelectedBuildingLevel,
+                        BuildingDefinition = SelectedBuildingDefinition,
                         StartCell = previewCells[i],
                         EndCell = previewCells[i],
                         QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(
@@ -1415,7 +1415,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                     {
                         Type = GridBuildCommandType.PlaceRampBeltPath,
                         Kind = BuildingKind.Belt,
-                        BuildingLevel = SelectedBuildingLevel,
+                        BuildingDefinition = SelectedBuildingDefinition,
                         StartCell = rampBeltPathStart,
                         EndCell = cell,
                         QuarterTurns = EcsGridUtility.QuarterTurnsFromDirection(
@@ -1462,7 +1462,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                     Type =
                         GridBuildCommandType.PlaceBeltPath,
                     Kind = BuildingKind.Belt,
-                    BuildingLevel = SelectedBuildingLevel,
+                    BuildingDefinition = SelectedBuildingDefinition,
                     StartCell = beltPathStart,
                     EndCell = cell,
                     QuarterTurns = quarterTurns,
@@ -1481,7 +1481,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                 RequestId = 0,
                 Type = GridBuildCommandType.Place,
                 Kind = SelectedKind,
-                BuildingLevel = SelectedBuildingLevel,
+                BuildingDefinition = SelectedBuildingDefinition,
                 StartCell = cell,
                 EndCell = cell,
                 QuarterTurns = quarterTurns,
@@ -1555,7 +1555,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                 Kind = removeBeltLine
                     ? BuildingKind.Belt
                     : SelectedKind,
-                BuildingLevel = default,
+                BuildingDefinition = default,
                 StartCell = cell,
                 EndCell = cell,
                 QuarterTurns = 0,
@@ -1660,7 +1660,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
         int rise = 0;
         if (SelectedKind == BuildingKind.RampFoundation &&
-            TryGetSelectedBuildingLevel(out FactoryBuildingLevelBlob level))
+            TryGetSelectedBuildingDefinition(out FactoryBuildingDefinitionBlob level))
             rise = level.RampRiseHeightUnits;
         buildAnchor = GridBuildPlacementResolver.Resolve(
             surfaceHit,
@@ -2021,13 +2021,25 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                registry.TryGet(cell, out ramp);
     }
 
-    private void EnsureSelectedBuildingLevel()
+    private void EnsureSelectedBuildingDefinition()
     {
-        if (!SelectedBuildingLevel.IsValid)
+        if (!SelectedBuildingDefinition.IsValid)
             SelectBuildingMenuIndex(0);
     }
 
-    public bool TrySelectBuildingLevel(BuildingLevelId buildingLevel)
+    public bool TrySelectBuilding(string key)
+    {
+        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference)) return false;
+        for (int i = 0; i < reference.Value.BuildingDefinitionMenu.Length; i++)
+        {
+            BuildingDefinitionId id = reference.Value.BuildingDefinitionMenu[i];
+            if (reference.Value.BuildingDefinitionsById[id.Value].Key.ToString() == key)
+                return TrySelectBuildingDefinition(id);
+        }
+        return false;
+    }
+
+    public bool TrySelectBuildingDefinition(BuildingDefinitionId buildingDefinition)
     {
         if (!TryGetDatabase(
                 out BlobAssetReference<FactoryDatabaseBlob> reference))
@@ -2036,15 +2048,15 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         }
 
         ref FactoryDatabaseBlob database = ref reference.Value;
-        for (int i = 0; i < database.BuildingLevelMenu.Length; i++)
+        for (int i = 0; i < database.BuildingDefinitionMenu.Length; i++)
         {
-            if (database.BuildingLevelMenu[i] != buildingLevel)
+            if (database.BuildingDefinitionMenu[i] != buildingDefinition)
             {
                 continue;
             }
 
             SelectBuildingMenuIndex(i);
-            return SelectedBuildingLevel == buildingLevel;
+            return SelectedBuildingDefinition == buildingDefinition;
         }
 
         return false;
@@ -2055,46 +2067,31 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference))
             return;
         ref FactoryDatabaseBlob database = ref reference.Value;
-        if (index < 0 || index >= database.BuildingLevelMenu.Length)
+        if (index < 0 || index >= database.BuildingDefinitionMenu.Length)
             return;
-        BuildingLevelId id = database.BuildingLevelMenu[index];
-        if (!FactoryDatabaseUtility.TryGetBuildingLevel(
+        BuildingDefinitionId id = database.BuildingDefinitionMenu[index];
+        if (!FactoryDatabaseUtility.TryGetBuildingDefinition(
                 ref database,
                 id,
-                out _,
-                out FactoryBuildingBlob building))
+                out FactoryBuildingDefinitionBlob building))
             return;
-        SelectedBuildingLevel = id;
+        SelectedBuildingDefinition = id;
         SelectedKind = building.Kind;
         CancelPlacementGesture();
     }
 
-    private bool TryGetSelectedBuilding(out FactoryBuildingBlob building)
-    {
-        building = default;
-        if (!TryGetDatabase(out BlobAssetReference<FactoryDatabaseBlob> reference))
-            return false;
-        ref FactoryDatabaseBlob database = ref reference.Value;
-        return FactoryDatabaseUtility.TryGetBuildingLevel(
-            ref database,
-            SelectedBuildingLevel,
-            out _,
-            out building);
-    }
-
-    private bool TryGetSelectedBuildingLevel(
-        out FactoryBuildingLevelBlob level)
+    private bool TryGetSelectedBuildingDefinition(
+        out FactoryBuildingDefinitionBlob level)
     {
         level = default;
         if (!TryGetDatabase(
                 out BlobAssetReference<FactoryDatabaseBlob> reference))
             return false;
         ref FactoryDatabaseBlob database = ref reference.Value;
-        return FactoryDatabaseUtility.TryGetBuildingLevel(
+        return FactoryDatabaseUtility.TryGetBuildingDefinition(
             ref database,
-            SelectedBuildingLevel,
-            out level,
-            out _);
+            SelectedBuildingDefinition,
+            out level);
     }
 
     private bool TryGetDatabase(
@@ -2240,7 +2237,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             Type = command.Type,
             PlacementRequestId = command.PlacementRequestId,
             Kind = command.Kind,
-            BuildingLevel = command.BuildingLevel,
+            BuildingDefinition = command.BuildingDefinition,
             StartCell = command.StartCell,
             EndCell = command.EndCell,
             QuarterTurns = command.QuarterTurns,

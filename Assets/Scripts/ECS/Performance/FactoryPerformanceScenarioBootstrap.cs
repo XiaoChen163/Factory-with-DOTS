@@ -214,9 +214,10 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
             yield break;
         }
 
+        BlobAssetReference<FactoryDatabaseBlob> content = catalogQuery.GetSingleton<FactoryDatabase>().Value;
         int foundationCommandCount = QueueFoundationCommands(
             entityManager.GetBuffer<GridBuildCommand>(gridEntity),
-            definition.GridSize);
+            definition.GridSize, FactoryDatabaseUtility.GetBuildingDefinitionId(ref content.Value, FactoryPerformanceScenarioLayout.FoundationKey));
         int foundationCellCount = definition.GridSize.x * definition.GridSize.y;
         status = "Building " + foundationCellCount +
                  " foundation cells through " + foundationCommandCount +
@@ -282,7 +283,7 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 RequestId = (uint)(i + 1),
                 Type = GridBuildCommandType.Place,
                 Kind = placement.Kind,
-                BuildingLevel = placement.BuildingLevel,
+                BuildingDefinition = FactoryDatabaseUtility.GetBuildingDefinitionId(ref content.Value, placement.BuildingKey),
                 StartCell = placement.Cell,
                 EndCell = placement.Cell,
                 QuarterTurns = placement.QuarterTurns
@@ -489,7 +490,7 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
 
     private static int QueueFoundationCommands(
         DynamicBuffer<GridBuildCommand> commands,
-        int2 size)
+        int2 size, BuildingDefinitionId foundationId)
     {
         int rowsPerCommand = math.max(
             1,
@@ -504,10 +505,7 @@ public sealed class FactoryPerformanceScenarioBootstrap : MonoBehaviour
                 RequestId = (uint)(0x40000000 + commandCount),
                 Type = GridBuildCommandType.PlaceFoundationArea,
                 Kind = BuildingKind.Foundation,
-                BuildingLevel = new BuildingLevelId
-                {
-                    Value = FactoryPerformanceScenarioLayout.FoundationLevelId
-                },
+                BuildingDefinition = foundationId,
                 StartCell = new GridCell(0, 0, startZ),
                 EndCell = new GridCell(size.x - 1, 0, endZ)
             });

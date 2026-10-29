@@ -35,7 +35,7 @@ namespace Factory.Tests
         [UnityTest]
         public IEnumerator ConstructionPlanes_RespectFiftyMetersFromCamera_InEveryPickingMode()
         {
-            for (int frame = 0; frame < 120 && !interaction.TrySelectBuildingLevel(new BuildingLevelId { Value = 10 }); frame++)
+            for (int frame = 0; frame < 120 && !interaction.TrySelectBuildingDefinition(new BuildingDefinitionId { Value = 10 }); frame++)
                 yield return null;
             Assert.That(interaction.SelectedKind, Is.EqualTo(BuildingKind.Foundation));
             for (int mode = 0; mode < 3; mode++)

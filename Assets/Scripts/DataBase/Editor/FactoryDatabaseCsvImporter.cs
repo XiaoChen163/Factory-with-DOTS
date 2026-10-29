@@ -12,19 +12,10 @@ public static class FactoryDatabaseCsvImporter
     private const string ItemTableDirectory = TableDirectory + "/items";
     private const string RecipeTableDirectory = ItemTableDirectory + "/recipes";
     private const string BuildingTableDirectory = TableDirectory + "/buildings";
-    private const string BuildingLevelTableDirectory = BuildingTableDirectory + "/levels";
     private const string ItemPrefabDirectory = "Assets/Prefabs/Items";
-    private const string BuildingPrefabDirectory = "Assets/Prefabs/Buildings";
     private const string ItemIconDirectory = "Assets/Art/Icons/Items";
-    private const string BuildingIconDirectory = "Assets/Art/Icons/Buildings";
     private const string ItemTablePath = ItemTableDirectory + "/items.csv";
     private const string MachineTypeTablePath = BuildingTableDirectory + "/machine_types.csv";
-    private const string BuildingTablePath = BuildingTableDirectory + "/buildings.csv";
-    private const string BuildingLevelTablePath = BuildingLevelTableDirectory + "/building_levels.csv";
-    private const string BeltLevelTablePath = BuildingLevelTableDirectory + "/belt_level_stats.csv";
-    private const string ProcessorLevelTablePath = BuildingLevelTableDirectory + "/processor_level_stats.csv";
-    private const string StorageLevelTablePath = BuildingLevelTableDirectory + "/storage_level_stats.csv";
-    private const string BuildingPortTablePath = BuildingTableDirectory + "/building_ports.csv";
     private const string RecipeTablePath = RecipeTableDirectory + "/recipes.csv";
     private const string InputTablePath = RecipeTableDirectory + "/recipe_inputs.csv";
     private const string OutputTablePath = RecipeTableDirectory + "/recipe_outputs.csv";
@@ -44,19 +35,23 @@ public static class FactoryDatabaseCsvImporter
             FactoryMachineTypeTableRow[] machineTypes = ReadMachineTypes();
             Dictionary<string, FactoryMachineTypeTableRow> machinesByKey =
                 IndexByKey(machineTypes, row => row.key, "machine type");
-            FactoryBuildingTableRow[] buildings = ReadBuildings(machinesByKey);
-            Dictionary<string, FactoryBuildingTableRow> buildingsByKey =
-                IndexByKey(buildings, row => row.key, "building");
-            FactoryBuildingLevelTableRow[] levels = ReadBuildingLevels(buildingsByKey);
-            Dictionary<string, FactoryBuildingLevelTableRow> levelsByKey =
-                IndexByKey(levels, row => row.key, "building level");
-            FactoryBeltLevelTableRow[] beltLevels =
-                ReadBeltLevels(levels, levelsByKey, buildingsByKey);
-            FactoryProcessorLevelTableRow[] processorLevels =
-                ReadProcessorLevels(levels, levelsByKey, buildingsByKey);
-            FactoryStorageLevelTableRow[] storageLevels =
-                ReadStorageLevels(levels, levelsByKey, buildingsByKey);
+            FactoryBuildingDefinitionRow[] buildings = ReadBuildings(machinesByKey);
             FactoryRecipeTableRow[] recipes = ReadRecipes(machinesByKey, itemsByKey);
+
+            // Validate the entire candidate before touching the last valid generated asset.
+            FactoryDatabaseAsset candidate = ScriptableObject.CreateInstance<FactoryDatabaseAsset>();
+            try
+            {
+                candidate.items = items;
+                candidate.machineTypes = machineTypes;
+                candidate.buildings = buildings;
+                candidate.recipes = recipes;
+                FactoryDatabaseValidation.Validate(candidate);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(candidate);
+            }
 
             EnsureAssetFolder(OutputDirectory);
             FactoryDatabaseAsset asset =
@@ -71,20 +66,13 @@ public static class FactoryDatabaseCsvImporter
             asset.items = items;
             asset.machineTypes = machineTypes;
             asset.buildings = buildings;
-            asset.buildingLevels = levels;
-            asset.beltLevels = beltLevels;
-            asset.processorLevels = processorLevels;
-            asset.storageLevels = storageLevels;
             asset.recipes = recipes;
             EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssets();
 
             Debug.Log(
                 $"Factory database rebuilt: {items.Length} items, " +
-                $"{buildings.Length} buildings, {levels.Length} build options, " +
-                $"{beltLevels.Length} belt levels, {processorLevels.Length} processor levels, " +
-                $"{storageLevels.Length} storage levels, " +
-                $"{recipes.Length} recipes.",
+                $"{buildings.Length} building definitions, {recipes.Length} recipes.",
                 asset);
         }
         catch (Exception exception)
@@ -154,360 +142,139 @@ public static class FactoryDatabaseCsvImporter
         return result;
     }
 
-    private static FactoryBuildingTableRow[] ReadBuildings(
-        Dictionary<string, FactoryMachineTypeTableRow> machinesByKey)
+    public static FactoryBuildingDefinitionRow[] ReadBuildingDefinitions(
+        string directory, FactoryMachineTypeTableRow[] machineTypes)
     {
-        Dictionary<string, List<FactoryBuildingPortTableRow>> ports = ReadBuildingPorts();
-        CsvTable table = CsvTable.Read(BuildingTablePath);
-        List<FactoryBuildingTableRow> rows = new List<FactoryBuildingTableRow>(table.RowCount);
-        HashSet<ushort> ids = new HashSet<ushort>();
-        HashSet<string> keys = NewKeySet();
-        for (int row = 0; row < table.RowCount; row++)
-        {
-            ushort id = ParseUShort(table.Get(row, "id"), "building id");
-            string key = RequiredKey(table.Get(row, "key"), "building key");
-            if (id == 0 || !ids.Add(id) || !keys.Add(key))
-                throw new InvalidDataException($"Duplicate or invalid building '{key}' ({id}).");
-            string machineKey = table.Get(row, "machine_type_key");
-            ushort machineId = 0;
-            if (!string.IsNullOrWhiteSpace(machineKey))
-            {
-                machineKey = RequiredKey(machineKey, "machine type key");
-                if (!machinesByKey.TryGetValue(machineKey, out FactoryMachineTypeTableRow machine))
-                    throw new InvalidDataException($"Building '{key}' references unknown machine type '{machineKey}'.");
-                machineId = machine.id;
-            }
-            FactoryBuildingBehavior behavior = ParseEnum<FactoryBuildingBehavior>(
-                table.Get(row, "behavior"), "building behavior");
-            string layoutKey = table.Get(row, "port_layout_key").Trim();
-            List<FactoryBuildingPortTableRow> buildingPorts;
-            if (string.IsNullOrEmpty(layoutKey) && (behavior == FactoryBuildingBehavior.Foundation ||
-                table.Get(row, "kind") == nameof(BuildingKind.VerticalBeltSegment)))
-                buildingPorts = new List<FactoryBuildingPortTableRow>();
-            else
-            {
-                layoutKey = RequiredKey(layoutKey, "port layout key");
-                if (!ports.TryGetValue(layoutKey, out buildingPorts))
-                    throw new InvalidDataException($"Building '{key}' references unknown port layout '{layoutKey}'.");
-            }
-            rows.Add(new FactoryBuildingTableRow
-            {
-                id = id,
-                key = key,
-                nameKey = table.Get(row, "name_key"),
-                behavior = behavior,
-                kind = ParseEnum<BuildingKind>(table.Get(row, "kind"), "building kind"),
-                machineTypeKey = machineKey,
-                machineTypeId = machineId,
-                portLayoutKey = layoutKey,
-                footprintWidth = ParseByte(table.Get(row, "footprint_width"), "footprint width"),
-                footprintHeight = ParseByte(table.Get(row, "footprint_height"), "footprint height"),
-                isRectangle = bool.Parse(table.Get(row, "is_rectangle").Trim()),
-                footprintBitmap = table.Get(row, "footprint_bitmap").Trim(),
-                ports = buildingPorts.ToArray()
-            });
-        }
-        rows.Sort((a, b) => a.id.CompareTo(b.id));
-        for (int i = 0; i < rows.Count; i++)
-        {
-            FactoryBuildingTableRow value = rows[i];
-            ValidateBuilding(value);
-            rows[i] = value;
-        }
-        return rows.ToArray();
+        return ReadBuildings(IndexByKey(machineTypes, row => row.key, "machine type"), directory);
     }
 
-    private static Dictionary<string, List<FactoryBuildingPortTableRow>> ReadBuildingPorts()
+    private static FactoryBuildingDefinitionRow[] ReadBuildings(
+        Dictionary<string, FactoryMachineTypeTableRow> machinesByKey,
+        string directory = BuildingTableDirectory)
     {
-        CsvTable table = CsvTable.Read(BuildingPortTablePath);
-        Dictionary<string, List<FactoryBuildingPortTableRow>> result =
-            new Dictionary<string, List<FactoryBuildingPortTableRow>>(StringComparer.Ordinal);
-        HashSet<string> unique = NewKeySet();
+        CsvTable table = CsvTable.Read(directory + "/buildings.csv");
+        Dictionary<string, FactoryBuildingDefinitionRow> buildings = new Dictionary<string, FactoryBuildingDefinitionRow>(StringComparer.Ordinal);
+        List<string> order = new List<string>();
         for (int row = 0; row < table.RowCount; row++)
         {
-            string layoutKey = RequiredKey(table.Get(row, "layout_key"), "port layout key");
-            BuildingPortType type = ParseEnum<BuildingPortType>(table.Get(row, "type"), "port type");
-            byte index = ParseByte(table.Get(row, "index"), "port index");
-            string compound = layoutKey + ":" + type + ":" + index;
-            if (!unique.Add(compound))
-                throw new InvalidDataException($"Duplicate building port '{compound}'.");
-            Vector2Int direction = new Vector2Int(
-                ParseInt(table.Get(row, "direction_x"), "port direction x"),
-                ParseInt(table.Get(row, "direction_y"), "port direction y"));
-            if (Math.Abs(direction.x) + Math.Abs(direction.y) != 1)
-                throw new InvalidDataException($"Port '{compound}' direction must be cardinal.");
-            if (!result.TryGetValue(layoutKey, out List<FactoryBuildingPortTableRow> list))
+            string key = RequiredKey(table.Get(row, "key"), "building key");
+            string path = table.Get(row, "prefab_path");
+            if (!path.StartsWith("Assets/", StringComparison.Ordinal) || !path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Building '{key}' prefab_path must be an Assets-relative prefab path.");
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null) throw new InvalidDataException($"Building '{key}' prefab not found: '{path}'.");
+            BuildingKind kind = ParseEnum<BuildingKind>(table.Get(row, "behavior"), "building behavior");
+            ValidateBuildingVisualPrefab(prefab, path, kind);
+            var building = new FactoryBuildingDefinitionRow
             {
-                list = new List<FactoryBuildingPortTableRow>();
-                result.Add(layoutKey, list);
-            }
+                id = CheckedId(row + 1, "building"), key = key, kind = kind,
+                footprintWidth = ParseByte(table.Get(row, "width"), "width"),
+                footprintHeight = ParseByte(table.Get(row, "length"), "length"),
+                isRectangle = bool.Parse(table.Get(row, "is_rectangle")),
+                footprintBitmap = table.Get(row, "bitmap"),
+                visualPrefabPath = path, visualPrefab = prefab,
+                ports = Array.Empty<FactoryBuildingPortTableRow>()
+            };
+            if (!buildings.TryAdd(key, building)) throw new InvalidDataException($"Duplicate building '{key}'.");
+            order.Add(key);
+        }
+        ApplyExtension(directory, "processor_stats", buildings, b => b.kind == BuildingKind.Processor, (b, t, r) =>
+        {
+            string machine = RequiredKey(t.Get(r, "machine_type_key"), "machine type key");
+            if (!machinesByKey.TryGetValue(machine, out var type))
+                throw new InvalidDataException($"Building '{b.key}' references unknown machine type '{machine}'.");
+            b.machineTypeId = type.id;
+            return b;
+        });
+        ApplyExtension(directory, "belt_stats", buildings, b => b.kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(b.kind), (b, t, r) =>
+        {
+            b.beltTier = ParseByte(t.Get(r, "tier"), "belt tier");
+            b.cellsPerSecond = ParseFloat(t.Get(r, "cells_per_second"), "belt speed");
+            return b;
+        });
+        ApplyExtension(directory, "storage_stats", buildings, b => b.kind == BuildingKind.Storage, (b, t, r) =>
+        {
+            b.storageCapacity = ParseInt(t.Get(r, "capacity"), "storage capacity");
+            b.storageSlotCount = ParseUShort(t.Get(r, "slot_count"), "storage slots");
+            return b;
+        });
+        ApplyExtension(directory, "ramp_stats", buildings, b => b.kind == BuildingKind.RampFoundation, (b, t, r) =>
+        {
+            b.rampRiseHeightUnits = checked((sbyte)ParseInt(t.Get(r, "rise_height_units"), "ramp rise"));
+            return b;
+        });
+        ApplyExtension(directory, "building_presentation", buildings, _ => true, (b, t, r) =>
+        {
+            string path = t.Get(r, "icon_path");
+            b.icon = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (!string.IsNullOrEmpty(path) && b.icon == null)
+                throw new InvalidDataException($"Building '{b.key}' icon not found: '{path}'.");
+            b.menuOrder = ParseInt(t.Get(r, "menu_order"), "menu order");
+            return b;
+        });
+        CsvTable names = CsvTable.Read(directory + "/building_names.csv");
+        HashSet<string> nameRows = NewKeySet();
+        Dictionary<string, string> fallbackNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int row = 0; row < names.RowCount; row++)
+        {
+            string key = RequiredKey(names.Get(row, "key"), "building key");
+            string locale = RequiredKey(names.Get(row, "locale"), "locale");
+            if (!buildings.TryGetValue(key, out var building) || !nameRows.Add(key + ":" + locale))
+                throw new InvalidDataException($"Unknown or duplicate building name '{key}:{locale}'.");
+            string name = names.Get(row, "name");
+            if (string.IsNullOrWhiteSpace(name)) throw new InvalidDataException($"Building '{key}' has an empty name.");
+            fallbackNames.TryAdd(key, name);
+            if (locale == "zh-CN") { building.displayName = name; buildings[key] = building; }
+        }
+        CsvTable ports = CsvTable.Read(directory + "/building_ports.csv");
+        Dictionary<string, List<FactoryBuildingPortTableRow>> portRows = new Dictionary<string, List<FactoryBuildingPortTableRow>>(StringComparer.Ordinal);
+        for (int row = 0; row < ports.RowCount; row++)
+        {
+            string key = RequiredKey(ports.Get(row, "key"), "building key");
+            if (!buildings.ContainsKey(key)) throw new InvalidDataException($"Port references unknown building '{key}'.");
+            if (!portRows.TryGetValue(key, out var list)) portRows.Add(key, list = new List<FactoryBuildingPortTableRow>());
             list.Add(new FactoryBuildingPortTableRow
             {
-                type = type,
-                index = index,
-                cellOffset = new Vector2Int(
-                    ParseInt(table.Get(row, "cell_x"), "port cell x"),
-                    ParseInt(table.Get(row, "cell_y"), "port cell y")),
-                direction = direction
+                type = ParseEnum<BuildingPortType>(ports.Get(row, "type"), "port type"),
+                index = ParseByte(ports.Get(row, "index"), "port index"),
+                cellOffset = new Vector2Int(ParseInt(ports.Get(row, "cell_x"), "port x"), ParseInt(ports.Get(row, "cell_z"), "port z")),
+                direction = new Vector2Int(ParseInt(ports.Get(row, "direction_x"), "port direction x"), ParseInt(ports.Get(row, "direction_z"), "port direction z"))
             });
         }
-        return result;
+        List<FactoryBuildingDefinitionRow> result = new List<FactoryBuildingDefinitionRow>();
+        foreach (string key in order)
+        {
+            var building = buildings[key];
+            if (!fallbackNames.TryGetValue(key, out string fallback))
+                throw new InvalidDataException($"Building '{key}' requires a name.");
+            if (string.IsNullOrEmpty(building.displayName)) building.displayName = fallback;
+            if (portRows.TryGetValue(key, out var list)) building.ports = list.ToArray();
+            FactoryBuildingFootprintUtility.ValidatePorts(building, FactoryBuildingFootprintUtility.GetOccupiedOffsets(building));
+            if (building.kind == BuildingKind.Processor && !building.ports.Any(p => p.type == BuildingPortType.Output))
+                throw new InvalidDataException($"Processor '{key}' requires an output port.");
+            if ((building.kind == BuildingKind.Foundation || building.kind == BuildingKind.RampFoundation) && building.ports.Length != 0)
+                throw new InvalidDataException($"Foundation '{key}' cannot declare ports.");
+            result.Add(building);
+        }
+        return result.ToArray();
     }
 
-    private static FactoryBuildingLevelTableRow[] ReadBuildingLevels(
-        Dictionary<string, FactoryBuildingTableRow> buildingsByKey)
+    private static void ApplyExtension(string directory, string name, Dictionary<string, FactoryBuildingDefinitionRow> buildings,
+        Func<FactoryBuildingDefinitionRow, bool> eligible,
+        Func<FactoryBuildingDefinitionRow, CsvTable, int, FactoryBuildingDefinitionRow> apply)
     {
-        CsvTable table = CsvTable.Read(BuildingLevelTablePath);
-        Dictionary<string, GameObject> prefabs = BuildPrefabIndex(BuildingPrefabDirectory);
-        Dictionary<string, Sprite> icons = BuildSpriteIndex(BuildingIconDirectory);
-        List<FactoryBuildingLevelTableRow> rows = new List<FactoryBuildingLevelTableRow>(table.RowCount);
-        HashSet<ushort> ids = new HashSet<ushort>();
-        HashSet<string> keys = NewKeySet();
-        HashSet<string> buildingLevels = NewKeySet();
+        CsvTable table = CsvTable.Read(directory + "/" + name + ".csv");
+        HashSet<string> configured = NewKeySet();
         for (int row = 0; row < table.RowCount; row++)
         {
-            ushort id = ParseUShort(table.Get(row, "id"), "building level id");
-            string key = RequiredKey(table.Get(row, "key"), "building level key");
-            string buildingKey = RequiredKey(table.Get(row, "building_key"), "building key");
-            byte level = ParseByte(table.Get(row, "level"), "building level");
-            if (id == 0 || !ids.Add(id) || !keys.Add(key) || level == 0 ||
-                !buildingLevels.Add(buildingKey + ":" + level))
-                throw new InvalidDataException($"Duplicate or invalid building level '{key}'.");
-            if (!buildingsByKey.TryGetValue(buildingKey, out FactoryBuildingTableRow building))
-                throw new InvalidDataException($"Building level '{key}' references unknown building '{buildingKey}'.");
-            string prefabKey = RequiredKey(table.Get(row, "visual_prefab_key"), "building visual prefab key");
-            bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon) &&
-                !string.IsNullOrWhiteSpace(configuredIcon);
-            string iconKey = hasConfiguredIcon
-                ? RequiredKey(configuredIcon, "building icon key")
-                : prefabKey;
-            GameObject prefab = ResolvePrefab(prefabs, prefabKey, BuildingPrefabDirectory);
-            ValidateBuildingVisualPrefab(prefab, prefabKey, building.kind);
-            Sprite suppliedIcon = FactoryIconBaker.GetSuppliedBuildingIcon(prefab);
-            sbyte rampRiseHeightUnits = table.TryGet(
-                row,
-                "ramp_rise_height_units",
-                out string configuredRampRise) &&
-                !string.IsNullOrWhiteSpace(configuredRampRise)
-                ? checked((sbyte)ParseInt(
-                    configuredRampRise,
-                    "ramp rise height units"))
-                : (sbyte)0;
-            if (building.kind == BuildingKind.RampFoundation)
-            {
-                if (!RampUtility.IsAllowedRise(rampRiseHeightUnits))
-                    throw new InvalidDataException(
-                        $"Ramp building level '{key}' must use rise 2, 4, or 8 height units.");
-            }
-            else if (rampRiseHeightUnits != 0)
-            {
-                throw new InvalidDataException(
-                    $"Non-ramp building level '{key}' cannot declare a ramp rise.");
-            }
-            rows.Add(new FactoryBuildingLevelTableRow
-            {
-                id = id,
-                key = key,
-                buildingKey = buildingKey,
-                buildingId = building.id,
-                level = level,
-                nameKey = table.Get(row, "name_key"),
-                visualPrefabKey = prefabKey,
-                visualPrefab = prefab,
-                iconKey = iconKey,
-                icon = hasConfiguredIcon
-                    ? ResolveSprite(icons, iconKey, BuildingIconDirectory)
-                    : suppliedIcon != null ? suppliedIcon : TryResolveSprite(icons, iconKey),
-                menuOrder = ParseInt(table.Get(row, "menu_order"), "menu order"),
-                rampRiseHeightUnits = rampRiseHeightUnits
-            });
+            string key = RequiredKey(table.Get(row, "key"), "building key");
+            if (!buildings.TryGetValue(key, out var building) || !eligible(building) || !configured.Add(key))
+                throw new InvalidDataException($"Table '{name}' has unknown, incompatible or duplicate building '{key}'.");
+            buildings[key] = apply(building, table, row);
         }
-        rows.Sort((a, b) => a.menuOrder != b.menuOrder
-            ? a.menuOrder.CompareTo(b.menuOrder)
-            : string.CompareOrdinal(a.key, b.key));
-        return rows.ToArray();
-    }
-
-    private static FactoryBeltLevelTableRow[] ReadBeltLevels(
-        FactoryBuildingLevelTableRow[] levels,
-        Dictionary<string, FactoryBuildingLevelTableRow> levelsByKey,
-        Dictionary<string, FactoryBuildingTableRow> buildingsByKey)
-    {
-        CsvTable table = CsvTable.Read(BeltLevelTablePath);
-        List<FactoryBeltLevelTableRow> rows =
-            new List<FactoryBeltLevelTableRow>(table.RowCount);
-        HashSet<string> configuredLevels = NewKeySet();
-        for (int row = 0; row < table.RowCount; row++)
-        {
-            string levelKey = RequiredKey(
-                table.Get(row, "building_level_key"),
-                "belt building level key");
-            if (!configuredLevels.Add(levelKey))
-                throw new InvalidDataException(
-                    $"Duplicate belt stats for building level '{levelKey}'.");
-            FactoryBuildingLevelTableRow level = ResolveLevelForBehavior(
-                levelKey,
-                FactoryBuildingBehavior.Belt,
-                "belt",
-                levelsByKey,
-                buildingsByKey);
-            float cellsPerSecond = ParseFloat(
-                table.Get(row, "cells_per_second"),
-                "belt cells per second");
-            if (float.IsNaN(cellsPerSecond) ||
-                float.IsInfinity(cellsPerSecond) ||
-                cellsPerSecond <= 0f)
-                throw new InvalidDataException(
-                    $"Belt level '{levelKey}' cells_per_second must be positive.");
-            rows.Add(new FactoryBeltLevelTableRow
-            {
-                buildingLevelKey = levelKey,
-                buildingLevelId = level.id,
-                cellsPerSecond = cellsPerSecond
-            });
-        }
-
-        ValidateRequiredLevelStats(
-            levels,
-            buildingsByKey,
-            FactoryBuildingBehavior.Belt,
-            configuredLevels,
-            "belt");
-        return rows.ToArray();
-    }
-
-    private static FactoryProcessorLevelTableRow[] ReadProcessorLevels(
-        FactoryBuildingLevelTableRow[] levels,
-        Dictionary<string, FactoryBuildingLevelTableRow> levelsByKey,
-        Dictionary<string, FactoryBuildingTableRow> buildingsByKey)
-    {
-        CsvTable table = CsvTable.Read(ProcessorLevelTablePath);
-        List<FactoryProcessorLevelTableRow> rows =
-            new List<FactoryProcessorLevelTableRow>(table.RowCount);
-        HashSet<string> configuredLevels = NewKeySet();
-        for (int row = 0; row < table.RowCount; row++)
-        {
-            string levelKey = RequiredKey(
-                table.Get(row, "building_level_key"),
-                "processor building level key");
-            if (!configuredLevels.Add(levelKey))
-                throw new InvalidDataException(
-                    $"Duplicate processor stats for building level '{levelKey}'.");
-            FactoryBuildingLevelTableRow level = ResolveLevelForBehavior(
-                levelKey,
-                FactoryBuildingBehavior.Processor,
-                "processor",
-                levelsByKey,
-                buildingsByKey);
-            ushort workRatePermille = ParseUShort(
-                table.Get(row, "work_rate_permille"),
-                "processor work rate permille");
-            if (workRatePermille == 0)
-                throw new InvalidDataException(
-                    $"Processor level '{levelKey}' work_rate_permille must be positive.");
-            rows.Add(new FactoryProcessorLevelTableRow
-            {
-                buildingLevelKey = levelKey,
-                buildingLevelId = level.id,
-                workRatePermille = workRatePermille
-            });
-        }
-
-        ValidateRequiredLevelStats(
-            levels,
-            buildingsByKey,
-            FactoryBuildingBehavior.Processor,
-            configuredLevels,
-            "processor");
-        return rows.ToArray();
-    }
-
-    private static FactoryBuildingLevelTableRow ResolveLevelForBehavior(
-        string levelKey,
-        FactoryBuildingBehavior expectedBehavior,
-        string statsLabel,
-        Dictionary<string, FactoryBuildingLevelTableRow> levelsByKey,
-        Dictionary<string, FactoryBuildingTableRow> buildingsByKey)
-    {
-        if (!levelsByKey.TryGetValue(levelKey, out FactoryBuildingLevelTableRow level))
-            throw new InvalidDataException(
-                $"{statsLabel} stats reference unknown building level '{levelKey}'.");
-        FactoryBuildingTableRow building = buildingsByKey[level.buildingKey];
-        if (building.behavior != expectedBehavior)
-            throw new InvalidDataException(
-                $"{statsLabel} stats cannot target {building.behavior} building level '{levelKey}'.");
-        return level;
-    }
-
-    private static FactoryStorageLevelTableRow[] ReadStorageLevels(
-        FactoryBuildingLevelTableRow[] levels,
-        Dictionary<string, FactoryBuildingLevelTableRow> levelsByKey,
-        Dictionary<string, FactoryBuildingTableRow> buildingsByKey)
-    {
-        CsvTable table = CsvTable.Read(StorageLevelTablePath);
-        List<FactoryStorageLevelTableRow> rows =
-            new List<FactoryStorageLevelTableRow>(table.RowCount);
-        HashSet<string> configuredLevels = NewKeySet();
-        for (int row = 0; row < table.RowCount; row++)
-        {
-            string levelKey = RequiredKey(
-                table.Get(row, "building_level_key"),
-                "storage building level key");
-            if (!configuredLevels.Add(levelKey))
-                throw new InvalidDataException(
-                    $"Duplicate storage stats for building level '{levelKey}'.");
-            FactoryBuildingLevelTableRow level = ResolveLevelForBehavior(
-                levelKey,
-                FactoryBuildingBehavior.Storage,
-                "storage",
-                levelsByKey,
-                buildingsByKey);
-            int capacity = ParseInt(
-                table.Get(row, "storage_capacity"),
-                "storage capacity");
-            if (capacity <= 0)
-                throw new InvalidDataException(
-                    $"Storage level '{levelKey}' storage_capacity must be positive.");
-            ushort slotCount = ParseUShort(
-                table.Get(row, "slot_count"),
-                "storage slot count");
-            if (slotCount == 0)
-                throw new InvalidDataException(
-                    $"Storage level '{levelKey}' slot_count must be positive.");
-            rows.Add(new FactoryStorageLevelTableRow
-            {
-                buildingLevelKey = levelKey,
-                buildingLevelId = level.id,
-                capacity = capacity,
-                slotCount = slotCount
-            });
-        }
-
-        ValidateRequiredLevelStats(
-            levels,
-            buildingsByKey,
-            FactoryBuildingBehavior.Storage,
-            configuredLevels,
-            "storage");
-        return rows.ToArray();
-    }
-
-    private static void ValidateRequiredLevelStats(
-        FactoryBuildingLevelTableRow[] levels,
-        Dictionary<string, FactoryBuildingTableRow> buildingsByKey,
-        FactoryBuildingBehavior behavior,
-        HashSet<string> configuredLevels,
-        string statsLabel)
-    {
-        foreach (FactoryBuildingLevelTableRow level in levels)
-        {
-            if (buildingsByKey[level.buildingKey].behavior == behavior &&
-                !configuredLevels.Contains(level.key))
-            {
-                throw new InvalidDataException(
-                    $"Building level '{level.key}' requires exactly one {statsLabel} stats row.");
-            }
-        }
+        foreach (var building in buildings.Values)
+            if (eligible(building) && !configured.Contains(building.key))
+                throw new InvalidDataException($"Building '{building.key}' requires exactly one '{name}' row.");
     }
 
     private static FactoryRecipeTableRow[] ReadRecipes(
@@ -593,35 +360,6 @@ public static class FactoryDatabaseCsvImporter
         string recipeKey) => source.TryGetValue(recipeKey, out List<FactoryRecipeIngredientTableRow> rows)
             ? rows.ToArray()
             : Array.Empty<FactoryRecipeIngredientTableRow>();
-
-    private static void ValidateBuilding(FactoryBuildingTableRow row)
-    {
-        Unity.Mathematics.int2[] offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(row);
-        FactoryBuildingFootprintUtility.ValidatePorts(row, offsets);
-        if (row.footprintWidth == 0 || row.footprintHeight == 0)
-            throw new InvalidDataException($"Building '{row.key}' footprint must be positive.");
-        bool behaviorMatchesKind =
-            row.behavior == FactoryBuildingBehavior.Belt && (row.kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(row.kind)) ||
-            row.behavior == FactoryBuildingBehavior.Processor &&
-                (row.kind == BuildingKind.Miner || row.kind == BuildingKind.Furnace) ||
-            row.behavior == FactoryBuildingBehavior.Storage && row.kind == BuildingKind.Storage ||
-            row.behavior == FactoryBuildingBehavior.Merger && row.kind == BuildingKind.Merger ||
-            row.behavior == FactoryBuildingBehavior.Splitter && row.kind == BuildingKind.Splitter;
-        behaviorMatchesKind |= row.behavior == FactoryBuildingBehavior.Foundation &&
-                               (row.kind == BuildingKind.Foundation ||
-                                row.kind == BuildingKind.RampFoundation);
-        if (!behaviorMatchesKind)
-            throw new InvalidDataException(
-                $"Building '{row.key}' behavior '{row.behavior}' does not match kind '{row.kind}'.");
-        if (row.behavior == FactoryBuildingBehavior.Processor && row.machineTypeId == 0)
-            throw new InvalidDataException($"Processor building '{row.key}' requires a machine type.");
-        if (row.behavior != FactoryBuildingBehavior.Processor && row.machineTypeId != 0)
-            throw new InvalidDataException($"Non-processor building '{row.key}' cannot declare a machine type.");
-        if (row.behavior == FactoryBuildingBehavior.Processor && row.ports.All(port => port.type != BuildingPortType.Output))
-            throw new InvalidDataException($"Processor building '{row.key}' requires an output port.");
-        if (row.behavior == FactoryBuildingBehavior.Foundation && row.ports.Length != 0)
-            throw new InvalidDataException($"Foundation building '{row.key}' cannot declare ports.");
-    }
 
     private static void ValidateBuildingVisualPrefab(
         GameObject prefab,

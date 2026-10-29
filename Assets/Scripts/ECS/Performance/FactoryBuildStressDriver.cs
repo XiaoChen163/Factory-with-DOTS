@@ -58,12 +58,7 @@ public sealed class FactoryBuildStressDriver : MonoBehaviour
             yield break;
         }
 
-        if (!interaction.TrySelectBuildingLevel(
-                new BuildingLevelId
-                {
-                    Value =
-                        FactoryPerformanceScenarioLayout.Mk4BeltLevelId
-                }))
+        if (!interaction.TrySelectBuilding(FactoryPerformanceScenarioLayout.Mk4BeltKey))
         {
             Fail("Mk4 belt is not available in the building menu.");
             yield break;

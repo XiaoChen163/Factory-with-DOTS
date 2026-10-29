@@ -8,7 +8,7 @@ public sealed partial class EcsGridInteractionController
     private bool verticalPathStarted;
     private bool verticalConfirmPending;
     private GridCell verticalPathStart;
-    private BuildingLevelId verticalEntryLevel;
+    private BuildingDefinitionId verticalEntryLevel;
     private ulong verticalEntryRequest;
     private ulong verticalPlacementToken;
     private ulong verticalCompletionRequest;
@@ -51,13 +51,13 @@ public sealed partial class EcsGridInteractionController
     {
         if (cell.Level < 0 || TryGetBuilding(world, cell, out _)) return;
         verticalPathStart = cell;
-        verticalEntryLevel = SelectedBuildingLevel;
+        verticalEntryLevel = SelectedBuildingDefinition;
         verticalPathStarted = true;
         verticalEntryRequest = Enqueue(world, grid, new GridBuildCommand
         {
             Type = GridBuildCommandType.Place,
             Kind = BuildingKind.VerticalBeltEntry,
-            BuildingLevel = verticalEntryLevel,
+            BuildingDefinition = verticalEntryLevel,
             StartCell = cell,
             EndCell = cell,
             QuarterTurns = quarterTurns
@@ -87,7 +87,7 @@ public sealed partial class EcsGridInteractionController
         if (exit.Level < 0 || distance < 2 || distance > VerticalBeltUtility.MaxPathNodes ||
             !TryGetBuilding(world, verticalPathStart, out Entity entry) ||
             !world.EntityManager.HasComponent<BuildingIdentity>(entry) ||
-            world.EntityManager.GetComponentData<BuildingIdentity>(entry).BuildingLevel != verticalEntryLevel)
+            world.EntityManager.GetComponentData<BuildingIdentity>(entry).BuildingDefinition != verticalEntryLevel)
             return false;
         var ramps = world.GetExistingSystemManaged<RampRegistrySystem>();
         int step = exit.Level > verticalPathStart.Level ? 1 : -1;
@@ -140,8 +140,8 @@ public sealed partial class EcsGridInteractionController
             previewCells.Add(cell);
         }
         ref FactoryDatabaseBlob database = ref reference.Value;
-        if (VerticalBeltUtility.TryGetPathLevels(ref database, verticalEntryLevel, out _, out var exitId) &&
-            FactoryDatabaseUtility.TryGetBuildingLevel(ref database, exitId, out _, out var building))
+        if (VerticalBeltUtility.TryGetPathDefinitions(ref database, verticalEntryLevel, out _, out var exitId) &&
+            FactoryDatabaseUtility.TryGetBuildingDefinition(ref database, exitId, out var building))
             BuildPortPreview(VerticalPreviewExitCell, new int2(1,1), building);
         ShowPlacementPreview(grid, VerticalPreviewValid);
     }
@@ -161,7 +161,7 @@ public sealed partial class EcsGridInteractionController
         {
             Type = GridBuildCommandType.PlaceVerticalBeltPath,
             Kind = BuildingKind.VerticalBeltEntry,
-            BuildingLevel = verticalEntryLevel,
+            BuildingDefinition = verticalEntryLevel,
             StartCell = verticalPathStart,
             EndCell = exit,
             QuarterTurns = quarterTurns
@@ -190,7 +190,7 @@ public sealed partial class EcsGridInteractionController
         {
             Type = GridBuildCommandType.CancelVerticalBeltPlacement,
             Kind = BuildingKind.VerticalBeltEntry,
-            BuildingLevel = verticalEntryLevel,
+            BuildingDefinition = verticalEntryLevel,
             PlacementRequestId = verticalPlacementToken,
             StartCell = verticalPathStart
         });

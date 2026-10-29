@@ -93,27 +93,15 @@ public struct MachineTypeId : IEquatable<MachineTypeId>
 }
 
 [Serializable]
-public struct BuildingTypeId : IEquatable<BuildingTypeId>
+public struct BuildingDefinitionId : IEquatable<BuildingDefinitionId>
 {
     public ushort Value;
     public bool IsValid => Value != 0;
-    public bool Equals(BuildingTypeId other) => Value == other.Value;
-    public override bool Equals(object obj) => obj is BuildingTypeId other && Equals(other);
+    public bool Equals(BuildingDefinitionId other) => Value == other.Value;
+    public override bool Equals(object obj) => obj is BuildingDefinitionId other && Equals(other);
     public override int GetHashCode() => Value;
-    public static bool operator ==(BuildingTypeId left, BuildingTypeId right) => left.Value == right.Value;
-    public static bool operator !=(BuildingTypeId left, BuildingTypeId right) => left.Value != right.Value;
-}
-
-[Serializable]
-public struct BuildingLevelId : IEquatable<BuildingLevelId>
-{
-    public ushort Value;
-    public bool IsValid => Value != 0;
-    public bool Equals(BuildingLevelId other) => Value == other.Value;
-    public override bool Equals(object obj) => obj is BuildingLevelId other && Equals(other);
-    public override int GetHashCode() => Value;
-    public static bool operator ==(BuildingLevelId left, BuildingLevelId right) => left.Value == right.Value;
-    public static bool operator !=(BuildingLevelId left, BuildingLevelId right) => left.Value != right.Value;
+    public static bool operator ==(BuildingDefinitionId left, BuildingDefinitionId right) => left.Value == right.Value;
+    public static bool operator !=(BuildingDefinitionId left, BuildingDefinitionId right) => left.Value != right.Value;
 }
 
 public struct FactoryItemBlob
@@ -157,9 +145,9 @@ public struct FactoryBuildingPortBlob
     public byte Index;
 }
 
-public struct FactoryBuildingBlob
+public struct FactoryBuildingDefinitionBlob
 {
-    public BuildingTypeId Id;
+    public BuildingDefinitionId Id;
     public BuildingKind Kind;
     public MachineTypeId MachineType;
     public int PortStart;
@@ -168,39 +156,13 @@ public struct FactoryBuildingBlob
     public byte FootprintHeight;
     public int OccupiedCellStart;
     public int OccupiedCellCount;
-    public FixedString64Bytes Key;
-    public FixedString64Bytes NameKey;
-}
-
-public struct FactoryBuildingLevelBlob
-{
-    public BuildingLevelId Id;
-    public BuildingTypeId BuildingId;
-    public byte Level;
     public int MenuOrder;
-    public FixedString64Bytes Key;
-    public FixedString64Bytes NameKey;
-    public FixedString64Bytes VisualPrefabKey;
-    public sbyte RampRiseHeightUnits;
-}
-
-public struct FactoryBeltLevelBlob
-{
-    public BuildingLevelId LevelId;
+    public byte BeltTier;
     public float CellsPerSecond;
-}
-
-public struct FactoryProcessorLevelBlob
-{
-    public BuildingLevelId LevelId;
-    public ushort WorkRatePermille;
-}
-
-public struct FactoryStorageLevelBlob
-{
-    public BuildingLevelId LevelId;
     public int Capacity;
     public ushort SlotCount;
+    public sbyte RampRiseHeightUnits;
+    public FixedString64Bytes Key;
 }
 
 public struct FactoryRecipeRangeBlob
@@ -214,12 +176,8 @@ public struct FactoryDatabaseBlob
     public int Version;
     public BlobArray<FactoryItemBlob> ItemsById;
     public BlobArray<FactoryMachineTypeBlob> MachineTypesById;
-    public BlobArray<FactoryBuildingBlob> BuildingsById;
-    public BlobArray<FactoryBuildingLevelBlob> BuildingLevelsById;
-    public BlobArray<FactoryBeltLevelBlob> BeltLevelsById;
-    public BlobArray<FactoryProcessorLevelBlob> ProcessorLevelsById;
-    public BlobArray<FactoryStorageLevelBlob> StorageLevelsById;
-    public BlobArray<BuildingLevelId> BuildingLevelMenu;
+    public BlobArray<FactoryBuildingDefinitionBlob> BuildingDefinitionsById;
+    public BlobArray<BuildingDefinitionId> BuildingDefinitionMenu;
     public BlobArray<FactoryBuildingPortBlob> BuildingPorts;
     public BlobArray<Unity.Mathematics.int2> BuildingOccupiedCells;
     public BlobArray<FactoryRecipeBlob> Recipes;
@@ -236,18 +194,25 @@ public struct FactoryDatabase : IComponentData
 public struct ItemProcessor : IComponentData
 {
     public MachineTypeId MachineType;
-    public ushort WorkRatePermille;
 }
 
 public struct BuildingIdentity : IComponentData
 {
-    public BuildingTypeId BuildingType;
-    public BuildingLevelId BuildingLevel;
-    public byte Level;
+    public BuildingDefinitionId BuildingDefinition;
 }
 
 public static class FactoryDatabaseUtility
 {
+    // Resolve content keys at setup/UI boundaries; simulation continues using numeric IDs.
+    public static BuildingDefinitionId GetBuildingDefinitionId(
+        ref FactoryDatabaseBlob database, FixedString64Bytes key)
+    {
+        for (int i = 1; i < database.BuildingDefinitionsById.Length; i++)
+            if (database.BuildingDefinitionsById[i].Id.IsValid && database.BuildingDefinitionsById[i].Key == key)
+                return database.BuildingDefinitionsById[i].Id;
+        throw new ArgumentException($"Unknown building key '{key}'.");
+    }
+
     public static bool IsValidItem(
         ref FactoryDatabaseBlob database,
         ItemId itemId)
@@ -269,83 +234,33 @@ public static class FactoryDatabaseUtility
     }
 
 
-    public static bool TryGetBuildingLevel(
+    public static bool TryGetBuildingDefinition(
         ref FactoryDatabaseBlob database,
-        BuildingLevelId levelId,
-        out FactoryBuildingLevelBlob level,
-        out FactoryBuildingBlob building)
+        BuildingDefinitionId id,
+        out FactoryBuildingDefinitionBlob building)
     {
-        int levelIndex = levelId.Value;
-        if (!levelId.IsValid || levelIndex >= database.BuildingLevelsById.Length)
-        {
-            level = default;
-            building = default;
-            return false;
-        }
-
-        level = database.BuildingLevelsById[levelIndex];
-        int buildingIndex = level.BuildingId.Value;
-        if (level.Id != levelId || buildingIndex <= 0 ||
-            buildingIndex >= database.BuildingsById.Length)
+        if (!id.IsValid || id.Value >= database.BuildingDefinitionsById.Length)
         {
             building = default;
             return false;
         }
-
-        building = database.BuildingsById[buildingIndex];
-        return building.Id == level.BuildingId;
+        building = database.BuildingDefinitionsById[id.Value];
+        return building.Id == id;
     }
 
-    public static bool TryGetBeltLevel(
-        ref FactoryDatabaseBlob database,
-        BuildingLevelId levelId,
-        out FactoryBeltLevelBlob beltLevel)
+    public static bool TryGetBeltStats(ref FactoryDatabaseBlob database,
+        BuildingDefinitionId id, out FactoryBuildingDefinitionBlob building)
     {
-        int index = levelId.Value;
-        if (!levelId.IsValid || index >= database.BeltLevelsById.Length)
-        {
-            beltLevel = default;
-            return false;
-        }
-
-        beltLevel = database.BeltLevelsById[index];
-        return beltLevel.LevelId == levelId &&
-               !float.IsNaN(beltLevel.CellsPerSecond) &&
-               !float.IsInfinity(beltLevel.CellsPerSecond) &&
-               beltLevel.CellsPerSecond > 0f;
+        return TryGetBuildingDefinition(ref database, id, out building) &&
+            (building.Kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(building.Kind)) &&
+            building.BeltTier > 0 && building.CellsPerSecond > 0f &&
+            !float.IsNaN(building.CellsPerSecond) && !float.IsInfinity(building.CellsPerSecond);
     }
 
-    public static bool TryGetProcessorLevel(
-        ref FactoryDatabaseBlob database,
-        BuildingLevelId levelId,
-        out FactoryProcessorLevelBlob processorLevel)
+    public static bool TryGetStorageStats(ref FactoryDatabaseBlob database,
+        BuildingDefinitionId id, out FactoryBuildingDefinitionBlob building)
     {
-        int index = levelId.Value;
-        if (!levelId.IsValid || index >= database.ProcessorLevelsById.Length)
-        {
-            processorLevel = default;
-            return false;
-        }
-
-        processorLevel = database.ProcessorLevelsById[index];
-        return processorLevel.LevelId == levelId &&
-               processorLevel.WorkRatePermille > 0;
-    }
-
-
-    public static bool TryGetStorageLevel(
-        ref FactoryDatabaseBlob database,
-        BuildingLevelId levelId,
-        out FactoryStorageLevelBlob storageLevel)
-    {
-        int index = levelId.Value;
-        if (!levelId.IsValid || index >= database.StorageLevelsById.Length)
-        {
-            storageLevel = default;
-            return false;
-        }
-
-        storageLevel = database.StorageLevelsById[index];
-        return storageLevel.LevelId == levelId && storageLevel.Capacity > 0;
+        return TryGetBuildingDefinition(ref database, id, out building) &&
+            building.Kind == BuildingKind.Storage && building.Capacity > 0 && building.SlotCount > 0;
     }
 }

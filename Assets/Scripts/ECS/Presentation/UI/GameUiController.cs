@@ -30,8 +30,8 @@ public sealed class GameUiController : MonoBehaviour
     private ulong pendingRecipeRequest;
     private BuildingRuntimeId openBuildingId;
     private bool buildCatalogRendered;
-    private readonly BuildingLevelId[] buildShortcuts =
-        new BuildingLevelId[BuildShortcutBarView.SlotCount];
+    private readonly BuildingDefinitionId[] buildShortcuts =
+        new BuildingDefinitionId[BuildShortcutBarView.SlotCount];
 
     public UiDataHub DataHub { get; private set; }
     public UiWindowManager Windows { get; private set; }
@@ -40,8 +40,8 @@ public sealed class GameUiController : MonoBehaviour
     public BuildCatalogSnapshot LatestBuildCatalog { get; private set; }
     public FactoryPresentationCatalog PresentationCatalog => presentationCatalog;
     public PlayerCommandBus CommandBus => commandBus;
-    public BuildingLevelId SelectedCatalogBuildingLevel =>
-        buildCatalogView?.SelectedBuildingLevel ?? default;
+    public BuildingDefinitionId SelectedCatalogBuildingDefinition =>
+        buildCatalogView?.SelectedBuildingDefinition ?? default;
 
     private void OnEnable()
     {
@@ -196,13 +196,13 @@ public sealed class GameUiController : MonoBehaviour
 
     public void ToggleBuildCatalog() => HandleBuildCatalogToggle();
 
-    public void SelectCatalogBuildingLevel(BuildingLevelId id) =>
+    public void SelectCatalogBuildingDefinition(BuildingDefinitionId id) =>
         buildCatalogView?.SetSelected(id);
 
     public void ConfirmCatalogBuildingSelection() =>
         buildCatalogView?.ConfirmSelection();
 
-    public BuildingLevelId GetBuildShortcut(int slotIndex) =>
+    public BuildingDefinitionId GetBuildShortcut(int slotIndex) =>
         slotIndex >= 0 && slotIndex < buildShortcuts.Length
             ? buildShortcuts[slotIndex]
             : default;
@@ -222,22 +222,22 @@ public sealed class GameUiController : MonoBehaviour
                 Windows != null && Windows.IsOpen(UiWindowId.BuildCatalog);
             if (catalogOpen)
             {
-                BuildingLevelId selected =
-                    buildCatalogView.SelectedBuildingLevel;
+                BuildingDefinitionId selected =
+                    buildCatalogView.SelectedBuildingDefinition;
                 if (selected.IsValid)
                     buildShortcuts[slotIndex] = selected;
             }
             else
             {
-                BuildingLevelId assignedShortcut = buildShortcuts[slotIndex];
+                BuildingDefinitionId assignedShortcut = buildShortcuts[slotIndex];
                 if (assignedShortcut.IsValid)
                 {
-                    gridInteraction.TrySelectBuildingLevel(assignedShortcut);
+                    gridInteraction.TrySelectBuildingDefinition(assignedShortcut);
                 }
                 else
                 {
-                    BuildingLevelId selected =
-                        gridInteraction.SelectedBuildingLevel;
+                    BuildingDefinitionId selected =
+                        gridInteraction.SelectedBuildingDefinition;
                     if (selected.IsValid)
                         buildShortcuts[slotIndex] = selected;
                 }
@@ -246,9 +246,9 @@ public sealed class GameUiController : MonoBehaviour
             return;
         }
 
-        BuildingLevelId shortcut = buildShortcuts[slotIndex];
+        BuildingDefinitionId shortcut = buildShortcuts[slotIndex];
         if (!shortcut.IsValid ||
-            !gridInteraction.TrySelectBuildingLevel(shortcut))
+            !gridInteraction.TrySelectBuildingDefinition(shortcut))
         {
             return;
         }
@@ -415,7 +415,7 @@ public sealed class GameUiController : MonoBehaviour
             return;
         buildCatalogView.Render(snapshot);
         if (gridInteraction != null)
-            buildCatalogView.SetSelected(gridInteraction.SelectedBuildingLevel);
+            buildCatalogView.SetSelected(gridInteraction.SelectedBuildingDefinition);
         buildCatalogRendered = true;
     }
 
@@ -430,9 +430,9 @@ public sealed class GameUiController : MonoBehaviour
             () => DataHub.Buildings.Subscribe(buildingId, OnBuildingChanged));
     }
 
-    private void OnBuildingSelected(BuildingLevelId id)
+    private void OnBuildingSelected(BuildingDefinitionId id)
     {
-        if (gridInteraction == null || !gridInteraction.TrySelectBuildingLevel(id))
+        if (gridInteraction == null || !gridInteraction.TrySelectBuildingDefinition(id))
             return;
         buildCatalogView.SetSelected(id);
         CloseBuildCatalog();
@@ -455,7 +455,7 @@ public sealed class GameUiController : MonoBehaviour
         buildShortcutBarView?.Render(
             buildShortcuts,
             gridInteraction != null
-                ? gridInteraction.SelectedBuildingLevel
+                ? gridInteraction.SelectedBuildingDefinition
                 : default,
             inputMode != null && inputMode.IsBuildMode);
     }

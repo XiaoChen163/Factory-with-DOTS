@@ -3,22 +3,24 @@
 建筑源数据为 `Assets/Data/FactoryTables/buildings/buildings.csv`。修改后使用
 `Factory > Rebuild Static Database` 重新生成数据库，不要直接修改生成的 asset。
 
+完整表结构见 [建筑数据表](Building-Data-Tables.md)。
+
 ## 占格字段
 
 | 字段 | 含义 |
 |---|---|
-| `footprint_width` | 未旋转时局部 X 方向的包围矩形格数，正整数 |
-| `footprint_height` | 未旋转时局部 Z 方向的包围矩形格数，正整数；不是物理高度 |
+| `width` | 未旋转时局部 X 方向的包围矩形格数，正整数 |
+| `length` | 未旋转时局部 Z 方向的包围矩形格数，正整数；不是物理高度 |
 | `is_rectangle` | `true` 表示整个矩形占格；`false` 使用位图 |
-| `footprint_bitmap` | 逐行的 0/1 字符串，用 `/` 分行；矩形时必须留空 |
+| `bitmap` | 逐行的 0/1 字符串，用 `/` 分行；矩形时必须留空 |
 
 例如，4×3 的异形占格配置为：
 
 ```text
-footprint_width=4
-footprint_height=3
+width=4
+length=3
 is_rectangle=false
-footprint_bitmap=1111/1111/1100
+bitmap=1111/1111/1100
 ```
 
 第一行对应局部 Z=0，第一列对应局部 X=0。`1` 占格，`0` 不占格。
@@ -38,9 +40,9 @@ footprint_bitmap=1111/1111/1100
 
 端口仍定义在 `building_ports.csv`：
 
-- `cell_x/cell_y` 是未旋转时的局部连接格坐标，第二坐标对应世界 Z。
+- `cell_x/cell_z` 是未旋转时的局部连接格坐标，第二坐标对应世界 Z。
 - 连接格位于建筑占格以外，可以在包围矩形外，也可以在内部的凹口或孔洞中。
-- `direction_x/direction_y` 表示物品运动方向，只能是 `(1,0)、(-1,0)、(0,1)、(0,-1)`。
+- `direction_x/direction_z` 表示物品运动方向，只能是 `(1,0)、(-1,0)、(0,1)、(0,-1)`。
 - 输入口的连接格加上方向，必须落在建筑占格上。
 - 输出口的连接格减去方向，必须落在建筑占格上。
 - `(type,index)` 必须唯一；相同类型、连接格、方向的重复端口也会被拒绝。

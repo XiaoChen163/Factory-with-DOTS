@@ -45,7 +45,7 @@ GridAddress
 
 几个具体建议：
 
-- 非长方形建筑占格已实施（2026-10-30）：源表使用长宽、`is_rectangle` 和 `footprint_bitmap`，烘焙为共享占用偏移列表，放置、预览、占用及拆除统一使用真实占格；端口保留显式位置和物流方向，并校验真实形状边界。碰撞尚未实施。定义方式见 [建筑占格与端口定义](../Guide/Building-Footprints.md)。
+- 非长方形建筑占格已实施（2026-10-30）：源表使用长宽、`is_rectangle` 和 `bitmap`，烘焙为共享占用偏移列表，放置、预览、占用及拆除统一使用真实占格；端口保留显式位置和物流方向，并校验真实形状边界。碰撞尚未实施。定义方式见 [建筑占格与端口定义](../Guide/Building-Footprints.md)。
 - 多端口应增加 `PortBinding`：指定端口对应哪个配方输入/输出槽、允许的物品或过滤规则，避免所有输入口都接受所有原料。
 - 第 1、3 项最好做成同一个编辑器工具，包含“物品、配方、建筑、占格、端口、矿点、翻译”多个页面，共用稳定 ID、引用校验和 Undo/Redo。
 - 编辑器应修改唯一的源数据并调用现有导入器，不能直接编辑生成的 `FactoryDatabase.asset`，否则会形成双数据源。
@@ -54,3 +54,5 @@ GridAddress
 - 第一人称功能应迁出 `Prototype`，建立 `FirstPerson / BuildOverview` 两种正式输入与相机状态，而不是继续扩展现有 [TopDownPlayerController.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/Prototype/Input/TopDownPlayerController.cs:3)。
 
 简化成里程碑就是：**先重建空间坐标体系，再稳定建筑与物流数据模型，然后补矿点和碰撞，最后建设内容工具、表现与玩家控制。**
+
+建筑数据简化（2026-10-30）：取消通用建筑等级和加工速度倍率，只有传送带保留专属 Tier。建筑主表只定义通用字段，扩展表按同一个建筑 Key 关联；加工种类由 `processor_stats.csv` 绑定，加工耗时完全由配方决定。见 [建筑数据表](../Guide/Building-Data-Tables.md)。

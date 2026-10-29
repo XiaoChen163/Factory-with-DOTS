@@ -136,9 +136,9 @@ namespace Factory.Tests
         {
             VisualElement root = CreateBuildCatalogRoot();
             BuildCatalogView view = new(root, null);
-            BuildingLevelId first = new BuildingLevelId { Value = 1 };
-            BuildingLevelId second = new BuildingLevelId { Value = 2 };
-            BuildingLevelId confirmed = default;
+            BuildingDefinitionId first = new BuildingDefinitionId { Value = 1 };
+            BuildingDefinitionId second = new BuildingDefinitionId { Value = 2 };
+            BuildingDefinitionId confirmed = default;
             int confirmationCount = 0;
             view.BuildingSelected += value =>
             {
@@ -148,11 +148,11 @@ namespace Factory.Tests
             view.Render(new BuildCatalogSnapshot(new[] { first, second }));
 
             view.SelectBuilding(first);
-            Assert.That(view.SelectedBuildingLevel, Is.EqualTo(first));
+            Assert.That(view.SelectedBuildingDefinition, Is.EqualTo(first));
             Assert.That(confirmationCount, Is.Zero);
 
             view.SelectBuilding(second);
-            Assert.That(view.SelectedBuildingLevel, Is.EqualTo(second));
+            Assert.That(view.SelectedBuildingDefinition, Is.EqualTo(second));
             Assert.That(confirmationCount, Is.Zero);
 
             view.SelectBuilding(second);
@@ -165,8 +165,8 @@ namespace Factory.Tests
         {
             VisualElement root = CreateBuildShortcutRoot();
             BuildShortcutBarView view = new(root, null);
-            BuildingLevelId assigned = new BuildingLevelId { Value = 3 };
-            BuildingLevelId[] assignments = new BuildingLevelId[9];
+            BuildingDefinitionId assigned = new BuildingDefinitionId { Value = 3 };
+            BuildingDefinitionId[] assignments = new BuildingDefinitionId[9];
             assignments[4] = assigned;
 
             view.Render(assignments, assigned, true);
@@ -189,8 +189,8 @@ namespace Factory.Tests
             new()
             {
                 RuntimeId = new BuildingRuntimeId(1),
-                BuildingLevelId = new BuildingLevelId { Value = 1 },
-                Kind = BuildingKind.Furnace,
+                BuildingDefinitionId = new BuildingDefinitionId { Value = 1 },
+                Kind = BuildingKind.Processor,
                 IsAvailable = true,
                 Processor = new ProcessorSnapshot
                 {

@@ -208,7 +208,7 @@ namespace Factory.Tests
                 EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog).Add(
                     new BuildingVisualPrefabEntry
                     {
-                        BuildingLevel = new BuildingLevelId { Value = 1 },
+                        BuildingDefinition = new BuildingDefinitionId { Value = 1 },
                         Prefab = prefab
                     });
 
@@ -357,7 +357,7 @@ namespace Factory.Tests
                     RequestId = (uint)(cell.Level + 1),
                     Type = GridBuildCommandType.Place,
                     Kind = BuildingKind.Splitter,
-                    BuildingLevel = new BuildingLevelId { Value = 1 },
+                    BuildingDefinition = new BuildingDefinitionId { Value = 1 },
                     StartCell = cell,
                     EndCell = cell
                 });
@@ -372,33 +372,25 @@ namespace Factory.Tests
             using BlobBuilder builder = new BlobBuilder(Allocator.Temp);
             ref FactoryDatabaseBlob root = ref
                 builder.ConstructRoot<FactoryDatabaseBlob>();
-            BlobBuilderArray<FactoryBuildingBlob> buildings =
-                builder.Allocate(ref root.BuildingsById, 2);
-            buildings[1] = new FactoryBuildingBlob
+            BlobBuilderArray<FactoryBuildingDefinitionBlob> buildings =
+                builder.Allocate(ref root.BuildingDefinitionsById, 2);
+            buildings[1] = new FactoryBuildingDefinitionBlob
             {
-                Id = new BuildingTypeId { Value = 1 },
+                Id = new BuildingDefinitionId { Value = 1 },
                 Kind = BuildingKind.Splitter,
                 FootprintWidth = 1,
                 FootprintHeight = 1,
                 OccupiedCellCount = 1
             };
             builder.Allocate(ref root.BuildingOccupiedCells, 1)[0] = int2.zero;
-            BlobBuilderArray<FactoryBuildingLevelBlob> levels =
-                builder.Allocate(ref root.BuildingLevelsById, 2);
-            levels[1] = new FactoryBuildingLevelBlob
-            {
-                Id = new BuildingLevelId { Value = 1 },
-                BuildingId = new BuildingTypeId { Value = 1 },
-                Level = 1
-            };
-            BlobBuilderArray<BuildingLevelId> menu =
-                builder.Allocate(ref root.BuildingLevelMenu, 1);
-            menu[0] = new BuildingLevelId { Value = 1 };
+            BlobBuilderArray<BuildingDefinitionId> menu =
+                builder.Allocate(ref root.BuildingDefinitionMenu, 1);
+            menu[0] = new BuildingDefinitionId { Value = 1 };
             builder.Allocate(ref root.ItemsById, 0);
             builder.Allocate(ref root.MachineTypesById, 0);
-            builder.Allocate(ref root.BeltLevelsById, 0);
-            builder.Allocate(ref root.ProcessorLevelsById, 0);
-            builder.Allocate(ref root.StorageLevelsById, 0);
+
+
+
             builder.Allocate(ref root.BuildingPorts, 0);
             builder.Allocate(ref root.Recipes, 0);
             builder.Allocate(ref root.Inputs, 0);

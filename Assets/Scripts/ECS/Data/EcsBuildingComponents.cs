@@ -11,7 +11,7 @@ public struct BuildingPrefabCatalog : IComponentData
 
 public struct BuildingVisualPrefabEntry : IBufferElementData
 {
-    public BuildingLevelId BuildingLevel;
+    public BuildingDefinitionId BuildingDefinition;
     public Entity Prefab;
 }
 
@@ -49,7 +49,7 @@ public struct GridBuildCommand : IBufferElementData
     public PlayerId Player;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
-    public BuildingLevelId BuildingLevel;
+    public BuildingDefinitionId BuildingDefinition;
     public GridCell StartCell;
     public GridCell EndCell;
     public byte QuarterTurns;
@@ -79,7 +79,7 @@ public enum GridBuildFailureReason : byte
     FoundationAlreadyExists,
     FoundationUnsupported,
     FoundationSupportsBuilding,
-    InvalidFoundationLevel,
+    InvalidFoundationDefinition,
     FoundationAreaTooLarge,
     InvalidRampSlope,
     RampOccupied,
@@ -101,7 +101,7 @@ public struct GridBuildResult : IBufferElementData
     public uint RequestId;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
-    public BuildingLevelId BuildingLevel;
+    public BuildingDefinitionId BuildingDefinition;
     public GridCell Cell;
     public byte Success;
     public int AffectedCount;
@@ -162,12 +162,12 @@ public static class BuildingPrefabCatalogUtility
 {
     public static Entity GetPrefab(
         in DynamicBuffer<BuildingVisualPrefabEntry> prefabs,
-        BuildingLevelId buildingLevel)
+        BuildingDefinitionId buildingDefinition)
     {
         for (int i = 0; i < prefabs.Length; i++)
         {
             BuildingVisualPrefabEntry entry = prefabs[i];
-            if (entry.BuildingLevel == buildingLevel)
+            if (entry.BuildingDefinition == buildingDefinition)
                 return entry.Prefab;
         }
         return Entity.Null;
@@ -175,10 +175,10 @@ public static class BuildingPrefabCatalogUtility
 
     public static Entity GetPrefab(
         in NativeArray<BuildingVisualPrefabEntry> prefabs,
-        BuildingLevelId buildingLevel)
+        BuildingDefinitionId buildingDefinition)
     {
         for (int i = 0; i < prefabs.Length; i++)
-            if (prefabs[i].BuildingLevel == buildingLevel)
+            if (prefabs[i].BuildingDefinition == buildingDefinition)
                 return prefabs[i].Prefab;
         return Entity.Null;
     }

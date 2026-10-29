@@ -120,7 +120,7 @@ public struct GridBuildPlayerCommand : IBufferElementData
     public ulong PlacementRequestId;
     public GridBuildCommandType Type;
     public BuildingKind Kind;
-    public BuildingLevelId BuildingLevel;
+    public BuildingDefinitionId BuildingDefinition;
     public GridCell StartCell;
     public GridCell EndCell;
     public byte QuarterTurns;

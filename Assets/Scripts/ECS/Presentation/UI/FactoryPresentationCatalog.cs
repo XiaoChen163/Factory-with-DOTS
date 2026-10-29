@@ -21,13 +21,13 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
         }
 
         itemIcons = BuildItemIndex(database.items);
-        buildingIcons = BuildBuildingIndex(database.buildingLevels);
+        buildingIcons = BuildBuildingIndex(database.buildings);
     }
 
     public Sprite GetItemIcon(ItemId id) =>
         id.Value < itemIcons.Length ? itemIcons[id.Value] : null;
 
-    public Sprite GetBuildingIcon(BuildingLevelId id) =>
+    public Sprite GetBuildingIcon(BuildingDefinitionId id) =>
         id.Value < buildingIcons.Length ? buildingIcons[id.Value] : null;
 
     public string GetItemName(ItemId id)
@@ -39,13 +39,13 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
         return id.IsValid ? $"物品 {id.Value}" : "空";
     }
 
-    public string GetBuildingName(BuildingLevelId id)
+    public string GetBuildingName(BuildingDefinitionId id)
     {
         if (database != null)
-            for (int i = 0; i < database.buildingLevels.Length; i++)
-                if (database.buildingLevels[i].id == id.Value)
-                    return DisplayName(database.buildingLevels[i].nameKey,
-                        database.buildingLevels[i].key);
+            for (int i = 0; i < database.buildings.Length; i++)
+                if (database.buildings[i].id == id.Value)
+                    return string.IsNullOrWhiteSpace(database.buildings[i].displayName)
+                        ? database.buildings[i].key : database.buildings[i].displayName;
         return $"建筑 {id.Value}";
     }
 
@@ -62,26 +62,6 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
 
     private static string DisplayName(string nameKey, string fallback)
     {
-        if (string.Equals(nameKey, "building.foundation.mk1", StringComparison.Ordinal))
-            return "地基";
-        if (string.Equals(nameKey, "building.ramp_foundation_1_1", StringComparison.Ordinal))
-            return "斜面地基 1/1";
-        if (string.Equals(nameKey, "building.ramp_foundation_1_2", StringComparison.Ordinal))
-            return "斜面地基 1/2";
-        if (string.Equals(nameKey, "building.ramp_foundation_1_4", StringComparison.Ordinal))
-            return "斜面地基 1/4";
-        if (nameKey != null && nameKey.StartsWith("building.vertical_belt_", StringComparison.Ordinal))
-        {
-            if (nameKey.Contains("entry"))
-            {
-                int tierMarker = nameKey.LastIndexOf(".mk", StringComparison.Ordinal);
-                return tierMarker >= 0 ? nameKey.Substring(tierMarker + 3) + "级垂直传送带" : "垂直传送带";
-            }
-            string label = nameKey.Contains("entry") ? "垂直带入口" :
-                nameKey.Contains("exit") ? "垂直带出口" : "垂直传送节点";
-            int marker = nameKey.LastIndexOf(".mk", StringComparison.Ordinal);
-            return marker >= 0 ? label + " Mk" + nameKey.Substring(marker + 3) : label;
-        }
         string value = string.IsNullOrWhiteSpace(nameKey) ? fallback : nameKey;
         return string.IsNullOrWhiteSpace(value) ? "未命名" : value.Replace('_', ' ');
     }
@@ -97,7 +77,7 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
         return result;
     }
 
-    private static Sprite[] BuildBuildingIndex(FactoryBuildingLevelTableRow[] rows)
+    private static Sprite[] BuildBuildingIndex(FactoryBuildingDefinitionRow[] rows)
     {
         int max = 0;
         for (int i = 0; i < rows.Length; i++)

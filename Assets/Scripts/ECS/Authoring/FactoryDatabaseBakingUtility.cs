@@ -26,7 +26,6 @@ public static class FactoryDatabaseBakingUtility
         int maxItemId = MaxId(source.items, row => row.id);
         int maxMachineId = MaxId(source.machineTypes, row => row.id);
         int maxBuildingId = MaxId(source.buildings, row => row.id);
-        int maxLevelId = MaxId(source.buildingLevels, row => row.id);
         int inputCount = 0;
         int outputCount = 0;
         int portCount = 0;
@@ -36,7 +35,7 @@ public static class FactoryDatabaseBakingUtility
             inputCount += recipe.inputs?.Length ?? 0;
             outputCount += recipe.outputs?.Length ?? 0;
         }
-        foreach (FactoryBuildingTableRow building in source.buildings)
+        foreach (FactoryBuildingDefinitionRow building in source.buildings)
         {
             portCount += building.ports?.Length ?? 0;
             occupiedCellCount += FactoryBuildingFootprintUtility.GetOccupiedOffsets(building).Length;
@@ -73,20 +72,20 @@ public static class FactoryDatabaseBakingUtility
 
         BlobBuilderArray<FactoryBuildingPortBlob> ports =
             builder.Allocate(ref root.BuildingPorts, portCount);
-        BlobBuilderArray<FactoryBuildingBlob> buildings =
-            builder.Allocate(ref root.BuildingsById, maxBuildingId + 1);
+        BlobBuilderArray<FactoryBuildingDefinitionBlob> buildings =
+            builder.Allocate(ref root.BuildingDefinitionsById, maxBuildingId + 1);
         int portCursor = 0;
         BlobBuilderArray<int2> occupiedCells =
             builder.Allocate(ref root.BuildingOccupiedCells, occupiedCellCount);
         int occupiedCursor = 0;
-        foreach (FactoryBuildingTableRow row in source.buildings)
+        foreach (FactoryBuildingDefinitionRow row in source.buildings)
         {
             int2[] offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(row);
             FactoryBuildingPortTableRow[] rowPorts =
                 row.ports ?? Array.Empty<FactoryBuildingPortTableRow>();
-            buildings[row.id] = new FactoryBuildingBlob
+            buildings[row.id] = new FactoryBuildingDefinitionBlob
             {
-                Id = new BuildingTypeId { Value = row.id },
+                Id = new BuildingDefinitionId { Value = row.id },
                 Kind = row.kind,
                 MachineType = new MachineTypeId { Value = row.machineTypeId },
                 PortStart = portCursor,
@@ -96,7 +95,12 @@ public static class FactoryDatabaseBakingUtility
                 OccupiedCellStart = occupiedCursor,
                 OccupiedCellCount = offsets.Length,
                 Key = new FixedString64Bytes(row.key),
-                NameKey = new FixedString64Bytes(row.nameKey)
+                MenuOrder = row.menuOrder,
+                BeltTier = row.beltTier,
+                CellsPerSecond = row.cellsPerSecond,
+                Capacity = row.storageCapacity,
+                SlotCount = row.storageSlotCount,
+                RampRiseHeightUnits = row.rampRiseHeightUnits
             };
             foreach (int2 offset in offsets)
                 occupiedCells[occupiedCursor++] = offset;
@@ -112,73 +116,12 @@ public static class FactoryDatabaseBakingUtility
             }
         }
 
-        BlobBuilderArray<FactoryBuildingLevelBlob> levels =
-            builder.Allocate(ref root.BuildingLevelsById, maxLevelId + 1);
-        BlobBuilderArray<BuildingLevelId> menu =
-            builder.Allocate(ref root.BuildingLevelMenu, source.buildingLevels.Length);
-        for (int i = 0; i < source.buildingLevels.Length; i++)
-        {
-            FactoryBuildingLevelTableRow row = source.buildingLevels[i];
-            BuildingLevelId id = new BuildingLevelId { Value = row.id };
-            levels[row.id] = new FactoryBuildingLevelBlob
-            {
-                Id = id,
-                BuildingId = new BuildingTypeId { Value = row.buildingId },
-                Level = row.level,
-                MenuOrder = row.menuOrder,
-                Key = new FixedString64Bytes(row.key),
-                NameKey = new FixedString64Bytes(row.nameKey),
-                VisualPrefabKey = new FixedString64Bytes(row.visualPrefabKey),
-                RampRiseHeightUnits = row.rampRiseHeightUnits
-            };
-            menu[i] = id;
-        }
-
-        BlobBuilderArray<FactoryBeltLevelBlob> beltLevels =
-            builder.Allocate(ref root.BeltLevelsById, maxLevelId + 1);
-        foreach (FactoryBeltLevelTableRow row in source.beltLevels)
-        {
-            BuildingLevelId levelId = new BuildingLevelId
-            {
-                Value = row.buildingLevelId
-            };
-            beltLevels[row.buildingLevelId] = new FactoryBeltLevelBlob
-            {
-                LevelId = levelId,
-                CellsPerSecond = row.cellsPerSecond
-            };
-        }
-
-        BlobBuilderArray<FactoryProcessorLevelBlob> processorLevels =
-            builder.Allocate(ref root.ProcessorLevelsById, maxLevelId + 1);
-        foreach (FactoryProcessorLevelTableRow row in source.processorLevels)
-        {
-            BuildingLevelId levelId = new BuildingLevelId
-            {
-                Value = row.buildingLevelId
-            };
-            processorLevels[row.buildingLevelId] = new FactoryProcessorLevelBlob
-            {
-                LevelId = levelId,
-                WorkRatePermille = row.workRatePermille
-            };
-        }
-
-        BlobBuilderArray<FactoryStorageLevelBlob> storageLevels =
-            builder.Allocate(ref root.StorageLevelsById, maxLevelId + 1);
-        foreach (FactoryStorageLevelTableRow row in source.storageLevels)
-        {
-            BuildingLevelId levelId = new BuildingLevelId
-            {
-                Value = row.buildingLevelId
-            };
-            storageLevels[row.buildingLevelId] = new FactoryStorageLevelBlob
-            {
-                LevelId = levelId,
-                Capacity = row.capacity,
-                SlotCount = row.slotCount
-            };
-        }
+        BlobBuilderArray<BuildingDefinitionId> menu =
+            builder.Allocate(ref root.BuildingDefinitionMenu, source.buildings.Length);
+        List<FactoryBuildingDefinitionRow> ordered = new List<FactoryBuildingDefinitionRow>(source.buildings);
+        ordered.Sort((a, b) => a.menuOrder != b.menuOrder ? a.menuOrder.CompareTo(b.menuOrder) : a.id.CompareTo(b.id));
+        for (int i = 0; i < ordered.Count; i++)
+            menu[i] = new BuildingDefinitionId { Value = ordered[i].id };
 
         BlobBuilderArray<FactoryRecipeBlob> recipeArray =
             builder.Allocate(ref root.Recipes, recipes.Count);
@@ -242,131 +185,15 @@ public static class FactoryDatabaseBakingUtility
 
     private static bool Validate(FactoryDatabaseAsset source, UnityEngine.Object context)
     {
-        if (source == null || source.items == null || source.items.Length == 0 ||
-            source.machineTypes == null || source.machineTypes.Length == 0 ||
-            source.buildings == null || source.buildings.Length == 0 ||
-            source.buildingLevels == null || source.buildingLevels.Length == 0 ||
-            source.beltLevels == null ||
-            source.processorLevels == null ||
-            source.storageLevels == null ||
-            source.recipes == null || source.recipes.Length == 0)
+        try
         {
-            Debug.LogError("Factory database is missing required generated rows.", context);
+            FactoryDatabaseValidation.Validate(source);
+            return true;
+        }
+        catch (System.IO.InvalidDataException exception)
+        {
+            Debug.LogError(exception.Message, context);
             return false;
         }
-
-        bool valid = true;
-        HashSet<ushort> itemIds = new HashSet<ushort>();
-        foreach (FactoryItemTableRow item in source.items)
-            valid &= item.id != 0 && itemIds.Add(item.id);
-        HashSet<ushort> buildingIds = new HashSet<ushort>();
-        Dictionary<ushort, FactoryBuildingTableRow> buildingsById =
-            new Dictionary<ushort, FactoryBuildingTableRow>();
-        foreach (FactoryBuildingTableRow building in source.buildings)
-        {
-            try
-            {
-                int2[] offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(building);
-                FactoryBuildingFootprintUtility.ValidatePorts(building, offsets);
-            }
-            catch (System.IO.InvalidDataException exception)
-            {
-                Debug.LogError(exception.Message, context);
-                valid = false;
-            }
-            bool buildingValid = building.id != 0 && buildingIds.Add(building.id) &&
-                                 building.footprintWidth > 0 && building.footprintHeight > 0;
-            valid &= buildingValid;
-            if (buildingValid)
-                buildingsById.Add(building.id, building);
-        }
-        HashSet<ushort> levelIds = new HashSet<ushort>();
-        Dictionary<ushort, FactoryBuildingLevelTableRow> levelsById =
-            new Dictionary<ushort, FactoryBuildingLevelTableRow>();
-        foreach (FactoryBuildingLevelTableRow level in source.buildingLevels)
-        {
-            bool levelValid = level.id != 0 && levelIds.Add(level.id) &&
-                              buildingsById.ContainsKey(level.buildingId) &&
-                              level.visualPrefab != null;
-            valid &= levelValid;
-            if (levelValid)
-                levelsById.Add(level.id, level);
-        }
-        HashSet<ushort> beltLevelIds = new HashSet<ushort>();
-        foreach (FactoryBeltLevelTableRow beltLevel in source.beltLevels)
-        {
-            bool referenceValid = levelsById.TryGetValue(
-                beltLevel.buildingLevelId,
-                out FactoryBuildingLevelTableRow level);
-            valid &= referenceValid && beltLevelIds.Add(beltLevel.buildingLevelId) &&
-                     !float.IsNaN(beltLevel.cellsPerSecond) &&
-                     !float.IsInfinity(beltLevel.cellsPerSecond) &&
-                     beltLevel.cellsPerSecond > 0f &&
-                     buildingsById[level.buildingId].behavior == FactoryBuildingBehavior.Belt;
-        }
-        HashSet<ushort> processorLevelIds = new HashSet<ushort>();
-        foreach (FactoryProcessorLevelTableRow processorLevel in source.processorLevels)
-        {
-            bool referenceValid = levelsById.TryGetValue(
-                processorLevel.buildingLevelId,
-                out FactoryBuildingLevelTableRow level);
-            valid &= referenceValid && processorLevelIds.Add(processorLevel.buildingLevelId) &&
-                     processorLevel.workRatePermille > 0 &&
-                     buildingsById[level.buildingId].behavior == FactoryBuildingBehavior.Processor;
-        }
-        HashSet<ushort> storageLevelIds = new HashSet<ushort>();
-        foreach (FactoryStorageLevelTableRow storageLevel in source.storageLevels)
-        {
-            bool referenceValid = levelsById.TryGetValue(
-                storageLevel.buildingLevelId,
-                out FactoryBuildingLevelTableRow level);
-            valid &= referenceValid && storageLevelIds.Add(storageLevel.buildingLevelId) &&
-                     storageLevel.capacity > 0 &&
-                     storageLevel.slotCount > 0 &&
-                     buildingsById[level.buildingId].behavior == FactoryBuildingBehavior.Storage;
-        }
-        foreach (FactoryBuildingLevelTableRow level in source.buildingLevels)
-        {
-            if (!buildingsById.TryGetValue(
-                    level.buildingId,
-                    out FactoryBuildingTableRow building))
-            {
-                valid = false;
-                continue;
-            }
-            FactoryBuildingBehavior behavior = building.behavior;
-            valid &= behavior == FactoryBuildingBehavior.Belt
-                ? beltLevelIds.Contains(level.id) &&
-                  !processorLevelIds.Contains(level.id) &&
-                  !storageLevelIds.Contains(level.id)
-                : behavior == FactoryBuildingBehavior.Processor
-                    ? processorLevelIds.Contains(level.id) &&
-                      !beltLevelIds.Contains(level.id) &&
-                      !storageLevelIds.Contains(level.id)
-                    : behavior == FactoryBuildingBehavior.Storage
-                        ? storageLevelIds.Contains(level.id) &&
-                          !beltLevelIds.Contains(level.id) &&
-                          !processorLevelIds.Contains(level.id)
-                        : !beltLevelIds.Contains(level.id) &&
-                          !processorLevelIds.Contains(level.id) &&
-                          !storageLevelIds.Contains(level.id);
-        }
-        HashSet<ushort> recipeIds = new HashSet<ushort>();
-        foreach (FactoryRecipeTableRow recipe in source.recipes)
-        {
-            valid &= recipe.id != 0 && recipeIds.Add(recipe.id) &&
-                     recipe.machineTypeId != 0 && recipe.durationSeconds > 0f &&
-                     (recipe.outputs?.Length ?? 0) > 0;
-            foreach (FactoryRecipeIngredientTableRow ingredient in
-                     recipe.inputs ?? Array.Empty<FactoryRecipeIngredientTableRow>())
-                valid &= itemIds.Contains(ingredient.itemId) && ingredient.count > 0;
-            foreach (FactoryRecipeIngredientTableRow ingredient in
-                     recipe.outputs ?? Array.Empty<FactoryRecipeIngredientTableRow>())
-                valid &= itemIds.Contains(ingredient.itemId) && ingredient.count > 0;
-        }
-
-        if (!valid)
-            Debug.LogError("Factory database generated rows failed validation.", context);
-        return valid;
     }
 }

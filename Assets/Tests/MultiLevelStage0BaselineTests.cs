@@ -307,7 +307,7 @@ namespace Factory.Tests
                     new GridBuildCommand
                     {
                         Type = GridBuildCommandType.PlaceBeltPath,
-                        BuildingLevel = new BuildingLevelId { Value = 1 },
+                        BuildingDefinition = new BuildingDefinitionId { Value = 1 },
                         StartCell = new GridCell(int2.zero),
                         EndCell = new GridCell(3, 0, 0),
                         HorizontalFirst = 1
@@ -327,7 +327,7 @@ namespace Factory.Tests
                 EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog).Add(
                     new BuildingVisualPrefabEntry
                     {
-                        BuildingLevel = new BuildingLevelId { Value = 1 },
+                        BuildingDefinition = new BuildingDefinitionId { Value = 1 },
                         Prefab = visualPrefab
                     });
                 EntityManager.AddComponentData(
@@ -419,45 +419,20 @@ namespace Factory.Tests
             };
             asset.buildings = new[]
             {
-                new FactoryBuildingTableRow
+                new FactoryBuildingDefinitionRow
                 {
                     id = 1,
                     key = "belt",
-                    nameKey = "belt",
-                    behavior = FactoryBuildingBehavior.Belt,
                     kind = BuildingKind.Belt,
                     footprintWidth = 1,
                     footprintHeight = 1,
                     isRectangle = true,
+                    visualPrefab = visualObject,
+                    beltTier = 1,
+                    cellsPerSecond = 1f,
                     ports = System.Array.Empty<FactoryBuildingPortTableRow>()
                 }
             };
-            asset.buildingLevels = new[]
-            {
-                new FactoryBuildingLevelTableRow
-                {
-                    id = 1,
-                    key = "belt_mk1",
-                    buildingKey = "belt",
-                    buildingId = 1,
-                    level = 1,
-                    nameKey = "belt_mk1",
-                    visualPrefab = visualObject
-                }
-            };
-            asset.beltLevels = new[]
-            {
-                new FactoryBeltLevelTableRow
-                {
-                    buildingLevelKey = "belt_mk1",
-                    buildingLevelId = 1,
-                    cellsPerSecond = 1f
-                }
-            };
-            asset.processorLevels =
-                System.Array.Empty<FactoryProcessorLevelTableRow>();
-            asset.storageLevels =
-                System.Array.Empty<FactoryStorageLevelTableRow>();
             asset.recipes = new[]
             {
                 new FactoryRecipeTableRow

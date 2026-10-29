@@ -39,17 +39,23 @@ MonoBehaviour:
     key: smelting
   buildings:
   - id: 1
-    key: belt
-    nameKey: building.belt
-    behavior: 1
+    key: belt_mk1
     kind: 1
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: belt_ports
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/Belt.prefab
+    visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
+    displayName: "\u4F20\u9001\u5E26 Mk1"
+    icon: {fileID: 21300000, guid: 84f6d24af323254498b4a3bafb2dace4, type: 3}
+    menuOrder: 100
+    machineTypeId: 0
+    beltTier: 1
+    cellsPerSecond: 1
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
     ports:
     - type: 0
       index: 0
@@ -72,579 +78,601 @@ MonoBehaviour:
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
   - id: 2
-    key: furnace
-    nameKey: building.furnace
-    behavior: 2
-    kind: 3
-    machineTypeKey: smelting
-    machineTypeId: 2
-    portLayoutKey: furnace_ports
-    footprintWidth: 2
-    footprintHeight: 2
-    isRectangle: 1
-    footprintBitmap: 
-    ports:
-    - type: 0
-      index: 0
-      cellOffset: {x: -1, y: 0}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 0
-      cellOffset: {x: 2, y: 0}
-      direction: {x: 1, y: 0}
-  - id: 3
-    key: merger
-    nameKey: building.merger
-    behavior: 4
-    kind: 5
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: merger_ports
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports:
-    - type: 0
-      index: 0
-      cellOffset: {x: -1, y: 0}
-      direction: {x: 1, y: 0}
-    - type: 0
-      index: 1
-      cellOffset: {x: 0, y: 1}
-      direction: {x: 0, y: -1}
-    - type: 0
-      index: 2
-      cellOffset: {x: 0, y: -1}
-      direction: {x: 0, y: 1}
-    - type: 1
-      index: 0
-      cellOffset: {x: 1, y: 0}
-      direction: {x: 1, y: 0}
-  - id: 4
-    key: miner
-    nameKey: building.miner
-    behavior: 2
-    kind: 2
-    machineTypeKey: mining
-    machineTypeId: 1
-    portLayoutKey: miner_ports
-    footprintWidth: 2
-    footprintHeight: 2
-    isRectangle: 1
-    footprintBitmap: 
-    ports:
-    - type: 1
-      index: 0
-      cellOffset: {x: 2, y: 0}
-      direction: {x: 1, y: 0}
-  - id: 5
-    key: splitter
-    nameKey: building.splitter
-    behavior: 5
-    kind: 6
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: splitter_ports
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports:
-    - type: 0
-      index: 0
-      cellOffset: {x: -1, y: 0}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 0
-      cellOffset: {x: 1, y: 0}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 1
-      cellOffset: {x: 0, y: 1}
-      direction: {x: 0, y: 1}
-    - type: 1
-      index: 2
-      cellOffset: {x: 0, y: -1}
-      direction: {x: 0, y: -1}
-  - id: 6
-    key: storage
-    nameKey: building.storage
-    behavior: 3
-    kind: 4
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: storage_ports
-    footprintWidth: 2
-    footprintHeight: 2
-    isRectangle: 1
-    footprintBitmap: 
-    ports:
-    - type: 0
-      index: 0
-      cellOffset: {x: -1, y: 0}
-      direction: {x: 1, y: 0}
-  - id: 7
-    key: foundation
-    nameKey: building.foundation
-    behavior: 6
-    kind: 7
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: 
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports: []
-  - id: 8
-    key: ramp_foundation_1_1
-    nameKey: building.ramp_foundation_1_1
-    behavior: 6
-    kind: 8
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: 
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports: []
-  - id: 9
-    key: ramp_foundation_1_2
-    nameKey: building.ramp_foundation_1_2
-    behavior: 6
-    kind: 8
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: 
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports: []
-  - id: 10
-    key: ramp_foundation_1_4
-    nameKey: building.ramp_foundation_1_4
-    behavior: 6
-    kind: 8
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: 
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports: []
-  - id: 11
-    key: vertical_belt_entry
-    nameKey: building.vertical_belt_entry
-    behavior: 1
-    kind: 9
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: vertical_entry_ports
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports:
-    - type: 0
-      index: 0
-      cellOffset: {x: -1, y: 0}
-      direction: {x: 1, y: 0}
-  - id: 12
-    key: vertical_belt_exit
-    nameKey: building.vertical_belt_exit
-    behavior: 1
-    kind: 10
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: vertical_exit_ports
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports:
-    - type: 1
-      index: 0
-      cellOffset: {x: 1, y: 0}
-      direction: {x: 1, y: 0}
-  - id: 13
-    key: vertical_belt_segment
-    nameKey: building.vertical_belt_segment
-    behavior: 1
-    kind: 11
-    machineTypeKey: 
-    machineTypeId: 0
-    portLayoutKey: 
-    footprintWidth: 1
-    footprintHeight: 1
-    isRectangle: 1
-    footprintBitmap: 
-    ports: []
-  buildingLevels:
-  - id: 10
-    key: foundation_mk1
-    buildingKey: foundation
-    buildingId: 7
-    level: 1
-    nameKey: building.foundation.mk1
-    visualPrefabKey: foundation
-    visualPrefab: {fileID: 170000, guid: 5d3a5f2ec5f94c6397b21e2e0f57d3b5, type: 3}
-    iconKey: foundation
-    icon: {fileID: 21300000, guid: 8001c504d5b02c145a8fc159c117b521, type: 3}
-    menuOrder: 50
-    rampRiseHeightUnits: 0
-  - id: 11
-    key: ramp_foundation_1_1_mk1
-    buildingKey: ramp_foundation_1_1
-    buildingId: 8
-    level: 1
-    nameKey: building.ramp_foundation_1_1
-    visualPrefabKey: ramp_foundation
-    visualPrefab: {fileID: 180000, guid: e2787148eed64483b8d83433a7ec9501, type: 3}
-    iconKey: ramp_foundation
-    icon: {fileID: 21300000, guid: 5612dd97c6f2408438dc2e6fdb403d8f, type: 3}
-    menuOrder: 51
-    rampRiseHeightUnits: 8
-  - id: 12
-    key: ramp_foundation_1_2_mk1
-    buildingKey: ramp_foundation_1_2
-    buildingId: 9
-    level: 1
-    nameKey: building.ramp_foundation_1_2
-    visualPrefabKey: ramp_foundation_half
-    visualPrefab: {fileID: 9170977669439321830, guid: eb1209f8468ce2041b268eccb98c3d67, type: 3}
-    iconKey: ramp_foundation_half
-    icon: {fileID: 21300000, guid: 7c13d3c6e2b65f04b9cb34bddb1af855, type: 3}
-    menuOrder: 52
-    rampRiseHeightUnits: 4
-  - id: 13
-    key: ramp_foundation_1_4_mk1
-    buildingKey: ramp_foundation_1_4
-    buildingId: 10
-    level: 1
-    nameKey: building.ramp_foundation_1_4
-    visualPrefabKey: ramp_foundation_quarter
-    visualPrefab: {fileID: 5424966742386246050, guid: 75ceaac5cd7168c4ca3654a9adc594b9, type: 3}
-    iconKey: ramp_foundation_quarter
-    icon: {fileID: 21300000, guid: 7bb5b0d9ca85eec488473324854dc75c, type: 3}
-    menuOrder: 53
-    rampRiseHeightUnits: 2
-  - id: 1
-    key: belt_mk1
-    buildingKey: belt
-    buildingId: 1
-    level: 1
-    nameKey: building.belt.mk1
-    visualPrefabKey: belt
-    visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
-    iconKey: belt
-    icon: {fileID: 21300000, guid: 84f6d24af323254498b4a3bafb2dace4, type: 3}
-    menuOrder: 100
-    rampRiseHeightUnits: 0
-  - id: 2
     key: belt_mk2
-    buildingKey: belt
-    buildingId: 1
-    level: 2
-    nameKey: building.belt.mk2
-    visualPrefabKey: belt_mk2
+    kind: 1
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/BeltMk2.prefab
     visualPrefab: {fileID: 194256, guid: f0bf725215764e23aeb4dfd6bf746bc7, type: 3}
-    iconKey: belt_mk2
+    displayName: "\u4F20\u9001\u5E26 Mk2"
     icon: {fileID: 21300000, guid: 9ae6dfb0b5de48140ba147aca9586de6, type: 3}
     menuOrder: 101
+    machineTypeId: 0
+    beltTier: 2
+    cellsPerSecond: 2
+    storageCapacity: 0
+    storageSlotCount: 0
     rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: 1}
+    - type: 0
+      index: 2
+      cellOffset: {x: 1, y: 0}
+      direction: {x: -1, y: 0}
+    - type: 0
+      index: 3
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: -1}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
   - id: 3
     key: belt_mk3
-    buildingKey: belt
-    buildingId: 1
-    level: 3
-    nameKey: building.belt.mk3
-    visualPrefabKey: belt_mk3
+    kind: 1
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/BeltMk3.prefab
     visualPrefab: {fileID: 143296, guid: ba623fa09eba45dfbba2b343f380e337, type: 3}
-    iconKey: belt_mk3
+    displayName: "\u4F20\u9001\u5E26 Mk3"
     icon: {fileID: 21300000, guid: 0f0728b880970f544856851f4bd29305, type: 3}
     menuOrder: 102
+    machineTypeId: 0
+    beltTier: 3
+    cellsPerSecond: 4
+    storageCapacity: 0
+    storageSlotCount: 0
     rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: 1}
+    - type: 0
+      index: 2
+      cellOffset: {x: 1, y: 0}
+      direction: {x: -1, y: 0}
+    - type: 0
+      index: 3
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: -1}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
   - id: 4
     key: belt_mk4
-    buildingKey: belt
-    buildingId: 1
-    level: 4
-    nameKey: building.belt.mk4
-    visualPrefabKey: belt_mk4
+    kind: 1
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/BeltMk4.prefab
     visualPrefab: {fileID: 132144, guid: f729e0e61af447f9a16bbc93cdfaa2fc, type: 3}
-    iconKey: belt_mk4
+    displayName: "\u4F20\u9001\u5E26 Mk4"
     icon: {fileID: 21300000, guid: 3ce66c5e5faf6594faf9875decc0f10b, type: 3}
     menuOrder: 103
+    machineTypeId: 0
+    beltTier: 4
+    cellsPerSecond: 8
+    storageCapacity: 0
+    storageSlotCount: 0
     rampRiseHeightUnits: 0
-  - id: 14
-    key: vertical_belt_entry_mk1
-    buildingKey: vertical_belt_entry
-    buildingId: 11
-    level: 1
-    nameKey: building.vertical_belt_entry.mk1
-    visualPrefabKey: vertical_belt_entry_mk1
-    visualPrefab: {fileID: 849880541941752008, guid: 427e9682af365624db4f8093bc5a5272, type: 3}
-    iconKey: vertical_belt_entry_mk1
-    icon: {fileID: 21300000, guid: 872ae47e01ee2304fa11a55b8350b42a, type: 3}
-    menuOrder: 111
-    rampRiseHeightUnits: 0
-  - id: 15
-    key: vertical_belt_entry_mk2
-    buildingKey: vertical_belt_entry
-    buildingId: 11
-    level: 2
-    nameKey: building.vertical_belt_entry.mk2
-    visualPrefabKey: vertical_belt_entry_mk2
-    visualPrefab: {fileID: 756550717548969875, guid: 550ad97ca2b33fc41af712c62f46eb9a, type: 3}
-    iconKey: vertical_belt_entry_mk2
-    icon: {fileID: 21300000, guid: 7ae7aa3c66710a147ac8cee93b5237d3, type: 3}
-    menuOrder: 112
-    rampRiseHeightUnits: 0
-  - id: 16
-    key: vertical_belt_entry_mk3
-    buildingKey: vertical_belt_entry
-    buildingId: 11
-    level: 3
-    nameKey: building.vertical_belt_entry.mk3
-    visualPrefabKey: vertical_belt_entry_mk3
-    visualPrefab: {fileID: 8263080865558837001, guid: 7616b77f29429604ba0c596c90867131, type: 3}
-    iconKey: vertical_belt_entry_mk3
-    icon: {fileID: 21300000, guid: 54382fadc46a56248b23405f054411bd, type: 3}
-    menuOrder: 113
-    rampRiseHeightUnits: 0
-  - id: 17
-    key: vertical_belt_entry_mk4
-    buildingKey: vertical_belt_entry
-    buildingId: 11
-    level: 4
-    nameKey: building.vertical_belt_entry.mk4
-    visualPrefabKey: vertical_belt_entry_mk4
-    visualPrefab: {fileID: 8642908834916057529, guid: d9392b01d0a1cfe428a0dcf54ee44787, type: 3}
-    iconKey: vertical_belt_entry_mk4
-    icon: {fileID: 21300000, guid: c70ef67eccb23504eb2098c626188c6e, type: 3}
-    menuOrder: 114
-    rampRiseHeightUnits: 0
-  - id: 18
-    key: vertical_belt_exit_mk1
-    buildingKey: vertical_belt_exit
-    buildingId: 12
-    level: 1
-    nameKey: building.vertical_belt_exit.mk1
-    visualPrefabKey: vertical_belt_exit_mk1
-    visualPrefab: {fileID: 198289212279591929, guid: 420382c9b697fbd4cb0cf7fb658359cb, type: 3}
-    iconKey: vertical_belt_exit_mk1
-    icon: {fileID: 21300000, guid: 4095b0f1b1f55d345bba3dcc5a65b65b, type: 3}
-    menuOrder: 121
-    rampRiseHeightUnits: 0
-  - id: 19
-    key: vertical_belt_exit_mk2
-    buildingKey: vertical_belt_exit
-    buildingId: 12
-    level: 2
-    nameKey: building.vertical_belt_exit.mk2
-    visualPrefabKey: vertical_belt_exit_mk2
-    visualPrefab: {fileID: 7353657416348320044, guid: 6677dcd17691afc438e9b37ef2e71330, type: 3}
-    iconKey: vertical_belt_exit_mk2
-    icon: {fileID: 21300000, guid: 109ebe0ca147e74498fbec7a3b26d8de, type: 3}
-    menuOrder: 122
-    rampRiseHeightUnits: 0
-  - id: 20
-    key: vertical_belt_exit_mk3
-    buildingKey: vertical_belt_exit
-    buildingId: 12
-    level: 3
-    nameKey: building.vertical_belt_exit.mk3
-    visualPrefabKey: vertical_belt_exit_mk3
-    visualPrefab: {fileID: 975789746718991501, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
-    iconKey: vertical_belt_exit_mk3
-    icon: {fileID: 21300000, guid: f2099cc7385492c408c70dd511d7915a, type: 3}
-    menuOrder: 123
-    rampRiseHeightUnits: 0
-  - id: 21
-    key: vertical_belt_exit_mk4
-    buildingKey: vertical_belt_exit
-    buildingId: 12
-    level: 4
-    nameKey: building.vertical_belt_exit.mk4
-    visualPrefabKey: vertical_belt_exit_mk4
-    visualPrefab: {fileID: 6766636972588932620, guid: 1bea08d822543f948a8bd8eff4477321, type: 3}
-    iconKey: vertical_belt_exit_mk4
-    icon: {fileID: 21300000, guid: ce4daa05a65d7dc46b270f4eda33947f, type: 3}
-    menuOrder: 124
-    rampRiseHeightUnits: 0
-  - id: 22
-    key: vertical_belt_segment_mk1
-    buildingKey: vertical_belt_segment
-    buildingId: 13
-    level: 1
-    nameKey: building.vertical_belt_segment.mk1
-    visualPrefabKey: vertical_belt_segment_mk1
-    visualPrefab: {fileID: 2170183881831946398, guid: c93ad474fb5ccdc4ea041ff840d2cc37, type: 3}
-    iconKey: vertical_belt_segment_mk1
-    icon: {fileID: 21300000, guid: 5b8f0e1b54d122c4cb5956396eeb42ce, type: 3}
-    menuOrder: 131
-    rampRiseHeightUnits: 0
-  - id: 23
-    key: vertical_belt_segment_mk2
-    buildingKey: vertical_belt_segment
-    buildingId: 13
-    level: 2
-    nameKey: building.vertical_belt_segment.mk2
-    visualPrefabKey: vertical_belt_segment_mk2
-    visualPrefab: {fileID: 4950480565365963600, guid: ffbdfc7250a0122458278a47b7741a59, type: 3}
-    iconKey: vertical_belt_segment_mk2
-    icon: {fileID: 21300000, guid: ec898dbb678be3445b2924f98e73ad9a, type: 3}
-    menuOrder: 132
-    rampRiseHeightUnits: 0
-  - id: 24
-    key: vertical_belt_segment_mk3
-    buildingKey: vertical_belt_segment
-    buildingId: 13
-    level: 3
-    nameKey: building.vertical_belt_segment.mk3
-    visualPrefabKey: vertical_belt_segment_mk3
-    visualPrefab: {fileID: 3340782413726316499, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
-    iconKey: vertical_belt_segment_mk3
-    icon: {fileID: 21300000, guid: 27c8aca8d9b2f5c43a1ec83f33e30ec8, type: 3}
-    menuOrder: 133
-    rampRiseHeightUnits: 0
-  - id: 25
-    key: vertical_belt_segment_mk4
-    buildingKey: vertical_belt_segment
-    buildingId: 13
-    level: 4
-    nameKey: building.vertical_belt_segment.mk4
-    visualPrefabKey: vertical_belt_segment_mk4
-    visualPrefab: {fileID: 2980616878522348748, guid: 15303e1a7d66cad489a1f40dfdeff6c2, type: 3}
-    iconKey: vertical_belt_segment_mk4
-    icon: {fileID: 21300000, guid: 8d00d5606124cc64f994c0b2910c93e5, type: 3}
-    menuOrder: 134
-    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: 1}
+    - type: 0
+      index: 2
+      cellOffset: {x: 1, y: 0}
+      direction: {x: -1, y: 0}
+    - type: 0
+      index: 3
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: -1}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
   - id: 5
-    key: miner_mk1
-    buildingKey: miner
-    buildingId: 4
-    level: 1
-    nameKey: building.miner.mk1
-    visualPrefabKey: miner
+    key: miner
+    kind: 2
+    footprintWidth: 2
+    footprintHeight: 2
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/Miner.prefab
     visualPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
-    iconKey: miner
+    displayName: "\u77FF\u673A"
     icon: {fileID: 21300000, guid: 78282980434a1d64a95c2b414aa9f52a, type: 3}
     menuOrder: 200
+    machineTypeId: 1
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
     rampRiseHeightUnits: 0
+    ports:
+    - type: 1
+      index: 0
+      cellOffset: {x: 2, y: 0}
+      direction: {x: 1, y: 0}
   - id: 6
-    key: furnace_mk1
-    buildingKey: furnace
-    buildingId: 2
-    level: 1
-    nameKey: building.furnace.mk1
-    visualPrefabKey: furnace
+    key: furnace
+    kind: 2
+    footprintWidth: 2
+    footprintHeight: 2
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/Furnace.prefab
     visualPrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
-    iconKey: furnace
+    displayName: "\u7194\u7089"
     icon: {fileID: 21300000, guid: ab7866f7c6393c84e8b877287c2dc8b6, type: 3}
     menuOrder: 300
+    machineTypeId: 2
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
     rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 0
+      cellOffset: {x: 2, y: 0}
+      direction: {x: 1, y: 0}
   - id: 7
-    key: storage_mk1
-    buildingKey: storage
-    buildingId: 6
-    level: 1
-    nameKey: building.storage.mk1
-    visualPrefabKey: storage
+    key: storage
+    kind: 4
+    footprintWidth: 2
+    footprintHeight: 2
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/Storage.prefab
     visualPrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
-    iconKey: storage
+    displayName: "\u4ED3\u5E93"
     icon: {fileID: 21300000, guid: c5d890f56526d0f4c9da6c7d3631694f, type: 3}
     menuOrder: 400
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 100
+    storageSlotCount: 8
     rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
   - id: 8
-    key: merger_mk1
-    buildingKey: merger
-    buildingId: 3
-    level: 1
-    nameKey: building.merger.mk1
-    visualPrefabKey: merger
+    key: merger
+    kind: 5
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/Merger.prefab
     visualPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
-    iconKey: merger
+    displayName: "\u5408\u6D41\u5668"
     icon: {fileID: 21300000, guid: 9d0e06efb66c15a4eb48738129d6d16b, type: 3}
     menuOrder: 500
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
     rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: -1}
+    - type: 0
+      index: 2
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: 1}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
   - id: 9
-    key: splitter_mk1
-    buildingKey: splitter
-    buildingId: 5
-    level: 1
-    nameKey: building.splitter.mk1
-    visualPrefabKey: splitter
+    key: splitter
+    kind: 6
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/Splitter.prefab
     visualPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
-    iconKey: splitter
+    displayName: "\u5206\u6D41\u5668"
     icon: {fileID: 21300000, guid: 11bcb1e2fac0dc74184a00dd96351721, type: 3}
     menuOrder: 600
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
     rampRiseHeightUnits: 0
-  beltLevels:
-  - buildingLevelKey: belt_mk1
-    buildingLevelId: 1
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 1
+      cellOffset: {x: 0, y: 1}
+      direction: {x: 0, y: 1}
+    - type: 1
+      index: 2
+      cellOffset: {x: 0, y: -1}
+      direction: {x: 0, y: -1}
+  - id: 10
+    key: foundation
+    kind: 7
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/Foundation.prefab
+    visualPrefab: {fileID: 170000, guid: 5d3a5f2ec5f94c6397b21e2e0f57d3b5, type: 3}
+    displayName: "\u5730\u57FA"
+    icon: {fileID: 21300000, guid: 8001c504d5b02c145a8fc159c117b521, type: 3}
+    menuOrder: 50
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports: []
+  - id: 11
+    key: ramp_foundation_1_1
+    kind: 8
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/RampFoundation.prefab
+    visualPrefab: {fileID: 180000, guid: e2787148eed64483b8d83433a7ec9501, type: 3}
+    displayName: "\u659C\u9762\u5730\u57FA 1/1"
+    icon: {fileID: 21300000, guid: 5612dd97c6f2408438dc2e6fdb403d8f, type: 3}
+    menuOrder: 51
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 8
+    ports: []
+  - id: 12
+    key: ramp_foundation_1_2
+    kind: 8
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/RampFoundationHalf.prefab
+    visualPrefab: {fileID: 9170977669439321830, guid: eb1209f8468ce2041b268eccb98c3d67, type: 3}
+    displayName: "\u659C\u9762\u5730\u57FA 1/2"
+    icon: {fileID: 21300000, guid: 7c13d3c6e2b65f04b9cb34bddb1af855, type: 3}
+    menuOrder: 52
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 4
+    ports: []
+  - id: 13
+    key: ramp_foundation_1_4
+    kind: 8
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/RampFoundationQuarter.prefab
+    visualPrefab: {fileID: 5424966742386246050, guid: 75ceaac5cd7168c4ca3654a9adc594b9, type: 3}
+    displayName: "\u659C\u9762\u5730\u57FA 1/4"
+    icon: {fileID: 21300000, guid: 7bb5b0d9ca85eec488473324854dc75c, type: 3}
+    menuOrder: 53
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 2
+    ports: []
+  - id: 14
+    key: vertical_belt_entry_mk1
+    kind: 9
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
+    visualPrefab: {fileID: 849880541941752008, guid: 427e9682af365624db4f8093bc5a5272, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk1"
+    icon: {fileID: 21300000, guid: 872ae47e01ee2304fa11a55b8350b42a, type: 3}
+    menuOrder: 111
+    machineTypeId: 0
+    beltTier: 1
     cellsPerSecond: 1
-  - buildingLevelKey: belt_mk2
-    buildingLevelId: 2
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 15
+    key: vertical_belt_entry_mk2
+    kind: 9
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk2.prefab
+    visualPrefab: {fileID: 756550717548969875, guid: 550ad97ca2b33fc41af712c62f46eb9a, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk2"
+    icon: {fileID: 21300000, guid: 7ae7aa3c66710a147ac8cee93b5237d3, type: 3}
+    menuOrder: 112
+    machineTypeId: 0
+    beltTier: 2
     cellsPerSecond: 2
-  - buildingLevelKey: belt_mk3
-    buildingLevelId: 3
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 16
+    key: vertical_belt_entry_mk3
+    kind: 9
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk3.prefab
+    visualPrefab: {fileID: 8263080865558837001, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk3"
+    icon: {fileID: 21300000, guid: 54382fadc46a56248b23405f054411bd, type: 3}
+    menuOrder: 113
+    machineTypeId: 0
+    beltTier: 3
     cellsPerSecond: 4
-  - buildingLevelKey: belt_mk4
-    buildingLevelId: 4
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 17
+    key: vertical_belt_entry_mk4
+    kind: 9
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk4.prefab
+    visualPrefab: {fileID: 8642908834916057529, guid: d9392b01d0a1cfe428a0dcf54ee44787, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk4"
+    icon: {fileID: 21300000, guid: c70ef67eccb23504eb2098c626188c6e, type: 3}
+    menuOrder: 114
+    machineTypeId: 0
+    beltTier: 4
     cellsPerSecond: 8
-  - buildingLevelKey: vertical_belt_entry_mk1
-    buildingLevelId: 14
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 18
+    key: vertical_belt_exit_mk1
+    kind: 10
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk1.prefab
+    visualPrefab: {fileID: 198289212279591929, guid: 420382c9b697fbd4cb0cf7fb658359cb, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk1"
+    icon: {fileID: 21300000, guid: 4095b0f1b1f55d345bba3dcc5a65b65b, type: 3}
+    menuOrder: 121
+    machineTypeId: 0
+    beltTier: 1
     cellsPerSecond: 1
-  - buildingLevelKey: vertical_belt_entry_mk2
-    buildingLevelId: 15
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 19
+    key: vertical_belt_exit_mk2
+    kind: 10
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk2.prefab
+    visualPrefab: {fileID: 7353657416348320044, guid: 6677dcd17691afc438e9b37ef2e71330, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk2"
+    icon: {fileID: 21300000, guid: 109ebe0ca147e74498fbec7a3b26d8de, type: 3}
+    menuOrder: 122
+    machineTypeId: 0
+    beltTier: 2
     cellsPerSecond: 2
-  - buildingLevelKey: vertical_belt_entry_mk3
-    buildingLevelId: 16
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 20
+    key: vertical_belt_exit_mk3
+    kind: 10
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk3.prefab
+    visualPrefab: {fileID: 975789746718991501, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk3"
+    icon: {fileID: 21300000, guid: f2099cc7385492c408c70dd511d7915a, type: 3}
+    menuOrder: 123
+    machineTypeId: 0
+    beltTier: 3
     cellsPerSecond: 4
-  - buildingLevelKey: vertical_belt_entry_mk4
-    buildingLevelId: 17
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 21
+    key: vertical_belt_exit_mk4
+    kind: 10
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk4.prefab
+    visualPrefab: {fileID: 6766636972588932620, guid: 1bea08d822543f948a8bd8eff4477321, type: 3}
+    displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk4"
+    icon: {fileID: 21300000, guid: ce4daa05a65d7dc46b270f4eda33947f, type: 3}
+    menuOrder: 124
+    machineTypeId: 0
+    beltTier: 4
     cellsPerSecond: 8
-  - buildingLevelKey: vertical_belt_exit_mk1
-    buildingLevelId: 18
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 1
+      index: 0
+      cellOffset: {x: 1, y: 0}
+      direction: {x: 1, y: 0}
+  - id: 22
+    key: vertical_belt_segment_mk1
+    kind: 11
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk1.prefab
+    visualPrefab: {fileID: 2170183881831946398, guid: c93ad474fb5ccdc4ea041ff840d2cc37, type: 3}
+    displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk1"
+    icon: {fileID: 21300000, guid: 5b8f0e1b54d122c4cb5956396eeb42ce, type: 3}
+    menuOrder: 131
+    machineTypeId: 0
+    beltTier: 1
     cellsPerSecond: 1
-  - buildingLevelKey: vertical_belt_exit_mk2
-    buildingLevelId: 19
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports: []
+  - id: 23
+    key: vertical_belt_segment_mk2
+    kind: 11
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk2.prefab
+    visualPrefab: {fileID: 4950480565365963600, guid: ffbdfc7250a0122458278a47b7741a59, type: 3}
+    displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk2"
+    icon: {fileID: 21300000, guid: ec898dbb678be3445b2924f98e73ad9a, type: 3}
+    menuOrder: 132
+    machineTypeId: 0
+    beltTier: 2
     cellsPerSecond: 2
-  - buildingLevelKey: vertical_belt_exit_mk3
-    buildingLevelId: 20
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports: []
+  - id: 24
+    key: vertical_belt_segment_mk3
+    kind: 11
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk3.prefab
+    visualPrefab: {fileID: 3340782413726316499, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+    displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk3"
+    icon: {fileID: 21300000, guid: 27c8aca8d9b2f5c43a1ec83f33e30ec8, type: 3}
+    menuOrder: 133
+    machineTypeId: 0
+    beltTier: 3
     cellsPerSecond: 4
-  - buildingLevelKey: vertical_belt_exit_mk4
-    buildingLevelId: 21
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports: []
+  - id: 25
+    key: vertical_belt_segment_mk4
+    kind: 11
+    footprintWidth: 1
+    footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk4.prefab
+    visualPrefab: {fileID: 2980616878522348748, guid: 15303e1a7d66cad489a1f40dfdeff6c2, type: 3}
+    displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk4"
+    icon: {fileID: 21300000, guid: 8d00d5606124cc64f994c0b2910c93e5, type: 3}
+    menuOrder: 134
+    machineTypeId: 0
+    beltTier: 4
     cellsPerSecond: 8
-  - buildingLevelKey: vertical_belt_segment_mk1
-    buildingLevelId: 22
-    cellsPerSecond: 1
-  - buildingLevelKey: vertical_belt_segment_mk2
-    buildingLevelId: 23
-    cellsPerSecond: 2
-  - buildingLevelKey: vertical_belt_segment_mk3
-    buildingLevelId: 24
-    cellsPerSecond: 4
-  - buildingLevelKey: vertical_belt_segment_mk4
-    buildingLevelId: 25
-    cellsPerSecond: 8
-  processorLevels:
-  - buildingLevelKey: miner_mk1
-    buildingLevelId: 5
-    workRatePermille: 1000
-  - buildingLevelKey: furnace_mk1
-    buildingLevelId: 6
-    workRatePermille: 1000
-  storageLevels:
-  - buildingLevelKey: storage_mk1
-    buildingLevelId: 7
-    capacity: 100
-    slotCount: 8
+    storageCapacity: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports: []
   recipes:
   - id: 1
     key: mine_iron

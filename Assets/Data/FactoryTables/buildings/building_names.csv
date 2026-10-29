@@ -1,0 +1,26 @@
+key,locale,name
+belt_mk1,zh-CN,传送带 Mk1
+belt_mk2,zh-CN,传送带 Mk2
+belt_mk3,zh-CN,传送带 Mk3
+belt_mk4,zh-CN,传送带 Mk4
+miner,zh-CN,矿机
+furnace,zh-CN,熔炉
+storage,zh-CN,仓库
+merger,zh-CN,合流器
+splitter,zh-CN,分流器
+foundation,zh-CN,地基
+ramp_foundation_1_1,zh-CN,斜面地基 1/1
+ramp_foundation_1_2,zh-CN,斜面地基 1/2
+ramp_foundation_1_4,zh-CN,斜面地基 1/4
+vertical_belt_entry_mk1,zh-CN,垂直带入口 Mk1
+vertical_belt_entry_mk2,zh-CN,垂直带入口 Mk2
+vertical_belt_entry_mk3,zh-CN,垂直带入口 Mk3
+vertical_belt_entry_mk4,zh-CN,垂直带入口 Mk4
+vertical_belt_exit_mk1,zh-CN,垂直带出口 Mk1
+vertical_belt_exit_mk2,zh-CN,垂直带出口 Mk2
+vertical_belt_exit_mk3,zh-CN,垂直带出口 Mk3
+vertical_belt_exit_mk4,zh-CN,垂直带出口 Mk4
+vertical_belt_segment_mk1,zh-CN,垂直传送节点 Mk1
+vertical_belt_segment_mk2,zh-CN,垂直传送节点 Mk2
+vertical_belt_segment_mk3,zh-CN,垂直传送节点 Mk3
+vertical_belt_segment_mk4,zh-CN,垂直传送节点 Mk4

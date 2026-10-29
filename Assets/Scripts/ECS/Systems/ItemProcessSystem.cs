@@ -240,7 +240,6 @@ public static class ItemProcessUtility
 
     public static bool TryStart(
         int recipeIndex,
-        ushort workRatePermille,
         in FactoryRecipeBlob recipe,
         DynamicBuffer<ProcessorItemSlot> slots,
         ref ItemProcessState process)
@@ -276,11 +275,7 @@ public static class ItemProcessUtility
         }
 
         process.ElapsedTicks = 0;
-        int workRate = math.max(1, workRatePermille);
-        long scaledDuration = (long)recipe.DurationTicks * 1000L;
-        process.DurationTicks = math.max(
-            1,
-            (int)((scaledDuration + workRate - 1L) / workRate));
+        process.DurationTicks = recipe.DurationTicks;
         process.ActiveRecipeIndex = recipeIndex;
         process.Status = ItemProcessStatus.Processing;
         process.InventoryRevision++;
@@ -470,7 +465,6 @@ public partial struct ItemProcessSystem : ISystem
                 int databaseRecipeIndex = range.Start + selected;
                 ItemProcessUtility.TryStart(
                     databaseRecipeIndex,
-                    processor.WorkRatePermille,
                     database.Recipes[databaseRecipeIndex],
                     slots,
                     ref process);

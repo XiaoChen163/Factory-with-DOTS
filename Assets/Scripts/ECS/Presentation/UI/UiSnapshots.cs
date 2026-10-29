@@ -100,7 +100,7 @@ public sealed class ProcessorSnapshot
 public sealed class BuildingSnapshot
 {
     public BuildingRuntimeId RuntimeId { get; set; }
-    public BuildingLevelId BuildingLevelId { get; set; }
+    public BuildingDefinitionId BuildingDefinitionId { get; set; }
     public BuildingKind Kind { get; set; }
     public uint Revision { get; set; }
     public bool IsAvailable { get; set; }
@@ -112,10 +112,10 @@ public sealed class BuildingSnapshot
 
 public readonly struct BuildCatalogSnapshot
 {
-    public BuildCatalogSnapshot(BuildingLevelId[] levels)
+    public BuildCatalogSnapshot(BuildingDefinitionId[] levels)
     {
-        Levels = levels ?? Array.Empty<BuildingLevelId>();
+        Definitions = levels ?? Array.Empty<BuildingDefinitionId>();
     }
 
-    public BuildingLevelId[] Levels { get; }
+    public BuildingDefinitionId[] Definitions { get; }
 }

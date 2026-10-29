@@ -9,16 +9,6 @@ public enum FactoryItemCategory : byte
     Component
 }
 
-public enum FactoryBuildingBehavior : byte
-{
-    Belt = 1,
-    Processor = 2,
-    Storage = 3,
-    Merger = 4,
-    Splitter = 5,
-    Foundation = 6
-}
-
 [Serializable]
 public struct FactoryItemTableRow
 {
@@ -70,63 +60,27 @@ public struct FactoryBuildingPortTableRow
 }
 
 [Serializable]
-public struct FactoryBuildingTableRow
+public struct FactoryBuildingDefinitionRow
 {
     public ushort id;
     public string key;
-    public string nameKey;
-    public FactoryBuildingBehavior behavior;
     public BuildingKind kind;
-    public string machineTypeKey;
-    public ushort machineTypeId;
-    public string portLayoutKey;
     public byte footprintWidth;
     public byte footprintHeight;
     public bool isRectangle;
     public string footprintBitmap;
-    public FactoryBuildingPortTableRow[] ports;
-}
-
-[Serializable]
-public struct FactoryBuildingLevelTableRow
-{
-    public ushort id;
-    public string key;
-    public string buildingKey;
-    public ushort buildingId;
-    public byte level;
-    public string nameKey;
-    public string visualPrefabKey;
+    public string visualPrefabPath;
     public GameObject visualPrefab;
-    public string iconKey;
+    public string displayName;
     public Sprite icon;
     public int menuOrder;
-    public sbyte rampRiseHeightUnits;
-}
-
-[Serializable]
-public struct FactoryBeltLevelTableRow
-{
-    public string buildingLevelKey;
-    public ushort buildingLevelId;
+    public ushort machineTypeId;
+    public byte beltTier;
     public float cellsPerSecond;
-}
-
-[Serializable]
-public struct FactoryProcessorLevelTableRow
-{
-    public string buildingLevelKey;
-    public ushort buildingLevelId;
-    public ushort workRatePermille;
-}
-
-[Serializable]
-public struct FactoryStorageLevelTableRow
-{
-    public string buildingLevelKey;
-    public ushort buildingLevelId;
-    public int capacity;
-    public ushort slotCount;
+    public int storageCapacity;
+    public ushort storageSlotCount;
+    public sbyte rampRiseHeightUnits;
+    public FactoryBuildingPortTableRow[] ports;
 }
 
 // Generated cache. Edit the CSV files in Assets/Data/FactoryTables instead.
@@ -136,16 +90,8 @@ public sealed class FactoryDatabaseAsset : ScriptableObject
     public FactoryItemTableRow[] items = Array.Empty<FactoryItemTableRow>();
     public FactoryMachineTypeTableRow[] machineTypes =
         Array.Empty<FactoryMachineTypeTableRow>();
-    public FactoryBuildingTableRow[] buildings =
-        Array.Empty<FactoryBuildingTableRow>();
-    public FactoryBuildingLevelTableRow[] buildingLevels =
-        Array.Empty<FactoryBuildingLevelTableRow>();
-    public FactoryBeltLevelTableRow[] beltLevels =
-        Array.Empty<FactoryBeltLevelTableRow>();
-    public FactoryProcessorLevelTableRow[] processorLevels =
-        Array.Empty<FactoryProcessorLevelTableRow>();
-    public FactoryStorageLevelTableRow[] storageLevels =
-        Array.Empty<FactoryStorageLevelTableRow>();
+    public FactoryBuildingDefinitionRow[] buildings =
+        Array.Empty<FactoryBuildingDefinitionRow>();
     public FactoryRecipeTableRow[] recipes =
         Array.Empty<FactoryRecipeTableRow>();
 }

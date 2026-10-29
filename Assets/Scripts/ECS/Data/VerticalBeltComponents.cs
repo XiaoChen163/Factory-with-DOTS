@@ -21,18 +21,18 @@ public static class VerticalBeltUtility
 {
     public const int MaxPathNodes = 256;
 
-    public static bool TryGetPathLevels(ref FactoryDatabaseBlob database, BuildingLevelId entry,
-        out BuildingLevelId segment, out BuildingLevelId exit)
+    public static bool TryGetPathDefinitions(ref FactoryDatabaseBlob database, BuildingDefinitionId entry,
+        out BuildingDefinitionId segment, out BuildingDefinitionId exit)
     {
         segment = default;
         exit = default;
-        if (!FactoryDatabaseUtility.TryGetBuildingLevel(ref database, entry, out var entryLevel, out var building) ||
+        if (!FactoryDatabaseUtility.TryGetBuildingDefinition(ref database, entry, out var building) ||
             building.Kind != BuildingKind.VerticalBeltEntry) return false;
-        for (int i = 1; i < database.BuildingLevelsById.Length; i++)
+        for (int i = 1; i < database.BuildingDefinitionsById.Length; i++)
         {
-            var id = database.BuildingLevelsById[i].Id;
-            if (!FactoryDatabaseUtility.TryGetBuildingLevel(ref database, id, out var level, out var kind) ||
-                level.Level != entryLevel.Level) continue;
+            var id = database.BuildingDefinitionsById[i].Id;
+            if (!FactoryDatabaseUtility.TryGetBuildingDefinition(ref database, id, out var kind) ||
+                kind.BeltTier != building.BeltTier) continue;
             if (kind.Kind == BuildingKind.VerticalBeltSegment) segment = id;
             if (kind.Kind == BuildingKind.VerticalBeltExit) exit = id;
         }

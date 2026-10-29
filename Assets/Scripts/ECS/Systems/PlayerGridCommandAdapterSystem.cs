@@ -70,7 +70,7 @@ public partial struct PlayerGridCommandAdapterSystem : ISystem
                 Player = value.Header.Player,
                 Type = value.Type,
                 Kind = value.Kind,
-                BuildingLevel = value.BuildingLevel,
+                BuildingDefinition = value.BuildingDefinition,
                 StartCell = value.StartCell,
                 EndCell = value.EndCell,
                 QuarterTurns = value.QuarterTurns,

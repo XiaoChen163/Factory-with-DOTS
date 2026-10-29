@@ -776,16 +776,17 @@ namespace Factory.Tests
             };
             asset.buildings = new[]
             {
-                new FactoryBuildingTableRow
+                new FactoryBuildingDefinitionRow
                 {
                     id = 1,
                     key = "storage",
-                    nameKey = "storage",
-                    behavior = FactoryBuildingBehavior.Storage,
                     kind = BuildingKind.Storage,
                     footprintWidth = 1,
                     footprintHeight = 1,
                     isRectangle = true,
+                    visualPrefab = visualPrefab,
+                    storageCapacity = 10,
+                    storageSlotCount = 2,
                     ports = new[]
                     {
                         new FactoryBuildingPortTableRow
@@ -796,34 +797,6 @@ namespace Factory.Tests
                             direction = Vector2Int.right
                         }
                     }
-                }
-            };
-            asset.buildingLevels = new[]
-            {
-                new FactoryBuildingLevelTableRow
-                {
-                    id = 1,
-                    key = "storage_mk1",
-                    buildingKey = "storage",
-                    buildingId = 1,
-                    level = 1,
-                    nameKey = "storage_mk1",
-                    visualPrefab = visualPrefab,
-                    menuOrder = 0
-                }
-            };
-            asset.beltLevels = System.Array.Empty<
-                FactoryBeltLevelTableRow>();
-            asset.processorLevels = System.Array.Empty<
-                FactoryProcessorLevelTableRow>();
-            asset.storageLevels = new[]
-            {
-                new FactoryStorageLevelTableRow
-                {
-                    buildingLevelKey = "storage_mk1",
-                    buildingLevelId = 1,
-                    capacity = 10,
-                    slotCount = 2
                 }
             };
             asset.recipes = new[]

@@ -39,8 +39,8 @@ namespace Factory.Tests
             EntityManager.AddComponentData(catalog, new BuildingPrefabCatalog());
             EntityManager.AddComponentData(catalog, new FactoryDatabase { Value = database });
             DynamicBuffer<BuildingVisualPrefabEntry> visuals = EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog);
-            foreach (var level in asset.buildingLevels)
-                visuals.Add(new BuildingVisualPrefabEntry { BuildingLevel = new BuildingLevelId { Value = level.id }, Prefab = prefab });
+            foreach (var level in asset.buildings)
+                visuals.Add(new BuildingVisualPrefabEntry { BuildingDefinition = new BuildingDefinitionId { Value = level.id }, Prefab = prefab });
             UpdateSystem(GetOrCreateManagedSystem<SurfaceRegistrySystem>());
             occupancy = GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
             UpdateSystem(occupancy);
@@ -177,10 +177,10 @@ namespace Factory.Tests
         {
             var commands=EntityManager.GetBuffer<GridBuildCommand>(grid);
             commands.Add(new GridBuildCommand { Type=GridBuildCommandType.Place,
-                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),PlacementRequestId=100,
+                BuildingDefinition=new BuildingDefinitionId { Value=14 },StartCell=Cell(0),PlacementRequestId=100,
                 Player=new PlayerId { Value=1 } });
             if(complete) commands.Add(new GridBuildCommand { Type=GridBuildCommandType.PlaceVerticalBeltPath,
-                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),EndCell=Cell(3) });
+                BuildingDefinition=new BuildingDefinitionId { Value=14 },StartCell=Cell(0),EndCell=Cell(3) });
             commands.Add(new GridBuildCommand { Type=GridBuildCommandType.CancelVerticalBeltPlacement,
                 StartCell=Cell(0),PlacementRequestId=100,Player=new PlayerId { Value=1 } });
             UpdateSystem(build);
@@ -200,7 +200,7 @@ namespace Factory.Tests
         {
             var commands=EntityManager.GetBuffer<GridBuildCommand>(grid);
             commands.Add(new GridBuildCommand { Type=GridBuildCommandType.Place,
-                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),PlacementRequestId=100,
+                BuildingDefinition=new BuildingDefinitionId { Value=14 },StartCell=Cell(0),PlacementRequestId=100,
                 Player=new PlayerId { Value=1 } });
             commands.Add(new GridBuildCommand { Type=GridBuildCommandType.CancelVerticalBeltPlacement,
                 StartCell=Cell(0),PlacementRequestId=(ulong)token,Player=new PlayerId { Value=(ulong)player } });
@@ -264,8 +264,7 @@ namespace Factory.Tests
             var kinds = new[] { BuildingKind.VerticalBeltEntry,BuildingKind.VerticalBeltExit,BuildingKind.VerticalBeltSegment };
             foreach (var kind in kinds)
             {
-                var building = asset.buildings.Single(x => x.kind == kind);
-                var levels = asset.buildingLevels.Where(x => x.buildingId == building.id).ToArray();
+                var levels = asset.buildings.Where(x => x.kind == kind).ToArray();
                 Assert.That(levels.Length, Is.EqualTo(4));
                 foreach (var level in levels)
                 {
@@ -273,8 +272,8 @@ namespace Factory.Tests
                     Assert.That(level.icon, Is.Not.Null);
                     Assert.That(level.visualPrefab.GetComponentsInChildren<Collider>(), Is.Empty);
                     Assert.That(level.visualPrefab.GetComponentsInChildren<MonoBehaviour>(), Is.Empty);
-                    Assert.That(asset.beltLevels.Single(x => x.buildingLevelId == level.id).cellsPerSecond,
-                        Is.EqualTo(math.pow(2,level.level-1)));
+                    Assert.That(level.cellsPerSecond,
+                        Is.EqualTo(math.pow(2,level.beltTier-1)));
                 }
             }
         }
@@ -328,7 +327,7 @@ namespace Factory.Tests
             Assert.That(Place((ushort)tier,start,1).Success,Is.EqualTo(1));
             EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
             {
-                Type=GridBuildCommandType.PlaceVerticalBeltPath,BuildingLevel=new BuildingLevelId { Value=(ushort)tier },
+                Type=GridBuildCommandType.PlaceVerticalBeltPath,BuildingDefinition=new BuildingDefinitionId { Value=(ushort)tier },
                 StartCell=Cell(start),EndCell=Cell(end),QuarterTurns=3
             });
             UpdateSystem(build);
@@ -345,7 +344,7 @@ namespace Factory.Tests
             {
                 Assert.That(index.TryGet(Cell(height),out var segment),Is.True);
                 Assert.That(EntityManager.GetComponentData<VerticalBeltNode>(segment).Step,Is.EqualTo(step));
-                Assert.That(EntityManager.GetComponentData<BuildingIdentity>(segment).Level,Is.EqualTo(tier-13));
+                Assert.That(database.Value.BuildingDefinitionsById[EntityManager.GetComponentData<BuildingIdentity>(segment).BuildingDefinition.Value].BeltTier,Is.EqualTo(tier-13));
             }
         }
 
@@ -355,9 +354,9 @@ namespace Factory.Tests
             Place(14,0); Place(14,2);
             var commands=EntityManager.GetBuffer<GridBuildCommand>(grid);
             commands.Add(new GridBuildCommand { Type=GridBuildCommandType.PlaceVerticalBeltPath,
-                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(0),EndCell=Cell(4) });
+                BuildingDefinition=new BuildingDefinitionId { Value=14 },StartCell=Cell(0),EndCell=Cell(4) });
             commands.Add(new GridBuildCommand { Type=GridBuildCommandType.Place,
-                BuildingLevel=new BuildingLevelId { Value=14 },StartCell=Cell(1) });
+                BuildingDefinition=new BuildingDefinitionId { Value=14 },StartCell=Cell(1) });
             UpdateSystem(build);
             var results=EntityManager.GetBuffer<GridBuildResult>(grid);
             Assert.That(results[0].Success,Is.Zero);
@@ -377,7 +376,7 @@ namespace Factory.Tests
         {
             Place(14,start);
             EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand
-            { Type=GridBuildCommandType.PlaceVerticalBeltPath,BuildingLevel=new BuildingLevelId { Value=(ushort)tier },
+            { Type=GridBuildCommandType.PlaceVerticalBeltPath,BuildingDefinition=new BuildingDefinitionId { Value=(ushort)tier },
                 StartCell=Cell(start),EndCell=Cell(end) });
             UpdateSystem(build);
             Assert.That(EntityManager.GetBuffer<GridBuildResult>(grid)[0].Success,Is.Zero);
@@ -396,14 +395,14 @@ namespace Factory.Tests
                 BuildCatalogSnapshot received=default;
                 using var subscription=hub.BuildCatalog.Subscribe(0,value=>received=value);
                 UpdateSystem(GetOrCreateManagedSystem<UiSnapshotExportSystem>());
-                Assert.That(received.Levels.Length,Is.EqualTo(database.Value.BuildingLevelMenu.Length-8));
-                foreach(var id in received.Levels)
+                Assert.That(received.Definitions.Length,Is.EqualTo(database.Value.BuildingDefinitionMenu.Length-8));
+                foreach(var id in received.Definitions)
                 {
-                    Assert.That(FactoryDatabaseUtility.TryGetBuildingLevel(ref database.Value,id,out _,out var building),Is.True);
+                    Assert.That(FactoryDatabaseUtility.TryGetBuildingDefinition(ref database.Value,id,out var building),Is.True);
                     Assert.That(building.Kind,Is.Not.EqualTo(BuildingKind.VerticalBeltSegment));
                     Assert.That(building.Kind,Is.Not.EqualTo(BuildingKind.VerticalBeltExit));
                 }
-                Assert.That(FactoryDatabaseUtility.TryGetBuildingLevel(ref database.Value,new BuildingLevelId { Value=25 },out _,out _),Is.True);
+                Assert.That(FactoryDatabaseUtility.TryGetBuildingDefinition(ref database.Value,new BuildingDefinitionId { Value=25 },out _),Is.True);
             }
             finally { UiRuntimeServices.Detach(TestWorld,hub); }
         }
@@ -422,7 +421,7 @@ namespace Factory.Tests
         }
         private static GridCell Cell(int level) => new GridCell(0,level,0);
         private void Enqueue(ushort level, int height, byte turns=0) => EntityManager.GetBuffer<GridBuildCommand>(grid).Add(
-            new GridBuildCommand { Type=GridBuildCommandType.Place,BuildingLevel=new BuildingLevelId { Value=level },
+            new GridBuildCommand { Type=GridBuildCommandType.Place,BuildingDefinition=new BuildingDefinitionId { Value=level },
                 StartCell=Cell(height),QuarterTurns=turns });
         private GridBuildResult Place(ushort level,int height,byte turns=0)
         {

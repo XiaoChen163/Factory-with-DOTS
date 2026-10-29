@@ -74,38 +74,34 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                 AddBuffer<BuildingVisualPrefabEntry>(entity);
             DynamicBuffer<FoundationVisualMaterial> foundationMaterials =
                 AddBuffer<FoundationVisualMaterial>(entity);
-            DynamicBuffer<FoundationLevelMaterial> foundationLevelMaterials =
-                AddBuffer<FoundationLevelMaterial>(entity);
+            DynamicBuffer<FoundationDefinitionMaterial> foundationDefinitionMaterials =
+                AddBuffer<FoundationDefinitionMaterial>(entity);
             DynamicBuffer<BeltVisualPartsBakingData> beltVisualParts =
                 AddBuffer<BeltVisualPartsBakingData>(entity);
             HashSet<GameObject> configuredBeltVisuals =
                 new HashSet<GameObject>();
-            for (int i = 0; i < authoring.database.buildingLevels.Length; i++)
+            for (int i = 0; i < authoring.database.buildings.Length; i++)
             {
-                FactoryBuildingLevelTableRow level =
-                    authoring.database.buildingLevels[i];
-                DependsOn(level.visualPrefab);
-                Entity visualPrefab = GetPrefabEntity(level.visualPrefab);
+                FactoryBuildingDefinitionRow definition =
+                    authoring.database.buildings[i];
+                DependsOn(definition.visualPrefab);
+                Entity visualPrefab = GetPrefabEntity(definition.visualPrefab);
                 buildingPrefabs.Add(new BuildingVisualPrefabEntry
                 {
-                    BuildingLevel = new BuildingLevelId { Value = level.id },
+                    BuildingDefinition = new BuildingDefinitionId { Value = definition.id },
                     Prefab = visualPrefab
                 });
 
-                if (TryGetBuildingKind(
-                        authoring.database,
-                        level.buildingId,
-                        out BuildingKind levelKind) &&
-                    levelKind == BuildingKind.Foundation)
+                if (definition.kind == BuildingKind.Foundation)
                 {
                     MeshRenderer[] renderers =
-                        level.visualPrefab.GetComponentsInChildren<MeshRenderer>(true);
+                        definition.visualPrefab.GetComponentsInChildren<MeshRenderer>(true);
                     if (renderers.Length != 1 ||
                         renderers[0].sharedMaterials.Length != 1 ||
                         renderers[0].sharedMaterial == null)
                     {
                         Debug.LogError(
-                            $"Foundation level '{level.key}' must use exactly one visual material.",
+                            $"Foundation definition '{definition.key}' must use exactly one visual material.",
                             authoring);
                         return;
                     }
@@ -114,22 +110,18 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                     {
                         Value = (UnityObjectRef<Material>)renderers[0].sharedMaterial
                     });
-                    foundationLevelMaterials.Add(new FoundationLevelMaterial
+                    foundationDefinitionMaterials.Add(new FoundationDefinitionMaterial
                     {
-                        BuildingLevel = new BuildingLevelId { Value = level.id },
+                        BuildingDefinition = new BuildingDefinitionId { Value = definition.id },
                         VisualMaterialId = materialId
                     });
                 }
 
-                if (TryGetBuildingKind(
-                        authoring.database,
-                        level.buildingId,
-                        out BuildingKind kind) &&
-                    kind == BuildingKind.Belt &&
-                    configuredBeltVisuals.Add(level.visualPrefab))
+                if (definition.kind == BuildingKind.Belt &&
+                    configuredBeltVisuals.Add(definition.visualPrefab))
                 {
                     AddBeltVisualPartsMapping(
-                        level.visualPrefab,
+                        definition.visualPrefab,
                         visualPrefab,
                         beltVisualParts,
                         authoring);
@@ -266,25 +258,6 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             return GetEntity(
                 transform.gameObject,
                 TransformUsageFlags.Renderable);
-        }
-
-        private static bool TryGetBuildingKind(
-            FactoryDatabaseAsset database,
-            ushort buildingId,
-            out BuildingKind kind)
-        {
-            for (int i = 0; i < database.buildings.Length; i++)
-            {
-                FactoryBuildingTableRow building = database.buildings[i];
-                if (building.id == buildingId)
-                {
-                    kind = building.kind;
-                    return true;
-                }
-            }
-
-            kind = default;
-            return false;
         }
 
         private Entity GetPrefabEntity(GameObject prefab)

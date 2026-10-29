@@ -36,10 +36,10 @@ namespace Factory.Tests
             EntityManager.AddComponentData(catalog, new BuildingPrefabCatalog());
             EntityManager.AddComponentData(catalog, new FactoryDatabase { Value = database });
             EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog);
-            EntityManager.AddBuffer<FoundationLevelMaterial>(catalog).Add(
-                new FoundationLevelMaterial
+            EntityManager.AddBuffer<FoundationDefinitionMaterial>(catalog).Add(
+                new FoundationDefinitionMaterial
                 {
-                    BuildingLevel = new BuildingLevelId { Value = 1 },
+                    BuildingDefinition = new BuildingDefinitionId { Value = 1 },
                     VisualMaterialId = 3
                 });
 
@@ -309,18 +309,17 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void FoundationContent_UsesStableIdsLocalizedNameAndPureVisualPrefab()
+        public void FoundationContent_UsesKeyLocalizedNameAndPureVisualPrefab()
         {
             string buildings = File.ReadAllText(
                 "Assets/Data/FactoryTables/buildings/buildings.csv");
-            string levels = File.ReadAllText(
-                "Assets/Data/FactoryTables/buildings/levels/building_levels.csv");
+            string names = File.ReadAllText(
+                "Assets/Data/FactoryTables/buildings/building_names.csv");
             string prefab = File.ReadAllText(
                 "Assets/Prefabs/Buildings/Foundation.prefab");
-            Assert.That(buildings, Does.StartWith("id,key,"));
-            Assert.That(buildings, Does.Contain("7,foundation,"));
-            Assert.That(levels, Does.StartWith("id,key,"));
-            Assert.That(levels, Does.Contain("10,foundation_mk1,"));
+            Assert.That(buildings, Does.StartWith("key,behavior,"));
+            Assert.That(buildings, Does.Contain("foundation,Foundation,"));
+            Assert.That(names, Does.Contain("foundation,zh-CN,地基"));
             Assert.That(prefab, Does.Contain("MeshFilter:"));
             Assert.That(prefab, Does.Contain("MeshRenderer:"));
             Assert.That(prefab, Does.Not.Contain("Collider:"));
@@ -334,13 +333,13 @@ namespace Factory.Tests
                 ScriptableObject.CreateInstance<FactoryPresentationCatalog>();
             try
             {
-                asset.buildingLevels = new[]
+                asset.buildings = new[]
                 {
-                    new FactoryBuildingLevelTableRow
+                    new FactoryBuildingDefinitionRow
                     {
                         id = 10,
-                        key = "foundation_mk1",
-                        nameKey = "building.foundation.mk1"
+                        key = "foundation",
+                        displayName = "地基"
                     }
                 };
                 typeof(FactoryPresentationCatalog).GetField(
@@ -350,7 +349,7 @@ namespace Factory.Tests
                     asset);
                 catalog.BuildIndex();
                 Assert.That(catalog.GetBuildingName(
-                    new BuildingLevelId { Value = 10 }), Is.EqualTo("地基"));
+                    new BuildingDefinitionId { Value = 10 }), Is.EqualTo("地基"));
             }
             finally
             {
@@ -374,7 +373,7 @@ namespace Factory.Tests
                 RequestId = 1,
                 Type = GridBuildCommandType.PlaceFoundationArea,
                 Kind = BuildingKind.Foundation,
-                BuildingLevel = new BuildingLevelId { Value = 1 },
+                BuildingDefinition = new BuildingDefinitionId { Value = 1 },
                 StartCell = start,
                 EndCell = end,
                 VisualMaterialId = 99
@@ -388,33 +387,25 @@ namespace Factory.Tests
             using BlobBuilder builder = new BlobBuilder(Allocator.Temp);
             ref FactoryDatabaseBlob root = ref
                 builder.ConstructRoot<FactoryDatabaseBlob>();
-            BlobBuilderArray<FactoryBuildingBlob> buildings =
-                builder.Allocate(ref root.BuildingsById, 2);
-            buildings[1] = new FactoryBuildingBlob
+            BlobBuilderArray<FactoryBuildingDefinitionBlob> buildings =
+                builder.Allocate(ref root.BuildingDefinitionsById, 2);
+            buildings[1] = new FactoryBuildingDefinitionBlob
             {
-                Id = new BuildingTypeId { Value = 1 },
+                Id = new BuildingDefinitionId { Value = 1 },
                 Kind = BuildingKind.Foundation,
                 FootprintWidth = 1,
                 FootprintHeight = 1,
                 OccupiedCellCount = 1
             };
             builder.Allocate(ref root.BuildingOccupiedCells, 1)[0] = int2.zero;
-            BlobBuilderArray<FactoryBuildingLevelBlob> levels =
-                builder.Allocate(ref root.BuildingLevelsById, 2);
-            levels[1] = new FactoryBuildingLevelBlob
-            {
-                Id = new BuildingLevelId { Value = 1 },
-                BuildingId = new BuildingTypeId { Value = 1 },
-                Level = 1
-            };
-            BlobBuilderArray<BuildingLevelId> menu =
-                builder.Allocate(ref root.BuildingLevelMenu, 1);
-            menu[0] = new BuildingLevelId { Value = 1 };
+            BlobBuilderArray<BuildingDefinitionId> menu =
+                builder.Allocate(ref root.BuildingDefinitionMenu, 1);
+            menu[0] = new BuildingDefinitionId { Value = 1 };
             builder.Allocate(ref root.ItemsById, 0);
             builder.Allocate(ref root.MachineTypesById, 0);
-            builder.Allocate(ref root.BeltLevelsById, 0);
-            builder.Allocate(ref root.ProcessorLevelsById, 0);
-            builder.Allocate(ref root.StorageLevelsById, 0);
+
+
+
             builder.Allocate(ref root.BuildingPorts, 0);
             builder.Allocate(ref root.Recipes, 0);
             builder.Allocate(ref root.Inputs, 0);

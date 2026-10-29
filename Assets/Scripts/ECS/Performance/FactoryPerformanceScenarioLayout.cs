@@ -18,20 +18,20 @@ public readonly struct FactoryPerformancePlacement
 {
     public FactoryPerformancePlacement(
         BuildingKind kind,
-        BuildingLevelId buildingLevel,
+        string buildingKey,
         GridCell cell,
         byte quarterTurns,
         string recipeKey = null)
     {
         Kind = kind;
-        BuildingLevel = buildingLevel;
+        BuildingKey = buildingKey;
         Cell = cell;
         QuarterTurns = quarterTurns;
         RecipeKey = recipeKey;
     }
 
     public BuildingKind Kind { get; }
-    public BuildingLevelId BuildingLevel { get; }
+    public string BuildingKey { get; }
     public GridCell Cell { get; }
     public byte QuarterTurns { get; }
     public string RecipeKey { get; }
@@ -69,11 +69,11 @@ public sealed class FactoryPerformanceScenarioDefinition
             {
                 case BuildingKind.Belt:
                     BeltCount++;
-                    if (placements[i].BuildingLevel.Value == 4)
+                    if (placements[i].BuildingKey == "belt_mk4")
                     {
                         Mk4BeltCount++;
                     }
-                    else if (placements[i].BuildingLevel.Value == 1)
+                    else if (placements[i].BuildingKey == "belt_mk1")
                     {
                         Mk1BeltCount++;
                     }
@@ -84,12 +84,9 @@ public sealed class FactoryPerformanceScenarioDefinition
                 case BuildingKind.Merger:
                     MergerCount++;
                     break;
-                case BuildingKind.Miner:
-                    MinerCount++;
-                    ProcessorCount++;
-                    break;
-                case BuildingKind.Furnace:
-                    FurnaceCount++;
+                case BuildingKind.Processor:
+                    if (placements[i].RecipeKey == "mine_iron") MinerCount++;
+                    else if (placements[i].RecipeKey == "smelt_iron") FurnaceCount++;
                     ProcessorCount++;
                     break;
                 case BuildingKind.Storage:
@@ -125,14 +122,14 @@ public sealed class FactoryPerformanceScenarioDefinition
 public static class FactoryPerformanceScenarioLayout
 {
     public const ushort IronOreItemId = 1;
-    public const ushort Mk1BeltLevelId = 1;
-    public const ushort Mk4BeltLevelId = 4;
-    public const ushort MinerLevelId = 5;
-    public const ushort FurnaceLevelId = 6;
-    public const ushort StorageLevelId = 7;
-    public const ushort MergerLevelId = 8;
-    public const ushort SplitterLevelId = 9;
-    public const ushort FoundationLevelId = 10;
+    public const string Mk1BeltKey = "belt_mk1";
+    public const string Mk4BeltKey = "belt_mk4";
+    public const string MinerKey = "miner";
+    public const string FurnaceKey = "furnace";
+    public const string StorageKey = "storage";
+    public const string MergerKey = "merger";
+    public const string SplitterKey = "splitter";
+    public const string FoundationKey = "foundation";
 
     public static FactoryPerformanceScenarioDefinition Create(
         FactoryPerformanceScenario scenario,
@@ -186,7 +183,7 @@ public static class FactoryPerformanceScenarioLayout
             route.Add(new int2(x, 0));
         }
 
-        builder.AddBeltRoute(route, Mk4BeltLevelId, new int2(1, 0));
+        builder.AddBeltRoute(route, Mk4BeltKey, new int2(1, 0));
         builder.AddInitialItemsByLoadPercent(loadPercent);
         return builder.Build(
             FactoryPerformanceScenario.ScalableStraight,
@@ -231,21 +228,21 @@ public static class FactoryPerformanceScenarioLayout
                 origin + new int2(0, 2),
                 origin + new int2(0, 1)
             };
-            builder.AddBeltRoute(feedback, Mk4BeltLevelId, new int2(1, 0));
+            builder.AddBeltRoute(feedback, Mk4BeltKey, new int2(1, 0));
             builder.AddSplitter(origin + new int2(1, 1), new int2(1, 0));
 
-            builder.AddBelt(origin + new int2(2, 1), new int2(1, 0), Mk4BeltLevelId);
+            builder.AddBelt(origin + new int2(2, 1), new int2(1, 0), Mk4BeltKey);
 
             for (int x = 1; x <= 3; x++)
             {
                 int2 direction = x == 3 ? new int2(0, -1) : new int2(1, 0);
-                builder.AddBelt(origin + new int2(x, 2), direction, Mk4BeltLevelId);
+                builder.AddBelt(origin + new int2(x, 2), direction, Mk4BeltKey);
             }
 
-            builder.AddBelt(origin + new int2(1, 0), new int2(1, 0), Mk4BeltLevelId);
-            builder.AddBelt(origin + new int2(2, 0), new int2(1, 0), Mk4BeltLevelId);
+            builder.AddBelt(origin + new int2(1, 0), new int2(1, 0), Mk4BeltKey);
+            builder.AddBelt(origin + new int2(2, 0), new int2(1, 0), Mk4BeltKey);
             builder.AddMerger(origin + new int2(3, 1), new int2(1, 0));
-            builder.AddBelt(origin + new int2(3, 0), new int2(0, 1), Mk4BeltLevelId);
+            builder.AddBelt(origin + new int2(3, 0), new int2(0, 1), Mk4BeltKey);
         }
 
         // A separate 62-belt loop keeps the total node count at exactly 512
@@ -268,7 +265,7 @@ public static class FactoryPerformanceScenarioLayout
         {
             beltLoop.Add(new int2(loopStartX, y));
         }
-        builder.AddBeltRoute(beltLoop, Mk4BeltLevelId, new int2(0, -1));
+        builder.AddBeltRoute(beltLoop, Mk4BeltKey, new int2(0, -1));
 
         builder.AddInitialItemsByLoadPercent(loadPercent);
         return builder.Build(
@@ -325,7 +322,7 @@ public static class FactoryPerformanceScenarioLayout
             route.Add(new int2(0, y));
         }
 
-        builder.AddBeltRoute(route, Mk4BeltLevelId, new int2(0, -1));
+        builder.AddBeltRoute(route, Mk4BeltKey, new int2(0, -1));
         builder.AddInitialItemsByLoadPercent(loadPercent);
         return builder.Build(
             FactoryPerformanceScenario.Mk4FullLoop4096,
@@ -345,10 +342,10 @@ public static class FactoryPerformanceScenarioLayout
         {
             int y = lane * 3;
             builder.AddProcessor(
-                BuildingKind.Miner,
+                BuildingKind.Processor,
                 new int2(0, y),
                 new int2(1, 0),
-                MinerLevelId,
+                MinerKey,
                 "mine_iron");
 
             List<int2> oreRoute = new List<int2>(8);
@@ -356,13 +353,13 @@ public static class FactoryPerformanceScenarioLayout
             {
                 oreRoute.Add(new int2(x, y));
             }
-            builder.AddBeltRoute(oreRoute, Mk4BeltLevelId, new int2(1, 0));
+            builder.AddBeltRoute(oreRoute, Mk4BeltKey, new int2(1, 0));
 
             builder.AddProcessor(
-                BuildingKind.Furnace,
+                BuildingKind.Processor,
                 new int2(10, y),
                 new int2(1, 0),
-                FurnaceLevelId,
+                FurnaceKey,
                 "smelt_iron");
 
             List<int2> ingotRoute = new List<int2>(8);
@@ -370,7 +367,7 @@ public static class FactoryPerformanceScenarioLayout
             {
                 ingotRoute.Add(new int2(x, y));
             }
-            builder.AddBeltRoute(ingotRoute, Mk4BeltLevelId, new int2(1, 0));
+            builder.AddBeltRoute(ingotRoute, Mk4BeltKey, new int2(1, 0));
             builder.AddStorage(new int2(20, y), new int2(1, 0));
         }
 
@@ -442,7 +439,7 @@ public static class FactoryPerformanceScenarioLayout
             true);
         builder.AddBeltRoute(
             route,
-            Mk4BeltLevelId,
+            Mk4BeltKey,
             new int2(-1, 0));
 
         for (int i = 0; i < route.Count; i += 2)
@@ -472,7 +469,7 @@ public static class FactoryPerformanceScenarioLayout
             false);
         builder.AddBeltRoute(
             inputTrunk,
-            Mk4BeltLevelId,
+            Mk4BeltKey,
             new int2(0, 1));
         for (int i = 0; i < inputTrunk.Count; i++)
         {
@@ -495,7 +492,7 @@ public static class FactoryPerformanceScenarioLayout
                 true);
             builder.AddBeltRoute(
                 branch,
-                Mk4BeltLevelId,
+                Mk4BeltKey,
                 new int2(1, 0));
             branchLengths[branchIndex] = branch.Count;
 
@@ -506,7 +503,7 @@ public static class FactoryPerformanceScenarioLayout
                     builder.AddBelt(
                         new int2(31, y + offset),
                         new int2(0, 1),
-                        Mk4BeltLevelId);
+                        Mk4BeltKey);
                 }
             }
         }
@@ -531,7 +528,7 @@ public static class FactoryPerformanceScenarioLayout
             true);
         builder.AddBeltRoute(
             mainRoute,
-            Mk4BeltLevelId,
+            Mk4BeltKey,
             new int2(-1, 0));
         for (int i = 0; i < mainRoute.Count; i++)
         {
@@ -541,7 +538,7 @@ public static class FactoryPerformanceScenarioLayout
         builder.AddBelt(
             new int2(2, side - 1),
             new int2(-1, 0),
-            Mk1BeltLevelId);
+            Mk1BeltKey);
         builder.AddStorage(
             new int2(0, side - 2),
             new int2(-1, 0));
@@ -603,7 +600,7 @@ public static class FactoryPerformanceScenarioLayout
 
         public void AddBeltRoute(
             IReadOnlyList<int2> route,
-            ushort levelId,
+            string buildingKey,
             int2 finalDirection)
         {
             if (route.Count == 0)
@@ -622,17 +619,17 @@ public static class FactoryPerformanceScenarioLayout
                         "Belt route contains non-adjacent cells at index " + i + ".");
                 }
 
-                AddBelt(route[i], direction, levelId);
+                AddBelt(route[i], direction, buildingKey);
             }
         }
 
-        public void AddBelt(int2 cell, int2 direction, ushort levelId)
+        public void AddBelt(int2 cell, int2 direction, string buildingKey)
         {
             ReserveCell(new GridCell(cell), BuildingKind.Belt);
             AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Belt,
-                new BuildingLevelId { Value = levelId },
+                buildingKey,
                 new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
@@ -643,7 +640,7 @@ public static class FactoryPerformanceScenarioLayout
             AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Splitter,
-                new BuildingLevelId { Value = SplitterLevelId },
+                SplitterKey,
                 new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
@@ -654,7 +651,7 @@ public static class FactoryPerformanceScenarioLayout
             AddTransportCell(new GridCell(cell));
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Merger,
-                new BuildingLevelId { Value = MergerLevelId },
+                MergerKey,
                 new GridCell(cell),
                 EcsGridUtility.QuarterTurnsFromDirection(direction)));
         }
@@ -663,18 +660,18 @@ public static class FactoryPerformanceScenarioLayout
             BuildingKind kind,
             int2 anchor,
             int2 direction,
-            ushort levelId,
+            string buildingKey,
             string recipeKey)
         {
-            if (kind != BuildingKind.Miner && kind != BuildingKind.Furnace)
+            if (kind != BuildingKind.Processor)
             {
-                throw new ArgumentException("Processor kind must be Miner or Furnace.");
+                throw new ArgumentException("Building behavior must be Processor.");
             }
 
             ReserveSquareBuilding(anchor, kind);
             placements.Add(new FactoryPerformancePlacement(
                 kind,
-                new BuildingLevelId { Value = levelId },
+                buildingKey,
                 new GridCell(anchor),
                 EcsGridUtility.QuarterTurnsFromDirection(direction),
                 recipeKey));
@@ -686,7 +683,7 @@ public static class FactoryPerformanceScenarioLayout
 
             placements.Add(new FactoryPerformancePlacement(
                 BuildingKind.Storage,
-                new BuildingLevelId { Value = StorageLevelId },
+                StorageKey,
                 new GridCell(anchor),
                 EcsGridUtility.QuarterTurnsFromDirection(inputDirection)));
         }

@@ -1,0 +1,846 @@
+using System.Collections;
+using System.Linq;
+using System.Reflection;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
+using UnityEngine.TestTools;
+using UnityEngine.UIElements;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Physics;
+using Unity.Transforms;
+
+namespace Factory.Tests
+{
+    public sealed class ConstructionUiPlayModeTests
+    {
+        [UnityTest]
+        public IEnumerator EcsScene_GameUiRootInitializesAndTogglesEmptyWindows()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            GameUiController[] controllers =
+                Object.FindObjectsByType<GameUiController>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None);
+            Assert.That(controllers, Has.Length.EqualTo(1));
+            GameUiController controller = controllers[0];
+            Assert.That(controller.DataHub, Is.Not.Null);
+            Assert.That(controller.Windows, Is.Not.Null);
+
+            controller.ToggleBackpack(new PlayerId { Value = 1 });
+            controller.OpenBuilding(new BuildingRuntimeId(123));
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.True);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Building), Is.True);
+
+            controller.Windows.Close(UiWindowId.Building);
+            controller.Windows.Close(UiWindowId.Backpack);
+            Assert.That(controller.DataHub.Observations.PlayerCount, Is.Zero);
+            Assert.That(controller.DataHub.Observations.BuildingCount, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator Phase3_InputModes_KeepBuildAndRegularWindowsExclusive()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            GameUiController controller = Object.FindFirstObjectByType<GameUiController>();
+            PlayerInputModeController input =
+                controller.GetComponent<PlayerInputModeController>();
+
+            controller.HandleBackpackToggle();
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.True);
+
+            controller.HandleBuildCatalogToggle();
+            Assert.That(input.IsBuildMode, Is.True);
+            Assert.That(input.IsModalOpen, Is.True);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.True);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False);
+
+            controller.HandleBackpackToggle();
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False,
+                "Tab must be ignored while building.");
+
+            controller.CloseBuildCatalog();
+            Assert.That(input.IsBuildMode, Is.True,
+                "Closing the picker must keep batch build mode active.");
+            Assert.That(input.IsBuildCatalogToggleActionEnabled, Is.True,
+                "Q must remain available through the Build action map.");
+            controller.HandleBuildCatalogToggle();
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.True);
+
+            controller.HandleCancel();
+            Assert.That(input.IsBuildMode, Is.False);
+            Assert.That(input.IsModalOpen, Is.False);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator Phase3_EscapeClosesBackpackAndBuildingTogether()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            GameUiController controller = Object.FindFirstObjectByType<GameUiController>();
+            controller.ToggleBackpack(new PlayerId { Value = 1 });
+            controller.OpenBuilding(new BuildingRuntimeId(123));
+            controller.HandleCancel();
+
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Building), Is.False);
+            Assert.That(controller.DataHub.Observations.PlayerCount, Is.Zero);
+            Assert.That(controller.DataHub.Observations.BuildingCount, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator DemolitionMode_TogglesHintAndKeepsOtherModesClosed()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            GameUiController controller =
+                Object.FindFirstObjectByType<GameUiController>();
+            PlayerInputModeController input =
+                controller.GetComponent<PlayerInputModeController>();
+            Label hint = controller.GetComponent<UIDocument>()
+                .rootVisualElement.Q<Label>("demolition-mode-hint");
+
+            controller.HandleDemolitionToggle();
+            Assert.That(input.IsDemolitionMode, Is.True);
+            Assert.That(input.IsBuildMode, Is.False);
+            Assert.That(hint.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+
+            controller.HandleBuildCatalogToggle();
+            controller.HandleBackpackToggle();
+            Assert.That(input.IsDemolitionMode, Is.True);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.False);
+            Assert.That(controller.Windows.IsOpen(UiWindowId.Backpack), Is.False);
+
+            controller.HandleCancel();
+            Assert.That(input.IsDemolitionMode, Is.False);
+            Assert.That(hint.style.display.value, Is.EqualTo(DisplayStyle.None));
+        }
+
+        [UnityTest]
+        public IEnumerator Phase6_BuildShortcut_BindsSelectionAndReentersBatchBuildMode()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            GameUiController controller =
+                Object.FindFirstObjectByType<GameUiController>();
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            PlayerInputModeController input =
+                controller.GetComponent<PlayerInputModeController>();
+            InputActionAsset runtimeActions =
+                typeof(PlayerInputModeController).GetField(
+                    "runtimeActions",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(input) as InputActionAsset;
+            InputAction firstShortcut = runtimeActions?
+                .FindActionMap("UI", true)
+                .FindAction("BuildShortcut1", true);
+            Assert.That(firstShortcut.bindings.Any(
+                binding => binding.effectivePath == "<Keyboard>/1"), Is.True);
+            Keyboard keyboard = Keyboard.current;
+            bool addedKeyboard = keyboard == null;
+            if (addedKeyboard)
+                keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                Assert.That(firstShortcut.controls.Any(
+                    control => control.path.EndsWith("/1")), Is.True,
+                    "The main-row number binding must resolve to a real keyboard control.");
+                Assert.That(firstShortcut.enabled, Is.True);
+            }
+            finally
+            {
+                if (addedKeyboard)
+                    InputSystem.RemoveDevice(keyboard);
+            }
+
+            controller.HandleBuildCatalogToggle();
+            controller.CloseBuildCatalog();
+            for (int i = 0;
+                 i < 120 && !interaction.SelectedBuildingDefinition.IsValid;
+                 i++)
+            {
+                yield return null;
+            }
+
+            BuildingDefinitionId selected = interaction.SelectedBuildingDefinition;
+            Assert.That(selected.IsValid, Is.True);
+            controller.HandleBuildShortcut(2);
+            Assert.That(controller.GetBuildShortcut(2), Is.EqualTo(selected));
+
+            controller.HandleBuildCatalogToggle();
+            for (int i = 0;
+                 i < 120 && (controller.LatestBuildCatalog.Definitions == null ||
+                             controller.LatestBuildCatalog.Definitions.Length < 2);
+                 i++)
+            {
+                yield return null;
+            }
+            BuildingDefinitionId alternate =
+                controller.LatestBuildCatalog.Definitions.First(
+                    value => value != selected);
+            controller.SelectCatalogBuildingDefinition(alternate);
+            controller.HandleBuildShortcut(3);
+            controller.CloseBuildCatalog();
+            Assert.That(controller.GetBuildShortcut(3), Is.EqualTo(alternate));
+
+            controller.HandleBuildShortcut(3);
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(alternate));
+            Assert.That(controller.GetBuildShortcut(2), Is.EqualTo(selected),
+                "Switching shortcuts must not overwrite another occupied slot.");
+            controller.HandleBuildShortcut(2);
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(selected));
+            Assert.That(controller.GetBuildShortcut(3), Is.EqualTo(alternate));
+
+            controller.HandleCancel();
+            Assert.That(input.IsBuildMode, Is.False);
+            controller.HandleBuildShortcut(2);
+
+            Assert.That(input.IsBuildMode, Is.True);
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(selected));
+            VisualElement bar = controller.GetComponent<UIDocument>()
+                .rootVisualElement.Q("build-shortcut-bar");
+            Assert.That(bar, Is.Not.Null);
+            Assert.That(bar.childCount, Is.EqualTo(9));
+        }
+
+        [UnityTest]
+        public IEnumerator Phase5_EcsSceneUsesRetainedUiAndInputSystemBuildActions()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            yield return null;
+
+            Assert.That(Object.FindObjectsByType<Stage3PrototypeHud>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None), Is.Empty,
+                "The prototype IMGUI HUD must not exist in the production scene.");
+
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            Assert.That(interaction, Is.Not.Null);
+            Assert.That(typeof(EcsGridInteractionController).GetMethod(
+                "OnGUI", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null,
+                "Build selection must be owned by the retained-mode UI.");
+
+            GameUiController controller =
+                Object.FindFirstObjectByType<GameUiController>();
+            PlayerInputModeController input =
+                controller.GetComponent<PlayerInputModeController>();
+            Assert.That(input.IsGameplayActionMapEnabled, Is.True);
+            Assert.That(input.IsBuildActionMapEnabled, Is.False);
+
+            controller.HandleBuildCatalogToggle();
+            Assert.That(input.IsBuildMode, Is.True);
+            Assert.That(input.IsGameplayActionMapEnabled, Is.False);
+            Assert.That(input.IsBuildActionMapEnabled, Is.False,
+                "Modal build catalog owns input until a selection is made.");
+
+            controller.CloseBuildCatalog();
+            Assert.That(input.IsBuildActionMapEnabled, Is.True,
+                "Build actions must become active after the catalog closes.");
+            controller.HandleCancel();
+            Assert.That(input.IsBuildMode, Is.False);
+            Assert.That(input.IsGameplayActionMapEnabled, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator Phase5_BuildCatalogSelectionSurvivesSnapshotRefresh()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            GameUiController controller =
+                Object.FindFirstObjectByType<GameUiController>();
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            controller.HandleBuildCatalogToggle();
+
+            for (int i = 0;
+                 i < 120 && (controller.LatestBuildCatalog.Definitions == null ||
+                             controller.LatestBuildCatalog.Definitions.Length < 2);
+                 i++)
+                yield return null;
+
+            BuildingDefinitionId[] levels = controller.LatestBuildCatalog.Definitions;
+            Assert.That(levels, Is.Not.Null.And.Length.GreaterThanOrEqualTo(2));
+            BuildingDefinitionId requested = levels[0] == interaction.SelectedBuildingDefinition
+                ? levels[1]
+                : levels[0];
+
+            controller.SelectCatalogBuildingDefinition(requested);
+            yield return null;
+            yield return null;
+            Assert.That(controller.SelectedCatalogBuildingDefinition,
+                Is.EqualTo(requested),
+                "Repeated catalog snapshots must not reset the pending selection.");
+
+            controller.ConfirmCatalogBuildingSelection();
+            Assert.That(interaction.SelectedBuildingDefinition, Is.EqualTo(requested));
+            Assert.That(controller.Windows.IsOpen(UiWindowId.BuildCatalog), Is.False);
+            Assert.That(controller.GetComponent<PlayerInputModeController>().IsBuildMode,
+                Is.True, "Selecting a building must keep batch build mode active.");
+        }
+
+        [UnityTest]
+        public IEnumerator Phase5_RTogglesBeltPathPriorityAfterStart()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            for (int i = 0;
+                 i < 120 && !interaction.SelectedBuildingDefinition.IsValid;
+                 i++)
+                yield return null;
+
+            Assert.That(interaction.SelectedKind, Is.EqualTo(BuildingKind.Belt));
+            typeof(EcsGridInteractionController).GetField(
+                "beltPathStarted", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(interaction, true);
+            Assert.That(interaction.IsBeltPathStarted, Is.True);
+            bool previous = interaction.UsesHorizontalFirst;
+
+            interaction.RotateSelectionOrToggleBeltPathOrder();
+
+            Assert.That(interaction.UsesHorizontalFirst, Is.Not.EqualTo(previous),
+                "R must change horizontal/vertical priority after a belt start.");
+        }
+
+        [UnityTest]
+        public IEnumerator SimulatedBuild_BypassesPlayerModeAndPlacesBeltPath()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            PlayerInputModeController input =
+                Object.FindFirstObjectByType<PlayerInputModeController>();
+            Assert.That(input.IsBuildMode, Is.False);
+
+            bool selected = false;
+            for (int i = 0; i < 240 && !selected; i++)
+            {
+                selected = interaction.TrySelectBuildingDefinition(
+                    new BuildingDefinitionId { Value = 10 });
+                yield return null;
+            }
+            Assert.That(selected, Is.True,
+                "Foundation must become available after SubScene loading.");
+
+            interaction.SimulateHover(new GridCell(0, 0, 0));
+            GameObject preview = null;
+            for (int i = 0; i < 240 && preview == null; i++)
+            {
+                yield return null;
+                preview = GameObject.Find("ECS Building Placement Preview");
+            }
+            Assert.That(preview, Is.Not.Null,
+                "Simulated hover must render without player build mode.");
+
+            GameObject previewCell = GameObject.Find("Placement Preview Cell 0");
+            Assert.That(previewCell, Is.Not.Null);
+            World world = World.DefaultGameObjectInjectionWorld;
+            EntityQuery worldGridQuery = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<WorldGridConfig>());
+            WorldGridConfig worldGrid = worldGridQuery.GetSingleton<WorldGridConfig>();
+            worldGridQuery.Dispose();
+            float3 expectedPreviewCenter = EcsGridUtility.CellToWorldCenter(
+                new GridCell(0, 0, 0),
+                worldGrid);
+            expectedPreviewCenter.y -= worldGrid.LayerHeight * 0.5f;
+            Assert.That(previewCell.transform.position.x,
+                Is.EqualTo(expectedPreviewCenter.x).Within(0.0001f));
+            Assert.That(previewCell.transform.position.y,
+                Is.EqualTo(expectedPreviewCenter.y).Within(0.0001f));
+            Assert.That(previewCell.transform.position.z,
+                Is.EqualTo(expectedPreviewCenter.z).Within(0.0001f));
+            Assert.That(previewCell.transform.localScale,
+                Is.EqualTo(new Vector3(
+                    worldGrid.CellSize,
+                    worldGrid.LayerHeight,
+                    worldGrid.CellSize)));
+
+            interaction.SimulatePrimaryClick(new GridCell(0, 0, 0));
+            interaction.SimulateHover(new GridCell(1, 3, 0));
+            yield return null;
+            GameObject secondPreviewCell =
+                GameObject.Find("Placement Preview Cell 1");
+            Assert.That(secondPreviewCell, Is.Not.Null);
+            Assert.That(secondPreviewCell.transform.position.y,
+                Is.EqualTo(expectedPreviewCenter.y).Within(0.0001f),
+                "The second foundation corner must stay on the first corner's plane.");
+            interaction.SimulatePrimaryClick(new GridCell(1, 3, 0));
+            SurfaceRegistrySystem registry =
+                world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            int surfaceCountBeforeBuild = registry?.SurfaceCount ?? 0;
+            for (int i = 0;
+                 i < 120 && (registry == null ||
+                             registry.SurfaceCount < surfaceCountBeforeBuild + 2);
+                 i++)
+            {
+                yield return null;
+                registry = world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            }
+            Assert.That(registry?.SurfaceCount,
+                Is.EqualTo(surfaceCountBeforeBuild + 2));
+
+            Assert.That(interaction.TrySelectBuildingDefinition(
+                new BuildingDefinitionId { Value = 4 }), Is.True,
+                "The Mk4 belt must remain available after foundation placement.");
+
+            EntityQuery belts = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<BeltTopology>());
+            int beltCountBeforeBuild = belts.CalculateEntityCount();
+
+            interaction.SimulatePrimaryClick(new GridCell(0, 0, 0));
+            yield return null;
+            Assert.That(interaction.IsBeltPathStarted, Is.True,
+                "Player-mode checks must not clear a simulated belt path.");
+
+            interaction.SimulateHover(new GridCell(1, 0, 0));
+            yield return null;
+            interaction.SimulatePrimaryClick(new GridCell(1, 0, 0));
+
+            for (int i = 0;
+                 i < 120 &&
+                 belts.CalculateEntityCount() < beltCountBeforeBuild + 2;
+                 i++)
+            {
+                yield return null;
+            }
+
+            Assert.That(belts.CalculateEntityCount(),
+                Is.EqualTo(beltCountBeforeBuild + 2));
+            belts.Dispose();
+            interaction.StopSimulatedHover();
+        }
+
+        [UnityTest]
+        public IEnumerator RampSelection_PlacesStraightConnectedLineAboveFoundation()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            bool selected = false;
+            for (int i = 0; i < 240 && !selected; i++)
+            {
+                selected = interaction.TrySelectBuildingDefinition(
+                    new BuildingDefinitionId { Value = 12 });
+                yield return null;
+            }
+            Assert.That(selected, Is.True);
+            Assert.That(interaction.SelectedKind,
+                Is.EqualTo(BuildingKind.RampFoundation));
+
+            World world = World.DefaultGameObjectInjectionWorld;
+            SurfaceRegistrySystem surfaces =
+                world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            EntityQuery gridQuery = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<WorldGridConfig>());
+            Entity gridEntity = gridQuery.GetSingletonEntity();
+            gridQuery.Dispose();
+            if (!surfaces.HasFoundationVoxel(new GridCell(2, 0, 2)))
+            {
+                surfaces.AddFoundation(
+                    gridEntity,
+                    new GridCell(2, 0, 2),
+                    0,
+                    SurfacePermission.All,
+                    true);
+            }
+            Assert.That(surfaces.HasFoundationVoxel(new GridCell(2, 0, 2)),
+                Is.True,
+                "The ramp test must place on the existing level-zero foundation.");
+
+            interaction.SimulatePrimaryClick(new GridCell(2, 0, 2));
+            Assert.That(interaction.IsRampLineStarted, Is.True);
+            interaction.SimulateHover(new GridCell(4, 7, 3));
+            yield return null;
+            interaction.SimulatePrimaryClick(new GridCell(4, 7, 3));
+
+            RampRegistrySystem ramps =
+                world.GetExistingSystemManaged<RampRegistrySystem>();
+            for (int i = 0; i < 120 &&
+                 (ramps == null ||
+                  !ramps.ContainsCell(new GridCell(4, 1, 2))); i++)
+            {
+                yield return null;
+                ramps = world.GetExistingSystemManaged<RampRegistrySystem>();
+            }
+
+            Assert.That(interaction.IsRampLineStarted, Is.False);
+            Assert.That(ramps.TryGet(
+                new GridCell(2, 0, 2), out RampRegistrySystem.Record first),
+                Is.True);
+            Assert.That(ramps.TryGet(
+                new GridCell(3, 0, 2), out RampRegistrySystem.Record second),
+                Is.True);
+            Assert.That(ramps.TryGet(
+                new GridCell(4, 1, 2), out RampRegistrySystem.Record third),
+                Is.True);
+            Assert.That(first.Connector.LowHeight.Units, Is.EqualTo(0));
+            Assert.That(second.Connector.LowHeight.Units, Is.EqualTo(4));
+            Assert.That(third.Connector.LowHeight.Units, Is.EqualTo(8));
+            Assert.That(first.Connector.UphillDirection, Is.EqualTo(new int2(1, 0)));
+            Assert.That(surfaces.HasFoundationVoxel(new GridCell(2, 0, 2)),
+                Is.True,
+                "A ramp above a foundation must not replace the foundation voxel.");
+
+            yield return new WaitForFixedUpdate();
+            EntityQuery physicsQuery = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<PhysicsWorldSingleton>());
+            Assert.That(physicsQuery.CalculateEntityCount(), Is.EqualTo(1));
+            PhysicsWorldSingleton physicsWorld = physicsQuery.GetSingleton<
+                PhysicsWorldSingleton>();
+            WorldGridConfig worldGrid = world.EntityManager.GetComponentData<
+                WorldGridConfig>(gridEntity);
+            float3 rampCenter = RampUtility.GetSurfaceCenter(
+                first.Connector, worldGrid);
+            RaycastInput ray = new RaycastInput
+            {
+                Start = rampCenter + new float3(0f, 10f, 0f),
+                End = rampCenter - new float3(0f, 10f, 0f),
+                Filter = FoundationCollisionCategories.FoundationQueryFilter
+            };
+            Assert.That(physicsWorld.CastRay(ray, out Unity.Physics.RaycastHit hit),
+                Is.True,
+                "The slope collider must block the grid picking ray.");
+            Assert.That(EcsGridInteractionController.TryResolveRampPhysicsHit(
+                    world.EntityManager, hit.Entity, out RampConnector raycastRamp),
+                Is.True,
+                "A slope collider hit must resolve to its RampConnector.");
+            Assert.That(raycastRamp.Cell, Is.EqualTo(first.Connector.Cell));
+            physicsQuery.Dispose();
+
+            Assert.That(interaction.TrySelectBuildingDefinition(
+                new BuildingDefinitionId { Value = 1 }), Is.True);
+            interaction.SimulateHover(first.Connector.Cell);
+            yield return null;
+            interaction.SimulatePrimaryClick(first.Connector.Cell);
+            Assert.That(interaction.IsRampBeltPathStarted, Is.True);
+            interaction.SimulateHover(third.Connector.Cell);
+            yield return null;
+            interaction.SimulatePrimaryClick(third.Connector.Cell);
+            for (int i = 0; i < 120; i++)
+            {
+                yield return null;
+                if (ramps.TryGet(first.Connector.Cell, out first) &&
+                    ramps.TryGet(second.Connector.Cell, out second) &&
+                    ramps.TryGet(third.Connector.Cell, out third) &&
+                    first.BeltEntity != Entity.Null &&
+                    second.BeltEntity != Entity.Null &&
+                    third.BeltEntity != Entity.Null &&
+                    world.EntityManager.Exists(first.BeltEntity) &&
+                    world.EntityManager.Exists(second.BeltEntity) &&
+                    world.EntityManager.Exists(third.BeltEntity))
+                    break;
+            }
+
+            Assert.That(interaction.IsRampBeltPathStarted, Is.False);
+            Assert.That(first.BeltEntity, Is.Not.EqualTo(Entity.Null));
+            Assert.That(second.BeltEntity, Is.Not.EqualTo(Entity.Null));
+            Assert.That(third.BeltEntity, Is.Not.EqualTo(Entity.Null));
+            GridOccupancyIndexSystem occupancy = world
+                .GetExistingSystemManaged<GridOccupancyIndexSystem>();
+            Assert.That(occupancy.ConflictCount, Is.Zero,
+                "Ramp belts must not poison the planar occupancy index.");
+            Assert.That(world.EntityManager.HasComponent<RampBelt>(first.BeltEntity),
+                Is.True);
+            RampBelt rampBelt = world.EntityManager.GetComponentData<RampBelt>(
+                first.BeltEntity);
+            Assert.That(rampBelt.TravelDirection, Is.EqualTo(new int2(1, 0)));
+            LocalTransform beltTransform = world.EntityManager.GetComponentData<
+                LocalTransform>(first.BeltEntity);
+            float3 expectedCenter = RampUtility.GetSurfaceCenter(
+                first.Connector, worldGrid);
+            Assert.That(math.distance(beltTransform.Position, expectedCenter),
+                Is.LessThan(0.001f),
+                "The ramp belt must be positioned at the slope surface center.");
+            PostTransformMatrix beltScale = world.EntityManager.GetComponentData<
+                PostTransformMatrix>(first.BeltEntity);
+            float expectedLengthScale = RampUtility.GetSlopeLength(
+                first.Connector, worldGrid) / worldGrid.CellSize;
+            Assert.That(beltScale.Value.c0.x,
+                Is.EqualTo(expectedLengthScale).Within(0.001f),
+                "The ramp belt must scale along its travel axis to the slope length.");
+            BeltVisualParts firstVisual = world.EntityManager.GetComponentData<
+                BeltVisualParts>(world.EntityManager.GetComponentData<
+                    BuildingVisualReference>(first.BeltEntity).Value);
+            BeltVisualParts secondVisual = world.EntityManager.GetComponentData<
+                BeltVisualParts>(world.EntityManager.GetComponentData<
+                    BuildingVisualReference>(second.BeltEntity).Value);
+            Assert.That(HasDisableRendering(
+                world.EntityManager, firstVisual.EastEdge), Is.True,
+                "The uphill belt's connected high/output edge must be hidden.");
+            Assert.That(HasDisableRendering(
+                world.EntityManager, secondVisual.WestEdge), Is.True,
+                "The uphill belt's connected low/input edge must be hidden.");
+            Entity firstBelt = first.BeltEntity;
+            interaction.SimulateRemove(first.Connector.Cell, false);
+            for (int i = 0; i < 120 && world.EntityManager.Exists(firstBelt); i++)
+                yield return null;
+            Assert.That(world.EntityManager.Exists(firstBelt), Is.False,
+                "Demolition must remove a ramp belt even though it is absent from planar occupancy.");
+
+            Entity firstFoundation = first.ConnectorEntity;
+            interaction.SimulateRemove(first.Connector.Cell, false);
+            for (int i = 0;
+                 i < 120 && world.EntityManager.Exists(firstFoundation);
+                 i++)
+            {
+                yield return null;
+            }
+            Assert.That(world.EntityManager.Exists(firstFoundation), Is.False,
+                "A second demolition click must remove the exposed ramp foundation.");
+            interaction.StopSimulatedHover();
+        }
+
+        private static bool HasDisableRendering(
+            EntityManager manager,
+            Entity entity)
+        {
+            using NativeArray<ComponentType> types =
+                manager.GetComponentTypes(entity, Allocator.Temp);
+            for (int i = 0; i < types.Length; i++)
+            {
+                if (types[i].GetManagedType()?.FullName ==
+                    "Unity.Rendering.DisableRendering")
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        [UnityTest]
+        public IEnumerator VerticalBelts_TwoClickGestureBuildsUpAndDownAndRotatesOnlyExit()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            // This test owns the camera pose while checking projected simulated pointers.
+            Object.FindFirstObjectByType<FirstPersonPlayerController>().enabled = false;
+            var interaction=Object.FindFirstObjectByType<EcsGridInteractionController>();
+            bool selected=false;
+            for(int frame=0;frame<240 && !selected;frame++)
+            {
+                selected=interaction.TrySelectBuildingDefinition(new BuildingDefinitionId { Value=14 });
+                yield return null;
+            }
+            Assert.That(selected,Is.True);
+            World world=World.DefaultGameObjectInjectionWorld;
+            var manager=world.EntityManager;
+            var index=world.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>();
+            for(int scenario=0;scenario<2;scenario++)
+            {
+                ushort tier=scenario==0 ? (ushort)14 : (ushort)17;
+                var start=new GridCell(120+scenario*2,scenario==0 ? 0 : 6,120);
+                var exit=start; exit.Level=scenario==0 ? 4 : 2;
+                Assert.That(interaction.TrySelectBuildingDefinition(new BuildingDefinitionId { Value=tier }),Is.True);
+                interaction.SimulateHover(start);
+                interaction.SimulatePrimaryClick(start);
+                Assert.That(interaction.IsVerticalBeltPathStarted,Is.True);
+                Entity entry=Entity.Null;
+                for(int frame=0;frame<120 && !index.TryGet(start,out entry);frame++) yield return null;
+                Assert.That(entry,Is.Not.EqualTo(Entity.Null));
+                byte entryRotation=manager.GetComponentData<GridPlacement>(entry).QuarterTurns;
+                Camera placementCamera=interaction.GetComponent<Camera>();
+                using EntityQuery configQuery=manager.CreateEntityQuery(ComponentType.ReadOnly<WorldGridConfig>());
+                WorldGridConfig config=configQuery.GetSingleton<WorldGridConfig>();
+                Vector3 target=(Vector3)EcsGridUtility.CellToWorldCenter(exit,config);
+                Vector3 screen=placementCamera.WorldToScreenPoint(target);
+                interaction.SimulateVerticalPointer(screen);
+                yield return null;
+                Assert.That(interaction.VerticalPreviewExitCell,Is.EqualTo(exit));
+                Assert.That(interaction.VerticalPreviewValid,Is.True);
+                Vector3 cameraPosition=placementCamera.transform.position;
+                Quaternion cameraRotation=placementCamera.transform.rotation;
+                placementCamera.transform.position+=Vector3.up*(2f*config.LayerHeight);
+                yield return null;
+                var translatedExit=exit; translatedExit.Level+=2;
+                Assert.That(interaction.VerticalPreviewExitCell,Is.EqualTo(translatedExit),
+                    "An unchanged screen pointer must follow the moved camera's current ray.");
+                placementCamera.transform.position=cameraPosition;
+                placementCamera.transform.rotation=Quaternion.LookRotation(Vector3.down,Vector3.forward);
+                yield return null;
+                Assert.That(interaction.VerticalPreviewValid,Is.False);
+                interaction.SimulatePrimaryClick(exit);
+                yield return null;
+                Assert.That(interaction.IsVerticalBeltPathStarted,Is.True,"A missing plane hit must not confirm an old outlet.");
+                placementCamera.transform.rotation=cameraRotation;
+                yield return null;
+                Assert.That(interaction.VerticalPreviewExitCell,Is.EqualTo(exit));
+                Assert.That(interaction.VerticalPreviewValid,Is.True);
+                int2 before=interaction.VerticalPreviewExitDirection;
+                interaction.RotateSelectionOrToggleBeltPathOrder();
+                yield return null;
+                int2 direction=interaction.VerticalPreviewExitDirection;
+                Assert.That(direction,Is.Not.EqualTo(before));
+                Assert.That(manager.GetComponentData<GridPlacement>(entry).QuarterTurns,Is.EqualTo(entryRotation));
+                var arrows=(System.Collections.Generic.List<Transform>)typeof(EcsGridInteractionController)
+                    .GetField("previewPortTriangles",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(interaction);
+                Assert.That(arrows[0].gameObject.activeSelf,Is.True,"The outlet arrow must remain visible during height selection.");
+                Vector3 right=arrows[0].right;
+                Assert.That(Vector3.Dot(right,new Vector3(direction.x,0,direction.y)),Is.GreaterThan(.99f));
+                interaction.SimulatePrimaryClick(exit);
+                for(int frame=0;frame<120 && interaction.IsVerticalBeltPathStarted;frame++) yield return null;
+                Assert.That(interaction.IsVerticalBeltPathStarted,Is.False);
+                Assert.That(index.TryGet(exit,out Entity outlet),Is.True);
+                Assert.That(manager.GetComponentData<BeltTopology>(outlet).Direction,Is.EqualTo(direction));
+                int step=scenario==0 ? 1 : -1;
+                for(int height=start.Level+step;height!=exit.Level;height+=step)
+                {
+                    var cell=start; cell.Level=height;
+                    Assert.That(index.TryGet(cell,out Entity segment),Is.True);
+                    Assert.That(manager.GetComponentData<VerticalBeltNode>(segment).Step,Is.EqualTo(step));
+                }
+            }
+            var cancelled=new GridCell(126,3,120);
+            interaction.SimulateHover(cancelled);
+            interaction.SimulatePrimaryClick(cancelled);
+            for(int frame=0;frame<120 && !index.TryGet(cancelled,out _);frame++) yield return null;
+            var ui=Object.FindFirstObjectByType<GameUiController>();
+            var mode=Object.FindFirstObjectByType<PlayerInputModeController>();
+            mode.SetBuildMode(true);
+            ui.HandleCancel();
+            Assert.That(interaction.IsVerticalBeltPathStarted,Is.False);
+            for(int frame=0;frame<120 && index.TryGet(cancelled,out _);frame++) yield return null;
+            Assert.That(index.TryGet(cancelled,out _),Is.False,"Esc must roll back the placed entry.");
+            var rapid=new GridCell(128,3,120);
+            interaction.SimulateHover(rapid);
+            interaction.SimulatePrimaryClick(rapid);
+            mode.SetBuildMode(true);
+            ui.HandleCancel();
+            for(int frame=0;frame<12;frame++) yield return null;
+            Assert.That(index.TryGet(rapid,out _),Is.False,"Cancelling before the entry command executes must leave no residue.");
+            interaction.StopSimulatedHover();
+        }
+
+        [UnityTest]
+        public IEnumerator VerticalBelts_BuildFromCatalogAndRemainPickableInPhysicsWorld()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction = Object.FindFirstObjectByType<EcsGridInteractionController>();
+            bool selected = false;
+            for (int frame = 0; frame < 240 && !selected; frame++)
+            {
+                selected = interaction.TrySelectBuildingDefinition(new BuildingDefinitionId { Value = 17 });
+                yield return null;
+            }
+            Assert.That(selected, Is.True);
+            World world = World.DefaultGameObjectInjectionWorld;
+            EntityManager manager = world.EntityManager;
+            VerticalConnectorIndexSystem index = world.GetOrCreateSystemManaged<VerticalConnectorIndexSystem>();
+            Entity[] nodes = new Entity[3];
+            var start = new GridCell(110,0,110);
+            interaction.SimulateHover(start);
+            interaction.SimulatePrimaryClick(start);
+            for(int frame=0;frame<120 && !index.TryGet(start,out nodes[0]);frame++) yield return null;
+            Assert.That(nodes[0],Is.Not.EqualTo(Entity.Null));
+            var end=new GridCell(110,2,110);
+            interaction.SimulateHover(end);
+            interaction.SimulatePrimaryClick(end);
+            for(int frame=0;frame<120 && interaction.IsVerticalBeltPathStarted;frame++) yield return null;
+            for(int level=0;level<3;level++)
+            {
+                Assert.That(index.TryGet(new GridCell(110,level,110),out nodes[level]),Is.True);
+                Assert.That(manager.GetComponentData<BeltTopology>(nodes[level]).CellsPerSecond,Is.EqualTo(8f));
+                Assert.That(manager.HasComponent<PhysicsWorldIndex>(nodes[level]),Is.True);
+                Assert.That(manager.HasComponent<BuildingVisualReference>(nodes[level]),Is.True);
+            }
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            manager.CompleteAllTrackedJobs();
+            using EntityQuery physicsQuery = manager.CreateEntityQuery(ComponentType.ReadOnly<PhysicsWorldSingleton>());
+            var physicsWorld = physicsQuery.GetSingleton<PhysicsWorldSingleton>();
+            using EntityQuery configQuery = manager.CreateEntityQuery(ComponentType.ReadOnly<WorldGridConfig>());
+            WorldGridConfig config = configQuery.GetSingleton<WorldGridConfig>();
+            float3 center = EcsGridUtility.CellToWorldCenter(new GridCell(110,1,110),config);
+            center.y += config.LayerHeight * .5f;
+            var ray = new RaycastInput { Start = center-new float3(2,0,0), End=center+new float3(2,0,0),
+                Filter=FoundationCollisionCategories.FoundationQueryFilter };
+            Assert.That(physicsWorld.CastRay(ray,out Unity.Physics.RaycastHit hit),Is.True);
+            Assert.That(hit.Entity,Is.EqualTo(nodes[1]),"The thin segment must participate in the grid picking physics world.");
+            var visualEntities=new System.Collections.Generic.List<Entity>();
+            foreach(Entity node in nodes)
+            {
+                Entity visual=manager.GetComponentData<BuildingVisualReference>(node).Value;
+                visualEntities.Add(visual);
+                if(manager.HasBuffer<LinkedEntityGroup>(visual))
+                    foreach(var linked in manager.GetBuffer<LinkedEntityGroup>(visual)) visualEntities.Add(linked.Value);
+            }
+            interaction.SimulateRemove(new GridCell(110,1,110),false);
+            for (int frame = 0; frame < 120 && index.TryGet(new GridCell(110,1,110),out _); frame++)
+                yield return null;
+            Assert.That(index.TryGet(new GridCell(110,1,110),out _),Is.False);
+            // ParentSystem retires transform cleanup entities after their gameplay components are removed.
+            for(int frame=0;frame<120 && (nodes.Any(manager.Exists) || visualEntities.Any(manager.Exists));frame++)
+                yield return null;
+            Assert.That(manager.Exists(nodes[0]),Is.False);
+            Assert.That(manager.Exists(nodes[2]),Is.False);
+            foreach(Entity visual in visualEntities) Assert.That(manager.Exists(visual),Is.False,"Whole-chain demolition must remove all visual parts.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalFoundationBatches_ReuseValidChunkRenderMesh()
+        {
+            yield return SceneManager.LoadSceneAsync("Ecs", LoadSceneMode.Single);
+            EcsGridInteractionController interaction =
+                Object.FindFirstObjectByType<EcsGridInteractionController>();
+            bool selected = false;
+            for (int i = 0; i < 240 && !selected; i++)
+            {
+                selected = interaction.TrySelectBuildingDefinition(
+                    new BuildingDefinitionId { Value = 10 });
+                yield return null;
+            }
+            Assert.That(selected, Is.True);
+
+            // Catalog baking can finish before the player's starting platform is seeded.
+            // Include that platform in the baseline rather than in the measured build batch.
+            FirstPersonPlayerController player = Object.FindFirstObjectByType<FirstPersonPlayerController>();
+            Assert.That(player, Is.Not.Null);
+            for (int i = 0; i < 240 && !player.IsSpawnFoundationReady; i++)
+                yield return null;
+            Assert.That(player.IsSpawnFoundationReady, Is.True);
+            yield return null;
+
+            World world = World.DefaultGameObjectInjectionWorld;
+            SurfaceRegistrySystem registry =
+                world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+            int initialSurfaceCount = registry?.SurfaceCount ?? 0;
+            EntityQuery initialChunks = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<FoundationRenderChunk>());
+            int initialChunkCount = initialChunks.CalculateEntityCount();
+            initialChunks.Dispose();
+            for (int x = 0; x < 8; x++)
+            {
+                int2 cell = new int2(100 + x, 100);
+                interaction.SimulatePrimaryClick(new GridCell(cell));
+                interaction.SimulatePrimaryClick(new GridCell(cell));
+                for (int frame = 0;
+                     frame < 120 &&
+                     (registry == null ||
+                      registry.SurfaceCount < initialSurfaceCount + x + 1);
+                     frame++)
+                {
+                    yield return null;
+                    registry = world.GetExistingSystemManaged<SurfaceRegistrySystem>();
+                }
+                Assert.That(registry?.SurfaceCount,
+                    Is.EqualTo(initialSurfaceCount + x + 1));
+                yield return null;
+                yield return null;
+            }
+
+            EntityQuery chunks = world.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<FoundationRenderChunk>());
+            Assert.That(chunks.CalculateEntityCount(),
+                Is.EqualTo(initialChunkCount + 1),
+                "Rebuilding one chunk must reuse one render entity.");
+            chunks.Dispose();
+        }
+    }
+}

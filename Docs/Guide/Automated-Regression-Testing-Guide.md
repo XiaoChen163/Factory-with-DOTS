@@ -9,8 +9,7 @@
 - Unity：`6000.3.19f1`
 - Entities：`1.4.8`
 - Unity Test Framework：`1.6.0`
-- 测试程序集：`Factory.Tests`
-- 测试模式：EditMode
+- 测试程序集：`Factory.Tests`（EditMode）、`Factory.PlayModeTests`（PlayMode）
 - 测试目录：`Assets/Tests`
 
 测试代码只能依赖正式运行时程序集，不得把测试状态或测试专用组件放入正式运行路径。
@@ -37,43 +36,43 @@
 | `Belt`、`Merger`、`Splitter` 组件 | `BeltTransferResolverTests` | 完整 `Factory.Tests` | Progress、CurrentItem 和 cursor 语义不变 |
 | Belt Progress 或 Fixed Tick 顺序 | 直线与阻塞测试 | 完整 `Factory.Tests` | 未 Ready 不移动，统一快照移动仍成立 |
 | 合流器仲裁 | `CompetingSources_*` | 完整 `Factory.Tests` | round-robin 和创建顺序无关性 |
-| 测试夹具或测试 asmdef | `FixtureSmokeTests` | 完整 `Factory.Tests` | 测试能发现、World 能创建和销毁 |
+| 测试夹具或测试 asmdef | `BeltTransferResolverTests`、`BeltTransferSystemTests` | 完整 `Factory.Tests` | 测试能发现、World 能创建和销毁 |
 | Item Port、Buffer Swap、Processor 或 Storage | 对应端口集成测试；若不存在则必须补建 | 完整 `Factory.Tests` | Receipt 只应用一次，容量和预订正确 |
 | 拓扑缓存或新 Resolver | 旧、新 Resolver 对照测试 | 完整 `Factory.Tests` | 相同输入产生相同标准化状态 |
 | Presentation 或 Transform | 对应 Presentation 系统 EditMode 测试；需要渲染帧时补 PlayMode | EditMode 全套及相关 PlayMode 测试 | 多 Fixed Tick 时每渲染帧最多更新一次 |
 | 纯 UI、文档或非运行时代码 | 相关专项测试 | 至少确认完整脚本编译；影响程序集时运行完整测试 | 不破坏程序集引用和测试发现 |
 
-表格中尚未建立的端口、拓扑对照和 Presentation 测试属于后续必须补齐的测试范围，不能用现有 Resolver 测试代替。
+端口、拓扑对照和 Presentation 各有独立测试；修改时应运行对应模块，不能只用 Resolver 测试代替。
 
 ## 3. 当前自动化测试项目
 
-当前 `Factory.Tests` 一共包含 59 个测试，分布如下：
+测试按模块组织，保留 EditMode / PlayMode 两个程序集边界。当前 EditMode 为 285 个展开后的测试用例，PlayMode 为 30 个；新增参数化用例后，以 Test Runner 实际发现数量为准。
 
-- `FixtureSmokeTests`：2 个夹具烟雾测试；
-- `BeltTransferResolverTests`：7 个旧 Resolver 直线、阻塞和争抢测试；
-- `BeltTransferResolverPhase2Tests`：8 个新旧 Resolver 差分与复杂度测试；
-- `BeltTransferSystemPhase1Tests`：5 个建筑端口与 Revision 失效测试；
-- `BeltTransferResolverPhase3Tests`：3 个 Burst 仲裁 Job 回归路径测试；
-- `BeltTransferSystemPhase3Tests`：5 个组件拆分、多 Tick 链路、统计和
-  ECB 生命周期测试；
-- `BeltTransferSystemPhase4Tests`：6 个 Item 池归还/复用、视觉快照、
-  Presentation 插值和 PostTransformMatrix 缩放保持测试；
-- `PerformanceScenarioLayoutTests`：19 个性能场景布局与参数化校验测试；
-- `Phase5OptimizationTests`：4 个 Port generation、reservation、occupancy
-  增量和 Belt 视觉脏刷新测试。
+| 目录 | 覆盖范围 |
+|---|---|
+| `Assets/Tests/Transport` | Resolver 基础行为、新旧实现差分、Burst 仲裁、复杂度、系统 Tick、建筑端口、物品池及视觉 |
+| `Assets/Tests/Grid` | 网格坐标、占用与 Revision、地基几何/物理、多层地基 |
+| `Assets/Tests/Construction` | 地基和坡道放置、垂直传送带、不规则建筑、建造事务及拆除返还 |
+| `Assets/Tests/Production` | 加工配方、容量、切换配方返还与库存移动 |
+| `Assets/Tests/Data` | 建筑主表和扩展表校验、运行时 ID 与加工时间 |
+| `Assets/Tests/UI` | UI 基础设施、内容复用、命令与玩家隔离 |
+| `Assets/Tests/Scenarios` | 性能场景布局与参数校验（不执行性能采样） |
+| `Assets/Tests/PlayMode` | 玩家移动/碰撞/交互范围、建造 UI、场景渲染 |
+| `Assets/Tests/Fixtures` | 隔离 World、运输场景、断言及共用数据库构造 |
 
-### 3.1 夹具烟雾测试
+### 3.1 合并和去重原则
 
-文件：`Assets/Tests/FixtureSmokeTests.cs`
+- Resolver 的基础、差分和 Burst 测试合并到 `BeltTransferResolverTests`；这些验证层级各自保留。
+- 端口与传输 Tick 测试合并到 `BeltTransferSystemTests`，复用场景构造。
+- 原优化测试按职责拆入 `ItemPortBufferTests`、`GridOccupancyTests`、`BeltTopologyVisualTests` 和 `BuildingRemovalTests`。
+- 删除两项重复的夹具冒烟测试：直线转移由 `StraightLine_MovesReadyItemIntoEmptyDownstreamNode` 覆盖；实体与组件构造由 `Belt_IsSplitIntoTopologyAndStateComponents` 和系统物品传输测试覆盖。
+- 新测试按被测模块命名和归档，不再用开发阶段 `Phase` / `Stage` 命名文件或夹具。
 
-- `TransportScenario_AdvancesOneStraightTransfer`
-- `FactoryWorldFixture_CreatesIsolatedTransportEntities`
-
-这些测试验证测试基础设施本身。修改 asmdef、World 夹具或 Resolver 场景夹具后，应优先运行它们。
+修改 asmdef、World 或运输场景夹具后，优先运行 `BeltTransferResolverTests` 和 `BeltTransferSystemTests`，再运行完整程序集。
 
 ### 3.2 直线运输
 
-文件：`Assets/Tests/BeltTransferResolverTests.cs`
+文件：`Assets/Tests/Transport/BeltTransferResolverTests.cs`
 
 - `StraightLine_DoesNotMoveItemBeforeItIsReady`
 - `StraightLine_MovesReadyItemIntoEmptyDownstreamNode`
@@ -116,14 +115,14 @@
 2. 选择 `EditMode`。
 3. 选择 `Factory.Tests`。
 4. 点击 `Run All`。
-5. 确认 `Factory.Tests` 81 个 EditMode 测试全部通过，Console 中没有异常。
+5. 确认 `Factory.Tests` 全部通过，Console 中没有异常。
 
 UI 入口或 Presentation 改动还需切换到 `PlayMode`，运行
-`Factory.PlayModeTests`；Phase 5 基线为 6 个测试，覆盖窗口生命周期、输入模式
-互斥、Escape 清理、正式场景不再使用原型 IMGUI 入口、建筑目录选择保持，
-以及传送带 R 键横竖优先切换。
+`Factory.PlayModeTests`，覆盖玩家移动和碰撞、交互范围、地基渲染以及建造 UI。
+`ConstructionUiPlayModeTests` 包含窗口生命周期、输入模式互斥、Escape 清理、
+建筑目录选择保持、传送带 R 键横竖优先切换、坡道和垂直传送带建造等场景。
 
-其中 `Phase3UiContentTests` 还会验证物品槽与配方卡在连续快照刷新时复用原
+其中 `UiContentTests` 还会验证物品槽与配方卡在连续快照刷新时复用原
 VisualElement，避免 PointerDown 和 PointerUp 之间控件被替换而无法点击。
 同时验证“更换配方”绝对定位按钮位于加工流程层之上、配方页状态能跨快照
 保持，并在切换建筑时正确重置。
@@ -151,22 +150,16 @@ duration=0.091849
 
 ### 4.3 命令行运行
 
-执行命令前必须关闭同一项目的 Unity Editor，否则项目锁会阻止批处理实例启动。
+执行命令前必须关闭所有 Unity Editor。使用项目的守护脚本启动，结果写入 `Logs`，避免 Unity 退出时清理 `Temp`。
 
 ```powershell
 $projectPath = (Resolve-Path ".").Path
-$testResults = Join-Path $projectPath "Temp/Factory.Tests.xml"
-$testLog = Join-Path $projectPath "Temp/Factory.Tests.log"
-
-& $unityExe `
-  -batchmode `
-  -nographics `
-  -projectPath $projectPath `
-  -runTests `
-  -testPlatform EditMode `
-  -assemblyNames Factory.Tests `
-  -testResults $testResults `
-  -logFile $testLog
+$testResults = Join-Path $projectPath "Logs/Factory.Tests.xml"
+& ./.agents/skills/unity-launch/scripts/Run-UnityBatch.ps1 `
+  -ProjectPath $projectPath `
+  -LogFile 'Logs/Factory.Tests.log' `
+  -ExtraArgs @('-runTests', '-testPlatform', 'EditMode',
+               '-assemblyNames', 'Factory.Tests', '-testResults', $testResults)
 ```
 
 注意：不要追加 `-quit`。本项目的批处理实例在脚本需要重新编译时会先执行
@@ -174,6 +167,7 @@ $testLog = Join-Path $projectPath "Temp/Factory.Tests.log"
 测试结果文件；去掉 `-quit` 后测试框架会在运行结束后自行退出。
 
 CI 不仅要检查 Unity 进程退出状态，还应解析测试 XML，确认失败数量为零。
+场景加载测试涉及 Entities Graphics，应保留图形设备；本次整理前的 `-nographics` 基线曾在场景加载时触发该包的空引用异常。
 
 ## 5. 如何添加新测试项目
 
@@ -191,14 +185,14 @@ CI 不仅要检查 Unity 进程退出状态，还应解析测试 XML，确认失
 在 `Assets/Tests` 下按功能创建 `*Tests.cs` 文件，例如：
 
 ```text
-Assets/Tests/ItemPortIntegrationTests.cs
-Assets/Tests/MergerRoundRobinTests.cs
-Assets/Tests/LoopTransferTests.cs
+Assets/Tests/Transport/ItemPortIntegrationTests.cs
+Assets/Tests/Transport/MergerRoundRobinTests.cs
+Assets/Tests/Construction/BuildingPlacementTests.cs
 ```
 
 文件应使用 `Factory.Tests` 命名空间。Unity 生成 `.meta` 后，测试脚本和 `.meta` 必须一起提交。
 
-只有测试需要新的包程序集时才修改 `Factory.Tests.asmdef`。增加引用后必须重新运行 `FixtureSmokeTests` 和完整测试程序集。
+只有测试需要新的包程序集时才修改 `Factory.Tests.asmdef`。增加引用后必须重新运行 `BeltTransferResolverTests`、`BeltTransferSystemTests` 和完整测试程序集。
 
 ### 5.3 测试命名
 

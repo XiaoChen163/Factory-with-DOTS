@@ -33,6 +33,6 @@
 
 编辑器菜单 `Factory/Player/Install First Person Robot` 可重建预制体和场景接线。它会重置玩家出生点及视角配置，运行前请保存自定义配置。剩余 Starter Assets 目录已删除，保留资源的 GUID 和来源信息未更改。
 
-Play Mode 回归：`FirstPersonPlayerPlayModeTests`、`EcsCharacterCollisionPlayModeTests`、`FirstPersonInteractionReachPlayModeTests`、`FoundationRenderingPlayModeTests` 和 `Phase2UiPlayModeTests`，覆盖飞行、重力、加速、动画、UI 输入阻断、DOTS 地基落地、入口边缘零距离接触脱困、碰撞后反向移动、50 米交互范围及原有建筑交互。
+Play Mode 回归：`FirstPersonPlayerPlayModeTests`、`EcsCharacterCollisionPlayModeTests`、`FirstPersonInteractionReachPlayModeTests`、`FoundationRenderingPlayModeTests` 和 `ConstructionUiPlayModeTests`，覆盖飞行、重力、加速、动画、UI 输入阻断、DOTS 地基落地、入口边缘零距离接触脱困、碰撞后反向移动、50 米交互范围及原有建筑交互。
 
 控制处理器及固定步长系统改编自官方 Standard Characters 示例，许可见 `Docs/CharacterController-LICENSE.md`。

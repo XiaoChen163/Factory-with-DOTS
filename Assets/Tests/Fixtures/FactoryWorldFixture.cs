@@ -32,6 +32,14 @@ namespace Factory.Tests
             TestWorld = null;
         }
 
+        protected Entity CreateTransportGrid()
+        {
+            Entity grid = EntityManager.CreateEntity();
+            ConfigureWorldGrid(grid, new int2(16, 16), new WorldGridConfig { CellSize = 1f, LayerHeight = 1f });
+            EntityManager.AddComponentData(grid, new BuildingOccupancyRevision { Value = 1 });
+            return grid;
+        }
+
         protected void ConfigureWorldGrid(Entity grid, int2 surfaceSize, WorldGridConfig config)
         {
             EntityManager.AddComponentData(grid, config);

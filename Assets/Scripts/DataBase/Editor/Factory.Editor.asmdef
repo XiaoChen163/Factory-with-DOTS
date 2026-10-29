@@ -2,7 +2,8 @@
     "name": "Factory.Editor",
     "rootNamespace": "",
     "references": [
-        "Factory.Runtime"
+        "Factory.Runtime",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [
         "Editor"

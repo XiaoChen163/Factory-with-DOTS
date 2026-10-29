@@ -233,8 +233,11 @@ public static class EcsGridUtility
     }
 
     public static float2 GetVisualCenterOffset(
-        int2 footprintSize)
+        int2 footprintSize,
+        int quarterTurns = 0)
     {
+        if ((NormalizeQuarterTurns(quarterTurns) & 1) != 0)
+            footprintSize = footprintSize.yx;
         return new float2(
             math.max(0, footprintSize.x - 1) * 0.5f,
             math.max(0, footprintSize.y - 1) * 0.5f);

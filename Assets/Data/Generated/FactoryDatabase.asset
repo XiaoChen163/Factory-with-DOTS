@@ -48,6 +48,8 @@ MonoBehaviour:
     portLayoutKey: belt_ports
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 0
       index: 0
@@ -79,6 +81,8 @@ MonoBehaviour:
     portLayoutKey: furnace_ports
     footprintWidth: 2
     footprintHeight: 2
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 0
       index: 0
@@ -98,6 +102,8 @@ MonoBehaviour:
     portLayoutKey: merger_ports
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 0
       index: 0
@@ -125,6 +131,8 @@ MonoBehaviour:
     portLayoutKey: miner_ports
     footprintWidth: 2
     footprintHeight: 2
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 1
       index: 0
@@ -140,6 +148,8 @@ MonoBehaviour:
     portLayoutKey: splitter_ports
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 0
       index: 0
@@ -167,6 +177,8 @@ MonoBehaviour:
     portLayoutKey: storage_ports
     footprintWidth: 2
     footprintHeight: 2
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 0
       index: 0
@@ -182,6 +194,8 @@ MonoBehaviour:
     portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports: []
   - id: 8
     key: ramp_foundation_1_1
@@ -193,6 +207,8 @@ MonoBehaviour:
     portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports: []
   - id: 9
     key: ramp_foundation_1_2
@@ -204,6 +220,8 @@ MonoBehaviour:
     portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports: []
   - id: 10
     key: ramp_foundation_1_4
@@ -215,6 +233,8 @@ MonoBehaviour:
     portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports: []
   - id: 11
     key: vertical_belt_entry
@@ -226,6 +246,8 @@ MonoBehaviour:
     portLayoutKey: vertical_entry_ports
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 0
       index: 0
@@ -241,6 +263,8 @@ MonoBehaviour:
     portLayoutKey: vertical_exit_ports
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports:
     - type: 1
       index: 0
@@ -256,6 +280,8 @@ MonoBehaviour:
     portLayoutKey: 
     footprintWidth: 1
     footprintHeight: 1
+    isRectangle: 1
+    footprintBitmap: 
     ports: []
   buildingLevels:
   - id: 10

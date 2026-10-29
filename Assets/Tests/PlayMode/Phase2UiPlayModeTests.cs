@@ -798,6 +798,15 @@ namespace Factory.Tests
             }
             Assert.That(selected, Is.True);
 
+            // Catalog baking can finish before the player's starting platform is seeded.
+            // Include that platform in the baseline rather than in the measured build batch.
+            FirstPersonPlayerController player = Object.FindFirstObjectByType<FirstPersonPlayerController>();
+            Assert.That(player, Is.Not.Null);
+            for (int i = 0; i < 240 && !player.IsSpawnFoundationReady; i++)
+                yield return null;
+            Assert.That(player.IsSpawnFoundationReady, Is.True);
+            yield return null;
+
             World world = World.DefaultGameObjectInjectionWorld;
             SurfaceRegistrySystem registry =
                 world.GetExistingSystemManaged<SurfaceRegistrySystem>();

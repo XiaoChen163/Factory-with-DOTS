@@ -1898,15 +1898,13 @@ public partial class GridBuildCommandSystem : SystemBase
         in GridPlacement placement,
         ref FactoryDatabaseBlob database)
     {
-        int occupiedCount = building.FootprintWidth * building.FootprintHeight;
+        int occupiedCount = building.OccupiedCellCount;
         GridCell[] occupiedCells = new GridCell[occupiedCount];
-        int cursor = 0;
-        for (int y = 0; y < building.FootprintHeight; y++)
-        for (int x = 0; x < building.FootprintWidth; x++)
+        for (int i = 0; i < occupiedCount; i++)
         {
-            occupiedCells[cursor++] = EcsGridUtility.GetBuildingCell(
+            occupiedCells[i] = EcsGridUtility.GetBuildingCell(
                 placement,
-                new int2(x, y));
+                database.BuildingOccupiedCells[building.OccupiedCellStart + i]);
         }
 
         BuildingPort[] ports = new BuildingPort[building.PortCount];
@@ -1986,9 +1984,11 @@ public partial class GridBuildCommandSystem : SystemBase
         });
         DynamicBuffer<OccupiedCellOffset> occupied =
             ecb.AddBuffer<OccupiedCellOffset>(instance);
-        for (int y = 0; y < building.FootprintHeight; y++)
-        for (int x = 0; x < building.FootprintWidth; x++)
-            occupied.Add(new OccupiedCellOffset { Value = new int2(x, y) });
+        for (int i = 0; i < building.OccupiedCellCount; i++)
+            occupied.Add(new OccupiedCellOffset
+            {
+                Value = database.BuildingOccupiedCells[building.OccupiedCellStart + i]
+            });
         DynamicBuffer<BuildingPort> ports = ecb.AddBuffer<BuildingPort>(instance);
         for (int i = 0; i < building.PortCount; i++)
         {
@@ -2019,7 +2019,7 @@ public partial class GridBuildCommandSystem : SystemBase
             placement.AnchorCell,
             worldGrid);
         float2 visualOffset = EcsGridUtility.GetVisualCenterOffset(
-            placement.FootprintSize) * worldGrid.CellSize;
+            placement.FootprintSize, placement.QuarterTurns) * worldGrid.CellSize;
         center.x += visualOffset.x;
         center.z += visualOffset.y;
         ecb.AddComponent(instance, LocalTransform.FromPositionRotationScale(

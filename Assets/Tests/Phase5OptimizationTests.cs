@@ -785,13 +785,14 @@ namespace Factory.Tests
                     kind = BuildingKind.Storage,
                     footprintWidth = 1,
                     footprintHeight = 1,
+                    isRectangle = true,
                     ports = new[]
                     {
                         new FactoryBuildingPortTableRow
                         {
                             type = BuildingPortType.Input,
                             index = 0,
-                            cellOffset = Vector2Int.zero,
+                            cellOffset = Vector2Int.left,
                             direction = Vector2Int.right
                         }
                     }

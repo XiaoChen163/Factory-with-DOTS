@@ -166,6 +166,8 @@ public struct FactoryBuildingBlob
     public ushort PortCount;
     public byte FootprintWidth;
     public byte FootprintHeight;
+    public int OccupiedCellStart;
+    public int OccupiedCellCount;
     public FixedString64Bytes Key;
     public FixedString64Bytes NameKey;
 }
@@ -219,6 +221,7 @@ public struct FactoryDatabaseBlob
     public BlobArray<FactoryStorageLevelBlob> StorageLevelsById;
     public BlobArray<BuildingLevelId> BuildingLevelMenu;
     public BlobArray<FactoryBuildingPortBlob> BuildingPorts;
+    public BlobArray<Unity.Mathematics.int2> BuildingOccupiedCells;
     public BlobArray<FactoryRecipeBlob> Recipes;
     public BlobArray<FactoryRecipeIngredientBlob> Inputs;
     public BlobArray<FactoryRecipeIngredientBlob> Outputs;

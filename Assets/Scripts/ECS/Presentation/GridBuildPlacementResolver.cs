@@ -57,6 +57,18 @@ public static class GridBuildPlacementResolver
     private const float NormalEpsilon = 0.0001f;
     private const float HeightBoundaryEpsilon = 0.0001f;
 
+    /// <summary>Converts a hovered center cell to the minimum corner used by placement data.</summary>
+    public static GridCell CenterFootprintOnCell(
+        GridCell centerCell, int2 footprintSize, byte quarterTurns)
+    {
+        int2 rotatedSize = (quarterTurns & 1) == 0
+            ? footprintSize
+            : footprintSize.yx;
+        // Even dimensions snap to the lower of the two central cell offsets.
+        int2 centerOffset = (rotatedSize - 1) / 2;
+        return centerCell + -centerOffset;
+    }
+
     public static GridSurfaceHit CreateFlatHit(
         GridCell sourceCell,
         float3 position,

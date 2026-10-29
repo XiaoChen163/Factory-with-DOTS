@@ -30,13 +30,13 @@ MonoBehaviour:
     hash: 175ddc0460e6b2270b08b1f8c45f830d
   - prefabPath: Assets/Prefabs/Buildings/Furnace.prefab
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
-    hash: 0c45a926e1a41e9ad45a708c4521527b
+    hash: 0131827677d502315fb8952008662d28
   - prefabPath: Assets/Prefabs/Buildings/Merger.prefab
     outputPath: Assets/Art/Icons/Buildings/Merger.png
     hash: 697a0f65554a363095f39df5ae66ea57
   - prefabPath: Assets/Prefabs/Buildings/Miner.prefab
     outputPath: Assets/Art/Icons/Buildings/Miner.png
-    hash: 431125a87ab96e15a35f74520731b0e0
+    hash: 5972e24a26a0ad9b7997f0ea51e441cb
   - prefabPath: Assets/Prefabs/Buildings/RampFoundation.prefab
     outputPath: Assets/Art/Icons/Buildings/RampFoundation.png
     hash: e237030520f016370f79faf24b34b1a1
@@ -51,7 +51,7 @@ MonoBehaviour:
     hash: f75a048374475f4297f3d75d5b340e84
   - prefabPath: Assets/Prefabs/Buildings/Storage.prefab
     outputPath: Assets/Art/Icons/Buildings/Storage.png
-    hash: f4396a323f0338018865f2ee47fd13f6
+    hash: c633ebb9df945c78f597f7774ce7addb
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk1.png
     hash: c064b49a9015fdc7b6e5b3ebc75a65cb

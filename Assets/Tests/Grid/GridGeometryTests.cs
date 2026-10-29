@@ -10,6 +10,41 @@ namespace Factory.Tests
 {
     public sealed class GridGeometryTests
     {
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        public void CenteredPlacement_ThreeByThreeKeepsModelCenterOnHoveredCell(byte quarterTurns)
+        {
+            var hovered = new GridCell(-7, 2, 11);
+            var anchor = GridBuildPlacementResolver.CenterFootprintOnCell(
+                hovered, new int2(3, 3), quarterTurns);
+            Assert.That(anchor, Is.EqualTo(new GridCell(-8, 2, 10)));
+            var placement = new GridPlacement
+            {
+                AnchorCell = anchor,
+                FootprintSize = new int2(3, 3),
+                QuarterTurns = quarterTurns
+            };
+            Assert.That(EcsGridUtility.GetBuildingCell(placement, new int2(1, 1)),
+                Is.EqualTo(hovered));
+        }
+
+        [TestCase(0, 9, 18)]
+        [TestCase(1, 8, 19)]
+        [TestCase(2, 9, 18)]
+        [TestCase(3, 8, 19)]
+        public void CenteredPlacement_RectangleUsesRotatedBounds(
+            byte quarterTurns, int expectedX, int expectedZ)
+        {
+            Assert.That(GridBuildPlacementResolver.CenterFootprintOnCell(
+                    new GridCell(10, 3, 20), new int2(3, 5), quarterTurns),
+                Is.EqualTo(new GridCell(expectedX, 3, expectedZ)));
+            Assert.That(GridBuildPlacementResolver.CenterFootprintOnCell(
+                    new GridCell(10, 3, 20), new int2(1, 1), quarterTurns),
+                Is.EqualTo(new GridCell(10, 3, 20)));
+        }
+
         [TestCase(0.0f, 0.0f, 0, 0)]
         [TestCase(0.999f, 0.999f, 0, 0)]
         [TestCase(1.0f, 1.0f, 1, 1)]

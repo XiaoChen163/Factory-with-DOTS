@@ -19,10 +19,10 @@ belt_mk4,Input,1,0,-1,0,1
 belt_mk4,Input,2,1,0,-1,0
 belt_mk4,Input,3,0,1,0,-1
 belt_mk4,Output,0,1,0,1,0
-miner,Output,0,2,0,1,0
-furnace,Input,0,-1,0,1,0
-furnace,Output,0,2,0,1,0
-storage,Input,0,-1,0,1,0
+miner,Output,0,3,1,1,0
+furnace,Input,0,-1,1,1,0
+furnace,Output,0,3,1,1,0
+storage,Input,0,-1,1,1,0
 merger,Input,0,-1,0,1,0
 merger,Input,1,0,1,0,-1
 merger,Input,2,0,-1,0,1

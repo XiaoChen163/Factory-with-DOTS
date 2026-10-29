@@ -197,8 +197,8 @@ MonoBehaviour:
   - id: 5
     key: miner
     kind: 2
-    footprintWidth: 2
-    footprintHeight: 2
+    footprintWidth: 3
+    footprintHeight: 3
     isRectangle: 1
     footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/Miner.prefab
@@ -215,13 +215,13 @@ MonoBehaviour:
     ports:
     - type: 1
       index: 0
-      cellOffset: {x: 2, y: 0}
+      cellOffset: {x: 3, y: 1}
       direction: {x: 1, y: 0}
   - id: 6
     key: furnace
     kind: 2
-    footprintWidth: 2
-    footprintHeight: 2
+    footprintWidth: 3
+    footprintHeight: 3
     isRectangle: 1
     footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/Furnace.prefab
@@ -238,17 +238,17 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
-      cellOffset: {x: -1, y: 0}
+      cellOffset: {x: -1, y: 1}
       direction: {x: 1, y: 0}
     - type: 1
       index: 0
-      cellOffset: {x: 2, y: 0}
+      cellOffset: {x: 3, y: 1}
       direction: {x: 1, y: 0}
   - id: 7
     key: storage
     kind: 4
-    footprintWidth: 2
-    footprintHeight: 2
+    footprintWidth: 3
+    footprintHeight: 3
     isRectangle: 1
     footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/Storage.prefab
@@ -265,7 +265,7 @@ MonoBehaviour:
     ports:
     - type: 0
       index: 0
-      cellOffset: {x: -1, y: 0}
+      cellOffset: {x: -1, y: 1}
       direction: {x: 1, y: 0}
   - id: 8
     key: merger

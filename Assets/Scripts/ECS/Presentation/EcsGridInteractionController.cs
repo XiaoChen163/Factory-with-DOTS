@@ -266,6 +266,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
             hoveredCell = simulatedHoverCell;
             buildAnchor = CreateDirectBuildAnchor(hoveredCell);
+            hoveredCell = buildAnchor.Cell;
         }
         else if (!TryRaycastBuildAnchor(
                      out world,
@@ -1629,13 +1630,26 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
     {
         return new ResolvedBuildAnchor
         {
-            Cell = cell,
+            Cell = GetCenteredPlacementAnchor(cell),
             RampStartHeightUnits = checked(
                 cell.Level * GridHeight.UnitsPerLayer),
             RampUphillDirection = EcsGridUtility.Rotate(
                 new int2(1, 0), quarterTurns),
             IsValid = 1
         };
+    }
+
+    private GridCell GetCenteredPlacementAnchor(GridCell centerCell)
+    {
+        if (IsSurfacePlacementKind() ||
+            VerticalBeltUtility.IsVertical(SelectedKind) ||
+            !TryGetSelectedBuildingDefinition(out FactoryBuildingDefinitionBlob building))
+            return centerCell;
+
+        return GridBuildPlacementResolver.CenterFootprintOnCell(
+            centerCell,
+            new int2(building.FootprintWidth, building.FootprintHeight),
+            quarterTurns);
     }
 
     private bool TryRaycastBuildAnchor(
@@ -1670,7 +1684,10 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             GetWorldGridConfig(),
             VerticalBeltUtility.Step(quarterTurns));
         if (buildAnchor.IsValid != 0)
+        {
+            buildAnchor.Cell = GetCenteredPlacementAnchor(buildAnchor.Cell);
             SetSelectedGridLevel(buildAnchor.Cell.Level);
+        }
         return true;
     }
 

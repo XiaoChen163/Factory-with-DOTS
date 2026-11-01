@@ -24,7 +24,7 @@ namespace Factory.Tests
                 window.Show();
                 yield return null;
                 window.CreateGUI();
-                var field = window.rootVisualElement.Query<TextField>().First();
+                var field = window.rootVisualElement.Q<TextField>("item-name");
                 Assert.That(field, Is.Not.Null);
                 Assert.That(field.isDelayed, Is.False, "Typing must mark the draft dirty before the field loses focus.");
                 field.value += "draft";
@@ -89,6 +89,15 @@ namespace Factory.Tests
             Assert.That(reread.Get(1, "extra"), Is.EqualTo("x"));
             Assert.That(table.Text, Does.StartWith("# 注释中的\"引号\r\nkey,locale,name,extra\r\nfurnace,en-US,Furnace,untouched\r\n"));
             Assert.That(table.Text, Does.EndWith("\r\n\r\n"));
+            // Structural edits must also retain comments and unrelated extra columns.
+            table.EnsureColumn("icon_key");
+            table.Set(1, "icon_key", "熔炉图标");
+            int added = table.Append(new Dictionary<string, string> { ["key"] = "new", ["locale"] = "zh-CN", ["name"] = "新增" });
+            table.RemoveAt(added);
+            reread = FactoryCsvTable.Parse(table.Text);
+            Assert.That(reread.Get(1, "icon_key"), Is.EqualTo("熔炉图标"));
+            Assert.That(reread.Get(0, "extra"), Is.EqualTo("untouched"));
+            Assert.That(reread.RowCount, Is.EqualTo(2));
         }
 
         [TestCase("key,name\na,\"unclosed")]

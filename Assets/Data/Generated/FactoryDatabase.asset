@@ -16,7 +16,7 @@ MonoBehaviour:
   items:
   - id: 1
     key: iron_ore
-    nameKey: item.iron_ore
+    nameKey: "\u94C1\u77FF"
     maxStack: 64
     category: 1
     prefabKey: iron_ore
@@ -25,7 +25,7 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: c9a7c18fe9d8e5d4792e93a332129a99, type: 3}
   - id: 2
     key: iron_ingot
-    nameKey: item.iron_ingot
+    nameKey: "\u94C1\u952D"
     maxStack: 64
     category: 2
     prefabKey: iron_ingot
@@ -911,7 +911,7 @@ MonoBehaviour:
       itemId: 2
       count: 1
   - id: 7
-    key: test_ab_to_c
+    key: test_abc_to_d
     machineTypeKey: test_machine_m
     machineTypeId: 3
     durationSeconds: 1
@@ -922,26 +922,10 @@ MonoBehaviour:
     - itemKey: test_b
       itemId: 4
       count: 1
+    - itemKey: test_c
+      itemId: 5
+      count: 1
     outputs:
-    - itemKey: test_c
-      itemId: 5
-      count: 1
-  - id: 8
-    key: test_cd_to_ab
-    machineTypeKey: test_machine_m
-    machineTypeId: 3
-    durationSeconds: 1
-    inputs:
-    - itemKey: test_c
-      itemId: 5
-      count: 1
     - itemKey: test_d
       itemId: 6
-      count: 1
-    outputs:
-    - itemKey: test_a
-      itemId: 3
-      count: 1
-    - itemKey: test_b
-      itemId: 4
       count: 1

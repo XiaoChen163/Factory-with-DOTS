@@ -12,6 +12,7 @@ public sealed class FactoryCsvTable
     private readonly List<int> rowRecords = new List<int>();
     private readonly List<string[]> rows = new List<string[]>();
     private readonly Dictionary<string, int> columns = new Dictionary<string, int>(StringComparer.Ordinal);
+    private int headerRecord;
     public string[] Header { get; private set; }
     public int RowCount => rows.Count;
     public string Text => string.Concat(records);
@@ -54,6 +55,7 @@ public sealed class FactoryCsvTable
                 string[] fields = ParseRecord(text.Substring(start, contentEnd - start));
                 if (table.Header == null)
                 {
+                    table.headerRecord = record;
                     table.Header = fields;
                     for (int i = 0; i < fields.Length; i++)
                         if (string.IsNullOrWhiteSpace(fields[i]) || !table.columns.TryAdd(fields[i].Trim(), i))
@@ -102,6 +104,49 @@ public sealed class FactoryCsvTable
             old.EndsWith("\n", StringComparison.Ordinal) ? "\n" : old.EndsWith("\r", StringComparison.Ordinal) ? "\r" : "";
         records[record] = string.Join(",", fields.Select(Escape)) + ending;
     }
+
+    public void EnsureColumn(string column)
+    {
+        if (columns.ContainsKey(column)) return;
+        columns.Add(column, Header.Length);
+        Header = Header.Concat(new[] { column }).ToArray();
+        string ending = Ending(records[headerRecord]);
+        records[headerRecord] = string.Join(",", Header.Select(Escape)) + ending;
+    }
+
+    public int Append(IReadOnlyDictionary<string, string> values)
+    {
+        foreach (string column in values.Keys) EnsureColumn(column);
+        string newline = Text.Contains("\r\n") ? "\r\n" : "\n";
+        if (records.Count > 0 && Ending(records[records.Count - 1]) == "") records[records.Count - 1] += newline;
+        string[] fields = Header.Select(c => values.TryGetValue(c.Trim(), out string value) ? value : "").ToArray();
+        rowRecords.Add(records.Count);
+        rows.Add(fields);
+        records.Add(string.Join(",", fields.Select(Escape)) + newline);
+        return rows.Count - 1;
+    }
+
+    public void RemoveAt(int row)
+    {
+        records[rowRecords[row]] = "";
+        rowRecords.RemoveAt(row);
+        rows.RemoveAt(row);
+    }
+
+    public void SwapRows(int first, int second)
+    {
+        // Keep comments, unrelated recipe rows and line endings at their positions.
+        int a = rowRecords[first], b = rowRecords[second];
+        string aEnding = Ending(records[a]), bEnding = Ending(records[b]);
+        string aContent = records[a].Substring(0, records[a].Length - aEnding.Length);
+        string bContent = records[b].Substring(0, records[b].Length - bEnding.Length);
+        records[a] = bContent + aEnding;
+        records[b] = aContent + bEnding;
+        (rows[first], rows[second]) = (rows[second], rows[first]);
+    }
+
+    private static string Ending(string record) => record.EndsWith("\r\n", StringComparison.Ordinal) ? "\r\n" :
+        record.EndsWith("\n", StringComparison.Ordinal) ? "\n" : record.EndsWith("\r", StringComparison.Ordinal) ? "\r" : "";
 
     public static string Escape(string value)
     {

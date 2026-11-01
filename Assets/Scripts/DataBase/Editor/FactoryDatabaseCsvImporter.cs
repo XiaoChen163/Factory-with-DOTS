@@ -12,8 +12,8 @@ public static class FactoryDatabaseCsvImporter
     private const string ItemTableDirectory = TableDirectory + "/items";
     private const string RecipeTableDirectory = ItemTableDirectory + "/recipes";
     private const string BuildingTableDirectory = TableDirectory + "/buildings";
-    private const string ItemPrefabDirectory = "Assets/Prefabs/Items";
-    private const string ItemIconDirectory = "Assets/Art/Icons/Items";
+    public const string ItemPrefabDirectory = "Assets/Prefabs/Items";
+    public const string ItemIconDirectory = "Assets/Art/Icons/Items";
     private const string ItemTablePath = ItemTableDirectory + "/items.csv";
     private const string MachineTypeTablePath = BuildingTableDirectory + "/machine_types.csv";
     private const string RecipeTablePath = RecipeTableDirectory + "/recipes.csv";
@@ -419,7 +419,7 @@ public static class FactoryDatabaseCsvImporter
         }
     }
 
-    private static Dictionary<string, GameObject> BuildPrefabIndex(string directory)
+    public static Dictionary<string, GameObject> BuildPrefabIndex(string directory)
     {
         Dictionary<string, GameObject> result = new Dictionary<string, GameObject>(StringComparer.Ordinal);
         foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { directory }))
@@ -436,7 +436,7 @@ public static class FactoryDatabaseCsvImporter
         return result;
     }
 
-    private static Dictionary<string, Sprite> BuildSpriteIndex(string directory)
+    public static Dictionary<string, Sprite> BuildSpriteIndex(string directory)
     {
         Dictionary<string, Sprite> result =
             new Dictionary<string, Sprite>(StringComparer.Ordinal);
@@ -507,7 +507,7 @@ public static class FactoryDatabaseCsvImporter
         return result;
     }
 
-    private static string NormalizeKey(string value) => string.IsNullOrWhiteSpace(value)
+    public static string NormalizeKey(string value) => string.IsNullOrWhiteSpace(value)
         ? string.Empty
         : string.Concat(value.Where(char.IsLetterOrDigit)).ToLowerInvariant();
 

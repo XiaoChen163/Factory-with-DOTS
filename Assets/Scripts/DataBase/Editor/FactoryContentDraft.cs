@@ -8,7 +8,7 @@ using UnityEngine;
 
 // Undo records only this transient object; CSV and generated assets never participate
 // in draft undo/redo. Serialized text also survives an editor domain reload.
-public sealed class FactoryContentDraft : ScriptableObject
+public sealed partial class FactoryContentDraft : ScriptableObject
 {
     public const string TableDirectory = "Assets/Data/FactoryTables";
 

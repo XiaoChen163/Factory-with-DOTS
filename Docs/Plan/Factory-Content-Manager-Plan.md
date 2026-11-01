@@ -6,6 +6,8 @@
 
 在 Unity 编辑器内增加 `Factory > 内容管理器`，以“建筑、物品、配方”三个页签管理游戏内容，接入 Blender 插件导出的 `.factory.json` 和 FBX。
 
+blender插件工程位于 `D:\UnityProject\Factory-with-DOTS-BuildingCreater` 下，可以查看相关源码实现，`.factory.json`的数据格式说明也在其中。
+
 实施顺序：**数据读写基础 → 物品与配方管理 → 建筑管理及 JSON 导入 → FBX 导入与材质适配 → 联调**。
 
 保持轻量：复用现有 CSV 导入器、数据库校验、图标烘焙和 Unity 模型导入机制。只做影响数据可用性的检查，不建设通用数据框架、哈希追踪、自动同步服务或完整资产流水线。

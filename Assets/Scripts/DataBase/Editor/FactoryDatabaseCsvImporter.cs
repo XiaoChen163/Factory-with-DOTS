@@ -29,51 +29,10 @@ public static class FactoryDatabaseCsvImporter
     {
         try
         {
-            FactoryItemTableRow[] items = ReadItems();
-            Dictionary<string, FactoryItemTableRow> itemsByKey =
-                IndexByKey(items, row => row.key, "item");
-            FactoryMachineTypeTableRow[] machineTypes = ReadMachineTypes();
-            Dictionary<string, FactoryMachineTypeTableRow> machinesByKey =
-                IndexByKey(machineTypes, row => row.key, "machine type");
-            FactoryBuildingDefinitionRow[] buildings = ReadBuildings(machinesByKey);
-            FactoryRecipeTableRow[] recipes = ReadRecipes(machinesByKey, itemsByKey);
-
-            // Validate the entire candidate before touching the last valid generated asset.
-            FactoryDatabaseAsset candidate = ScriptableObject.CreateInstance<FactoryDatabaseAsset>();
-            try
-            {
-                candidate.items = items;
-                candidate.machineTypes = machineTypes;
-                candidate.buildings = buildings;
-                candidate.recipes = recipes;
-                FactoryDatabaseValidation.Validate(candidate);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(candidate);
-            }
-
-            EnsureAssetFolder(OutputDirectory);
-            FactoryDatabaseAsset asset =
-                AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(DatabaseAssetPath);
-            if (asset == null)
-            {
-                asset = ScriptableObject.CreateInstance<FactoryDatabaseAsset>();
-                AssetDatabase.CreateAsset(asset, DatabaseAssetPath);
-            }
-
-            asset.version = Math.Max(1, asset.version);
-            asset.items = items;
-            asset.machineTypes = machineTypes;
-            asset.buildings = buildings;
-            asset.recipes = recipes;
-            EditorUtility.SetDirty(asset);
-            AssetDatabase.SaveAssets();
-
-            Debug.Log(
-                $"Factory database rebuilt: {items.Length} items, " +
-                $"{buildings.Length} building definitions, {recipes.Length} recipes.",
-                asset);
+            EnsureCanWrite();
+            FactoryDatabaseAsset candidate = ReadCandidate();
+            try { Generate(candidate); }
+            finally { UnityEngine.Object.DestroyImmediate(candidate); }
         }
         catch (Exception exception)
         {
@@ -81,9 +40,85 @@ public static class FactoryDatabaseCsvImporter
         }
     }
 
-    private static FactoryItemTableRow[] ReadItems()
+    [MenuItem("Factory/Rebuild Static Database", true)]
+    private static bool CanRebuild() => !EditorApplication.isPlayingOrWillChangePlaymode;
+
+    public static void EnsureCanWrite()
     {
-        CsvTable table = CsvTable.Read(ItemTablePath);
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            throw new InvalidOperationException("Play Mode 中不能写入 Factory 内容或重建数据库。");
+    }
+
+    // The same reader and validation rules serve disk rebuilds and unsaved editor drafts.
+    // Caller owns the transient candidate and must destroy it.
+    public static FactoryDatabaseAsset ReadCandidate(Func<string, FactoryCsvTable> read = null)
+    {
+        read = read ?? FactoryCsvTable.Read;
+        var candidate = ScriptableObject.CreateInstance<FactoryDatabaseAsset>();
+        try
+        {
+            candidate.items = ReadItems(read);
+            candidate.machineTypes = ReadMachineTypes(read);
+            var machines = IndexByKey(candidate.machineTypes, row => row.key, "machine type");
+            candidate.buildings = ReadBuildings(machines, BuildingTableDirectory, read);
+            candidate.recipes = ReadRecipes(machines, IndexByKey(candidate.items, row => row.key, "item"), read);
+            FactoryDatabaseValidation.Validate(candidate);
+            return candidate;
+        }
+        catch
+        {
+            UnityEngine.Object.DestroyImmediate(candidate);
+            throw;
+        }
+    }
+
+    // Always validate before touching the last valid generated asset.
+    public static void Generate(FactoryDatabaseAsset candidate)
+    {
+        EnsureCanWrite();
+        FactoryDatabaseValidation.Validate(candidate);
+        EnsureAssetFolder(OutputDirectory);
+        var asset = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(DatabaseAssetPath);
+        bool created = asset == null;
+        FactoryDatabaseAsset previous = created ? null : UnityEngine.Object.Instantiate(asset);
+        if (previous != null) previous.name = asset.name;
+        try
+        {
+            if (created)
+            {
+                asset = ScriptableObject.CreateInstance<FactoryDatabaseAsset>();
+                AssetDatabase.CreateAsset(asset, DatabaseAssetPath);
+            }
+            asset.version = Math.Max(1, asset.version);
+            asset.items = candidate.items;
+            asset.machineTypes = candidate.machineTypes;
+            asset.buildings = candidate.buildings;
+            asset.recipes = candidate.recipes;
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"Factory database rebuilt: {asset.items.Length} items, " +
+                $"{asset.buildings.Length} building definitions, {asset.recipes.Length} recipes.", asset);
+        }
+        catch
+        {
+            if (created) AssetDatabase.DeleteAsset(DatabaseAssetPath);
+            else
+            {
+                EditorUtility.CopySerialized(previous, asset);
+                EditorUtility.SetDirty(asset);
+                AssetDatabase.SaveAssets();
+            }
+            throw;
+        }
+        finally
+        {
+            if (previous != null) UnityEngine.Object.DestroyImmediate(previous);
+        }
+    }
+
+    private static FactoryItemTableRow[] ReadItems(Func<string, FactoryCsvTable> read)
+    {
+        FactoryCsvTable table = read(ItemTablePath);
         Dictionary<string, GameObject> prefabs = BuildPrefabIndex(ItemPrefabDirectory);
         Dictionary<string, Sprite> icons = BuildSpriteIndex(ItemIconDirectory);
         List<FactoryItemTableRow> result = new List<FactoryItemTableRow>(table.RowCount);
@@ -123,9 +158,9 @@ public static class FactoryDatabaseCsvImporter
         return result.ToArray();
     }
 
-    private static FactoryMachineTypeTableRow[] ReadMachineTypes()
+    private static FactoryMachineTypeTableRow[] ReadMachineTypes(Func<string, FactoryCsvTable> read)
     {
-        CsvTable table = CsvTable.Read(MachineTypeTablePath);
+        FactoryCsvTable table = read(MachineTypeTablePath);
         List<string> keys = new List<string>(table.RowCount);
         HashSet<string> unique = NewKeySet();
         for (int row = 0; row < table.RowCount; row++)
@@ -150,9 +185,10 @@ public static class FactoryDatabaseCsvImporter
 
     private static FactoryBuildingDefinitionRow[] ReadBuildings(
         Dictionary<string, FactoryMachineTypeTableRow> machinesByKey,
-        string directory = BuildingTableDirectory)
+        string directory = BuildingTableDirectory, Func<string, FactoryCsvTable> read = null)
     {
-        CsvTable table = CsvTable.Read(directory + "/buildings.csv");
+        read = read ?? FactoryCsvTable.Read;
+        FactoryCsvTable table = read(directory + "/buildings.csv");
         Dictionary<string, FactoryBuildingDefinitionRow> buildings = new Dictionary<string, FactoryBuildingDefinitionRow>(StringComparer.Ordinal);
         List<string> order = new List<string>();
         for (int row = 0; row < table.RowCount; row++)
@@ -178,7 +214,7 @@ public static class FactoryDatabaseCsvImporter
             if (!buildings.TryAdd(key, building)) throw new InvalidDataException($"Duplicate building '{key}'.");
             order.Add(key);
         }
-        ApplyExtension(directory, "processor_stats", buildings, b => b.kind == BuildingKind.Processor, (b, t, r) =>
+        ApplyExtension(read, directory, "processor_stats", buildings, b => b.kind == BuildingKind.Processor, (b, t, r) =>
         {
             string machine = RequiredKey(t.Get(r, "machine_type_key"), "machine type key");
             if (!machinesByKey.TryGetValue(machine, out var type))
@@ -186,24 +222,24 @@ public static class FactoryDatabaseCsvImporter
             b.machineTypeId = type.id;
             return b;
         });
-        ApplyExtension(directory, "belt_stats", buildings, b => b.kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(b.kind), (b, t, r) =>
+        ApplyExtension(read, directory, "belt_stats", buildings, b => b.kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(b.kind), (b, t, r) =>
         {
             b.beltTier = ParseByte(t.Get(r, "tier"), "belt tier");
             b.cellsPerSecond = ParseFloat(t.Get(r, "cells_per_second"), "belt speed");
             return b;
         });
-        ApplyExtension(directory, "storage_stats", buildings, b => b.kind == BuildingKind.Storage, (b, t, r) =>
+        ApplyExtension(read, directory, "storage_stats", buildings, b => b.kind == BuildingKind.Storage, (b, t, r) =>
         {
             b.storageCapacity = ParseInt(t.Get(r, "capacity"), "storage capacity");
             b.storageSlotCount = ParseUShort(t.Get(r, "slot_count"), "storage slots");
             return b;
         });
-        ApplyExtension(directory, "ramp_stats", buildings, b => b.kind == BuildingKind.RampFoundation, (b, t, r) =>
+        ApplyExtension(read, directory, "ramp_stats", buildings, b => b.kind == BuildingKind.RampFoundation, (b, t, r) =>
         {
             b.rampRiseHeightUnits = checked((sbyte)ParseInt(t.Get(r, "rise_height_units"), "ramp rise"));
             return b;
         });
-        ApplyExtension(directory, "building_presentation", buildings, _ => true, (b, t, r) =>
+        ApplyExtension(read, directory, "building_presentation", buildings, _ => true, (b, t, r) =>
         {
             string path = t.Get(r, "icon_path");
             b.icon = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<Sprite>(path);
@@ -212,7 +248,7 @@ public static class FactoryDatabaseCsvImporter
             b.menuOrder = ParseInt(t.Get(r, "menu_order"), "menu order");
             return b;
         });
-        CsvTable names = CsvTable.Read(directory + "/building_names.csv");
+        FactoryCsvTable names = read(directory + "/building_names.csv");
         HashSet<string> nameRows = NewKeySet();
         Dictionary<string, string> fallbackNames = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int row = 0; row < names.RowCount; row++)
@@ -226,7 +262,7 @@ public static class FactoryDatabaseCsvImporter
             fallbackNames.TryAdd(key, name);
             if (locale == "zh-CN") { building.displayName = name; buildings[key] = building; }
         }
-        CsvTable ports = CsvTable.Read(directory + "/building_ports.csv");
+        FactoryCsvTable ports = read(directory + "/building_ports.csv");
         Dictionary<string, List<FactoryBuildingPortTableRow>> portRows = new Dictionary<string, List<FactoryBuildingPortTableRow>>(StringComparer.Ordinal);
         for (int row = 0; row < ports.RowCount; row++)
         {
@@ -263,11 +299,11 @@ public static class FactoryDatabaseCsvImporter
         return result.ToArray();
     }
 
-    private static void ApplyExtension(string directory, string name, Dictionary<string, FactoryBuildingDefinitionRow> buildings,
+    private static void ApplyExtension(Func<string, FactoryCsvTable> read, string directory, string name, Dictionary<string, FactoryBuildingDefinitionRow> buildings,
         Func<FactoryBuildingDefinitionRow, bool> eligible,
-        Func<FactoryBuildingDefinitionRow, CsvTable, int, FactoryBuildingDefinitionRow> apply)
+        Func<FactoryBuildingDefinitionRow, FactoryCsvTable, int, FactoryBuildingDefinitionRow> apply)
     {
-        CsvTable table = CsvTable.Read(directory + "/" + name + ".csv");
+        FactoryCsvTable table = read(directory + "/" + name + ".csv");
         HashSet<string> configured = NewKeySet();
         for (int row = 0; row < table.RowCount; row++)
         {
@@ -283,13 +319,13 @@ public static class FactoryDatabaseCsvImporter
 
     private static FactoryRecipeTableRow[] ReadRecipes(
         Dictionary<string, FactoryMachineTypeTableRow> machinesByKey,
-        Dictionary<string, FactoryItemTableRow> itemsByKey)
+        Dictionary<string, FactoryItemTableRow> itemsByKey, Func<string, FactoryCsvTable> read)
     {
         Dictionary<string, List<FactoryRecipeIngredientTableRow>> inputs =
-            ReadIngredients(InputTablePath, itemsByKey);
+            ReadIngredients(InputTablePath, itemsByKey, read);
         Dictionary<string, List<FactoryRecipeIngredientTableRow>> outputs =
-            ReadIngredients(OutputTablePath, itemsByKey);
-        CsvTable table = CsvTable.Read(RecipeTablePath);
+            ReadIngredients(OutputTablePath, itemsByKey, read);
+        FactoryCsvTable table = read(RecipeTablePath);
         List<FactoryRecipeTableRow> rows = new List<FactoryRecipeTableRow>(table.RowCount);
         HashSet<string> keys = NewKeySet();
         for (int row = 0; row < table.RowCount; row++)
@@ -325,9 +361,9 @@ public static class FactoryDatabaseCsvImporter
 
     private static Dictionary<string, List<FactoryRecipeIngredientTableRow>> ReadIngredients(
         string path,
-        Dictionary<string, FactoryItemTableRow> itemsByKey)
+        Dictionary<string, FactoryItemTableRow> itemsByKey, Func<string, FactoryCsvTable> read)
     {
-        CsvTable table = CsvTable.Read(path);
+        FactoryCsvTable table = read(path);
         Dictionary<string, List<FactoryRecipeIngredientTableRow>> result =
             new Dictionary<string, List<FactoryRecipeIngredientTableRow>>(StringComparer.Ordinal);
         HashSet<string> uniqueIngredients = NewKeySet();
@@ -530,98 +566,4 @@ public static class FactoryDatabaseCsvImporter
         }
     }
 
-    private sealed class CsvTable
-    {
-        private readonly Dictionary<string, int> columns;
-        private readonly List<string[]> rows;
-
-        private CsvTable(string[] header, List<string[]> rows)
-        {
-            columns = new Dictionary<string, int>(StringComparer.Ordinal);
-            for (int i = 0; i < header.Length; i++)
-            {
-                string name = header[i].Trim();
-                if (!columns.TryAdd(name, i))
-                    throw new InvalidDataException($"Duplicate CSV column '{name}'.");
-            }
-            this.rows = rows;
-        }
-
-        public int RowCount => rows.Count;
-
-        public string Get(int row, string column)
-        {
-            if (!columns.TryGetValue(column, out int index))
-                throw new InvalidDataException($"Missing CSV column '{column}'.");
-            if (index >= rows[row].Length)
-                throw new InvalidDataException($"CSV row {row + 2} is missing column '{column}'.");
-            return rows[row][index].Trim();
-        }
-
-        public bool TryGet(int row, string column, out string value)
-        {
-            if (!columns.TryGetValue(column, out int index) ||
-                index >= rows[row].Length)
-            {
-                value = string.Empty;
-                return false;
-            }
-            value = rows[row][index].Trim();
-            return true;
-        }
-
-        public static CsvTable Read(string path)
-        {
-            if (!File.Exists(path))
-                throw new FileNotFoundException("Factory CSV table not found.", path);
-            List<string[]> parsed = new List<string[]>();
-            foreach (string raw in File.ReadAllLines(path))
-            {
-                if (string.IsNullOrWhiteSpace(raw) || raw.TrimStart().StartsWith("#", StringComparison.Ordinal))
-                    continue;
-                parsed.Add(ParseLine(raw));
-            }
-            if (parsed.Count == 0)
-                throw new InvalidDataException($"CSV table '{path}' is empty.");
-            string[] header = parsed[0];
-            parsed.RemoveAt(0);
-            return new CsvTable(header, parsed);
-        }
-
-        private static string[] ParseLine(string line)
-        {
-            List<string> fields = new List<string>();
-            System.Text.StringBuilder field = new System.Text.StringBuilder();
-            bool quoted = false;
-            for (int i = 0; i < line.Length; i++)
-            {
-                char current = line[i];
-                if (current == '"')
-                {
-                    if (quoted && i + 1 < line.Length && line[i + 1] == '"')
-                    {
-                        field.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        quoted = !quoted;
-                    }
-                }
-                else if (current == ',' && !quoted)
-                {
-                    fields.Add(field.ToString());
-                    field.Clear();
-                }
-                else
-                {
-                    field.Append(current);
-                }
-            }
-            if (quoted)
-                throw new InvalidDataException($"Unclosed CSV quote in '{line}'.");
-            fields.Add(field.ToString());
-            return fields.ToArray();
-        }
-    }
 }

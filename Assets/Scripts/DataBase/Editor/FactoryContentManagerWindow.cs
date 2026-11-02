@@ -13,7 +13,6 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     [SerializeField] private int selectedTab = 1;
     [SerializeField] private int selectedItemRow;
     [SerializeField] private int selectedRecipeRow;
-    [SerializeField] private int selectedTable;
     [SerializeField] private string search = "";
     private Label status;
     private Button save, delete;
@@ -40,7 +39,11 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         EditorApplication.playModeStateChanged -= OnPlayModeChanged;
     }
 
-    private void OnDestroy() { if (draft != null) DestroyImmediate(draft); }
+    private void OnDestroy()
+    {
+        if (buildingImportWindow != null) buildingImportWindow.Close();
+        if (draft != null) DestroyImmediate(draft);
+    }
     private void OnPlayModeChanged(PlayModeStateChange state) => Refresh();
 
     public void CreateGUI()
@@ -81,13 +84,15 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         toolbar.Add(filter);
         var add = new Button(() => Run(() =>
         {
-            if (selectedTab == 1) selectedItemRow = draft.AddItem();
+            if (selectedTab == 0) { selectedBuildingKey = draft.AddBuilding(string.IsNullOrWhiteSpace(newBuildingKey) ? null : newBuildingKey); gridExpanded = true; }
+            else if (selectedTab == 1) selectedItemRow = draft.AddItem();
             else selectedRecipeRow = draft.AddRecipe();
             search = "";
             Refresh();
         })) { text = "新增", name = "content-add" };
-        add.SetEnabled(Writable && selectedTab != 0);
+        add.SetEnabled(Writable);
         toolbar.Add(add);
+        if (selectedTab == 0) AddBuildingToolbar(toolbar);
         delete = new Button(() => Run(DeleteSelected)) { text = "删除", name = "content-delete" };
         toolbar.Add(delete);
         save = new Button(() => { try { SaveChanges(); } catch { /* Error remains in the window. */ } })
@@ -103,12 +108,6 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         status.style.whiteSpace = WhiteSpace.Normal;
         status.style.marginLeft = 6;
         rootVisualElement.Add(status);
-        if (selectedTab == 0)
-        {
-            DrawBuildingTables();
-            UpdateModified();
-            return;
-        }
         var body = new VisualElement();
         body.style.flexDirection = FlexDirection.Row;
         body.style.flexGrow = 1;
@@ -132,7 +131,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
 
     private void RefreshList()
     {
-        if (selectedTab == 0) { RefreshBuildingRows(); return; }
+        if (selectedTab == 0) { RefreshBuildingList(); return; }
         if (list == null) return;
         list.Clear();
         if (selectedTab == 1)
@@ -140,13 +139,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
             foreach (var item in draft.GetItems(search))
             {
                 var button = new Button(() => { selectedItemRow = item.row; DrawDetail(); RefreshList(); }) { name = "item-row-" + item.row };
-                button.style.flexDirection = FlexDirection.Row;
-                button.Add(Icon(ItemIcon(item)));
-                var text = new VisualElement();
-                text.style.flexGrow = 1;
-                text.Add(new Label(item.name));
-                text.Add(new Label(item.key));
-                button.Add(text);
+                AddIdentityPreview(button, ItemIcon(item), item.name, item.key);
                 MarkSelected(button, item.row == selectedItemRow);
                 list.Add(button);
             }
@@ -158,8 +151,23 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
                 var button = new Button(() => { selectedRecipeRow = recipe.row; DrawDetail(); RefreshList(); }) { name = "recipe-row-" + recipe.row };
                 button.style.flexDirection = FlexDirection.Column;
                 button.style.alignItems = Align.Stretch;
-                button.Add(new Label(recipe.key));
-                button.Add(new Label($"{recipe.machine} · {recipe.duration.ToString("G", CultureInfo.InvariantCulture)} 秒"));
+                button.style.unityTextAlign = TextAnchor.MiddleLeft;
+                button.style.paddingLeft = button.style.paddingRight = 6;
+                button.style.paddingTop = button.style.paddingBottom = 4;
+                var header = new VisualElement();
+                header.style.flexDirection = FlexDirection.Row;
+                header.style.alignItems = Align.FlexStart;
+                var identity = ListLabel(recipe.key);
+                identity.style.flexGrow = 1;
+                identity.style.minWidth = 0;
+                header.Add(identity);
+                var duration = new Label($"{recipe.duration.ToString("G", CultureInfo.InvariantCulture)} 秒");
+                duration.style.unityTextAlign = TextAnchor.UpperRight;
+                duration.style.flexShrink = 0;
+                duration.style.marginLeft = 8;
+                header.Add(duration);
+                button.Add(header);
+                button.Add(ListLabel(recipe.machine));
                 var flow = Row();
                 AddIngredientPreview(flow, recipe.key, false);
                 flow.Add(new Label(" → "));
@@ -189,7 +197,15 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         detail.Clear();
         warnings = new VisualElement { name = "entry-warnings" };
         detail.Add(warnings);
-        if (selectedTab == 1)
+        if (selectedTab == 0)
+        {
+            var buildings = draft.GetBuildings();
+            var building = buildings.FirstOrDefault(b => b.key == selectedBuildingKey) ?? buildings.FirstOrDefault();
+            if (building == null) { detail.Add(new Label("新增建筑，或导入 .factory.json 创建草稿。")); UpdateDelete(); return; }
+            selectedBuildingKey = building.key;
+            DrawBuilding(building);
+        }
+        else if (selectedTab == 1)
         {
             var items = draft.GetItems();
             selectedItemRow = Mathf.Clamp(selectedItemRow, 0, Math.Max(0, items.Count - 1));
@@ -266,7 +282,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
 
     private void RefreshWarnings()
     {
-        if (warnings == null || selectedTab == 0) return;
+        if (warnings == null) return;
         warnings.Clear();
         if (selectedTab == 1)
         {
@@ -285,14 +301,15 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
 
     private void DeleteSelected()
     {
-        if (selectedTab == 1) draft.DeleteItem(selectedItemRow);
+        if (selectedTab == 0) draft.DeleteBuilding(selectedBuildingKey);
+        else if (selectedTab == 1) draft.DeleteItem(selectedItemRow);
         else if (selectedTab == 2) draft.DeleteRecipe(selectedRecipeRow);
         RefreshList(); DrawDetail(); RefreshList(); UpdateModified();
     }
 
     private void UpdateDelete()
     {
-        delete?.SetEnabled(Writable && (selectedTab == 1 ? draft.GetItems().Count > 0 : selectedTab == 2 && draft.GetRecipes().Count > 0));
+        delete?.SetEnabled(Writable && (selectedTab == 0 ? draft.GetBuildings().Count > 0 : selectedTab == 1 ? draft.GetItems().Count > 0 : draft.GetRecipes().Count > 0));
     }
 
     private void UpdateModified()
@@ -324,6 +341,34 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     private Sprite ExplicitIcon(FactoryContentItem item) => item != null && icons.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(item.iconKey), out var value) ? value : null;
     private Sprite ItemIcon(FactoryContentItem item) => item != null && icons.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(string.IsNullOrEmpty(item.iconKey) ? item.prefabKey : item.iconKey), out var value) ? value : null;
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
+    private static Label ListLabel(string value)
+    {
+        var label = new Label(value);
+        label.style.unityTextAlign = TextAnchor.MiddleLeft;
+        label.style.overflow = Overflow.Hidden;
+        label.style.textOverflow = TextOverflow.Ellipsis;
+        label.style.whiteSpace = WhiteSpace.NoWrap;
+        return label;
+    }
+    private static void AddIdentityPreview(Button button, Sprite icon, string name, string key)
+    {
+        button.style.flexDirection = FlexDirection.Row;
+        button.style.alignItems = Align.Center;
+        button.style.justifyContent = Justify.FlexStart;
+        button.style.unityTextAlign = TextAnchor.MiddleLeft;
+        button.style.minHeight = 44;
+        button.style.paddingLeft = button.style.paddingRight = 6;
+        button.style.paddingTop = button.style.paddingBottom = 4;
+        button.Add(Icon(icon));
+        var text = new VisualElement();
+        text.style.flexGrow = 1;
+        text.style.minWidth = 0;
+        text.style.marginLeft = 8;
+        text.style.alignItems = Align.Stretch;
+        text.Add(ListLabel(name));
+        text.Add(ListLabel(key));
+        button.Add(text);
+    }
     private static VisualElement Row() { var row = new VisualElement(); row.style.flexDirection = FlexDirection.Row; row.style.flexWrap = Wrap.Wrap; row.style.alignItems = Align.Center; return row; }
     private static Label Heading(string text) { var label = new Label(text); label.style.unityFontStyleAndWeight = FontStyle.Bold; label.style.marginTop = 12; label.style.marginBottom = 6; return label; }
     private static Image Icon(Sprite sprite, int size = 32, string tooltip = "") { var icon = new Image { sprite = sprite, tooltip = tooltip, scaleMode = ScaleMode.ScaleToFit }; icon.style.width = size; icon.style.height = size; icon.style.flexShrink = 0; return icon; }

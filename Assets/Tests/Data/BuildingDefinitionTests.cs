@@ -65,17 +65,12 @@ namespace Factory.Tests
             Assert.That(machine.footprintHeight, Is.EqualTo(3));
             Assert.That(machine.ports.Count(p => p.type == BuildingPortType.Input), Is.EqualTo(3));
             Assert.That(machine.ports.Count(p => p.type == BuildingPortType.Output), Is.EqualTo(3));
-            Assert.That(asset.recipes.Count(r => r.machineTypeId == machine.machineTypeId), Is.EqualTo(2));
-            var forward = asset.recipes.Single(r => r.key == "test_ab_to_c");
-            var reverse = asset.recipes.Single(r => r.key == "test_cd_to_ab");
+            Assert.That(asset.recipes.Count(r => r.machineTypeId == machine.machineTypeId), Is.EqualTo(1));
+            var forward = asset.recipes.Single(r => r.key == "test_abc_to_d");
             Assert.That(forward.inputs.Select(i => (i.itemKey, i.count)),
-                Is.EquivalentTo(new[] { ("test_a", 1), ("test_b", 1) }));
+                Is.EquivalentTo(new[] { ("test_a", 1), ("test_b", 1), ("test_c", 1) }));
             Assert.That(forward.outputs.Select(i => (i.itemKey, i.count)),
-                Is.EquivalentTo(new[] { ("test_c", 1) }));
-            Assert.That(reverse.inputs.Select(i => (i.itemKey, i.count)),
-                Is.EquivalentTo(new[] { ("test_c", 1), ("test_d", 1) }));
-            Assert.That(reverse.outputs.Select(i => (i.itemKey, i.count)),
-                Is.EquivalentTo(new[] { ("test_a", 1), ("test_b", 1) }));
+                Is.EquivalentTo(new[] { ("test_d", 1) }));
             ushort mining = asset.buildings.Single(b => b.key == "miner").machineTypeId;
             foreach (string suffix in new[] { "a", "b", "c", "d" })
             {
@@ -96,6 +91,7 @@ namespace Factory.Tests
         public void ProcessorBindings_AreImportedAndBaked_AndRejectDuplicateSlotsOrMissingCoverage()
         {
             var machine = asset.buildings.Single(b => b.key == "test_machine_m");
+            FactoryTestDatabase.SetTwoOutputRecipes(asset, machine.machineTypeId);
             var ports = machine.ports.Where(p => p.type == BuildingPortType.Output).ToArray();
             Assert.That(ports.Select(p => p.number), Is.EqualTo(new ushort[] { 1, 2, 3 }));
             Assert.That(ports.Select(p => p.outputSlot), Is.EqualTo(new ushort[] { 1, 2, 3 }));

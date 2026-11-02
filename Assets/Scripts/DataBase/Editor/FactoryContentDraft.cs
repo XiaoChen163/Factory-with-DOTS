@@ -22,7 +22,7 @@ public sealed partial class FactoryContentDraft : ScriptableObject
 
     [SerializeField] private List<Table> tables = new List<Table>();
     public IReadOnlyList<Table> Tables => tables;
-    public bool IsModified => tables.Any(t => t.text != t.original);
+    public bool IsModified => tables.Any(t => t.text != t.original) || ImportsModified;
 
     public void Load()
     {
@@ -33,12 +33,14 @@ public sealed partial class FactoryContentDraft : ScriptableObject
             FactoryCsvTable.Parse(text);
             loaded.Add(new Table { path = path.Replace('\\', '/'), original = text, text = text });
         }
+        LoadBuildingImports();
         tables = loaded;
         Undo.ClearUndo(this);
     }
 
     public void SetCell(int tableIndex, int row, string column, string value)
     {
+        FactoryDatabaseCsvImporter.EnsureCanWrite();
         var table = FactoryCsvTable.Parse(tables[tableIndex].text);
         if (table.Get(row, column) == value) return;
         table.Set(row, column, value);
@@ -61,20 +63,29 @@ public sealed partial class FactoryContentDraft : ScriptableObject
             if (File.ReadAllText(table.path, Encoding.UTF8) != table.original)
                 throw new IOException($"源表已被其他操作修改，请放弃草稿并重新读取：{table.path}");
 
+        ValidateBuildingImports();
+
         FactoryDatabaseAsset candidate = ReadCandidate();
         try
         {
             var changed = tables.Where(t => t.text != t.original)
                 .ToDictionary(t => t.path, t => t.text, StringComparer.Ordinal);
-            // Import callbacks cannot observe half-written tables. Generation happens once,
-            // from the fully validated in-memory candidate, before releasing imports.
+            // Release the CSV import pause only after all table writes complete.
+            // New Editor config assets must finish importing before SaveAssetIfDirty.
             AssetDatabase.StartAssetEditing();
+            bool importsPaused = true;
             try
             {
-                FactoryCsvSaveTransaction.Commit(changed, () => FactoryDatabaseCsvImporter.Generate(candidate));
+                FactoryCsvSaveTransaction.Commit(changed, () =>
+                {
+                    importsPaused = false;
+                    AssetDatabase.StopAssetEditing();
+                    SaveBuildingImports(() => FactoryDatabaseCsvImporter.Generate(candidate));
+                });
             }
-            finally { AssetDatabase.StopAssetEditing(); }
+            finally { if (importsPaused) AssetDatabase.StopAssetEditing(); }
             foreach (Table table in tables) table.original = table.text;
+            foreach (var entry in buildingImports) entry.original = entry.text;
             Undo.ClearUndo(this);
         }
         finally { DestroyImmediate(candidate); }

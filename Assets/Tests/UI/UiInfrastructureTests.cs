@@ -24,7 +24,8 @@ namespace Factory.Tests
         [Test]
         public void ProcessorSnapshot_ExportsBoundOutletNumbersAndMachineRelativeRecipe()
         {
-            var asset = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath);
+            var asset = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath));
+            FactoryTestDatabase.SetTwoOutputRecipes(asset, asset.buildings.Single(b => b.key == "test_machine_m").machineTypeId);
             Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, null, out var database), Is.True);
             try
             {
@@ -60,7 +61,7 @@ namespace Factory.Tests
                 Assert.That(received.Processor.Outputs.Select(s => s.SlotIndex), Is.EqualTo(new ushort[] { 0, 1 }));
                 Assert.That(received.Processor.Inputs.All(s => s.OutputPortNumber == 0), Is.True);
             }
-            finally { database.Dispose(); }
+            finally { database.Dispose(); UnityEngine.Object.DestroyImmediate(asset); }
         }
 
         [Test]

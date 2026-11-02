@@ -23,18 +23,30 @@ namespace Factory.Tests
         [TearDown]
         public void TearDown() { Object.DestroyImmediate(draft); }
 
+        private string FixtureRecipe(string[] inputs, string[] outputs)
+        {
+            int row = draft.AddRecipe();
+            draft.SetRecipeValue(row, "machine_type_key", "test_machine_m");
+            string key = draft.GetRecipes().Single(r => r.row == row).key;
+            foreach (string item in inputs) draft.AddIngredient(key, false, item);
+            foreach (string item in outputs) draft.AddIngredient(key, true, item);
+            return key;
+        }
+
         [Test]
         public void ItemRename_UpdatesBothRecipeSidesAsOneUndoAndBlocksReferencedDeletion()
         {
+            string recipe = FixtureRecipe(new[] { "test_a" }, new[] { "test_a" });
+            var references = draft.GetItemReferences("test_a");
             int row = draft.GetItems().Single(i => i.key == "test_a").row;
             var error = Assert.Throws<InvalidDataException>(() => draft.DeleteItem(row));
-            Assert.That(error.Message, Does.Contain("test_ab_to_c").And.Contain("test_cd_to_ab"));
+            Assert.That(error.Message, Does.Contain(recipe).And.Contain("原料").And.Contain("产物"));
             draft.SetItemValue(row, "key", "renamed_a");
             Assert.That(draft.GetItemReferences("test_a"), Is.Empty);
-            Assert.That(draft.GetItemReferences("renamed_a").Count, Is.EqualTo(3));
+            Assert.That(draft.GetItemReferences("renamed_a").Count, Is.EqualTo(references.Count));
             Undo.PerformUndo();
             Assert.That(draft.GetItemReferences("renamed_a"), Is.Empty);
-            Assert.That(draft.GetItemReferences("test_a").Count, Is.EqualTo(3));
+            Assert.That(draft.GetItemReferences("test_a"), Is.EqualTo(references));
             Assert.That(draft.GetItems().Single(i => i.row == row).key, Is.EqualTo("test_a"));
             Assert.Throws<InvalidDataException>(() => draft.SetItemValue(row, "id", "1"));
             Assert.Throws<InvalidDataException>(() => draft.SetItemValue(row, "key", "test_b"));
@@ -43,7 +55,7 @@ namespace Factory.Tests
         [Test]
         public void StackReduction_WarnsWithoutChangingRecipesAndMergeChecksCombinedCount()
         {
-            string recipe = "test_ab_to_c";
+            string recipe = FixtureRecipe(new[] { "test_a", "test_b" }, new[] { "test_c" });
             var a = draft.GetItems().Single(i => i.key == "test_a");
             draft.AddIngredient(recipe, false, "test_a", 2);
             Assert.That(draft.GetIngredients(recipe, false).Single(i => i.itemKey == "test_a").count, Is.EqualTo(3));
@@ -65,7 +77,7 @@ namespace Factory.Tests
         [Test]
         public void RecipeEditing_PreservesUnrelatedRowsAndEnforcesExistingOutputSlotRules()
         {
-            string key = "test_cd_to_ab";
+            string key = FixtureRecipe(Array.Empty<string>(), new[] { "test_a", "test_b" });
             var before = draft.ReadTable(FactoryContentDraft.OutputsPath);
             string[] others = Enumerable.Range(0, before.RowCount).Where(r => before.Get(r, "recipe_key") != key)
                 .Select(r => before.Get(r, "recipe_key") + ":" + before.Get(r, "item_key")).ToArray();
@@ -152,21 +164,34 @@ namespace Factory.Tests
                 Assert.That(window.rootVisualElement.Q<ScrollView>("content-list").Query<Button>().ToList().Count, Is.EqualTo(1));
                 window.rootVisualElement.Q<ToolbarToggle>("tab-recipes").value = true;
                 Assert.That(window.rootVisualElement.Q<TextField>("recipe-key"), Is.Not.Null);
+                window.Focus();
+                yield return null;
                 FactoryContentItem picked = null;
                 popup = new FactoryItemSearchPopup(draft.GetItems(), _ => null, item => picked = item);
                 UnityEditor.PopupWindow.Show(new Rect(100, 100, 100, 20), popup);
-                yield return null;
-                popup.editorWindow.Repaint();
-                yield return null;
+                // Editor popup panels can attach after more than two updates when
+                // a preceding test has just closed/repainted another editor window.
+                for (int frame = 0; frame < 60 && popup.editorWindow != null && popup.editorWindow.rootVisualElement.panel == null; frame++)
+                {
+                    popup.editorWindow.Repaint();
+                    yield return null;
+                }
+                Assert.That(popup.editorWindow, Is.Not.Null);
                 var root = popup.editorWindow.rootVisualElement;
                 Assert.That(root.panel, Is.Not.Null, "The popup must be attached to an editor panel before interacting.");
                 root.Q<TextField>("item-picker-search").value = "红色";
                 var buttons = root.Q<ScrollView>("item-picker-list").Query<Button>().ToList();
                 Assert.That(buttons.Count, Is.EqualTo(1));
-                buttons[0].Focus();
                 yield return null;
-                using (var click = NavigationSubmitEvent.GetPooled()) buttons[0].SendEvent(click);
-                yield return null;
+                // Drive the button's pointer handlers directly: a batch Editor popup
+                // does not reliably own the operating system's keyboard focus.
+                Vector2 point = buttons[0].worldBound.center;
+                using (var down = PointerDownEvent.GetPooled(new Event { type = EventType.MouseDown, button = 0, mousePosition = point }))
+                    buttons[0].SendEvent(down);
+                using (var up = PointerUpEvent.GetPooled(new Event { type = EventType.MouseUp, button = 0, mousePosition = point }))
+                    buttons[0].SendEvent(up);
+                float deadline = Time.realtimeSinceStartup + 1;
+                while (picked == null && Time.realtimeSinceStartup < deadline) yield return null;
                 Assert.That(picked?.key, Is.EqualTo("test_a"));
             }
             finally

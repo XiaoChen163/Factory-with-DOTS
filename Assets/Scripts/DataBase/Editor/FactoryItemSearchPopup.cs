@@ -55,6 +55,7 @@ public sealed class FactoryItemSearchPopup : PopupWindowContent
         }
         search.RegisterValueChangedCallback(e => Refresh(e.newValue));
         Refresh("");
-        root.schedule.Execute(() => search.Focus());
+        if (search.panel != null) search.Focus();
+        else search.RegisterCallback<AttachToPanelEvent>(_ => search.Focus());
     }
 }

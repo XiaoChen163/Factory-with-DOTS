@@ -221,6 +221,12 @@ public static class FoundationCollisionCategories
         CollidesWith = Foundation,
         GroupIndex = 0
     };
+
+    public static CollisionFilter BuildingFilter => new CollisionFilter
+    {
+        BelongsTo = Building,
+        CollidesWith = Character | Building | TransportItem | QueryRay
+    };
 }
 
 public static class SurfaceChunkUtility

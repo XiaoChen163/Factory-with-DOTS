@@ -40,6 +40,32 @@ public sealed partial class FactoryContentDraft
         return value == null ? new FactoryBuildingImportData { buildingKey = key } : JsonUtility.FromJson<FactoryBuildingImportData>(value.text);
     }
 
+    public void SetBuildingModel(string key, GameObject model)
+    {
+        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        if (model != null) FactoryBuildingModelPipeline.RequireFbx(UnityEditor.AssetDatabase.GetAssetPath(model));
+        Undo.RegisterCompleteObjectUndo(this, "选择建筑 FBX");
+        var data = GetBuildingImport(key);
+        data.model = model;
+        PutBuildingImport(data);
+    }
+
+    public GameObject GenerateBuildingPrefab(string key)
+    {
+        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        var data = GetBuildingImport(key);
+        var building = GetBuildings().Single(b => b.key == key);
+        var prefab = FactoryBuildingModelPipeline.Generate(data, building.prefabPath);
+        Undo.IncrementCurrentGroup();
+        Undo.RegisterCompleteObjectUndo(this, "绑定生成的建筑 Prefab");
+        var table = ReadTable(BuildingsPath);
+        table.Set(Find(table, key), "prefab_path", AssetDatabase.GetAssetPath(prefab));
+        Source(BuildingsPath).text = table.Text;
+        data.generatedPrefab = prefab;
+        PutBuildingImport(data);
+        return prefab;
+    }
+
     private void PutBuildingImport(FactoryBuildingImportData data)
     {
         var current = buildingImports.FirstOrDefault(i => JsonUtility.FromJson<FactoryBuildingImportData>(i.text).buildingKey == data.buildingKey);

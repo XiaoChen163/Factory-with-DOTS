@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4dfa49966ba9a74d91ae05d73527624, type: 3}
+  m_Name: building-testMachine
+  m_EditorClassIdentifier: Factory.Editor::FactoryBuildingImportSettings
+  data:
+    buildingKey: testMachine
+    modelFile: testMachine.fbx
+    sourceJsonPath: D:\UnityProject\Factory-with-DOTS-BuildingCreater\blender-test\testMachine.factory.json
+    model: {fileID: 919132149155446097, guid: 07b5451f34e729a4c96322f3e456476c, type: 3}
+    generatedPrefab: {fileID: 7940602422664109165, guid: 7e7eac4571bf73f409468bd8b38689a4, type: 3}
+    colliders:
+    - name: "UnityCollider_Box_\u67F1\u4F53"
+      type: Box
+      axis: 
+      position: {x: 0.6, y: 1.9398389, z: 0.75}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.51898265, y: 2, z: 0.51898265}
+      radius: 0
+      height: 0
+    - name: "UnityCollider_Box_\u7ACB\u65B9\u4F53"
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.5, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 2.8, y: 1, z: 2.8}
+      radius: 0
+      height: 0

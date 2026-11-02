@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "generator": {
+    "name": "factory_building",
+    "version": "0.3.1"
+  },
+  "source": {
+    "blend_file": "testMachine.blend",
+    "scene": "Scene",
+    "frame": 29,
+    "subframe": 0.0
+  },
+  "coordinates": {
+    "space": "unity_local",
+    "origin": "footprint_bounds_bottom_center",
+    "up_axis": "Y",
+    "forward_axis": "+Z",
+    "cell_size": 1.0,
+    "unit": "blender_unit",
+    "rotation_format": "quaternion_xyzw",
+    "blender_to_unity": [
+      [
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        1,
+        0
+      ]
+    ]
+  },
+  "building": {
+    "key": "testMachine",
+    "model_file": "testMachine.fbx",
+    "width": 3,
+    "length": 3,
+    "is_rectangle": true,
+    "bitmap": ""
+  },
+  "ports": [
+    {
+      "type": "Input",
+      "index": 0,
+      "cell_x": 2,
+      "cell_z": 3,
+      "direction_x": 0,
+      "direction_z": -1
+    },
+    {
+      "type": "Input",
+      "index": 1,
+      "cell_x": 1,
+      "cell_z": 3,
+      "direction_x": 0,
+      "direction_z": -1
+    },
+    {
+      "type": "Input",
+      "index": 2,
+      "cell_x": 0,
+      "cell_z": 3,
+      "direction_x": 0,
+      "direction_z": -1
+    },
+    {
+      "type": "Output",
+      "index": 0,
+      "cell_x": 2,
+      "cell_z": -1,
+      "direction_x": 0,
+      "direction_z": -1,
+      "output_slot": 2,
+      "number": 2
+    },
+    {
+      "type": "Output",
+      "index": 1,
+      "cell_x": 0,
+      "cell_z": -1,
+      "direction_x": 0,
+      "direction_z": -1,
+      "output_slot": 1,
+      "number": 1
+    }
+  ],
+  "colliders": [
+    {
+      "name": "UnityCollider_Box_柱体",
+      "type": "Box",
+      "position": {
+        "x": 0.600000024,
+        "y": 1.939838886,
+        "z": 0.75
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 1.0
+      },
+      "size": {
+        "x": 0.518982649,
+        "y": 2.0,
+        "z": 0.518982649
+      }
+    },
+    {
+      "name": "UnityCollider_Box_立方体",
+      "type": "Box",
+      "position": {
+        "x": 0.0,
+        "y": 0.5,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 1.0
+      },
+      "size": {
+        "x": 2.799999952,
+        "y": 1.0,
+        "z": 2.799999952
+      }
+    }
+  ]
+}

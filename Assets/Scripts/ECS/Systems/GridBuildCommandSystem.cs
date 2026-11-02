@@ -1980,7 +1980,12 @@ public partial class GridBuildCommandSystem : SystemBase
             });
         }
 
-        if (VerticalBeltUtility.IsVertical(placement.Kind))
+        if (EntityManager.HasComponent<FactoryBuildingCollider>(visualPrefab))
+        {
+            ecb.AddComponent(instance, new PhysicsCollider { Value = EntityManager.GetComponentData<FactoryBuildingCollider>(visualPrefab).Value });
+            ecb.AddSharedComponent(instance, new PhysicsWorldIndex { Value = 0 });
+        }
+        else if (VerticalBeltUtility.IsVertical(placement.Kind))
         {
             ecb.AddComponent(instance, new PhysicsCollider
             {

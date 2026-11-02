@@ -2,19 +2,11 @@ using System;
 using UnityEngine;
 
 [Serializable]
-public sealed class FactoryColliderProxy
-{
-    public string name, type, axis;
-    public Vector3 position;
-    public Quaternion rotation = Quaternion.identity;
-    public Vector3 size;
-    public float radius, height;
-}
-
-[Serializable]
 public sealed class FactoryBuildingImportData
 {
     public string buildingKey, modelFile, sourceJsonPath;
+    public GameObject model;
+    public GameObject generatedPrefab;
     public FactoryColliderProxy[] colliders = Array.Empty<FactoryColliderProxy>();
 }
 

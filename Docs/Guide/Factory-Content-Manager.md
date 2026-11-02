@@ -1,6 +1,6 @@
 # Factory 内容管理器
 
-Unity 菜单 **Factory > 内容管理器** 提供建筑、物品、配方三个页签。阶段三已完成建筑详情、占格/端口只读预览和 `.factory.json` 导入。
+Unity 菜单 **Factory > 内容管理器** 提供建筑、物品、配方三个页签，支持 `.factory.json`、FBX、材质适配、包装 Prefab 生成及 DOTS Physics 建筑碰撞。
 
 1. 选择页签，在左侧搜索并选择内容，右侧编辑详情。行序沿用源表，建筑数字 ID 不会因界面显示而重排。
 2. 输入立即进入内存草稿，并显示未保存状态；撤销/重做仅修改草稿。切换页签或搜索不会丢失修改。
@@ -34,11 +34,39 @@ Play Mode 及进入 Play Mode 期间禁用字段编辑、保存与数据库重�
 1. 点击建筑页“导入 .factory.json”，选择单个文件。当前支持 `schema_version = 1`。
 2. 在独立的“导入 Factory 建筑”窗口中查看 Key、模型配对文件名、占格尺寸、端口数量和碰撞代理预览。新建筑默认勾选文件中提供的部分；已有建筑默认全部不覆盖，明确勾选本次需要更新的占格、端口或碰撞代理。
 3. 点击“应用到草稿”后关闭导入窗口，回到内容管理器继续操作；取消或关闭导入窗口不修改草稿。缺失部分保持不变；存在的空 `ports` / `colliders` 数组会在勾选时清空对应部分。名称、图标、行为与游戏属性保持不变。
-4. 为新建筑补齐行为、已有 Prefab 及行为所需字段；缺失的占格通过 JSON 导入或 CSV 提供，然后“保存并重建”。补齐前只保留未保存草稿，不会向 CSV 写入无效建筑。
+4. 为新建筑补齐行为、Prefab（选择已有资产或按下节生成）及行为所需字段；缺失的占格通过 JSON 导入或 CSV 提供，然后“保存并重建”。补齐前只保留未保存草稿，不会向 CSV 写入无效建筑。
 
 导入和名称修改均支持草稿撤销/重做。再次导入时，未勾选覆盖的数据保持原样。
 
-碰撞代理和模型配对信息保存在 `Assets/Settings/BuildingImports` 的每建筑一个 Editor 配置资产中，不复制名称、占格或端口。代理位置、尺寸和四元数已经是 Unity 局部坐标，直接保存；Cylinder 保留为 Cylinder。配置随 CSV 保存一起提交，失败会恢复本次配置修改。模型生成、材质适配和游戏内碰撞接入属于阶段四。
+碰撞代理、模型配对信息、FBX 和生成 Prefab 引用保存在 `Assets/Settings/BuildingImports` 的每建筑一个 Editor 配置资产中，不复制名称、占格或端口。代理位置、尺寸和四元数已经是 Unity 局部坐标，直接保存。配置随 CSV 保存一起提交，失败会恢复本次配置修改。
+
+### FBX、材质与 Prefab
+
+1. 导入 JSON 后，建筑详情会在 JSON 所在目录寻找 `model_file`。点击“导入配对 FBX”，或手动选择外部 FBX；也可在“FBX 模型”栏选择项目内的 FBX。
+2. 外部文件复制到 `Assets/Art/Buildings/<key>/`，同目录及子目录中的图片纹理一并保留相对路径导入。项目内 FBX 直接引用。再次导入外部模型会覆盖此建筑已选中的模型文件，保留 `.meta`、材质映射和原资产路径；不会删除旧纹理。
+3. 打开“材质映射与 URP 适配”。导入时优先在 `Assets/Art/Materials/Buildings` 及其子目录按源材质名称精确匹配，多个同名候选需手动选择。可绑定任何已有 `.mat`，或创建 URP/Lit 材质，承接基础色及可识别的基础色、法线、金属度/光滑度和发光属性。映射保存到 FBX 的 ModelImporter，按源材质名称关联；源名称删除或改名会提示，新增名称显示“待匹配”。
+4. 点击“调整此材质”，使用 Unity 原生材质 Inspector 设置基础色、法线、金属度/光滑度、发光及透明表面。法线贴图需设置为 Normal map；金属度用 R 通道，光滑度用 A 通道（也可在 Inspector 选择基础色 Alpha）。粗糙度需要反相及正确通道，界面会提示，工具不打包或转换纹理，不翻译复杂 Blender 节点。已绑定材质不会在再次导入时被重建或覆盖。
+5. 点击“生成 / 更新 Prefab”，再“保存并重建”。包装位于 `Assets/Prefabs/Buildings/<key>.prefab`，根节点保持单位变换；`Factory Model` 和 `Factory Collisions` 是工具管理的两个子节点。更新只替换这两个子节点，保留包装路径、GUID 及其他人工子节点。人工 Prefab 不会被覆盖，需先清空已有 Prefab 引用生成独立包装。
+
+**资产操作立即落盘**，包括复制 FBX/纹理、材质编辑与生成 Prefab；草稿的放弃和撤销只恢复 CSV/导入配置引用，不撤销这些资产操作。重新导入碰撞 JSON 后，需要再次“生成 / 更新 Prefab”才会更新烘焙源数据。
+
+包装碰撞由 `FactoryGeneratedBuildingAuthoring` 烘焙为共享 DOTS Physics compound blob，在建造时挂到建筑逻辑根实体上，跟随放置旋转和楼层偏移，拆除时随实体移除。支持 Box、Sphere、Capsule 和 Cylinder；Cylinder 使用 Unity Physics 的 32 边圆柱，并将原生 Z 轴对齐协议的 Y 轴。选中碰撞子节点可查看线框预览。建筑碰撞阻挡人物；地基专用拾取射线继续仅查询地基。地基分块、坡道等专用地形碰撞继续使用原有生成机制。
+
+### Blender 4.1 导出约定
+
+Blender 插件负责 JSON；FBX 可使用项目脚本 [export_factory_model.py](../../Tools/Blender/export_factory_model.py) 同时导出。示例：
+
+```powershell
+& 'D:/Application/Blender 4.1/blender.exe' --background --factory-startup `
+  --python Tools/Blender/export_factory_model.py -- `
+  'D:/UnityProject/Factory-with-DOTS-BuildingCreater/blender-test/testMachine.blend' `
+  'D:/UnityProject/Factory-with-DOTS/Logs/stage4-export' `
+  'D:/UnityProject/Factory-with-DOTS-BuildingCreater'
+```
+
+脚本不保存或修改原 `.blend`；只导出非碰撞代理的 Mesh，应用求值修改器，排除相机、灯光和动画，图片随 FBX 复制。固定预设为 `global_scale=1`、`apply_unit_scale=True`、`FBX_SCALE_UNITS`、Forward `-Z`、Up `Y`、`bake_space_transform=True`，忽略 Blender 单位显示缩放。Unity 固定为 Scale Factor 1、Use File Scale、Bake Axis Conversion，禁用动画/相机/灯光/自动碰撞，保留源材质供映射。原点必须已在 Blender 占格底面中心，工具不会根据模型包围盒重新居中。
+
+`Tools/Blender/Fixtures/testMachine` 保存 Blender 4.1.1 导出的 FBX、插件 JSON 和求值几何记录。非对称柱体的 Unity 中心为 `(0.6, 1.939839, 0.75)`、高度 2，底座底面为 Y=0；验收测试以此确认轴向、单位及原点。
 
 ## 物品
 

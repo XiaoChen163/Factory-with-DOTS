@@ -51,7 +51,7 @@ public sealed class EcsCharacterMotor : MonoBehaviour
         }, new CollisionFilter
         {
             BelongsTo = FoundationCollisionCategories.Character,
-            CollidesWith = FoundationCollisionCategories.Foundation | FoundationCollisionCategories.Character
+            CollidesWith = FoundationCollisionCategories.Foundation | FoundationCollisionCategories.Character | FoundationCollisionCategories.Building
         }, material);
         manager.AddComponentData(character, new PhysicsCollider { Value = capsule });
         settings.StepAndSlopeHandling = BasicStepAndSlopeHandlingParameters.GetDefault();

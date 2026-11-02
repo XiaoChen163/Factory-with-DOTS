@@ -411,6 +411,9 @@ public static class FactoryDatabaseCsvImporter
         foreach (Component component in prefab.GetComponentsInChildren<Component>(true))
         {
             if (component is Transform || component is MeshFilter || component is MeshRenderer ||
+                component is FactoryGeneratedBuildingAuthoring && component.gameObject == prefab ||
+                component is FactoryBuildingCollisionAuthoring && component.transform.parent == prefab.transform &&
+                    component.name == FactoryGeneratedBuildingAuthoring.CollisionNode && prefab.GetComponent<FactoryGeneratedBuildingAuthoring>() != null ||
                 kind == BuildingKind.RampFoundation && component is MeshCollider)
                 continue;
             throw new InvalidDataException(

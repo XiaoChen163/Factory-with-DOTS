@@ -109,10 +109,11 @@ public sealed partial class FactoryContentManagerWindow
         DrawBuildingSpace(b);
         var import = draft.GetBuildingImport(key);
         detail.Add(Heading("建筑导入配置"));
+        DrawBuildingModel(b, import);
         detail.Add(new Label("模型配对：" + (import.modelFile ?? "未导入") + "\n碰撞代理：" + import.colliders.Length + " 个"));
         foreach (var c in import.colliders)
             detail.Add(new Label($"{c.name} · {c.type} · 位置 {c.position} · 旋转 {c.rotation}"));
-        detail.Add(new HelpBox("碰撞代理参数随保存写入 Editor 导入配置。模型生成和游戏内碰撞接入属于阶段 4。", HelpBoxMessageType.Info));
+        detail.Add(new HelpBox("模型、材质和 Prefab 操作立即写入资产；引用与导入配置仍需保存草稿。碰撞使用 DOTS Physics；Cylinder 为 Y 轴圆柱（32 边），不转换为胶囊。", HelpBoxMessageType.Info));
     }
 
     private void BuildingStatField(string key, string table, string column, string label)

@@ -91,6 +91,9 @@ MonoBehaviour:
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk4.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk4.png
     hash: 27d36b5c75fb8200b2b9ef0b76546e7d
+  - prefabPath: Assets/Prefabs/Buildings/testMachine.prefab
+    outputPath: Assets/Art/Icons/Buildings/testMachine.png
+    hash: 67ee510001bd1ec9adf03f196c28d245
   - prefabPath: Assets/Prefabs/Items/IronIngot.prefab
     outputPath: Assets/Art/Icons/Items/IronIngot.png
     hash: 37183ce79e412915fb2c5561371c562b

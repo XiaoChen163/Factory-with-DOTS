@@ -93,7 +93,7 @@ MonoBehaviour:
     hash: 27d36b5c75fb8200b2b9ef0b76546e7d
   - prefabPath: Assets/Prefabs/Buildings/testMachine.prefab
     outputPath: Assets/Art/Icons/Buildings/testMachine.png
-    hash: 67ee510001bd1ec9adf03f196c28d245
+    hash: fd73cad3428a70233b13fa3172defa04
   - prefabPath: Assets/Prefabs/Items/IronIngot.prefab
     outputPath: Assets/Art/Icons/Items/IronIngot.png
     hash: 37183ce79e412915fb2c5561371c562b

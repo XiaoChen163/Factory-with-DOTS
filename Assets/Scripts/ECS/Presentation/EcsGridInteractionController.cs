@@ -186,6 +186,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     private void OnDestroy()
     {
+        DestroyModelPreviews();
         DestroyOutputPortLabel();
         ReleaseEcsCache();
         if (previewRoot != null)
@@ -394,6 +395,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         GridCell hoveredCell,
         in ResolvedBuildAnchor buildAnchor)
     {
+        previewBuildingAnchor = hoveredCell;
         previewCells.Clear();
         previewDisplayDirections.Clear();
         previewRampStartHeightUnits.Clear();
@@ -727,6 +729,8 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
         for (int i = 0; i < previewCellObjects.Count; i++)
         {
             GameObject previewCell = previewCellObjects[i];
+            previewCell.GetComponent<MeshRenderer>().enabled =
+                isFoundationPreview || isRampPreview;
             BuildingKind previewKind = verticalPathStarted
                 ? i == previewCells.Count - 1 ? BuildingKind.VerticalBeltExit : BuildingKind.VerticalBeltSegment
                 : SelectedKind;
@@ -824,8 +828,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
             }
 
             Transform triangle = previewTriangles[i];
-            bool showTriangle = previewKind == BuildingKind.VerticalBeltSegment ||
-                SelectedKind == BuildingKind.Belt && i < previewDisplayDirections.Count;
+            bool showTriangle = previewKind == BuildingKind.VerticalBeltSegment;
             triangle.gameObject.SetActive(showTriangle);
             if (previewKind == BuildingKind.VerticalBeltSegment)
             {
@@ -840,22 +843,8 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
                 triangle.rotation = Quaternion.LookRotation(Vector3.Cross(tip, normal), normal);
                 triangle.localScale = Vector3.one * .7f;
             }
-            else if (showTriangle)
-            {
-                triangle.SetParent(previewCell.transform, false);
-                triangle.localPosition = new Vector3(0f, .65f, 0f);
-                triangle.localScale = Vector3.one;
-                int2 displayDirection =
-                    previewDisplayDirections[i];
-                float angle = -math.atan2(
-                    displayDirection.y,
-                    displayDirection.x) * math.TODEGREES;
-                triangle.localRotation = Quaternion.Euler(
-                    0f,
-                    angle,
-                    0f);
-            }
         }
+        ShowModelPreviews(worldGrid, color);
         for (int i = 0; i < previewPortTriangles.Count; i++)
         {
             Transform triangle = previewPortTriangles[i];
@@ -1174,6 +1163,7 @@ public sealed partial class EcsGridInteractionController : MonoBehaviour
 
     private void HidePlacementPreview()
     {
+        HideModelPreviews();
         foreach (Transform triangle in previewTriangles)
             triangle.gameObject.SetActive(false);
         for (int i = 0; i < previewCellObjects.Count; i++)

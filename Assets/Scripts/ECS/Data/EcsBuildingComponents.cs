@@ -13,6 +13,7 @@ public struct BuildingVisualPrefabEntry : IBufferElementData
 {
     public BuildingDefinitionId BuildingDefinition;
     public Entity Prefab;
+    public UnityObjectRef<UnityEngine.GameObject> PreviewPrefab;
 }
 
 public struct BuildingVisualReference : IComponentData

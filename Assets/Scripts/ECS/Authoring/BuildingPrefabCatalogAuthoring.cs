@@ -89,7 +89,8 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                 buildingPrefabs.Add(new BuildingVisualPrefabEntry
                 {
                     BuildingDefinition = new BuildingDefinitionId { Value = definition.id },
-                    Prefab = visualPrefab
+                    Prefab = visualPrefab,
+                    PreviewPrefab = definition.visualPrefab
                 });
 
                 if (definition.kind == BuildingKind.Foundation)

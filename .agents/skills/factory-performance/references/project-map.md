@@ -8,7 +8,7 @@
 
 ## Performance pipeline scripts
 
-- `Assets/Scripts/DataBase/Editor/FactoryPerformanceBatchRunner.cs` - batch entry point; opens a performance scene then enters Play Mode
+- `Assets/Scripts/DataBase/Editor/Performance/FactoryPerformanceBatchRunner.cs` - batch entry point; opens a performance scene then enters Play Mode
 - `Assets/Scripts/ECS/Performance/FactoryPerformanceScenarioBootstrap.cs` - builds the ECS scenario at runtime; reads `-factoryPerformance*` arguments
 - `Assets/Scripts/ECS/Performance/FactoryPerformanceMetricsCapture.cs` - Profiler capture; writes JSON/CSV reports; exits the Editor when done
 - `Assets/Scripts/ECS/Performance/FactoryPerformanceScenarioLayout.cs` - scenario definitions and layouts

@@ -18,9 +18,11 @@
 
 ### 2.1 目录职责
 
+源码已按“技术层 / 业务领域”整理，具体入口与跨领域组件位置见 [Scripts 源码目录导航](Scripts-Directory-Map.md)。下表中的目录是技术层根目录，新增源码应进入其对应领域子目录。
+
 | 目录 | 职责 |
 |---|---|
-| `Assets/Scripts/DataBase` | 数据模型、数据库 Asset、CSV 导入 |
+| `Assets/Scripts/DataBase` | Definitions 数据定义、Validation 校验；Editor 下按内容管理、导入、建筑、图标、资源生成与性能分组 |
 | `Assets/Scripts/ECS/Data` | ECS 组件、Buffer、Blob 结构 |
 | `Assets/Scripts/ECS/Systems` | 模拟系统、建造、拓扑、端口、表现采集 |
 | `Assets/Scripts/ECS/Authoring` | GameObject 到 ECS 的 Baker |
@@ -114,7 +116,7 @@ Input / UI
 
 1. 在 `Assets/Data/FactoryTables` 的 CSV 中补充建筑、等级、端口、配方数据；
 2. 运行 `FactoryDatabaseCsvImporter` 重新生成 `FactoryDatabase`；
-3. 在 `Assets/Scripts/ECS/Data` 添加该建筑需要的 ECS 组件；
+3. 在 `Assets/Scripts/ECS/Data` 对应领域子目录添加该建筑需要的 ECS 组件；
 4. 在 `GridBuildCommandSystem.AddLogicComponents` 中接入创建逻辑；
 5. 如果建筑有输入/输出端口，按现有 `BuildingPort` 和 Port Snapshot 规则接入；
 6. 如果需要加工，接入 `ItemProcessSystem` 和 `ItemPortAdapterSystem`；

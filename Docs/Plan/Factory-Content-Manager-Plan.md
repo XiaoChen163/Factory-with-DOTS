@@ -159,7 +159,7 @@ blender插件工程位于 `D:\UnityProject\Factory-with-DOTS-BuildingCreater` �
 
 - [建筑数据表](../Guide/Building-Data-Tables.md)
 - [建筑占格与端口定义](../Guide/Building-Footprints.md)
-- 数据读取与重建：`Assets/Scripts/DataBase/Editor/FactoryDatabaseCsvImporter.cs`
-- 数据结构与规则：`Assets/Scripts/DataBase/FactoryDatabaseAsset.cs`、`FactoryDatabaseValidation.cs`
-- 图标工具：`Assets/Scripts/DataBase/Editor/FactoryIconBaker.cs`
+- 数据读取与重建：`Assets/Scripts/DataBase/Editor/Import/FactoryDatabaseCsvImporter.cs`
+- 数据结构与规则：`Assets/Scripts/DataBase/Definitions/FactoryDatabaseAsset.cs`、`FactoryDatabaseValidation.cs`
+- 图标工具：`Assets/Scripts/DataBase/Editor/Icons/FactoryIconBaker.cs`
 - Blender 导出协议：相邻仓库 `Factory-with-DOTS-BuildingCreater/docs/factory-json-format.md`

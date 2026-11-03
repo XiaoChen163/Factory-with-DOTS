@@ -51,7 +51,7 @@ GridAddress
 - 多端口绑定已实施（2026-10-30）：所有输入口接受当前配方需要的原料，按物品类型汇入共享输入槽；输出口通过 `number/output_slot` 一对一绑定配方产物槽，未使用出口停用。支持 UI 编号和 10m 瞄准提示，任意输出槽放不下完整下一批时停止开工。规则及遮挡范围见 [建筑数据表](../Guide/Building-Data-Tables.md)。
 - 第 1、3 项最好做成同一个编辑器工具，包含“物品、配方、建筑、占格、端口、矿点、翻译”多个页面，共用稳定 ID、引用校验和 Undo/Redo。
 - 编辑器应修改唯一的源数据并调用现有导入器，不能直接编辑生成的 `FactoryDatabase.asset`，否则会形成双数据源。
-- 本地化字符串只留在表现层；ECS Blob 保存 `NameKey` 即可。当前 [FactoryPresentationCatalog.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/ECS/Presentation/UI/FactoryPresentationCatalog.cs:33) 尚未真正解析本地化表。
+- 本地化字符串只留在表现层；ECS Blob 保存 `NameKey` 即可。当前 [FactoryPresentationCatalog.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/ECS/Presentation/Content/FactoryPresentationCatalog.cs:33) 尚未真正解析本地化表。
 - 放置预览已实施（2026-11-03）：从烘焙目录读取建筑真实 Prefab，仅复制网格和变换作为 Ghost Renderer，使用 `Factory/Placement Preview` 独立 Shader 显示蓝色半透明/红色无效状态；保留端口与方向提示，不启用建筑脚本或碰撞体，不修改源材质。普通建筑、传送带、坡道传送带与垂直传送带使用模型预览；地基与坡道地基保持原有预览。
 - 第一人称功能应迁出 `Prototype`，建立 `FirstPerson / BuildOverview` 两种正式输入与相机状态，而不是继续扩展现有 [TopDownPlayerController.cs](D:/UnityProject/Factory-with-DOTS/Assets/Scripts/Prototype/Input/TopDownPlayerController.cs:3)。
 

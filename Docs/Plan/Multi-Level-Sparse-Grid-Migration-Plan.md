@@ -1203,11 +1203,11 @@ Authoring 脚本身份，矩形输入在 Baking 时展开为一次性初始表�
 
 重点文件：
 
-- `Assets/Scripts/ECS/Data/EcsGridComponents.cs`
-- `Assets/Scripts/ECS/Data/EcsBuildingComponents.cs`
-- `Assets/Scripts/ECS/Data/EcsFactoryComponents.cs`
-- `Assets/Scripts/ECS/Data/EcsPlayerCommandComponents.cs`
-- `Assets/Scripts/ECS/Data/EcsPlayerComponents.cs`
+- `Assets/Scripts/ECS/Data/World/EcsGridComponents.cs`
+- `Assets/Scripts/ECS/Data/Construction/EcsBuildingComponents.cs`
+- `Assets/Scripts/ECS/Data/Transport/EcsFactoryComponents.cs`
+- `Assets/Scripts/ECS/Data/Commands/EcsPlayerCommandComponents.cs`
+- `Assets/Scripts/ECS/Data/Player/EcsPlayerComponents.cs`
 
 主要工作：引入 `GridCell`、拆分 Revision、增加 Surface/Connector 数据，并保持建筑局部二维偏移。
 
@@ -1215,7 +1215,7 @@ Authoring 脚本身份，矩形输入在 Baking 时展开为一次性初始表�
 
 重点文件：
 
-- `Assets/Scripts/ECS/Authoring/GridDefinitionAuthoring.cs`
+- `Assets/Scripts/ECS/Authoring/World/GridDefinitionAuthoring.cs`
 
 主要工作：从烘焙唯一矩形网格改为烘焙 `WorldGridConfig` 和初始 Surface Chunk。旧矩形参数在
 迁移期只作为生成初始完整表面的 Authoring 输入。
@@ -1224,10 +1224,10 @@ Authoring 脚本身份，矩形输入在 Baking 时展开为一次性初始表�
 
 重点文件：
 
-- `Assets/Scripts/ECS/Systems/GridOccupancyIndexSystem.cs`
-- `Assets/Scripts/ECS/Systems/GridBuildCommandSystem.cs`
-- `Assets/Scripts/ECS/Systems/PlayerGridCommandAdapterSystem.cs`
-- `Assets/Scripts/ECS/Systems/GridPlacementTransformSystem.cs`
+- `Assets/Scripts/ECS/Systems/Construction/GridOccupancyIndexSystem.cs`
+- `Assets/Scripts/ECS/Systems/Construction/GridBuildCommandSystem.cs`
+- `Assets/Scripts/ECS/Systems/Commands/PlayerGridCommandAdapterSystem.cs`
+- `Assets/Scripts/ECS/Systems/Construction/GridPlacementTransformSystem.cs`
 
 主要工作：三维地址、持久索引、在现有 `GridBuildCommand` 中增加地基命令类型、事务式表面
 修改、局部脏标记和 Transform 增量更新；不得建立独立地基命令管线。
@@ -1236,9 +1236,9 @@ Authoring 脚本身份，矩形输入在 Baking 时展开为一次性初始表�
 
 重点文件：
 
-- `Assets/Scripts/ECS/Presentation/EcsGridInteractionController.cs`
+- `Assets/Scripts/ECS/Presentation/Construction/EcsGridInteractionController.cs`
 - `Assets/Scripts/Prototype/Presentation/GridDebugView.cs` 及后续正式 ECS 替代实现
-- `Assets/Scripts/ECS/Systems/BeltTopologyVisualSystem.cs`
+- `Assets/Scripts/ECS/Systems/Presentation/BeltTopologyVisualSystem.cs`
 
 主要工作：实际表面拾取、多层预览、区块网格显示、坡道/垂直预览和局部视觉刷新。
 
@@ -1246,9 +1246,9 @@ Authoring 脚本身份，矩形输入在 Baking 时展开为一次性初始表�
 
 重点文件：
 
-- `Assets/Scripts/ECS/Systems/BeltTransferSystem.cs`
-- `Assets/Scripts/ECS/Systems/LinearBeltTransferResolver.cs`
-- `Assets/Scripts/ECS/Systems/BeltTopologyVisualSystem.cs`
+- `Assets/Scripts/ECS/Systems/Transport/BeltTransferSystem.cs`
+- `Assets/Scripts/ECS/Systems/Transport/LinearBeltTransferResolver.cs`
+- `Assets/Scripts/ECS/Systems/Presentation/BeltTopologyVisualSystem.cs`
 
 主要工作：三维节点地址、独立 Transport Revision、显式 Connector Edge、局部或受控全局重建。
 

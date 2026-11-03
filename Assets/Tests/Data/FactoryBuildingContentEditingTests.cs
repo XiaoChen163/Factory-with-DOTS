@@ -90,7 +90,7 @@ namespace Factory.Tests
             draft.ImportBuildingJson(Json("storage"), true, true, false);
             var storage = draft.GetBuildings().Single(v => v.key == "storage");
             Assert.That(storage.ports.All(p => p.number == 0 && p.outputSlot == 0), Is.True);
-            Assert.That(draft.GetBuildingStat("storage", "storage_stats", "capacity"), Is.EqualTo("100"));
+            Assert.That(draft.GetBuildingStat("storage", "storage_stats", "slot_count"), Is.EqualTo("8"));
             var shape = storage.SpatialDefinition();
             FactoryBuildingFootprintUtility.ValidatePorts(shape, FactoryBuildingFootprintUtility.GetOccupiedOffsets(shape));
         }

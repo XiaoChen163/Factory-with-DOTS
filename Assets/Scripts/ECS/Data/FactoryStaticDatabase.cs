@@ -161,7 +161,6 @@ public struct FactoryBuildingDefinitionBlob
     public int MenuOrder;
     public byte BeltTier;
     public float CellsPerSecond;
-    public int Capacity;
     public ushort SlotCount;
     public sbyte RampRiseHeightUnits;
     public FixedString64Bytes Key;
@@ -263,6 +262,6 @@ public static class FactoryDatabaseUtility
         BuildingDefinitionId id, out FactoryBuildingDefinitionBlob building)
     {
         return TryGetBuildingDefinition(ref database, id, out building) &&
-            building.Kind == BuildingKind.Storage && building.Capacity > 0 && building.SlotCount > 0;
+            building.Kind == BuildingKind.Storage && building.SlotCount > 0;
     }
 }

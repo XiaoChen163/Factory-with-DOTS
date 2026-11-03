@@ -279,21 +279,7 @@ public partial struct ManualItemTransferSystem : ISystem
         else
         {
             int maxStack = database.ItemsById[itemType.Value].MaxStack;
-            if (state.EntityManager.HasComponent<StorageState>(owner))
-            {
-                StorageState storage = state.EntityManager.GetComponentData<
-                    StorageState>(owner);
-                int totalFree = Unity.Mathematics.math.max(
-                    0,
-                    storage.Capacity - storage.TotalStored);
-                capacity = (ushort)(count + Unity.Mathematics.math.min(
-                    maxStack - count,
-                    totalFree));
-            }
-            else
-            {
-                capacity = (ushort)maxStack;
-            }
+            capacity = (ushort)maxStack;
         }
         failure = MoveItemFailureReason.None;
         return true;

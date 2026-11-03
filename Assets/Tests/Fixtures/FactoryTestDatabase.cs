@@ -61,7 +61,6 @@ namespace Factory.Tests
                     footprintHeight = 1,
                     isRectangle = true,
                     visualPrefab = visualPrefab,
-                    storageCapacity = 10,
                     storageSlotCount = 2,
                     ports = new[]
                     {

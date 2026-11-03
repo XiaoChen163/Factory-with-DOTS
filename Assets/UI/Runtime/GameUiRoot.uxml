@@ -18,7 +18,6 @@
                         <ui:Button name="building-close" text="×" class="close-button" />
                     </ui:VisualElement>
                     <ui:VisualElement name="building-storage-page" class="window-content storage-page">
-                        <ui:Label text="容器" class="section-title centered-title" />
                         <ui:VisualElement name="storage-slot-grid" class="slot-grid" />
                     </ui:VisualElement>
                     <ui:VisualElement name="building-processor-page" class="window-content processor-page">

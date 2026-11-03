@@ -80,7 +80,6 @@ public struct FactoryBuildingDefinitionRow
     public ushort machineTypeId;
     public byte beltTier;
     public float cellsPerSecond;
-    public int storageCapacity;
     public ushort storageSlotCount;
     public sbyte rampRiseHeightUnits;
     public FactoryBuildingPortTableRow[] ports;

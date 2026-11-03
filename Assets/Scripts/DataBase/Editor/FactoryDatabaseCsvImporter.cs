@@ -230,7 +230,6 @@ public static class FactoryDatabaseCsvImporter
         });
         ApplyExtension(read, directory, "storage_stats", buildings, b => b.kind == BuildingKind.Storage, (b, t, r) =>
         {
-            b.storageCapacity = ParseInt(t.Get(r, "capacity"), "storage capacity");
             b.storageSlotCount = ParseUShort(t.Get(r, "slot_count"), "storage slots");
             return b;
         });

@@ -1855,7 +1855,7 @@ public partial class GridBuildCommandSystem : SystemBase
             case BuildingKind.Processor:
                 return building.MachineType.IsValid;
             case BuildingKind.Storage:
-                return building.Capacity > 0 && building.SlotCount > 0;
+                return building.SlotCount > 0;
             default:
                 return true;
         }
@@ -2156,7 +2156,6 @@ public partial class GridBuildCommandSystem : SystemBase
             case BuildingKind.Storage:
                 ecb.AddComponent(instance, new StorageState
                 {
-                    Capacity = building.Capacity,
                     SlotCount = building.SlotCount
                 });
                 DynamicBuffer<InventorySlot> storageSlots =

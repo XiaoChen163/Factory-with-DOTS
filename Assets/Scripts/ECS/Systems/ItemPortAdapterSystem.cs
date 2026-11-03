@@ -124,7 +124,6 @@ public partial struct ItemPortAdapterSystem : ISystem
             nextInputs.Clear();
             nextOutputs.Clear();
 
-            int totalFree = math.max(0, storage.Capacity - storage.TotalStored);
             for (int p = 0; p < buildingPorts.Length; p++)
             {
                 BuildingPort port = buildingPorts[p];
@@ -138,9 +137,7 @@ public partial struct ItemPortAdapterSystem : ISystem
                     FactoryItemBlob item = database.ItemsById[itemIndex];
                     if (!item.Id.IsValid)
                         continue;
-                    int free = math.min(
-                        totalFree,
-                        GetInventoryFreeCapacity(slots, item.Id, item.MaxStack));
+                    int free = GetInventoryFreeCapacity(slots, item.Id, item.MaxStack);
                     ulong applied = GetInputAppliedCount(
                         currentInputs,
                         port.Index,

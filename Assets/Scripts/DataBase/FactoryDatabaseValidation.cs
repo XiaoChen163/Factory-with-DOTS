@@ -43,8 +43,8 @@ public static class FactoryDatabaseValidation
                 tierSpeeds[building.beltTier] = building.cellsPerSecond;
             }
             bool storage = building.kind == BuildingKind.Storage;
-            Require(storage ? building.storageCapacity > 0 && building.storageSlotCount > 0 :
-                building.storageCapacity == 0 && building.storageSlotCount == 0, label + " has invalid storage stats.");
+            Require(storage ? building.storageSlotCount > 0 :
+                building.storageSlotCount == 0, label + " has invalid storage stats.");
             Require(building.kind == BuildingKind.RampFoundation ? RampUtility.IsAllowedRise(building.rampRiseHeightUnits) :
                 building.rampRiseHeightUnits == 0, label + " has an invalid ramp rise.");
         }

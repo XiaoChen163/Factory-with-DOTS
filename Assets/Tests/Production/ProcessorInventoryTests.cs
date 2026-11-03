@@ -401,8 +401,11 @@ namespace Factory.Tests
             Assert.That(outputs[1].Value.ItemType, Is.EqualTo(slots[2].AcceptedItemType));
         }
 
-        [Test]
-        public void ManualMove_PlayerToStorage_UpdatesBothStableSlotsAndRevisions()
+        [TestCase(0, 0, true)]
+        [TestCase(60, 64, true)]
+        [TestCase(61, 64, false)]
+        public void ManualMove_PlayerToStorage_UsesDestinationStackLimit(
+            int destinationCount, int otherSlotCount, bool succeeds)
         {
             database = CreateMultiRecipeDatabase();
             Entity databaseEntity = EntityManager.CreateEntity();
@@ -444,27 +447,60 @@ namespace Factory.Tests
             Entity storage = CreateInventoryOwner(22, 2);
             EntityManager.AddComponentData(storage, new StorageState
             {
-                Capacity = 10,
-                SlotCount = 2
+                SlotCount = 2,
+                TotalStored = destinationCount + otherSlotCount
             });
+            DynamicBuffer<InventorySlot> initialSlots = EntityManager.GetBuffer<InventorySlot>(storage);
+            initialSlots[0] = new InventorySlot { ItemType = new ItemId { Value = 1 }, Count = (ushort)destinationCount };
+            initialSlots[1] = new InventorySlot { ItemType = new ItemId { Value = 2 }, Count = (ushort)otherSlotCount };
 
             SystemHandle system =
                 TestWorld.GetOrCreateSystem<ManualItemTransferSystem>();
             system.Update(TestWorld.Unmanaged);
 
             playerSlots = EntityManager.GetBuffer<InventorySlot>(player);
-            Assert.That(playerSlots[0].Count, Is.EqualTo(1));
+            Assert.That(playerSlots[0].Count, Is.EqualTo(succeeds ? 1 : 5));
             DynamicBuffer<InventorySlot> storageSlots =
                 EntityManager.GetBuffer<InventorySlot>(storage);
-            Assert.That(storageSlots[0].Count, Is.EqualTo(4));
+            Assert.That(storageSlots[0].Count, Is.EqualTo(destinationCount + (succeeds ? 4 : 0)));
             Assert.That(EntityManager.GetComponentData<PlayerInventory>(player).Revision,
-                Is.EqualTo(1));
+                Is.EqualTo(succeeds ? 1 : 0));
             StorageState storageState =
                 EntityManager.GetComponentData<StorageState>(storage);
-            Assert.That(storageState.Revision, Is.EqualTo(1));
-            Assert.That(storageState.TotalStored, Is.EqualTo(4));
+            Assert.That(storageState.Revision, Is.EqualTo(succeeds ? 1 : 0));
+            Assert.That(storageState.TotalStored, Is.EqualTo(destinationCount + otherSlotCount + (succeeds ? 4 : 0)));
             Assert.That(EntityManager.GetBuffer<MoveItemPlayerResult>(player)[0].Success,
-                Is.EqualTo(1));
+                Is.EqualTo(succeeds ? 1 : 0));
+        }
+
+        [TestCase(0, 0, 128, 128)]
+        [TestCase(64, 0, 64, 64)]
+        [TestCase(63, 64, 1, 0)]
+        [TestCase(64, 64, 0, 0)]
+        public void StorageAdapter_UsesEmptySlotsAndMatchingStackSpace(
+            int firstCount, int secondCount, int firstFree, int secondFree)
+        {
+            database = CreateMultiRecipeDatabase();
+            EntityManager.AddComponentData(EntityManager.CreateEntity(), new FactoryDatabase { Value = database });
+            Entity storage = CreatePortOwner(new GridPlacement { Kind = BuildingKind.Storage });
+            EntityManager.AddComponentData(storage, new StorageState
+            {
+                SlotCount = 2, TotalStored = firstCount + secondCount
+            });
+            EntityManager.GetBuffer<BuildingPort>(storage).Add(new BuildingPort { Type = BuildingPortType.Input });
+            DynamicBuffer<InventorySlot> slots = EntityManager.AddBuffer<InventorySlot>(storage);
+            slots.Add(firstCount == 0 ? default : new InventorySlot { ItemType = new ItemId { Value = 1 }, Count = (ushort)firstCount });
+            slots.Add(secondCount == 0 ? default : new InventorySlot { ItemType = new ItemId { Value = 2 }, Count = (ushort)secondCount });
+
+            TestWorld.GetOrCreateSystem<ItemPortAdapterSystem>().Update(TestWorld.Unmanaged);
+            EntityManager.CompleteAllTrackedJobs();
+
+            var ports = EntityManager.GetBuffer<ItemInputPortNext>(storage);
+            Assert.That(ports.Length, Is.EqualTo(2));
+            Assert.That(ports[0].Value.FreeCapacity, Is.EqualTo(firstFree));
+            Assert.That(ports[1].Value.FreeCapacity, Is.EqualTo(secondFree));
+            Assert.That(ports[0].Value.Enabled, Is.EqualTo(firstFree > 0 ? 1 : 0));
+            Assert.That(ports[1].Value.Enabled, Is.EqualTo(secondFree > 0 ? 1 : 0));
         }
 
         private Entity CreateInventoryOwner(ulong runtimeId, int slotCount)

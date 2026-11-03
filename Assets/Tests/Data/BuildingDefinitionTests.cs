@@ -52,7 +52,7 @@ namespace Factory.Tests
             Assert.That(rows.Single(b => b.key == "furnace").displayName, Is.EqualTo("熔炉"));
             Assert.That(rows.Any(b => b.key == "furnace_mk1"), Is.False);
             Assert.That(rows.Where(b => b.kind == BuildingKind.Processor).All(b => b.beltTier == 0), Is.True);
-            Assert.That(rows.Single(b => b.key == "storage").storageCapacity, Is.EqualTo(100));
+            Assert.That(rows.Single(b => b.key == "storage").storageSlotCount, Is.EqualTo(8));
             Assert.That(rows.Single(b => b.key == "ramp_foundation_1_2").rampRiseHeightUnits, Is.EqualTo(4));
         }
 
@@ -136,7 +136,7 @@ namespace Factory.Tests
             Assert.Throws<InvalidDataException>(() => Read());
         }
 
-        [TestCase("storage_stats", "key,capacity,slot_count")]
+        [TestCase("storage_stats", "key,slot_count")]
         [TestCase("ramp_stats", "key,rise_height_units")]
         [TestCase("belt_stats", "key,tier,cells_per_second")]
         [TestCase("building_presentation", "key,icon_path,menu_order")]
@@ -149,7 +149,7 @@ namespace Factory.Tests
 
         [TestCase("building_ports", "key,type,index,cell_x,cell_z,direction_x,direction_z", "unknown,Output,0,1,0,1,0")]
         [TestCase("building_names", "key,locale,name", "unknown,zh-CN,不存在")]
-        [TestCase("storage_stats", "key,capacity,slot_count", "furnace,100,8")]
+        [TestCase("storage_stats", "key,slot_count", "furnace,8")]
         [TestCase("ramp_stats", "key,rise_height_units", "furnace,8")]
         public void UnknownOrIncompatibleExtensions_AreRejected(string table, string header, string row)
         {

@@ -157,7 +157,7 @@ public sealed partial class FactoryContentDraft
             else if (kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(kind))
                 Upsert(docs["buildings/belt_stats.csv"], key, new Dictionary<string, string> { ["tier"] = "1", ["cells_per_second"] = "1" });
             else if (kind == BuildingKind.Storage)
-                Upsert(docs["buildings/storage_stats.csv"], key, new Dictionary<string, string> { ["capacity"] = "100", ["slot_count"] = "8" });
+                Upsert(docs["buildings/storage_stats.csv"], key, new Dictionary<string, string> { ["slot_count"] = "8" });
             else if (kind == BuildingKind.RampFoundation)
                 Upsert(docs["buildings/ramp_stats.csv"], key, new Dictionary<string, string> { ["rise_height_units"] = "4" });
             WritePorts(docs[PortsPath], key, NormalizePorts(kind, building.ports, true));

@@ -146,7 +146,6 @@ public struct ItemProcessState : IComponentData
 public struct StorageState : IComponentData
 {
     public int TotalStored;
-    public int Capacity;
     public ushort SlotCount;
     public uint Revision;
 }

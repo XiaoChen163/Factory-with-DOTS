@@ -91,7 +91,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 1
     cellsPerSecond: 1
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -140,7 +139,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 2
     cellsPerSecond: 2
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -189,7 +187,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 3
     cellsPerSecond: 4
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -238,7 +235,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 4
     cellsPerSecond: 8
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -287,7 +283,6 @@ MonoBehaviour:
     machineTypeId: 1
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -312,7 +307,6 @@ MonoBehaviour:
     machineTypeId: 2
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -343,7 +337,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 100
     storageSlotCount: 8
     rampRiseHeightUnits: 0
     ports:
@@ -368,7 +361,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -411,7 +403,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -454,7 +445,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports: []
@@ -473,7 +463,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 8
     ports: []
@@ -492,7 +481,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 4
     ports: []
@@ -511,7 +499,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 2
     ports: []
@@ -530,7 +517,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 1
     cellsPerSecond: 1
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -555,7 +541,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 2
     cellsPerSecond: 2
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -580,7 +565,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 3
     cellsPerSecond: 4
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -605,7 +589,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 4
     cellsPerSecond: 8
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -630,7 +613,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 1
     cellsPerSecond: 1
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -655,7 +637,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 2
     cellsPerSecond: 2
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -680,7 +661,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 3
     cellsPerSecond: 4
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -705,7 +685,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 4
     cellsPerSecond: 8
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -730,7 +709,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 1
     cellsPerSecond: 1
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports: []
@@ -749,7 +727,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 2
     cellsPerSecond: 2
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports: []
@@ -768,7 +745,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 3
     cellsPerSecond: 4
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports: []
@@ -787,7 +763,6 @@ MonoBehaviour:
     machineTypeId: 0
     beltTier: 4
     cellsPerSecond: 8
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports: []
@@ -806,7 +781,6 @@ MonoBehaviour:
     machineTypeId: 3
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:
@@ -861,7 +835,6 @@ MonoBehaviour:
     machineTypeId: 3
     beltTier: 0
     cellsPerSecond: 0
-    storageCapacity: 0
     storageSlotCount: 0
     rampRiseHeightUnits: 0
     ports:

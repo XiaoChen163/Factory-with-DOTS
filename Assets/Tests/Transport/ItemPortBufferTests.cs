@@ -195,7 +195,7 @@ namespace Factory.Tests
                 });
                 EntityManager.AddComponentData(
                     owner,
-                    new StorageState { Capacity = 10, SlotCount = 2 });
+                    new StorageState { SlotCount = 2 });
                 DynamicBuffer<InventorySlot> storageSlots =
                     EntityManager.AddBuffer<InventorySlot>(owner);
                 storageSlots.ResizeUninitialized(2);

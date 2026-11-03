@@ -97,7 +97,6 @@ public sealed partial class FactoryContentManagerWindow
         }
         if (b.Kind == BuildingKind.Storage)
         {
-            BuildingStatField(key, "storage_stats", "capacity", "仓储总容量");
             BuildingStatField(key, "storage_stats", "slot_count", "仓储槽位数");
         }
         if (b.Kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(b.Kind))

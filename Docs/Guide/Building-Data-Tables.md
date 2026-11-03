@@ -13,12 +13,14 @@
 | `buildings.csv` | `key,behavior,width,length,prefab_path,is_rectangle,bitmap` | 所有可建造对象各一行 |
 | `processor_stats.csv` | `key,machine_type_key` | 每个 Processor 各一行 |
 | `belt_stats.csv` | `key,tier,cells_per_second` | 水平带、垂直入口/出口/段各一行 |
-| `storage_stats.csv` | `key,capacity,slot_count` | 每个 Storage 各一行 |
+| `storage_stats.csv` | `key,slot_count` | 每个 Storage 各一行 |
 | `ramp_stats.csv` | `key,rise_height_units` | 每个 RampFoundation 各一行 |
 | `building_ports.csv` | `key,type,index,cell_x,cell_z,direction_x,direction_z` | 每个物理端口一行 |
 | `building_names.csv` | `key,locale,name` | 每个建筑至少一种语言 |
 | `building_presentation.csv` | `key,icon_path,menu_order` | 每个建筑各一行 |
 | `machine_types.csv` | `key` | 加工种类字典，供加工建筑和配方共同引用 |
+
+仓库仅配置 `slot_count`。每格按物品的 `max_stack` 堆叠，所有格子都达到各自物品的堆叠上限时满仓；不再配置总容量。
 
 `behavior` 直接对应 `BuildingKind`：`Processor、Storage、Belt、Merger、Splitter、
 Foundation、RampFoundation、VerticalBeltEntry、VerticalBeltExit、VerticalBeltSegment`。

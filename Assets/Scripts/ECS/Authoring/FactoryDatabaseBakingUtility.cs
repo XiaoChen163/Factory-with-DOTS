@@ -98,7 +98,6 @@ public static class FactoryDatabaseBakingUtility
                 MenuOrder = row.menuOrder,
                 BeltTier = row.beltTier,
                 CellsPerSecond = row.cellsPerSecond,
-                Capacity = row.storageCapacity,
                 SlotCount = row.storageSlotCount,
                 RampRiseHeightUnits = row.rampRiseHeightUnits
             };

@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4dfa49966ba9a74d91ae05d73527624, type: 3}
+  m_Name: building-storage
+  m_EditorClassIdentifier: Factory.Editor::FactoryBuildingImportSettings
+  data:
+    buildingKey: storage
+    modelFile: storage.fbx
+    sourceJsonPath: D:\UnityProject\Factory-with-DOTS-Arts\Factory Buildings\Model\Storage\storage.factory.json
+    model: {fileID: 919132149155446097, guid: 0643e107169247142ac1a90730216e5b, type: 3}
+    generatedPrefab: {fileID: 2760438587537712067, guid: 051c6b529eb2f9344b6a6001c2f39663, type: 3}
+    colliders:
+    - name: UC_Base
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.39, z: 0}
+      rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+      size: {x: 2.9, y: 0.78, z: 2.9}
+      radius: 0
+      height: 0
+    - name: UC_Cargo enclosure
+      type: Box
+      axis: 
+      position: {x: 0.18, y: 1.95, z: -0.000000008}
+      rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+      size: {x: 2.55, y: 2.7, z: 2.3}
+      radius: 0
+      height: 0
+    - name: UC_Entrance left
+      type: Box
+      axis: 
+      position: {x: -1.17, y: 1.65, z: 0.94000006}
+      rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+      size: {x: 0.56, y: 2.3, z: 0.48}
+      radius: 0
+      height: 0
+    - name: UC_Entrance right
+      type: Box
+      axis: 
+      position: {x: 0, y: 0, z: 0}
+      rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+      size: {x: 0.56, y: 2.3, z: 0.48}
+      radius: 0
+      height: 0

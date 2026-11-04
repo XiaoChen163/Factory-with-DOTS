@@ -3,10 +3,10 @@ belt_mk1,Assets/Art/Icons/Buildings/Belt.png,100
 belt_mk2,Assets/Art/Icons/Buildings/BeltMk2.png,101
 belt_mk3,Assets/Art/Icons/Buildings/BeltMk3.png,102
 belt_mk4,Assets/Art/Icons/Buildings/BeltMk4.png,103
-miner,Assets/Art/Icons/Buildings/Miner.png,200
-furnace,Assets/Art/Icons/Buildings/Furnace.png,300
+miner,Assets/Art/Icons/Buildings/Miner_Art.png,200
+furnace,Assets/Art/Icons/Buildings/Furnace_Art.png,300
 test_machine_m,Assets/Art/Icons/Buildings/TestMachineM.png,350
-storage,Assets/Art/Icons/Buildings/Storage.png,400
+storage,Assets/Art/Icons/Buildings/Storage_Art.png,400
 merger,Assets/Art/Icons/Buildings/Merger.png,500
 splitter,Assets/Art/Icons/Buildings/Splitter.png,600
 foundation,Assets/Art/Icons/Buildings/Foundation.png,50

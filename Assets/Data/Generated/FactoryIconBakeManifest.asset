@@ -15,100 +15,109 @@ MonoBehaviour:
   entries:
   - prefabPath: Assets/Prefabs/Buildings/Belt.prefab
     outputPath: Assets/Art/Icons/Buildings/Belt.png
-    hash: 434a5aaeb01a27f89324f50235c8d264
+    hash: aac89e9d7a437d485c0fedae61593418
   - prefabPath: Assets/Prefabs/Buildings/BeltMk2.prefab
     outputPath: Assets/Art/Icons/Buildings/BeltMk2.png
-    hash: 1f6cae8ce39cf850ecdaf6b93859ea33
+    hash: 45e86a307a24ce020725081788336ac4
   - prefabPath: Assets/Prefabs/Buildings/BeltMk3.prefab
     outputPath: Assets/Art/Icons/Buildings/BeltMk3.png
-    hash: b137cfe66667ba08008a77ebd86129d3
+    hash: e37d312621106868f7f6b6df5a4f15a5
   - prefabPath: Assets/Prefabs/Buildings/BeltMk4.prefab
     outputPath: Assets/Art/Icons/Buildings/BeltMk4.png
-    hash: bc4c1324e397e1dcb740e7b190c07628
+    hash: 3de9554f7289aee47329d5bccbc62d2e
   - prefabPath: Assets/Prefabs/Buildings/Foundation.prefab
     outputPath: Assets/Art/Icons/Buildings/Foundation.png
-    hash: 175ddc0460e6b2270b08b1f8c45f830d
+    hash: 4f5e93fdfee5fd3af2ea0284b544a064
   - prefabPath: Assets/Prefabs/Buildings/Furnace.prefab
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
-    hash: 0131827677d502315fb8952008662d28
+    hash: e827347688c02caaeb8667967f484517
+  - prefabPath: Assets/Prefabs/Buildings/Furnace_Art.prefab
+    outputPath: Assets/Art/Icons/Buildings/Furnace_Art.png
+    hash: da82ef9b983810bfde0e9b98d3c158a6
   - prefabPath: Assets/Prefabs/Buildings/Merger.prefab
     outputPath: Assets/Art/Icons/Buildings/Merger.png
-    hash: 697a0f65554a363095f39df5ae66ea57
+    hash: 1646dbb0a2b731d34a0fad1214977401
   - prefabPath: Assets/Prefabs/Buildings/Miner.prefab
     outputPath: Assets/Art/Icons/Buildings/Miner.png
-    hash: 5972e24a26a0ad9b7997f0ea51e441cb
+    hash: 3bec77a37ad5415ab69fd553c53878e0
+  - prefabPath: Assets/Prefabs/Buildings/Miner_Art.prefab
+    outputPath: Assets/Art/Icons/Buildings/Miner_Art.png
+    hash: 434e9bfe782fbe1999f11eac612956f7
   - prefabPath: Assets/Prefabs/Buildings/RampFoundation.prefab
     outputPath: Assets/Art/Icons/Buildings/RampFoundation.png
-    hash: e237030520f016370f79faf24b34b1a1
+    hash: 0d36612bb3cb2a39104b36915e612767
   - prefabPath: Assets/Prefabs/Buildings/RampFoundationHalf.prefab
     outputPath: Assets/Art/Icons/Buildings/RampFoundationHalf.png
-    hash: ab5d4cbe6cb830959457b69ecdf9fbd7
+    hash: b0f5b75f4172bc3d71c263fb6c62502d
   - prefabPath: Assets/Prefabs/Buildings/RampFoundationQuarter.prefab
     outputPath: Assets/Art/Icons/Buildings/RampFoundationQuarter.png
-    hash: d7b10244d46aa1530a988cc6be167322
+    hash: 41c4d942ba29890928794d2123364ef8
   - prefabPath: Assets/Prefabs/Buildings/Splitter.prefab
     outputPath: Assets/Art/Icons/Buildings/Splitter.png
-    hash: f75a048374475f4297f3d75d5b340e84
+    hash: 7480721d9af35ad3e6ed68a5a4024a92
   - prefabPath: Assets/Prefabs/Buildings/Storage.prefab
     outputPath: Assets/Art/Icons/Buildings/Storage.png
-    hash: c633ebb9df945c78f597f7774ce7addb
+    hash: 2c432e048e75e0e135e3fb9acce8481c
+  - prefabPath: Assets/Prefabs/Buildings/Storage_Art.prefab
+    outputPath: Assets/Art/Icons/Buildings/Storage_Art.png
+    hash: ca678d17bc018f4ac4c7a559870d7a39
   - prefabPath: Assets/Prefabs/Buildings/TestMachineM.prefab
     outputPath: Assets/Art/Icons/Buildings/TestMachineM.png
-    hash: 040a9c03e431f6261aff24653ef83e75
+    hash: 890a9f48c621af5557e991329021e261
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk1.png
-    hash: c064b49a9015fdc7b6e5b3ebc75a65cb
+    hash: b261a831ee792007329ff1b1880588c3
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk2.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk2.png
-    hash: dea3591bb4a8087d660d382739ce0bbc
+    hash: 498064dd76dde741a58aab66df027998
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk3.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk3.png
-    hash: 33066856f9c2d6044b2a2a35658e0aa6
+    hash: 5358c0c64f132cf9a9054977fdd31900
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk4.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk4.png
-    hash: 3813441f9fbe4e475a5cc02ffe44a599
+    hash: 2b908da412028cb3ff171c2e0638a3dc
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk1.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk1.png
-    hash: c0d31512334538b110642d0c6cb72433
+    hash: 0b5e02c6bbbe558978ea4a7b91f51c83
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk2.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk2.png
-    hash: d2b29d9ca8d82bf06b9f6b5eed506f8a
+    hash: 8adebd7d18457282931e13f1813cd76d
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk3.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk3.png
-    hash: 6d915559044b53e6d3f42048996f4547
+    hash: 55d106b5550103e7a32d8d6035ca86f8
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk4.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk4.png
-    hash: 270aa9ace4b4ab64dfe70641c4962807
+    hash: fab28cee71b3614f137662287d65a21d
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk1.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk1.png
-    hash: c757372453605f1c881d09c3693f85c3
+    hash: 1cf31be6de4f741041546de3bdbc697a
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk2.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk2.png
-    hash: b5b2bf3298e9bdb39945ba2302f10435
+    hash: 94b1e6e60bc8837b02e72dff986c94a5
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk3.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk3.png
-    hash: e001875024f8ce62e4891f1a29a0cc8b
+    hash: c101f56419fef93923383a528045c4c1
   - prefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk4.prefab
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk4.png
-    hash: 27d36b5c75fb8200b2b9ef0b76546e7d
+    hash: 11128055c44de765e5084005140cd7ca
   - prefabPath: Assets/Prefabs/Buildings/testMachine.prefab
     outputPath: Assets/Art/Icons/Buildings/testMachine.png
-    hash: fd73cad3428a70233b13fa3172defa04
+    hash: da1d75a075c2239f416ee4a2ee68e6f3
   - prefabPath: Assets/Prefabs/Items/IronIngot.prefab
     outputPath: Assets/Art/Icons/Items/IronIngot.png
-    hash: 37183ce79e412915fb2c5561371c562b
+    hash: 5ec1364d81ea1ea8160b5d5f3e75ea71
   - prefabPath: Assets/Prefabs/Items/IronOre.prefab
     outputPath: Assets/Art/Icons/Items/IronOre.png
-    hash: ac7b028c439ca77ffb39520d607bad42
+    hash: b3773f55e74512fd1306439360249fec
   - prefabPath: Assets/Prefabs/Items/TestA.prefab
     outputPath: Assets/Art/Icons/Items/TestA.png
-    hash: f9de48c63cef5230274502dda28aafa4
+    hash: 2b00dd5909f1988d249957087fa6498a
   - prefabPath: Assets/Prefabs/Items/TestB.prefab
     outputPath: Assets/Art/Icons/Items/TestB.png
-    hash: 062a4ac7b35bb01f3a11e6049bf82e80
+    hash: f6bd3ccd973ac754632d1205768b2fe3
   - prefabPath: Assets/Prefabs/Items/TestC.prefab
     outputPath: Assets/Art/Icons/Items/TestC.png
-    hash: 3f61a3d2b24514eca7e463b55adacfa5
+    hash: 0cca13a83196b1f50282ff1fe4e5fb48
   - prefabPath: Assets/Prefabs/Items/TestD.prefab
     outputPath: Assets/Art/Icons/Items/TestD.png
-    hash: e6ee91185496c9a7c8a7b66b4d6b91ff
+    hash: 6f45833452cde36eb7438dde0f65741d

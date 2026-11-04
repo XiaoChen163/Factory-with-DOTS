@@ -1,0 +1,228 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2328260100633680623
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2159448629020529501}
+  - component: {fileID: 7406757172405666675}
+  m_Layer: 0
+  m_Name: Furnace_Art
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2159448629020529501
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2328260100633680623}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4201492399570758209}
+  - {fileID: 1458210653330080568}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7406757172405666675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2328260100633680623}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b5a3d45680f09f4eab68f8684dd9d0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Factory.Runtime::FactoryGeneratedBuildingAuthoring
+  buildingKey: furnace
+--- !u!1 &5040813925570679953
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4201492399570758209}
+  m_Layer: 0
+  m_Name: Factory Model
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4201492399570758209
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5040813925570679953}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 9033555891073490566}
+  m_Father: {fileID: 2159448629020529501}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &6049079166528486528
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1458210653330080568}
+  - component: {fileID: 4175391675390120537}
+  m_Layer: 0
+  m_Name: Factory Collisions
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1458210653330080568
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6049079166528486528}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2159448629020529501}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4175391675390120537
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6049079166528486528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37d071f1c94c9824c9fcb616e5d7eeb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Factory.Runtime::FactoryBuildingCollisionAuthoring
+  shapes:
+  - name: UC_Base
+    type: Box
+    axis: 
+    position: {x: 0, y: 0.45, z: 0}
+    rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
+    size: {x: 2.9, y: 0.9, z: 2.9}
+    radius: 0
+    height: 0
+  - name: UC_Body
+    type: Box
+    axis: 
+    position: {x: 0, y: 1.7, z: 0}
+    rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
+    size: {x: 2.55, y: 1.7, z: 2.52}
+    radius: 0
+    height: 0
+  - name: UC_Chimney
+    type: Cylinder
+    axis: Y
+    position: {x: -0.51000005, y: 3.48, z: -1.08}
+    rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
+    size: {x: 0, y: 0, z: 0}
+    radius: 0.28
+    height: 1.62
+  - name: UC_Hopper
+    type: Box
+    axis: 
+    position: {x: -0.05, y: 3.0093832, z: 0.000000004}
+    rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
+    size: {x: 1.88, y: 0.95, z: 2}
+    radius: 0
+    height: 0
+  - name: UnityCollider_Cylinder_Furnace_Graphite_Selection
+    type: Cylinder
+    axis: Y
+    position: {x: -0.50999975, y: 3.48, z: 1.0800002}
+    rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
+    size: {x: 0, y: 0, z: 0}
+    radius: 0.23500009
+    height: 1.5199997
+--- !u!1001 &8851572480111802733
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4201492399570758209}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+      propertyPath: m_Name
+      value: furnace
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+--- !u!4 &9033555891073490566 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
+  m_PrefabInstance: {fileID: 8851572480111802733}
+  m_PrefabAsset: {fileID: 0}

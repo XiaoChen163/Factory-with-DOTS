@@ -275,10 +275,10 @@ MonoBehaviour:
     footprintHeight: 3
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/Miner.prefab
-    visualPrefab: {fileID: 120000, guid: 72cd33ecae6b4ef6b6253c5b5c948f43, type: 3}
+    visualPrefabPath: Assets/Prefabs/Buildings/Miner_Art.prefab
+    visualPrefab: {fileID: 3828902662736398485, guid: a8610c9f0b4eb9b44b8111cf21a26cbb, type: 3}
     displayName: "\u77FF\u673A"
-    icon: {fileID: 21300000, guid: 78282980434a1d64a95c2b414aa9f52a, type: 3}
+    icon: {fileID: 21300000, guid: e5037c23410fa93468e3861249488540, type: 3}
     menuOrder: 200
     machineTypeId: 1
     beltTier: 0
@@ -299,10 +299,10 @@ MonoBehaviour:
     footprintHeight: 3
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/Furnace.prefab
-    visualPrefab: {fileID: 130000, guid: 83d18618cb9d442b84bbb6fecbb7856c, type: 3}
+    visualPrefabPath: Assets/Prefabs/Buildings/Furnace_Art.prefab
+    visualPrefab: {fileID: 2328260100633680623, guid: 8f3094c66473e394e81ec227b5e21a1e, type: 3}
     displayName: "\u7194\u7089"
-    icon: {fileID: 21300000, guid: ab7866f7c6393c84e8b877287c2dc8b6, type: 3}
+    icon: {fileID: 21300000, guid: bb271898e884cc6419d35ef9aaaca27f, type: 3}
     menuOrder: 300
     machineTypeId: 2
     beltTier: 0
@@ -329,10 +329,10 @@ MonoBehaviour:
     footprintHeight: 3
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/Storage.prefab
-    visualPrefab: {fileID: 140000, guid: 94e86421ebdc4d77a49f3f93d81a6401, type: 3}
+    visualPrefabPath: Assets/Prefabs/Buildings/Storage_Art.prefab
+    visualPrefab: {fileID: 2760438587537712067, guid: 051c6b529eb2f9344b6a6001c2f39663, type: 3}
     displayName: "\u4ED3\u5E93"
-    icon: {fileID: 21300000, guid: c5d890f56526d0f4c9da6c7d3631694f, type: 3}
+    icon: {fileID: 21300000, guid: 4eeacb76d99113e4ebbe8c55131f869e, type: 3}
     menuOrder: 400
     machineTypeId: 0
     beltTier: 0

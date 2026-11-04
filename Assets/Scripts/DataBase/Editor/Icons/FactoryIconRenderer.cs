@@ -17,8 +17,12 @@ public static class FactoryIconRenderer
             throw new ArgumentNullException(nameof(settings));
 
         PreviewRenderUtility preview = new PreviewRenderUtility();
+        bool previousAsyncCompilation = ShaderUtil.allowAsyncCompilation;
         try
         {
+            // A one-shot bake must not capture a pending shader variant. Restore
+            // the editor preference even when rendering or PNG encoding fails.
+            ShaderUtil.allowAsyncCompilation = false;
             GameObject instance = UnityEngine.Object.Instantiate(prefab);
             instance.name = prefab.name;
             instance.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -75,6 +79,7 @@ public static class FactoryIconRenderer
         }
         finally
         {
+            ShaderUtil.allowAsyncCompilation = previousAsyncCompilation;
             preview.Cleanup();
         }
     }
@@ -87,8 +92,13 @@ public static class FactoryIconRenderer
     {
         Rect rect = new Rect(0f, 0f, resolution, resolution);
         camera.backgroundColor = Color.black;
+        // Initialize preview/SRP resources before capturing the color pass.
+        // The mask pass must not be the first frame that actually draws geometry.
+        Texture2D warmupTexture = RenderStaticPreview(preview, camera, rect);
+        UnityEngine.Object.DestroyImmediate(warmupTexture);
         Texture2D colorTexture = RenderStaticPreview(preview, camera, rect);
         Color32[] colorPixels = colorTexture.GetPixels32();
+        UnityEngine.Object.DestroyImmediate(colorTexture);
 
         Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
         Material[][] originalMaterials = new Material[renderers.Length][];
@@ -108,6 +118,7 @@ public static class FactoryIconRenderer
 
             Texture2D maskTexture = RenderStaticPreview(preview, camera, rect);
             Color32[] maskPixels = maskTexture.GetPixels32();
+            UnityEngine.Object.DestroyImmediate(maskTexture);
             Color32[] outputPixels = new Color32[colorPixels.Length];
 
             for (int i = 0; i < outputPixels.Length; i++)
@@ -158,7 +169,8 @@ public static class FactoryIconRenderer
         Rect rect)
     {
         preview.BeginStaticPreview(rect);
-        camera.Render();
+        // Use the preview renderer's lighting context and explicitly allow URP.
+        preview.Render(allowScriptableRenderPipeline: true);
         Texture2D texture = preview.EndStaticPreview();
         if (texture == null)
             throw new InvalidOperationException("Unity returned no static preview texture.");

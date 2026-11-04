@@ -15,7 +15,7 @@ public static class FactoryIconBaker
     public const string ManifestAssetPath =
         "Assets/Data/Generated/FactoryIconBakeManifest.asset";
 
-    private const string BakerVersion = "1";
+    private const string BakerVersion = "2";
     public static bool IsBaking { get; private set; }
 
     [MenuItem("Factory/Icons/Bake All")]

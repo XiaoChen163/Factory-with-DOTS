@@ -182,14 +182,12 @@ namespace Factory.Tests
                 root.Q<TextField>("item-picker-search").value = "红色";
                 var buttons = root.Q<ScrollView>("item-picker-list").Query<Button>().ToList();
                 Assert.That(buttons.Count, Is.EqualTo(1));
-                yield return null;
-                // Drive the button's pointer handlers directly: a batch Editor popup
-                // does not reliably own the operating system's keyboard focus.
-                Vector2 point = buttons[0].worldBound.center;
-                using (var down = PointerDownEvent.GetPooled(new Event { type = EventType.MouseDown, button = 0, mousePosition = point }))
-                    buttons[0].SendEvent(down);
-                using (var up = PointerUpEvent.GetPooled(new Event { type = EventType.MouseUp, button = 0, mousePosition = point }))
-                    buttons[0].SendEvent(up);
+                // Submit before the next editor update: native focus loss can
+                // close a hidden batch popup while its visual tree is retained.
+                // Hidden batch popups do not reliably
+                // receive pointer capture from the operating system.
+                buttons[0].Focus();
+                using (var submit = NavigationSubmitEvent.GetPooled()) buttons[0].SendEvent(submit);
                 float deadline = Time.realtimeSinceStartup + 1;
                 while (picked == null && Time.realtimeSinceStartup < deadline) yield return null;
                 Assert.That(picked?.key, Is.EqualTo("test_a"));

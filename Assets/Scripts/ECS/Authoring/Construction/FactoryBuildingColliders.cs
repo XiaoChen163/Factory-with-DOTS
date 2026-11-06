@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -16,17 +17,26 @@ public sealed class FactoryColliderProxy
     public float radius, height;
 }
 
-// Baked blobs belong to the baking store, and are shared by placed instances.
-public struct FactoryBuildingCollider : IComponentData
-{
-    public BlobAssetReference<Collider> Value;
-}
-
 public static class FactoryBuildingColliderBuilder
 {
+    public static void Validate(FactoryColliderProxy c)
+    {
+        if (c == null) throw new InvalidDataException("碰撞代理不能为 null。");
+        foreach (float v in new[] { c.position.x, c.position.y, c.position.z, c.rotation.x, c.rotation.y, c.rotation.z, c.rotation.w,
+            c.size.x, c.size.y, c.size.z, c.radius, c.height }) if (float.IsNaN(v) || float.IsInfinity(v)) throw new InvalidDataException("碰撞体包含非有限数值。");
+        var q = c.rotation;
+        if (System.Math.Abs(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w - 1f) > .001f) throw new InvalidDataException("代理旋转必须为单位四元数。");
+        bool valid = c.type == "Box" ? c.size.x > 0 && c.size.y > 0 && c.size.z > 0 :
+            c.type == "Sphere" ? c.radius > 0 :
+            c.type == "Capsule" ? c.radius > 0 && c.height >= 2 * c.radius && c.axis == "Y" :
+            c.type == "Cylinder" && c.radius > 0 && c.height > 0 && c.axis == "Y";
+        if (!valid) throw new InvalidDataException($"代理 '{c.name}' 的形状、尺寸或轴无效。");
+    }
+
     public static BlobAssetReference<Collider> Build(FactoryColliderProxy[] shapes)
     {
         if (shapes == null || shapes.Length == 0) return default;
+        foreach (var shape in shapes) Validate(shape);
         var children = new NativeArray<CompoundCollider.ColliderBlobInstance>(shapes.Length, Allocator.Temp);
         try
         {

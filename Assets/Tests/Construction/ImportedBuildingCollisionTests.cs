@@ -63,11 +63,10 @@ namespace Factory.Tests
                 UpdateSystem(GetOrCreateManagedSystem<SurfaceRegistrySystem>());
                 var visual = EntityManager.CreateEntity(typeof(Prefab), typeof(LocalTransform));
                 EntityManager.SetComponentData(visual, LocalTransform.Identity);
-                EntityManager.AddComponentData(visual, new FactoryBuildingCollider { Value = collider });
                 var catalog = EntityManager.CreateEntity();
                 EntityManager.AddComponentData(catalog, new BuildingPrefabCatalog());
                 EntityManager.AddComponentData(catalog, new FactoryDatabase { Value = database });
-                EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog).Add(new BuildingVisualPrefabEntry { BuildingDefinition = new BuildingDefinitionId { Value = row.id }, Prefab = visual });
+                EntityManager.AddBuffer<BuildingVisualPrefabEntry>(catalog).Add(new BuildingVisualPrefabEntry { BuildingDefinition = new BuildingDefinitionId { Value = row.id }, Prefab = visual, Collider = collider });
                 var occupancy = GetOrCreateManagedSystem<GridOccupancyIndexSystem>();
                 UpdateSystem(occupancy);
                 EntityManager.GetBuffer<GridBuildCommand>(grid).Add(new GridBuildCommand { Type = GridBuildCommandType.Place, Kind = row.kind, BuildingDefinition = new BuildingDefinitionId { Value = row.id }, StartCell = anchor, EndCell = anchor, QuarterTurns = (byte)turns });

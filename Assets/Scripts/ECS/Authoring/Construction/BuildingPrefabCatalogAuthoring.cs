@@ -86,11 +86,14 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                     authoring.database.buildings[i];
                 DependsOn(definition.visualPrefab);
                 Entity visualPrefab = GetPrefabEntity(definition.visualPrefab);
+                var collider = FactoryBuildingColliderBuilder.Build(definition.colliders);
+                if (collider.IsCreated) AddBlobAsset(ref collider, out _);
                 buildingPrefabs.Add(new BuildingVisualPrefabEntry
                 {
                     BuildingDefinition = new BuildingDefinitionId { Value = definition.id },
                     Prefab = visualPrefab,
-                    PreviewPrefab = definition.visualPrefab
+                    PreviewPrefab = definition.visualPrefab,
+                    Collider = collider
                 });
 
                 if (definition.kind == BuildingKind.Foundation)
@@ -238,9 +241,7 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             string childName,
             BuildingPrefabCatalogAuthoring authoring)
         {
-            Transform child = prefab == null
-                ? null
-                : prefab.transform.Find(childName);
+            Transform child = FactoryBuildingVisualUtility.FindPart(prefab, childName);
             if (child == null)
             {
                 Debug.LogError(
@@ -258,7 +259,7 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
         {
             return GetEntity(
                 transform.gameObject,
-                TransformUsageFlags.Renderable);
+                TransformUsageFlags.Dynamic);
         }
 
         private Entity GetPrefabEntity(GameObject prefab)
@@ -269,5 +270,22 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                     prefab,
                     TransformUsageFlags.Dynamic);
         }
+    }
+}
+
+// FBX exporters may add grouping nodes. Names must be unique throughout the model.
+public static class FactoryBuildingVisualUtility
+{
+    public static Transform FindPart(GameObject model, string name)
+    {
+        if (model == null) return null;
+        Transform match = null;
+        foreach (var child in model.GetComponentsInChildren<Transform>(true))
+        {
+            if (child == model.transform || child.name != name) continue;
+            if (match != null) throw new System.IO.InvalidDataException($"模型 '{model.name}' 子物体名称重复：{name}");
+            match = child;
+        }
+        return match;
     }
 }

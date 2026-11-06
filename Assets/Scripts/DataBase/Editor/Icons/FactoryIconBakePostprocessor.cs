@@ -8,7 +8,7 @@ using UnityEngine;
 public sealed class FactoryIconBakePostprocessor : AssetPostprocessor
 {
     private const string AutoBakeMenuPath =
-        "Factory/Icons/Auto Bake On Prefab Changes";
+        "Factory/Icons/Auto Bake On Model Changes";
     private const string AutoBakePreferencePrefix =
         "Factory.IconBaker.AutoBakePrefabChanges.";
 
@@ -69,7 +69,17 @@ public sealed class FactoryIconBakePostprocessor : AssetPostprocessor
 
     private static bool IsIconSource(string path)
     {
-        if (path == FactoryIconBaker.SettingsAssetPath) return true;
+        if (path == FactoryIconBaker.SettingsAssetPath || path == "Assets/Data/FactoryTables/buildings/buildings.csv") return true;
+        const string buildings = "Assets/Data/FactoryTables/buildings/buildings.csv";
+        if (System.IO.File.Exists(buildings))
+        {
+            var table = FactoryCsvTable.Read(buildings);
+            for (int row = 0; row < table.RowCount; row++)
+            {
+                string modelPath = table.Get(row, "model_path");
+                if (path == modelPath || (!string.IsNullOrEmpty(modelPath) && AssetDatabase.GetDependencies(modelPath).Contains(path))) return true;
+            }
+        }
         FactoryIconBakeSettings settings = AssetDatabase.LoadAssetAtPath<FactoryIconBakeSettings>(FactoryIconBaker.SettingsAssetPath);
         if (settings == null) return false;
         foreach (FactoryIconBakeOverride value in settings.overrides)

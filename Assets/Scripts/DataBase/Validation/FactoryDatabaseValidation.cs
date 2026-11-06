@@ -26,6 +26,12 @@ public static class FactoryDatabaseValidation
             Require(building.id != 0 && ids.Add(building.id) && !string.IsNullOrWhiteSpace(building.key) &&
                 keys.Add(building.key) && Enum.IsDefined(typeof(BuildingKind), building.kind), label + " has an invalid identity or behavior.");
             Require(building.visualPrefab != null, label + " is missing a prefab.");
+            var colliderKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var shape in building.colliders ?? Array.Empty<FactoryColliderProxy>())
+            {
+                FactoryBuildingColliderBuilder.Validate(shape);
+                Require(!string.IsNullOrWhiteSpace(shape.name) && colliderKeys.Add(shape.name), label + " has empty or duplicate collider keys.");
+            }
             var offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(building);
             FactoryBuildingFootprintUtility.ValidatePorts(building, offsets);
             bool processor = building.kind == BuildingKind.Processor;

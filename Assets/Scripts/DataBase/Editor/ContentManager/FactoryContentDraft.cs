@@ -22,7 +22,7 @@ public sealed partial class FactoryContentDraft : ScriptableObject
 
     [SerializeField] private List<Table> tables = new List<Table>();
     public IReadOnlyList<Table> Tables => tables;
-    public bool IsModified => tables.Any(t => t.text != t.original) || ImportsModified;
+    public bool IsModified => tables.Any(t => t.text != t.original);
 
     public void Load()
     {
@@ -63,7 +63,6 @@ public sealed partial class FactoryContentDraft : ScriptableObject
             if (File.ReadAllText(table.path, Encoding.UTF8) != table.original)
                 throw new IOException($"源表已被其他操作修改，请放弃草稿并重新读取：{table.path}");
 
-        ValidateBuildingImports();
 
         FactoryDatabaseAsset candidate = ReadCandidate();
         try
@@ -71,7 +70,6 @@ public sealed partial class FactoryContentDraft : ScriptableObject
             var changed = tables.Where(t => t.text != t.original)
                 .ToDictionary(t => t.path, t => t.text, StringComparer.Ordinal);
             // Release the CSV import pause only after all table writes complete.
-            // New Editor config assets must finish importing before SaveAssetIfDirty.
             AssetDatabase.StartAssetEditing();
             bool importsPaused = true;
             try
@@ -80,12 +78,11 @@ public sealed partial class FactoryContentDraft : ScriptableObject
                 {
                     importsPaused = false;
                     AssetDatabase.StopAssetEditing();
-                    SaveBuildingImports(() => FactoryDatabaseCsvImporter.Generate(candidate));
+                    FactoryDatabaseCsvImporter.Generate(candidate);
                 });
             }
             finally { if (importsPaused) AssetDatabase.StopAssetEditing(); }
             foreach (Table table in tables) table.original = table.text;
-            foreach (var entry in buildingImports) entry.original = entry.text;
             Undo.ClearUndo(this);
         }
         finally { DestroyImmediate(candidate); }

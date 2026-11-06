@@ -8,7 +8,7 @@ using UnityEngine;
 public sealed class FactoryContentBuilding
 {
     public int row, width, length, menuOrder;
-    public string key, name, behavior, prefabPath, iconPath, bitmap;
+    public string key, name, behavior, modelPath, iconPath, bitmap;
     public bool rectangle;
     public FactoryBuildingPortTableRow[] ports;
     public BuildingKind Kind => Enum.TryParse(behavior, out BuildingKind kind) ? kind : 0;
@@ -30,7 +30,7 @@ public sealed partial class FactoryContentDraft
     public const string PresentationPath = "buildings/building_presentation.csv";
     public const string PortsPath = "buildings/building_ports.csv";
     private static readonly string[] BuildingPaths = { BuildingsPath, NamesPath, PresentationPath, PortsPath,
-        "buildings/processor_stats.csv", "buildings/belt_stats.csv", "buildings/storage_stats.csv", "buildings/ramp_stats.csv" };
+        "buildings/processor_stats.csv", "buildings/belt_stats.csv", "buildings/storage_stats.csv", "buildings/ramp_stats.csv", CollidersPath };
 
     public List<FactoryContentBuilding> GetBuildings(string search = "")
     {
@@ -50,7 +50,7 @@ public sealed partial class FactoryContentDraft
                 row = row, key = key, name = nameRow < 0 ? key : names.Get(nameRow, "name"), behavior = table.Get(row, "behavior"),
                 width = Int(table.Get(row, "width")), length = Int(table.Get(row, "length")),
                 rectangle = bool.TryParse(table.Get(row, "is_rectangle"), out bool rect) && rect, bitmap = table.Get(row, "bitmap"),
-                prefabPath = table.Get(row, "prefab_path"), iconPath = p < 0 ? "" : presentation.Get(p, "icon_path"), menuOrder = p < 0 ? 0 : Int(presentation.Get(p, "menu_order")),
+                modelPath = table.Get(row, "model_path"), iconPath = p < 0 ? "" : presentation.Get(p, "icon_path"), menuOrder = p < 0 ? 0 : Int(presentation.Get(p, "menu_order")),
                 ports = Rows(ports).Where(r => ports.Get(r, "key") == key).Select(r => ReadDraftPort(ports, r)).ToArray()
             };
         }).Where(b => Matches(b.key, search) || Matches(b.name, search)).ToList();
@@ -82,7 +82,7 @@ public sealed partial class FactoryContentDraft
     {
         docs[BuildingsPath].Append(new Dictionary<string, string>
         {
-            ["key"] = key, ["behavior"] = "", ["width"] = "0", ["length"] = "0", ["prefab_path"] = "",
+            ["key"] = key, ["behavior"] = "", ["width"] = "0", ["length"] = "0", ["model_path"] = "",
             ["is_rectangle"] = "true", ["bitmap"] = ""
         });
         docs[NamesPath].Append(new Dictionary<string, string> { ["key"] = key, ["locale"] = "zh-CN", ["name"] = key });
@@ -101,14 +101,15 @@ public sealed partial class FactoryContentDraft
 
     public void DeleteBuilding(string key)
     {
-        Edit("删除建筑配置", docs => { foreach (var table in docs.Values) RemoveKey(table, key); }, BuildingPaths);
-        // The undo snapshot above also covers pending import hints. Keep existing assets.
-        var import = buildingImports.FirstOrDefault(i => JsonUtility.FromJson<FactoryBuildingImportData>(i.text).buildingKey == key);
-        if (import != null)
+        Edit("删除建筑配置", docs =>
         {
-            if (import.original == "") buildingImports.Remove(import);
-            else import.text = import.original;
-        }
+            foreach (var entry in docs)
+            {
+                if (entry.Key == CollidersPath) FactoryBuildingColliderCsv.Write(entry.Value, key, Array.Empty<FactoryColliderProxy>());
+                else RemoveKey(entry.Value, key);
+            }
+        }, BuildingPaths);
+        buildingImports.RemoveAll(i => i.buildingKey == key);
     }
 
     public void SetBuildingName(string key, string value)
@@ -135,14 +136,6 @@ public sealed partial class FactoryContentDraft
         Edit("修改建筑属性", docs => Upsert(docs[path], key, new Dictionary<string, string> { [column] = value }), path);
     }
 
-    public void SetBuildingPrefab(string key, GameObject prefab)
-    {
-        string path = prefab == null ? "" : UnityEditor.AssetDatabase.GetAssetPath(prefab);
-        if (prefab != null && (!path.StartsWith("Assets/", StringComparison.Ordinal) || !path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidDataException("请选择项目内的 .prefab 资产。");
-        Edit("设置建筑 Prefab", docs => docs[BuildingsPath].Set(Find(docs[BuildingsPath], key), "prefab_path", path), BuildingsPath);
-    }
-
     public void SetBuildingBehavior(string key, BuildingKind kind)
     {
         if (!Enum.IsDefined(typeof(BuildingKind), kind)) throw new InvalidDataException("请选择建筑行为。");
@@ -151,7 +144,7 @@ public sealed partial class FactoryContentDraft
         Edit("修改建筑行为", docs =>
         {
             docs[BuildingsPath].Set(Find(docs[BuildingsPath], key), "behavior", kind.ToString());
-            foreach (string path in BuildingPaths.Skip(4)) RemoveKey(docs[path], key);
+            foreach (string path in BuildingPaths.Skip(4).Where(p => p != CollidersPath)) RemoveKey(docs[path], key);
             if (kind == BuildingKind.Processor)
                 Upsert(docs["buildings/processor_stats.csv"], key, new Dictionary<string, string> { ["machine_type_key"] = "" });
             else if (kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(kind))
@@ -278,7 +271,7 @@ public sealed partial class FactoryContentDraft
         var data = GetBuildingImport(key);
         if (json.Building.model_file != null) data.modelFile = json.Building.model_file;
         data.sourceJsonPath = json.SourcePath;
-        if (colliders) data.colliders = json.Colliders;
+        if (colliders) FactoryBuildingColliderCsv.Write(docs[CollidersPath], key, json.Colliders);
         UnityEditor.Undo.IncrementCurrentGroup();
         UnityEditor.Undo.RegisterCompleteObjectUndo(this, "导入建筑 JSON 草稿");
         foreach (var document in docs) Source(document.Key).text = document.Value.Text;

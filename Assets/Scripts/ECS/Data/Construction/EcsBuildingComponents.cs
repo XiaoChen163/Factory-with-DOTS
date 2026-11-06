@@ -14,6 +14,7 @@ public struct BuildingVisualPrefabEntry : IBufferElementData
     public BuildingDefinitionId BuildingDefinition;
     public Entity Prefab;
     public UnityObjectRef<UnityEngine.GameObject> PreviewPrefab;
+    public BlobAssetReference<Unity.Physics.Collider> Collider;
 }
 
 public struct BuildingVisualReference : IComponentData

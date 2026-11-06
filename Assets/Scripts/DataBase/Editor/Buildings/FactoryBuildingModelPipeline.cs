@@ -81,55 +81,6 @@ public static class FactoryBuildingModelPipeline
         if (changed) importer.SaveAndReimport();
     }
 
-    public static GameObject Generate(FactoryBuildingImportData data, string currentPrefabPath)
-    {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
-        if (data.model == null) throw new InvalidDataException("请先导入或选择 FBX。");
-        RequireFbx(AssetDatabase.GetAssetPath(data.model));
-        foreach (var shape in data.colliders) FactoryBuildingJson.ValidateCollider(shape);
-        string path = !string.IsNullOrEmpty(currentPrefabPath) ? currentPrefabPath : AssetDatabase.GetAssetPath(data.generatedPrefab);
-        if (string.IsNullOrEmpty(path)) path = "Assets/Prefabs/Buildings/" + Uri.EscapeDataString(data.buildingKey) + ".prefab";
-        bool exists = File.Exists(path);
-        if (exists)
-        {
-            var previous = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            var marker = previous == null ? null : previous.GetComponent<FactoryGeneratedBuildingAuthoring>();
-            if (marker == null || marker.buildingKey != data.buildingKey)
-                throw new InvalidDataException("现有 Prefab 不是本工具为此建筑生成的包装资产；请清空 Prefab 引用后生成独立包装。");
-        }
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        var root = exists ? PrefabUtility.LoadPrefabContents(path) : new GameObject(data.buildingKey);
-        try
-        {
-            root.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-            root.transform.localScale = Vector3.one;
-            var marker = root.GetComponent<FactoryGeneratedBuildingAuthoring>() ?? root.AddComponent<FactoryGeneratedBuildingAuthoring>();
-            marker.buildingKey = data.buildingKey;
-            foreach (string node in new[] { FactoryGeneratedBuildingAuthoring.ModelNode, FactoryGeneratedBuildingAuthoring.CollisionNode })
-            {
-                var previous = root.transform.Find(node);
-                if (previous != null) UnityEngine.Object.DestroyImmediate(previous.gameObject);
-            }
-            var modelNode = new GameObject(FactoryGeneratedBuildingAuthoring.ModelNode);
-            modelNode.transform.SetParent(root.transform, false);
-            var model = (GameObject)PrefabUtility.InstantiatePrefab(data.model, modelNode.transform);
-            model.transform.localPosition = Vector3.zero;
-            model.transform.localRotation = Quaternion.identity;
-            model.transform.localScale = Vector3.one;
-            var collisions = new GameObject(FactoryGeneratedBuildingAuthoring.CollisionNode);
-            collisions.transform.SetParent(root.transform, false);
-            collisions.AddComponent<FactoryBuildingCollisionAuthoring>().shapes = data.colliders;
-            var saved = PrefabUtility.SaveAsPrefabAsset(root, path);
-            if (saved == null) throw new IOException("无法保存包装 Prefab：" + path);
-            return saved;
-        }
-        finally
-        {
-            if (exists) PrefabUtility.UnloadPrefabContents(root);
-            else UnityEngine.Object.DestroyImmediate(root);
-        }
-    }
-
     public static AssetImporter.SourceAssetIdentifier[] Sources(string path)
     {
         // Source names, including remapped slots, remain stable across import order changes.

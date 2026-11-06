@@ -22,7 +22,6 @@ namespace Factory.Tests
         [TearDown]
         public void Cleanup()
         {
-            AssetDatabase.DeleteAsset(FactoryContentDraft.BuildingImportPath(Key));
             AssetDatabase.DeleteAsset(Prefab);
             AssetDatabase.DeleteAsset(Folder);
             AssetDatabase.DeleteAsset(MaterialFolder);
@@ -31,7 +30,7 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void JsonFbx_GenerateSaveAndReopen_BindsModelPrefabAndColliders()
+        public void JsonFbx_SaveAndReopen_BindsFbxAndCsvCollidersWithoutWrapper()
         {
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             draft.Load();
@@ -44,15 +43,14 @@ namespace Factory.Tests
                 draft.SetBuildingBehavior(Key, BuildingKind.Storage);
                 var model = FactoryBuildingModelPipeline.Import(Key, Source);
                 draft.SetBuildingModel(Key, model);
-                var prefab = draft.GenerateBuildingPrefab(Key);
                 draft.Save();
                 draft.Load();
                 Assert.That(draft.IsModified, Is.False);
                 Assert.That(draft.GetBuildingImport(Key).model, Is.EqualTo(model));
-                Assert.That(draft.GetBuildingImport(Key).generatedPrefab, Is.EqualTo(prefab));
+                Assert.That(File.Exists(Prefab), Is.False);
                 Assert.That(draft.GetBuildingImport(Key).colliders.Length, Is.EqualTo(2));
-                Assert.That(draft.GetBuildings().Single(b => b.key == Key).prefabPath, Is.EqualTo(Prefab));
-                Assert.That(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath).buildings.Single(b => b.key == Key).visualPrefab, Is.EqualTo(prefab));
+                Assert.That(draft.GetBuildings().Single(b => b.key == Key).modelPath, Is.EqualTo(AssetDatabase.GetAssetPath(model)));
+                Assert.That(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath).buildings.Single(b => b.key == Key).visualPrefab, Is.EqualTo(model));
             }
             finally
             {
@@ -95,28 +93,30 @@ namespace Factory.Tests
             material.SetColor("_BaseColor", Color.magenta);
             FactoryBuildingModelPipeline.Remap(path, sources[0], material);
             var json = FactoryBuildingJson.Read("Tools/Blender/Fixtures/testMachine/testMachine.factory.json");
-            var data = new FactoryBuildingImportData { buildingKey = Key, model = model, colliders = json.Colliders };
-            var prefab = FactoryBuildingModelPipeline.Generate(data, "");
-            data.generatedPrefab = prefab;
-            string guid = AssetDatabase.AssetPathToGUID(Prefab), modelGuid = AssetDatabase.AssetPathToGUID(path);
-            var content = PrefabUtility.LoadPrefabContents(Prefab);
-            new GameObject("Hand Authored Child").transform.SetParent(content.transform, false);
-            PrefabUtility.SaveAsPrefabAsset(content, Prefab);
-            PrefabUtility.UnloadPrefabContents(content);
+            string modelGuid = AssetDatabase.AssetPathToGUID(path);
             FactoryBuildingModelPipeline.Import(Key, Source);
-            prefab = FactoryBuildingModelPipeline.Generate(data, Prefab);
-            Assert.That(AssetDatabase.AssetPathToGUID(Prefab), Is.EqualTo(guid));
             Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(modelGuid));
-            Assert.That(prefab.transform.Find("Hand Authored Child"), Is.Not.Null);
-            Assert.That(prefab.transform.localScale, Is.EqualTo(Vector3.one));
-            Assert.That(prefab.GetComponentInChildren<FactoryBuildingCollisionAuthoring>().shapes.Length, Is.EqualTo(2));
+            Assert.That(File.Exists(Prefab), Is.False);
             var importer = (ModelImporter)AssetImporter.GetAtPath(path);
             Assert.That(importer.GetExternalObjectMap()[sources[0]], Is.EqualTo(material));
             Assert.That(material.GetColor("_BaseColor"), Is.EqualTo(Color.magenta));
             Assert.That(FactoryBuildingModelPipeline.CreateMaterial(path, sources[0]), Is.EqualTo(material));
             // Exercise the real Baker, including blob registration. Baking APIs are internal
             // in Entities 1.4; reflection stays confined to this acceptance test.
-            var world = new World("Stage 4 baking acceptance");
+            var world = new World("FBX catalog baking acceptance");
+            var catalogRoot = new GameObject("Catalog");
+            var authoring = catalogRoot.AddComponent<BuildingPrefabCatalogAuthoring>();
+            var candidate = FactoryDatabaseCsvImporter.ReadCandidate();
+            // Two definitions share an FBX but require independent physics.
+            int furnace = Array.FindIndex(candidate.buildings, b => b.key == "furnace");
+            int storage = Array.FindIndex(candidate.buildings, b => b.key == "storage");
+            candidate.buildings[furnace].visualPrefab = model;
+            candidate.buildings[furnace].colliders = json.Colliders;
+            candidate.buildings[storage].visualPrefab = model;
+            candidate.buildings[storage].colliders = new[] { new FactoryColliderProxy { name = "wide", type = "Box", size = new Vector3(8, 1, 1) } };
+            authoring.database = candidate;
+            authoring.inputPortVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Ports/InputPortView.prefab");
+            authoring.outputPortVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Ports/OutputPortView.prefab");
             var hybrid = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "Unity.Entities.Hybrid");
             var storeType = hybrid.GetType("Unity.Entities.BlobAssetStore");
             var store = (IDisposable)Activator.CreateInstance(storeType, new object[] { 128 });
@@ -126,12 +126,23 @@ namespace Factory.Tests
                 var settings = Activator.CreateInstance(settingsType);
                 settingsType.GetProperty("BlobAssetStore").SetValue(settings, store);
                 var bake = hybrid.GetType("Unity.Entities.BakingUtility").GetMethod("BakeGameObjects", BindingFlags.Static | BindingFlags.NonPublic);
-                bake.Invoke(null, new object[] { world, new[] { prefab }, settings });
-                using var query = world.EntityManager.CreateEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<FactoryBuildingCollider>() }, Options = EntityQueryOptions.IncludePrefab });
-                Assert.That(query.CalculateEntityCount(), Is.EqualTo(1));
-                Assert.That(query.GetSingleton<FactoryBuildingCollider>().Value.IsCreated, Is.True);
+                bake.Invoke(null, new object[] { world, new[] { catalogRoot }, settings });
+                using var query = world.EntityManager.CreateEntityQuery(typeof(BuildingVisualPrefabEntry));
+                var entries = world.EntityManager.GetBuffer<BuildingVisualPrefabEntry>(query.GetSingletonEntity());
+                var first = entries.ToNativeArray(Unity.Collections.Allocator.Temp);
+                try
+                {
+                    var a = first.ToArray().Single(e => e.BuildingDefinition.Value == candidate.buildings[furnace].id);
+                    var b = first.ToArray().Single(e => e.BuildingDefinition.Value == candidate.buildings[storage].id);
+                    Assert.That(a.Prefab, Is.EqualTo(b.Prefab));
+                    Assert.That(a.Collider.IsCreated && b.Collider.IsCreated, Is.True);
+                    Assert.That(a.Collider, Is.Not.EqualTo(b.Collider));
+                    Assert.That(b.Collider.Value.CalculateAabb().Extents.x, Is.EqualTo(8).Within(.001f));
+                    Assert.That(world.EntityManager.HasComponent<Prefab>(a.Prefab), Is.True);
+                }
+                finally { first.Dispose(); }
             }
-            finally { world.Dispose(); store.Dispose(); }
+            finally { world.Dispose(); store.Dispose(); Object.DestroyImmediate(catalogRoot); Object.DestroyImmediate(candidate); }
         }
     }
 }

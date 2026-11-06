@@ -64,8 +64,6 @@ public sealed partial class FactoryContentManagerWindow
         var identity = new TextField("Key（只读）") { name = "building-key", value = key, isReadOnly = true };
         detail.Add(identity);
         Bind(detail, new TextField("名称（zh-CN）") { name = "building-name", value = b.name, multiline = true }, value => draft.SetBuildingName(key, value));
-        Bind(detail, new ObjectField("已有 Prefab") { name = "building-prefab", objectType = typeof(GameObject), allowSceneObjects = false, value = AssetDatabase.LoadAssetAtPath<GameObject>(b.prefabPath) },
-            value => draft.SetBuildingPrefab(key, value as GameObject));
         Bind(detail, new ObjectField("图标") { name = "building-icon", objectType = typeof(Sprite), allowSceneObjects = false, value = AssetDatabase.LoadAssetAtPath<Sprite>(b.iconPath) },
             value => draft.SetBuildingStat(key, "building_presentation", "icon_path", value == null ? "" : AssetDatabase.GetAssetPath(value)));
         Bind(detail, new IntegerField("菜单顺序") { value = b.menuOrder }, value => draft.SetBuildingStat(key, "building_presentation", "menu_order", Number(value)));
@@ -74,11 +72,11 @@ public sealed partial class FactoryContentManagerWindow
             FactoryDatabaseCsvImporter.EnsureCanWrite();
             if (draft.IsModified) throw new InvalidOperationException("请先保存草稿，再烘焙图标。");
             FactoryIconBaker.BakeChangedFromMenu();
-            // The existing baker's manifest is keyed by prefab path, not building Key.
+            // Building icons use the definition Key, including when FBX models are shared.
             var manifest = AssetDatabase.LoadAssetAtPath<FactoryIconBakeManifest>(FactoryIconBaker.ManifestAssetPath);
             if (manifest != null)
             {
-                var icon = manifest.entries.FirstOrDefault(e => e.prefabPath == b.prefabPath);
+                var icon = manifest.entries.FirstOrDefault(e => e.prefabPath == FactoryIconBaker.BuildingManifestKey(key));
                 if (!string.IsNullOrEmpty(icon.outputPath)) draft.SetBuildingStat(key, "building_presentation", "icon_path", icon.outputPath);
             }
             RefreshList(); DrawDetail(); UpdateModified();
@@ -109,10 +107,8 @@ public sealed partial class FactoryContentManagerWindow
         var import = draft.GetBuildingImport(key);
         detail.Add(Heading("建筑导入配置"));
         DrawBuildingModel(b, import);
-        detail.Add(new Label("模型配对：" + (import.modelFile ?? "未导入") + "\n碰撞代理：" + import.colliders.Length + " 个"));
-        foreach (var c in import.colliders)
-            detail.Add(new Label($"{c.name} · {c.type} · 位置 {c.position} · 旋转 {c.rotation}"));
-        detail.Add(new HelpBox("模型、材质和 Prefab 操作立即写入资产；引用与导入配置仍需保存草稿。碰撞使用 DOTS Physics；Cylinder 为 Y 轴圆柱（32 边），不转换为胶囊。", HelpBoxMessageType.Info));
+        DrawBuildingColliders(key);
+        detail.Add(new HelpBox("FBX 导入和材质操作立即写入模型资产；模型引用、碰撞体及玩法配置统一保存到 CSV。碰撞体在烘焙时生成 DOTS Physics 数据。", HelpBoxMessageType.Info));
     }
 
     private void BuildingStatField(string key, string table, string column, string label)

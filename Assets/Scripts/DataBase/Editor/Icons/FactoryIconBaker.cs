@@ -15,7 +15,7 @@ public static class FactoryIconBaker
     public const string ManifestAssetPath =
         "Assets/Data/Generated/FactoryIconBakeManifest.asset";
 
-    private const string BakerVersion = "2";
+    private const string BakerVersion = "3";
     public static bool IsBaking { get; private set; }
 
     [MenuItem("Factory/Icons/Bake All")]
@@ -58,14 +58,7 @@ public static class FactoryIconBaker
                 next,
                 changedOutputs,
                 force);
-            BakeDirectory(
-                BuildingPrefabDirectory,
-                BuildingIconDirectory,
-                settings,
-                previous,
-                next,
-                changedOutputs,
-                force);
+            BakeBuildings(settings, previous, next, changedOutputs, force);
 
             manifest.entries = next.OrderBy(value => value.prefabPath, StringComparer.Ordinal)
                 .ToArray();
@@ -92,6 +85,35 @@ public static class FactoryIconBaker
         finally
         {
             IsBaking = false;
+        }
+    }
+
+    public static string BuildingManifestKey(string key) => "building:" + key;
+
+    private static void BakeBuildings(FactoryIconBakeSettings settings,
+        IReadOnlyDictionary<string, FactoryIconBakeManifestEntry> previous,
+        ICollection<FactoryIconBakeManifestEntry> next, ICollection<string> changedOutputs, bool force)
+    {
+        var table = FactoryCsvTable.Read("Assets/Data/FactoryTables/buildings/buildings.csv");
+        for (int row = 0; row < table.RowCount; row++)
+        {
+            string key = table.Get(row, "key"), path = table.Get(row, "model_path");
+            var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (model == null) throw new InvalidDataException($"Building '{key}' model not found: {path}");
+            string identity = BuildingManifestKey(key);
+            settings.GetIconSource(model, out GameObject source, out Sprite supplied);
+            string output = BuildingIconDirectory + "/" + Uri.EscapeDataString(key) + ".png";
+            // Keep existing generated paths stable; fresh definitions use their own Key.
+            if (previous.TryGetValue(identity, out var old) && old.outputPath.StartsWith(BuildingIconDirectory + "/", StringComparison.Ordinal)) output = old.outputPath;
+            if (supplied != null) output = AssetDatabase.GetAssetPath(supplied);
+            string hash = CalculateBakeHash(path, settings);
+            bool current = previous.TryGetValue(identity, out var entry) && entry.hash == hash && entry.outputPath == output && File.Exists(ToAbsolutePath(output));
+            if (supplied == null && (force || !current))
+            {
+                File.WriteAllBytes(ToAbsolutePath(output), FactoryIconRenderer.RenderPng(source, settings, model));
+                changedOutputs.Add(output);
+            }
+            next.Add(new FactoryIconBakeManifestEntry { prefabPath = identity, outputPath = output, hash = hash });
         }
     }
 

@@ -37,11 +37,19 @@ namespace Factory.Tests
             var prefab = BuildingPrefabCatalogUtility.GetPrefab(manager.GetBuffer<BuildingVisualPrefabEntry>(catalog), id);
             var fixture = JsonUtility.FromJson<Fixture>(File.ReadAllText(Path.Combine(Application.dataPath, "../Tools/Blender/Fixtures/testMachine/testMachine.factory.json")));
             BlobAssetReference<Collider> blob = FactoryBuildingColliderBuilder.Build(fixture.colliders);
+            var original = default(BuildingVisualPrefabEntry);
+            int entryIndex = -1;
+            for (int i = 0; i < manager.GetBuffer<BuildingVisualPrefabEntry>(catalog).Length; i++)
+                if (manager.GetBuffer<BuildingVisualPrefabEntry>(catalog)[i].BuildingDefinition == id) { entryIndex = i; break; }
+            Assert.That(entryIndex, Is.GreaterThanOrEqualTo(0));
+            original = manager.GetBuffer<BuildingVisualPrefabEntry>(catalog)[entryIndex];
             Entity placed = Entity.Null;
             try
             {
                 manager.CompleteAllTrackedJobs();
-                manager.AddComponentData(prefab, new FactoryBuildingCollider { Value = blob });
+                var replacement = original; replacement.Collider = blob;
+                var entries = manager.GetBuffer<BuildingVisualPrefabEntry>(catalog);
+                entries[entryIndex] = replacement;
                 using var gridQuery = manager.CreateEntityQuery(typeof(WorldGridConfig));
                 Entity grid = gridQuery.GetSingletonEntity();
                 var surfaces = world.GetExistingSystemManaged<SurfaceRegistrySystem>();
@@ -78,7 +86,11 @@ namespace Factory.Tests
             {
                 manager.CompleteAllTrackedJobs();
                 if (manager.Exists(placed)) manager.DestroyEntity(placed);
-                if (manager.Exists(prefab)) manager.RemoveComponent<FactoryBuildingCollider>(prefab);
+                if (manager.Exists(catalog))
+                {
+                    var entries = manager.GetBuffer<BuildingVisualPrefabEntry>(catalog);
+                    entries[entryIndex] = original;
+                }
                 blob.Dispose();
             }
         }

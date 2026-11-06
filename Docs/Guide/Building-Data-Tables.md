@@ -10,7 +10,8 @@
 
 | 表 | 字段 | 必填范围 |
 |---|---|---|
-| `buildings.csv` | `key,behavior,width,length,prefab_path,is_rectangle,bitmap` | 所有可建造对象各一行 |
+| `building_colliders.csv` | `building_key,collider_key,type,position_x/y/z,rotation_x/y/z/w,size_x/y/z,radius,height` | 每行一个建筑局部碰撞体 |
+| `buildings.csv` | `key,behavior,width,length,model_path,is_rectangle,bitmap` | 所有可建造对象各一行 |
 | `processor_stats.csv` | `key,machine_type_key` | 每个 Processor 各一行 |
 | `belt_stats.csv` | `key,tier,cells_per_second` | 水平带、垂直入口/出口/段各一行 |
 | `storage_stats.csv` | `key,slot_count` | 每个 Storage 各一行 |
@@ -26,7 +27,7 @@
 Foundation、RampFoundation、VerticalBeltEntry、VerticalBeltExit、VerticalBeltSegment`。
 矿机、熔炉都属于 Processor，其区别由加工种类、配方、模型和端口定义。
 
-Prefab 和图标使用完整的 `Assets/...` 工程相对路径，Prefab 必须是 `.prefab` 资产。
+模型和图标使用完整的 `Assets/...` 工程相对路径。`model_path` 直接引用 `.fbx`；现有程序生成模型仍允许 `.prefab`，新 FBX 无需包装。
 `icon_path` 可以留空；填写时必须能加载为 Sprite。游戏图标由表现表指定；图标烘焙
 设置仍负责图像生成，但不在导入时覆盖表现表的路径。
 名称导入当前优先取 `zh-CN`，缺少时回退为该建筑第一条名称；这不是运行时语言切换系统。
@@ -34,8 +35,8 @@ Prefab 和图标使用完整的 `Assets/...` 工程相对路径，Prefab 必须�
 ## 示例
 
 ```csv
-key,behavior,width,length,prefab_path,is_rectangle,bitmap
-furnace,Processor,4,3,Assets/Prefabs/Buildings/Furnace.prefab,false,1111/1111/1100
+key,behavior,width,length,model_path,is_rectangle,bitmap
+furnace,Processor,4,3,Assets/Art/Buildings/furnace/furnace.fbx,false,1111/1111/1100
 ```
 
 ```csv
@@ -114,3 +115,17 @@ UI 名称和图标留在表现层，不放入模拟 Blob。
 
 回归测试见 `BuildingDefinitionSimplificationTests`、`IrregularBuildingFootprintTests`
 以及现有加工、建造和垂直运输测试。
+
+## 建筑碰撞体表
+
+`building_colliders.csv` 通过 `building_key` 关联 `buildings.csv`，同一建筑可有多行；`collider_key` 在建筑内唯一。表头如下：
+
+```csv
+building_key,collider_key,type,position_x,position_y,position_z,rotation_x,rotation_y,rotation_z,rotation_w,size_x,size_y,size_z,radius,height
+furnace,body,Box,0,1,0,0,0,0,1,3,2,2,,
+furnace,chimney,Cylinder,1,3,0,0,0,0,1,,,,0.4,3
+```
+
+位置和旋转相对建筑根节点，尺寸使用 Unity 单位，旋转为单位四元数。Box 要求三个正尺寸；Sphere 要求正半径；Capsule 的总高度至少为直径；Cylinder 要求正高度和半径。Capsule / Cylinder 沿局部 Y 轴。与形状无关的尺寸列可留空，姿态列必须填写，单位旋转为 `0,0,0,1`。
+
+未知建筑、重复碰撞体 Key、非有限数值和非法尺寸会阻止保存及重建。同一 FBX 对应多个建筑时，各自使用其建筑 Key 对应的碰撞体；没有记录的建筑不生成 CSV 物理碰撞。占格仍由主表独立控制。

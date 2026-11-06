@@ -1980,9 +1980,14 @@ public partial class GridBuildCommandSystem : SystemBase
             });
         }
 
-        if (EntityManager.HasComponent<FactoryBuildingCollider>(visualPrefab))
+        // Physics belongs to the building definition, even when visual models are shared.
+        var collisionEntries = EntityManager.GetBuffer<BuildingVisualPrefabEntry>(catalogQuery.GetSingletonEntity(), true);
+        BlobAssetReference<Unity.Physics.Collider> buildingCollider = default;
+        for (int i = 0; i < collisionEntries.Length; i++)
+            if (collisionEntries[i].BuildingDefinition == building.Id) { buildingCollider = collisionEntries[i].Collider; break; }
+        if (buildingCollider.IsCreated)
         {
-            ecb.AddComponent(instance, new PhysicsCollider { Value = EntityManager.GetComponentData<FactoryBuildingCollider>(visualPrefab).Value });
+            ecb.AddComponent(instance, new PhysicsCollider { Value = buildingCollider });
             ecb.AddSharedComponent(instance, new PhysicsWorldIndex { Value = 0 });
         }
         else if (VerticalBeltUtility.IsVertical(placement.Kind))

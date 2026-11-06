@@ -120,17 +120,5 @@ public sealed class FactoryBuildingJson
         return value.Value;
     }
 
-    public static void ValidateCollider(FactoryColliderProxy c)
-    {
-        if (c == null) throw new InvalidDataException("碰撞代理不能为 null。");
-        foreach (float v in new[] { c.position.x, c.position.y, c.position.z, c.rotation.x, c.rotation.y, c.rotation.z, c.rotation.w,
-            c.size.x, c.size.y, c.size.z, c.radius, c.height }) Finite(v);
-        var q = c.rotation;
-        if (Math.Abs(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w - 1f) > .001f) throw new InvalidDataException("代理旋转必须为单位四元数。");
-        bool valid = c.type == "Box" ? c.size.x > 0 && c.size.y > 0 && c.size.z > 0 :
-            c.type == "Sphere" ? c.radius > 0 :
-            c.type == "Capsule" ? c.radius > 0 && c.height >= 2 * c.radius && c.axis == "Y" :
-            c.type == "Cylinder" && c.radius > 0 && c.height > 0 && c.axis == "Y";
-        if (!valid) throw new InvalidDataException($"代理 '{c.name}' 的形状、尺寸或轴无效。");
-    }
+    public static void ValidateCollider(FactoryColliderProxy c) => FactoryBuildingColliderBuilder.Validate(c);
 }

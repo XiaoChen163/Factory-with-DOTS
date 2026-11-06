@@ -194,9 +194,9 @@ public static class FactoryDatabaseCsvImporter
         for (int row = 0; row < table.RowCount; row++)
         {
             string key = RequiredKey(table.Get(row, "key"), "building key");
-            string path = table.Get(row, "prefab_path");
-            if (!path.StartsWith("Assets/", StringComparison.Ordinal) || !path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException($"Building '{key}' prefab_path must be an Assets-relative prefab path.");
+            string path = table.Get(row, "model_path");
+            if (!path.StartsWith("Assets/", StringComparison.Ordinal) || !(path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException($"Building '{key}' model_path must reference a project FBX or existing procedural prefab.");
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (prefab == null) throw new InvalidDataException($"Building '{key}' prefab not found: '{path}'.");
             BuildingKind kind = ParseEnum<BuildingKind>(table.Get(row, "behavior"), "building behavior");
@@ -280,10 +280,14 @@ public static class FactoryDatabaseCsvImporter
                 direction = new Vector2Int(ParseInt(ports.Get(row, "direction_x"), "port direction x"), ParseInt(ports.Get(row, "direction_z"), "port direction z"))
             });
         }
+        var collisionRows = FactoryBuildingColliderCsv.Read(read(directory + "/building_colliders.csv"));
+        foreach (string key in collisionRows.Keys)
+            if (!buildings.ContainsKey(key)) throw new InvalidDataException($"Collider references unknown building '{key}'.");
         List<FactoryBuildingDefinitionRow> result = new List<FactoryBuildingDefinitionRow>();
         foreach (string key in order)
         {
             var building = buildings[key];
+            building.colliders = collisionRows.TryGetValue(key, out var shapes) ? shapes : Array.Empty<FactoryColliderProxy>();
             if (!fallbackNames.TryGetValue(key, out string fallback))
                 throw new InvalidDataException($"Building '{key}' requires a name.");
             if (string.IsNullOrEmpty(building.displayName)) building.displayName = fallback;
@@ -407,12 +411,16 @@ public static class FactoryDatabaseCsvImporter
     {
         if (prefab.GetComponentInChildren<MeshRenderer>(true) == null)
             throw new InvalidDataException($"Building visual prefab '{prefabKey}' has no MeshRenderer.");
+        if (kind == BuildingKind.Belt)
+            foreach (string part in new[] { "Connection Edge East", "Connection Edge North", "Connection Edge West", "Connection Edge South", "Direction Triangle" })
+            {
+                var child = FactoryBuildingVisualUtility.FindPart(prefab, part);
+                if (child == null || (part == "Direction Triangle" ? child.GetComponentInChildren<MeshRenderer>(true) : child.GetComponent<MeshRenderer>()) == null)
+                    throw new InvalidDataException($"Belt model '{prefabKey}' requires a unique MeshRenderer child '{part}'.");
+            }
         foreach (Component component in prefab.GetComponentsInChildren<Component>(true))
         {
             if (component is Transform || component is MeshFilter || component is MeshRenderer ||
-                component is FactoryGeneratedBuildingAuthoring && component.gameObject == prefab ||
-                component is FactoryBuildingCollisionAuthoring && component.transform.parent == prefab.transform &&
-                    component.name == FactoryGeneratedBuildingAuthoring.CollisionNode && prefab.GetComponent<FactoryGeneratedBuildingAuthoring>() != null ||
                 kind == BuildingKind.RampFoundation && component is MeshCollider)
                 continue;
             throw new InvalidDataException(

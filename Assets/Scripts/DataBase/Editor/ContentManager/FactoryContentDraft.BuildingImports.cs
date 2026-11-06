@@ -1,143 +1,54 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
 public sealed partial class FactoryContentDraft
 {
-    public const string BuildingImportDirectory = "Assets/Settings/BuildingImports";
-    [Serializable]
-    private sealed class ImportDraft
-    {
-        public string path, original, text;
-    }
-    [SerializeField] private List<ImportDraft> buildingImports = new List<ImportDraft>();
-    private bool ImportsModified => buildingImports.Any(i => i.original != i.text);
-
-    public static string BuildingImportPath(string key) => BuildingImportDirectory + "/building-" + Uri.EscapeDataString(key) + ".asset";
-
-    private void LoadBuildingImports()
-    {
-        var loaded = new List<ImportDraft>();
-        if (AssetDatabase.IsValidFolder(BuildingImportDirectory))
-            foreach (string guid in AssetDatabase.FindAssets("t:FactoryBuildingImportSettings", new[] { BuildingImportDirectory }))
-            {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-                var asset = AssetDatabase.LoadAssetAtPath<FactoryBuildingImportSettings>(path);
-                if (loaded.Any(i => JsonUtility.FromJson<FactoryBuildingImportData>(i.text).buildingKey == asset.data.buildingKey))
-                    throw new InvalidDataException($"建筑导入配置 Key 重复：{asset.data.buildingKey}");
-                string json = JsonUtility.ToJson(asset.data);
-                loaded.Add(new ImportDraft { path = path, original = json, text = json });
-            }
-        buildingImports = loaded;
-    }
+    public const string CollidersPath = "buildings/building_colliders.csv";
+    // Pairing hints live only in the editor draft; model and collision data live in CSV.
+    [SerializeField] private List<FactoryBuildingImportData> buildingImports = new List<FactoryBuildingImportData>();
+    private void LoadBuildingImports() => buildingImports.Clear();
 
     public FactoryBuildingImportData GetBuildingImport(string key)
     {
-        var value = buildingImports.FirstOrDefault(i => JsonUtility.FromJson<FactoryBuildingImportData>(i.text).buildingKey == key);
-        return value == null ? new FactoryBuildingImportData { buildingKey = key } : JsonUtility.FromJson<FactoryBuildingImportData>(value.text);
+        var hint = buildingImports.FirstOrDefault(i => i.buildingKey == key);
+        var building = GetBuildings().SingleOrDefault(b => b.key == key);
+        var shapes = FactoryBuildingColliderCsv.Read(ReadTable(CollidersPath));
+        return new FactoryBuildingImportData
+        {
+            buildingKey = key, modelFile = hint?.modelFile, sourceJsonPath = hint?.sourceJsonPath,
+            model = building == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(building.modelPath),
+            colliders = shapes.TryGetValue(key, out var colliders) ? colliders : Array.Empty<FactoryColliderProxy>()
+        };
     }
 
     public void SetBuildingModel(string key, GameObject model)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
-        if (model != null) FactoryBuildingModelPipeline.RequireFbx(UnityEditor.AssetDatabase.GetAssetPath(model));
-        Undo.RegisterCompleteObjectUndo(this, "选择建筑 FBX");
-        var data = GetBuildingImport(key);
-        data.model = model;
-        PutBuildingImport(data);
+        string path = model == null ? "" : AssetDatabase.GetAssetPath(model);
+        if (model != null) FactoryBuildingModelPipeline.RequireFbx(path);
+        SetBuildingVisual(key, path);
     }
 
-    public GameObject GenerateBuildingPrefab(string key)
+    // Existing procedural assets remain usable until their FBX replacements are available.
+    public void SetBuildingPrefab(string key, GameObject prefab)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
-        var data = GetBuildingImport(key);
-        var building = GetBuildings().Single(b => b.key == key);
-        var prefab = FactoryBuildingModelPipeline.Generate(data, building.prefabPath);
-        Undo.IncrementCurrentGroup();
-        Undo.RegisterCompleteObjectUndo(this, "绑定生成的建筑 Prefab");
-        var table = ReadTable(BuildingsPath);
-        table.Set(Find(table, key), "prefab_path", AssetDatabase.GetAssetPath(prefab));
-        Source(BuildingsPath).text = table.Text;
-        data.generatedPrefab = prefab;
-        PutBuildingImport(data);
-        return prefab;
+        string path = prefab == null ? "" : AssetDatabase.GetAssetPath(prefab);
+        if (prefab != null && !path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            throw new System.IO.InvalidDataException("请选择项目内的 .prefab 资产。");
+        SetBuildingVisual(key, path);
     }
+
+    private void SetBuildingVisual(string key, string path) =>
+        Edit("设置建筑模型", docs => docs[BuildingsPath].Set(Find(docs[BuildingsPath], key), "model_path", path), BuildingsPath);
+
+    public void SetBuildingColliders(string key, FactoryColliderProxy[] shapes) =>
+        Edit("修改建筑碰撞体", docs => FactoryBuildingColliderCsv.Write(docs[CollidersPath], key, shapes), CollidersPath);
 
     private void PutBuildingImport(FactoryBuildingImportData data)
     {
-        var current = buildingImports.FirstOrDefault(i => JsonUtility.FromJson<FactoryBuildingImportData>(i.text).buildingKey == data.buildingKey);
-        string json = JsonUtility.ToJson(data);
-        if (current == null) buildingImports.Add(new ImportDraft { path = BuildingImportPath(data.buildingKey), original = "", text = json });
-        else current.text = json;
-    }
-
-    private void ValidateBuildingImports()
-    {
-        foreach (var entry in buildingImports)
-        {
-            var current = AssetDatabase.LoadAssetAtPath<FactoryBuildingImportSettings>(entry.path);
-            if ((current == null ? "" : JsonUtility.ToJson(current.data)) != entry.original)
-                throw new IOException($"建筑导入配置已被外部修改，请重新读取：{entry.path}");
-            foreach (var collider in JsonUtility.FromJson<FactoryBuildingImportData>(entry.text).colliders ?? Array.Empty<FactoryColliderProxy>())
-                FactoryBuildingJson.ValidateCollider(collider);
-        }
-    }
-
-    // This joins the existing CSV save transaction. Existing asset GUIDs stay stable;
-    // new configs are deleted if the same save fails before generation completes.
-    private void SaveBuildingImports(Action generate)
-    {
-        var changed = buildingImports.Where(i => i.original != i.text).ToArray();
-        var applied = new List<(ImportDraft entry, FactoryBuildingImportSettings asset, bool created)>();
-        string currentPath = BuildingImportDirectory;
-        try
-        {
-            foreach (var entry in changed)
-            {
-                currentPath = entry.path;
-                if (!AssetDatabase.IsValidFolder(BuildingImportDirectory))
-                    AssetDatabase.CreateFolder("Assets/Settings", "BuildingImports");
-                var asset = AssetDatabase.LoadAssetAtPath<FactoryBuildingImportSettings>(entry.path);
-                bool created = asset == null;
-                if (created && File.Exists(entry.path)) throw new IOException($"导入配置路径已被其他资产占用：{entry.path}");
-                if (!created)
-                    using (new FileStream(entry.path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite)) { }
-                if (created) asset = CreateInstance<FactoryBuildingImportSettings>();
-                applied.Add((entry, asset, created));
-                asset.data = JsonUtility.FromJson<FactoryBuildingImportData>(entry.text);
-                if (created) AssetDatabase.CreateAsset(asset, entry.path);
-                EditorUtility.SetDirty(asset);
-                AssetDatabase.SaveAssetIfDirty(asset);
-                if (!File.Exists(entry.path) || EditorUtility.IsDirty(asset)) throw new IOException($"无法保存建筑导入配置：{entry.path}");
-            }
-            generate();
-        }
-        catch (Exception error)
-        {
-            var failed = new List<string>();
-            foreach (var item in applied.AsEnumerable().Reverse())
-            {
-                try
-                {
-                    if (item.created)
-                    {
-                        if (!string.IsNullOrEmpty(AssetDatabase.GetAssetPath(item.asset))) AssetDatabase.DeleteAsset(item.entry.path);
-                        else DestroyImmediate(item.asset);
-                    }
-                    else
-                    {
-                        item.asset.data = JsonUtility.FromJson<FactoryBuildingImportData>(item.entry.original);
-                        EditorUtility.SetDirty(item.asset);
-                        AssetDatabase.SaveAssetIfDirty(item.asset);
-                    }
-                }
-                catch (Exception e) { failed.Add(item.entry.path + ": " + e.Message); }
-            }
-            throw new IOException("建筑导入配置保存失败：" + currentPath +
-                (failed.Count == 0 ? "；已恢复本次配置修改。" : "；恢复失败：" + string.Join("; ", failed)), error);
-        }
+        buildingImports.RemoveAll(i => i.buildingKey == data.buildingKey);
+        buildingImports.Add(new FactoryBuildingImportData { buildingKey = data.buildingKey, modelFile = data.modelFile, sourceJsonPath = data.sourceJsonPath });
     }
 }

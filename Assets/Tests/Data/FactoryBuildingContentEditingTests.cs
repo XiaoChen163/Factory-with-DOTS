@@ -59,7 +59,7 @@ namespace Factory.Tests
             draft.ImportBuildingJson(Json("furnace"), false, false, true);
             var after = draft.GetBuildings().Single(b => b.key == "furnace");
             Assert.That(after.name, Is.EqualTo(before.name)); Assert.That(after.bitmap, Is.EqualTo(before.bitmap));
-            Assert.That(after.prefabPath, Is.EqualTo(before.prefabPath)); Assert.That(after.behavior, Is.EqualTo(before.behavior));
+            Assert.That(after.modelPath, Is.EqualTo(before.modelPath)); Assert.That(after.behavior, Is.EqualTo(before.behavior));
             Assert.That(after.ports, Is.EqualTo(before.ports));
             Assert.That(draft.ReadTable(FactoryContentDraft.NamesPath).Text, Does.Contain("Custom Furnace"));
             var empty = FactoryBuildingJson.Parse(@"{""schema_version"":1,""building"":{""key"":""furnace""},""ports"":[],""colliders"":[]}");
@@ -96,25 +96,23 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void CompleteImport_SaveReopenConfigAndRollbackKeepCsvAndAssetsConsistent()
+        public void CompleteImport_SaveReopenAndRollbackKeepCollisionCsvConsistent()
         {
             string key = "fixture_building";
-            string configPath = FactoryContentDraft.BuildingImportPath(key);
-            Assert.That(AssetDatabase.LoadMainAssetAtPath(configPath), Is.Null);
-            bool hadFolder = AssetDatabase.IsValidFolder(FactoryContentDraft.BuildingImportDirectory);
+            string configPath = FactoryContentDraft.TableDirectory + "/" + FactoryContentDraft.CollidersPath;
             var backups = draft.Tables.ToDictionary(t => t.path, t => File.ReadAllBytes(t.path));
             backups.Add(FactoryDatabaseCsvImporter.DatabaseAssetPath, File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath));
-            string prefabPath = "Assets/Prefabs/Buildings/Furnace.prefab";
+            string prefabPath = "Assets/Art/Buildings/furnace/furnace.fbx";
             string prefabGuid = AssetDatabase.AssetPathToGUID(prefabPath);
             try
             {
                 draft.ImportBuildingJson(Json(), true, true, true);
-                Assert.Catch(() => draft.Save(), "Missing behavior and prefab must remain unsaved.");
+                Assert.Catch(() => draft.Save(), "Missing behavior and model must remain unsaved.");
                 Assert.That(File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath), Is.EqualTo(backups[FactoryDatabaseCsvImporter.DatabaseAssetPath]));
-                Assert.That(File.Exists(configPath), Is.False);
+                Assert.That(File.ReadAllBytes(configPath), Is.EqualTo(backups[configPath]));
                 draft.SetBuildingBehavior(key, BuildingKind.Processor);
                 draft.SetBuildingStat(key, "processor_stats", "machine_type_key", "smelting");
-                draft.SetBuildingPrefab(key, AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
+                draft.SetBuildingModel(key, AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
                 draft.Save();
                 string guid = AssetDatabase.AssetPathToGUID(configPath);
                 Assert.That(guid, Is.Not.Empty);
@@ -138,24 +136,18 @@ namespace Factory.Tests
                 }
                 draft.Save();
                 Assert.That(AssetDatabase.AssetPathToGUID(configPath), Is.EqualTo(guid));
-                Assert.That(AssetDatabase.LoadAssetAtPath<FactoryBuildingImportSettings>(configPath).data.colliders, Is.Empty);
+                Assert.That(draft.GetBuildingImport(key).colliders, Is.Empty);
                 draft.DeleteBuilding(key);
                 draft.Save();
                 foreach (string path in new[] { FactoryContentDraft.BuildingsPath, FactoryContentDraft.NamesPath, FactoryContentDraft.PortsPath, FactoryContentDraft.PresentationPath, "buildings/processor_stats.csv" })
                     Assert.That(draft.ReadTable(path).Text, Does.Not.Contain(key));
                 Assert.That(AssetDatabase.AssetPathToGUID(prefabPath), Is.EqualTo(prefabGuid));
-                Assert.That(File.Exists(configPath), Is.True, "Deleting CSV content retains import/model assets.");
+                Assert.That(draft.ReadTable(FactoryContentDraft.CollidersPath).Text, Does.Not.Contain(key));
             }
             finally
             {
                 foreach (var backup in backups) File.WriteAllBytes(backup.Key, backup.Value);
                 foreach (string path in backups.Keys) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-                AssetDatabase.DeleteAsset(configPath);
-                if (!hadFolder && Directory.Exists(FactoryContentDraft.BuildingImportDirectory) && Directory.GetFiles(FactoryContentDraft.BuildingImportDirectory).Length == 0)
-                {
-                    Assert.That(Path.GetFullPath(FactoryContentDraft.BuildingImportDirectory), Does.StartWith(Path.GetFullPath(Application.dataPath)));
-                    AssetDatabase.DeleteAsset(FactoryContentDraft.BuildingImportDirectory);
-                }
             }
         }
 
@@ -191,6 +183,9 @@ namespace Factory.Tests
                 preview.rootVisualElement.Q<Toggle>("import-colliders").value = true;
                 Click(preview.rootVisualElement.Q<Button>("import-apply")); yield return null;
                 Assert.That(preview == null, Is.True, "Apply closes the separate preview.");
+                Assert.That(window.rootVisualElement.Q<Button>("building-generate-prefab"), Is.Null);
+                Assert.That(window.rootVisualElement.Q("building-model"), Is.Not.Null);
+                Assert.That(window.rootVisualElement.Q<Button>("building-add-collider"), Is.Not.Null);
                 Assert.That(window.rootVisualElement.Q<TextField>("building-key").isReadOnly, Is.True);
                 Assert.That(window.rootVisualElement.Q<TextField>("building-key").value, Is.EqualTo("furnace"));
                 Assert.That(window.hasUnsavedChanges, Is.True);

@@ -42,12 +42,61 @@ namespace Factory.Tests
             File.WriteAllLines(Path.Combine(directory, name + ".csv"), lines);
 
         [Test]
+        public void ColliderTable_RejectsUnknownBuildingsDuplicateKeysAndInvalidDimensions()
+        {
+            string path = Path.Combine(directory, "building_colliders.csv");
+            string original = File.ReadAllText(path);
+            File.WriteAllText(path, original + "unknown,body,Box,0,0,0,0,0,0,1,1,1,1,,\n");
+            Assert.Throws<InvalidDataException>(() => Read());
+            File.WriteAllText(path, original + "furnace,UC_Base,Box,0,0,0,0,0,0,1,1,1,1,,\n");
+            Assert.Throws<InvalidDataException>(() => Read());
+            File.WriteAllText(path, FactoryBuildingColliderCsv.Header + "\nfurnace,body,Box,0,0,0,0,0,0,1,-1,1,1,,\n");
+            Assert.Throws<InvalidDataException>(() => Read());
+            File.WriteAllText(path, FactoryBuildingColliderCsv.Header + "\nfurnace,body,Sphere,NaN,0,0,0,0,0,1,,,,1,\n");
+            Assert.Throws<InvalidDataException>(() => Read());
+        }
+
+        [Test]
+        public void ColliderTable_RoundTripsQuaternionAndEmptyShapesWithoutChangingOtherBuildings()
+        {
+            var table = FactoryCsvTable.Parse(FactoryBuildingColliderCsv.Header + "\n");
+            var shape = new FactoryColliderProxy { name = "body", type = "Box", position = new Vector3(.12345679f, 2, 3), rotation = Quaternion.Euler(21, 37, 89), size = Vector3.one };
+            FactoryBuildingColliderCsv.Write(table, "furnace", new[] { shape });
+            FactoryBuildingColliderCsv.Write(table, "storage", new[] { shape });
+            var result = FactoryBuildingColliderCsv.Read(FactoryCsvTable.Parse(table.Text));
+            Assert.That(result["furnace"][0].rotation, Is.EqualTo(shape.rotation));
+            Assert.That(result["furnace"][0].position, Is.EqualTo(shape.position));
+            FactoryBuildingColliderCsv.Write(table, "furnace", Array.Empty<FactoryColliderProxy>());
+            result = FactoryBuildingColliderCsv.Read(table);
+            Assert.That(result.ContainsKey("furnace"), Is.False);
+            Assert.That(result["storage"].Length, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void NamedVisualParts_SupportGroupsAndRejectAmbiguousNames()
+        {
+            var model = new GameObject("FBX model");
+            try
+            {
+                var group = new GameObject("Export group");
+                group.transform.SetParent(model.transform, false);
+                var edge = new GameObject("Connection Edge East");
+                edge.transform.SetParent(group.transform, false);
+                Assert.That(FactoryBuildingVisualUtility.FindPart(model, edge.name), Is.EqualTo(edge.transform));
+                var duplicate = new GameObject(edge.name);
+                duplicate.transform.SetParent(model.transform, false);
+                Assert.Throws<InvalidDataException>(() => FactoryBuildingVisualUtility.FindPart(model, edge.name));
+            }
+            finally { Object.DestroyImmediate(model); }
+        }
+
+        [Test]
         public void MainTable_ContainsOnlyUniversalFields()
         {
             Assert.That(File.ReadLines(Path.Combine(directory, "buildings.csv")).First(),
-                Is.EqualTo("key,behavior,width,length,prefab_path,is_rectangle,bitmap"));
+                Is.EqualTo("key,behavior,width,length,model_path,is_rectangle,bitmap"));
             var rows = Read();
-            Assert.That(rows.Length, Is.EqualTo(26));
+            Assert.That(rows.Length, Is.EqualTo(27));
             Assert.That(rows.Single(b => b.key == "furnace").kind, Is.EqualTo(BuildingKind.Processor));
             Assert.That(rows.Single(b => b.key == "furnace").displayName, Is.EqualTo("熔炉"));
             Assert.That(rows.Any(b => b.key == "furnace_mk1"), Is.False);
@@ -118,7 +167,7 @@ namespace Factory.Tests
         public void ProcessorMappings_AreReadFromExtension_AndCanShareMachineType()
         {
             Write("processor_stats", "key,machine_type_key", "miner,smelting", "furnace,smelting",
-                "test_machine_m,test_machine_m");
+                "test_machine_m,test_machine_m", "testMachine,test_machine_m");
             var rows = Read();
             ushort smelting = asset.machineTypes.Single(m => m.key == "smelting").id;
             Assert.That(rows.Single(b => b.key == "miner").machineTypeId, Is.EqualTo(smelting));

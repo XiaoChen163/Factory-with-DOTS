@@ -83,6 +83,7 @@ public struct FactoryBuildingDefinitionRow
     public ushort storageSlotCount;
     public sbyte rampRiseHeightUnits;
     public FactoryBuildingPortTableRow[] ports;
+    public FactoryColliderProxy[] colliders;
 }
 
 // Generated cache. Edit the CSV files in Assets/Data/FactoryTables instead.

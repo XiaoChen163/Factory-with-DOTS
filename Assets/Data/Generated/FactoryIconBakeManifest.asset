@@ -48,7 +48,7 @@ MonoBehaviour:
     hash: 10ac148d2dc838e06dbc2ff9bcb8778e
   - prefabPath: building:furnace
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
-    hash: 6303717738ce32fde9719ab84c100b78
+    hash: 68775eebe8dd24a9447d7488e78a3136
   - prefabPath: building:merger
     outputPath: Assets/Art/Icons/Buildings/Merger.png
     hash: 8a0a3e7b4b3e6af3aaf293bc143f733f

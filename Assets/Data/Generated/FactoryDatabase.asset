@@ -82,7 +82,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/Belt.prefab
     visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk1"
@@ -131,7 +131,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/BeltMk2.prefab
     visualPrefab: {fileID: 194256, guid: f0bf725215764e23aeb4dfd6bf746bc7, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk2"
@@ -180,7 +180,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/BeltMk3.prefab
     visualPrefab: {fileID: 143296, guid: ba623fa09eba45dfbba2b343f380e337, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk3"
@@ -229,7 +229,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/BeltMk4.prefab
     visualPrefab: {fileID: 132144, guid: f729e0e61af447f9a16bbc93cdfaa2fc, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk4"
@@ -278,7 +278,7 @@ MonoBehaviour:
     footprintWidth: 3
     footprintHeight: 3
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Art/Buildings/miner/miner.fbx
     visualPrefab: {fileID: 919132149155446097, guid: 7d8838176795ef54e820c4e00a07517e, type: 3}
     displayName: "\u77FF\u673A"
@@ -307,7 +307,7 @@ MonoBehaviour:
       height: 1.62
     - name: UC_Base
       type: Box
-      axis:
+      axis: 
       position: {x: 0, y: 0.44, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       size: {x: 2.92, y: 0.88, z: 2.92}
@@ -315,7 +315,7 @@ MonoBehaviour:
       height: 0
     - name: UC_Crosshead
       type: Box
-      axis:
+      axis: 
       position: {x: 0, y: 3.03, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       size: {x: 2.7, y: 1.02, z: 0.98}
@@ -331,7 +331,7 @@ MonoBehaviour:
       height: 1.22
     - name: UC_Upright
       type: Box
-      axis:
+      axis: 
       position: {x: -1.08, y: 1.85, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       size: {x: 0.6, y: 2.08, z: 0.74}
@@ -339,7 +339,7 @@ MonoBehaviour:
       height: 0
     - name: UC_Upright.001
       type: Box
-      axis:
+      axis: 
       position: {x: 1.08, y: 1.85, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       size: {x: 0.6, y: 2.08, z: 0.74}
@@ -351,7 +351,7 @@ MonoBehaviour:
     footprintWidth: 3
     footprintHeight: 3
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Art/Buildings/furnace/furnace.fbx
     visualPrefab: {fileID: 919132149155446097, guid: 0a6a415aab343c645bbe4ec5926c290a, type: 3}
     displayName: "\u7194\u7089"
@@ -378,7 +378,7 @@ MonoBehaviour:
     colliders:
     - name: UC_Base
       type: Box
-      axis:
+      axis: 
       position: {x: 0, y: 0.45, z: 0}
       rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
       size: {x: 2.9, y: 0.9, z: 2.9}
@@ -386,7 +386,7 @@ MonoBehaviour:
       height: 0
     - name: UC_Body
       type: Box
-      axis:
+      axis: 
       position: {x: 0, y: 1.7, z: 0}
       rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
       size: {x: 2.55, y: 1.7, z: 2.52}
@@ -400,29 +400,29 @@ MonoBehaviour:
       size: {x: 0, y: 0, z: 0}
       radius: 0.28
       height: 1.62
-    - name: UC_Hopper
-      type: Box
-      axis:
-      position: {x: -0.05, y: 3.0093832, z: 0.000000004}
-      rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
-      size: {x: 1.88, y: 0.95, z: 2}
-      radius: 0
-      height: 0
-    - name: UnityCollider_Cylinder_Furnace_Graphite_Selection
+    - name: UC_Chimney.001
       type: Cylinder
       axis: Y
-      position: {x: -0.50999975, y: 3.48, z: 1.0800002}
+      position: {x: -0.51000005, y: 3.48, z: 1.08}
       rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
       size: {x: 0, y: 0, z: 0}
-      radius: 0.23500009
-      height: 1.5199997
+      radius: 0.28
+      height: 1.62
+    - name: UnityCollider_Box_Furnace_SafetyOrange_Selection
+      type: Box
+      axis: 
+      position: {x: -0.035803404, y: 3.02, z: -0.000000017}
+      rotation: {x: 0, y: -0.70710665, z: 0, w: 0.7071069}
+      size: {x: 1.588175, y: 1.01, z: 1.4746294}
+      radius: 0
+      height: 0
   - id: 7
     key: storage
     kind: 4
     footprintWidth: 3
     footprintHeight: 3
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Art/Buildings/storage/storage.fbx
     visualPrefab: {fileID: 919132149155446097, guid: 0643e107169247142ac1a90730216e5b, type: 3}
     displayName: "\u4ED3\u5E93"
@@ -443,7 +443,7 @@ MonoBehaviour:
     colliders:
     - name: UC_Base
       type: Box
-      axis:
+      axis: 
       position: {x: 0, y: 0.39, z: 0}
       rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
       size: {x: 2.9, y: 0.78, z: 2.9}
@@ -451,7 +451,7 @@ MonoBehaviour:
       height: 0
     - name: UC_Cargo enclosure
       type: Box
-      axis:
+      axis: 
       position: {x: 0.18, y: 1.95, z: -0.000000008}
       rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
       size: {x: 2.55, y: 2.7, z: 2.3}
@@ -459,7 +459,7 @@ MonoBehaviour:
       height: 0
     - name: UC_Entrance left
       type: Box
-      axis:
+      axis: 
       position: {x: -1.17, y: 1.65, z: 0.94000006}
       rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
       size: {x: 0.56, y: 2.3, z: 0.48}
@@ -467,7 +467,7 @@ MonoBehaviour:
       height: 0
     - name: UC_Entrance right
       type: Box
-      axis:
+      axis: 
       position: {x: 0, y: 0, z: 0}
       rotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
       size: {x: 0.56, y: 2.3, z: 0.48}
@@ -479,7 +479,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/Merger.prefab
     visualPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
     displayName: "\u5408\u6D41\u5668"
@@ -522,7 +522,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/Splitter.prefab
     visualPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
     displayName: "\u5206\u6D41\u5668"
@@ -565,7 +565,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/Foundation.prefab
     visualPrefab: {fileID: 170000, guid: 5d3a5f2ec5f94c6397b21e2e0f57d3b5, type: 3}
     displayName: "\u5730\u57FA"
@@ -584,7 +584,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/RampFoundation.prefab
     visualPrefab: {fileID: 180000, guid: e2787148eed64483b8d83433a7ec9501, type: 3}
     displayName: "\u659C\u9762\u5730\u57FA 1/1"
@@ -603,7 +603,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/RampFoundationHalf.prefab
     visualPrefab: {fileID: 9170977669439321830, guid: eb1209f8468ce2041b268eccb98c3d67, type: 3}
     displayName: "\u659C\u9762\u5730\u57FA 1/2"
@@ -622,7 +622,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/RampFoundationQuarter.prefab
     visualPrefab: {fileID: 5424966742386246050, guid: 75ceaac5cd7168c4ca3654a9adc594b9, type: 3}
     displayName: "\u659C\u9762\u5730\u57FA 1/4"
@@ -641,7 +641,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
     visualPrefab: {fileID: 849880541941752008, guid: 427e9682af365624db4f8093bc5a5272, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk1"
@@ -666,7 +666,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk2.prefab
     visualPrefab: {fileID: 756550717548969875, guid: 550ad97ca2b33fc41af712c62f46eb9a, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk2"
@@ -691,7 +691,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk3.prefab
     visualPrefab: {fileID: 8263080865558837001, guid: 7616b77f29429604ba0c596c90867131, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk3"
@@ -716,7 +716,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk4.prefab
     visualPrefab: {fileID: 8642908834916057529, guid: d9392b01d0a1cfe428a0dcf54ee44787, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk4"
@@ -741,7 +741,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk1.prefab
     visualPrefab: {fileID: 198289212279591929, guid: 420382c9b697fbd4cb0cf7fb658359cb, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk1"
@@ -766,7 +766,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk2.prefab
     visualPrefab: {fileID: 7353657416348320044, guid: 6677dcd17691afc438e9b37ef2e71330, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk2"
@@ -791,7 +791,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk3.prefab
     visualPrefab: {fileID: 975789746718991501, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk3"
@@ -816,7 +816,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk4.prefab
     visualPrefab: {fileID: 6766636972588932620, guid: 1bea08d822543f948a8bd8eff4477321, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk4"
@@ -841,7 +841,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk1.prefab
     visualPrefab: {fileID: 2170183881831946398, guid: c93ad474fb5ccdc4ea041ff840d2cc37, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk1"
@@ -860,7 +860,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk2.prefab
     visualPrefab: {fileID: 4950480565365963600, guid: ffbdfc7250a0122458278a47b7741a59, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk2"
@@ -879,7 +879,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk3.prefab
     visualPrefab: {fileID: 3340782413726316499, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk3"
@@ -898,7 +898,7 @@ MonoBehaviour:
     footprintWidth: 1
     footprintHeight: 1
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk4.prefab
     visualPrefab: {fileID: 2980616878522348748, guid: 15303e1a7d66cad489a1f40dfdeff6c2, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk4"
@@ -917,7 +917,7 @@ MonoBehaviour:
     footprintWidth: 3
     footprintHeight: 3
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Prefabs/Buildings/TestMachineM.prefab
     visualPrefab: {fileID: 210000, guid: fe6055f407864a38bd1a339b42c3b921, type: 3}
     displayName: "\u6D4B\u8BD5\u673A\u5668M"
@@ -972,7 +972,7 @@ MonoBehaviour:
     footprintWidth: 3
     footprintHeight: 3
     isRectangle: 1
-    footprintBitmap:
+    footprintBitmap: 
     visualPrefabPath: Assets/Art/Buildings/testMachine/testMachine.fbx
     visualPrefab: {fileID: 919132149155446097, guid: 07b5451f34e729a4c96322f3e456476c, type: 3}
     displayName: "\u6D4B\u8BD5\u673A\u5668"
@@ -1017,7 +1017,7 @@ MonoBehaviour:
     colliders:
     - name: "UnityCollider_Box_\u67F1\u4F53"
       type: Box
-      axis:
+      axis: 
       position: {x: 0.6, y: 1.9398389, z: 0.75}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       size: {x: 0.51898265, y: 2, z: 0.51898265}
@@ -1025,7 +1025,7 @@ MonoBehaviour:
       height: 0
     - name: "UnityCollider_Box_\u7ACB\u65B9\u4F53"
       type: Box
-      axis:
+      axis: 
       position: {x: 0, y: 0.5, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       size: {x: 2.8, y: 1, z: 2.8}

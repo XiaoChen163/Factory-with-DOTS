@@ -30,19 +30,13 @@ MonoBehaviour:
     hash: 4f5e93fdfee5fd3af2ea0284b544a064
   - prefabPath: Assets/Prefabs/Buildings/Furnace.prefab
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
-    hash: e827347688c02caaeb8667967f484517
-  - prefabPath: Assets/Prefabs/Buildings/Furnace_Art.prefab
-    outputPath: Assets/Art/Icons/Buildings/Furnace_Art.png
-    hash: da82ef9b983810bfde0e9b98d3c158a6
+    hash: e05d1408a5d064e8eafa6b8bd7f871ab
   - prefabPath: Assets/Prefabs/Buildings/Merger.prefab
     outputPath: Assets/Art/Icons/Buildings/Merger.png
     hash: 1646dbb0a2b731d34a0fad1214977401
   - prefabPath: Assets/Prefabs/Buildings/Miner.prefab
     outputPath: Assets/Art/Icons/Buildings/Miner.png
-    hash: 3bec77a37ad5415ab69fd553c53878e0
-  - prefabPath: Assets/Prefabs/Buildings/Miner_Art.prefab
-    outputPath: Assets/Art/Icons/Buildings/Miner_Art.png
-    hash: 434e9bfe782fbe1999f11eac612956f7
+    hash: 5d8b3575b69166faa8b9ab7d5ee35182
   - prefabPath: Assets/Prefabs/Buildings/RampFoundation.prefab
     outputPath: Assets/Art/Icons/Buildings/RampFoundation.png
     hash: 0d36612bb3cb2a39104b36915e612767
@@ -57,10 +51,7 @@ MonoBehaviour:
     hash: 7480721d9af35ad3e6ed68a5a4024a92
   - prefabPath: Assets/Prefabs/Buildings/Storage.prefab
     outputPath: Assets/Art/Icons/Buildings/Storage.png
-    hash: 2c432e048e75e0e135e3fb9acce8481c
-  - prefabPath: Assets/Prefabs/Buildings/Storage_Art.prefab
-    outputPath: Assets/Art/Icons/Buildings/Storage_Art.png
-    hash: ca678d17bc018f4ac4c7a559870d7a39
+    hash: 58ab95d62c90ac64044571e03af57123
   - prefabPath: Assets/Prefabs/Buildings/TestMachineM.prefab
     outputPath: Assets/Art/Icons/Buildings/TestMachineM.png
     hash: 890a9f48c621af5557e991329021e261

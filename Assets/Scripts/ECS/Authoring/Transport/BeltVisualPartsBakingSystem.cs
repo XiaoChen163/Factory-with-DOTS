@@ -10,6 +10,8 @@ public struct BeltVisualPartsBakingData : IBufferElementData
     public Entity WestEdge;
     public Entity SouthEdge;
     public Entity DirectionTriangle;
+    public Unity.Mathematics.quaternion TriangleBindRotation;
+    public Unity.Mathematics.quaternion TriangleParentRotation;
 }
 
 [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
@@ -59,7 +61,9 @@ public partial class BeltVisualPartsBakingSystem : SystemBase
                 NorthEdge = mapping.NorthEdge,
                 WestEdge = mapping.WestEdge,
                 SouthEdge = mapping.SouthEdge,
-                DirectionTriangle = mapping.DirectionTriangle
+                DirectionTriangle = mapping.DirectionTriangle,
+                TriangleBindRotation = mapping.TriangleBindRotation,
+                TriangleParentRotation = mapping.TriangleParentRotation
             };
             if (EntityManager.HasComponent<BeltVisualParts>(
                     mapping.Prefab))

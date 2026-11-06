@@ -16,6 +16,7 @@ public sealed partial class EcsGridInteractionController
         public Transform Root;
         public Transform Model;
         public Transform DirectionTriangle;
+        public quaternion TriangleBindRotation, TriangleParentRotation;
         public readonly List<Mesh> OwnedMeshes = new();
 
         public void Destroy()
@@ -76,7 +77,12 @@ public sealed partial class EcsGridInteractionController
                 ghost = new ModelPreview { Source = source };
                 ghost.Root = NewPreviewTransform("Building Model Preview " + i, previewRoot);
                 ghost.Model = CopyPreviewHierarchy(source.transform, ghost.Root, ghost);
-                ghost.DirectionTriangle = ghost.Model.Find("Direction Triangle");
+                ghost.DirectionTriangle = FactoryBuildingVisualUtility.FindPart(ghost.Model.gameObject, "Direction Triangle");
+                if (ghost.DirectionTriangle != null)
+                {
+                    ghost.TriangleBindRotation = ghost.DirectionTriangle.localRotation;
+                    ghost.TriangleParentRotation = Quaternion.Inverse(ghost.Model.rotation) * ghost.DirectionTriangle.parent.rotation;
+                }
                 modelPreviews[i] = ghost;
             }
 
@@ -119,8 +125,8 @@ public sealed partial class EcsGridInteractionController
                 // Match the placed belt: the model faces the outgoing segment, while
                 // its arrow bisects the incoming and outgoing directions at corners.
                 int2 localDirection = EcsGridUtility.Rotate(previewDisplayDirections[i], -turns);
-                ghost.DirectionTriangle.localRotation = Quaternion.Euler(
-                    0f, -math.atan2(localDirection.y, localDirection.x) * math.TODEGREES, 0f);
+                ghost.DirectionTriangle.localRotation = BeltVisualRotationUtility.LocalRotation(
+                    ghost.TriangleParentRotation, ghost.TriangleBindRotation, -math.atan2(localDirection.y, localDirection.x));
             }
             if (VerticalBeltUtility.IsVertical(building.Kind))
             {

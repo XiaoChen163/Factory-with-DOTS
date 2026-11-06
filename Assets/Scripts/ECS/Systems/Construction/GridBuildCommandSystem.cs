@@ -2471,10 +2471,9 @@ public partial class GridBuildCommandSystem : SystemBase
             }
 
             ecb.SetComponentEnabled<Item>(item, false);
-            if (!EntityManager.HasComponent<DisableRendering>(item))
-            {
-                ecb.AddComponent<DisableRendering>(item);
-            }
+            ItemRenderingUtility.SetVisible(item, false,
+                GetBufferLookup<LinkedEntityGroup>(true),
+                GetComponentLookup<DisableRendering>(true), ref ecb);
             ecb.AppendToBuffer(
                 pools[i],
                 new ItemPoolEntry

@@ -35,13 +35,15 @@ namespace Factory.Tests
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             draft.Load();
             var backup = draft.Tables.ToDictionary(t => t.path, t => File.ReadAllBytes(t.path));
-            backup.Add(FactoryDatabaseCsvImporter.DatabaseAssetPath, File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath));
+            var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath);
+            var databaseBackup = Object.Instantiate(database);
+            databaseBackup.name = database.name;
             try
             {
                 string json = File.ReadAllText("Tools/Blender/Fixtures/testMachine/testMachine.factory.json").Replace("\"testMachine\"", "\"" + Key + "\"");
                 draft.ImportBuildingJson(FactoryBuildingJson.Parse(json), true, true, true);
                 draft.SetBuildingBehavior(Key, BuildingKind.Storage);
-                var model = FactoryBuildingModelPipeline.Import(Key, Source);
+                var model = FactoryModelPipeline.Import(Key, Source);
                 draft.SetBuildingModel(Key, model);
                 draft.Save();
                 draft.Load();
@@ -54,8 +56,18 @@ namespace Factory.Tests
             }
             finally
             {
-                foreach (var entry in backup) File.WriteAllBytes(entry.Key, entry.Value);
+                // CSV importers may retain memory-mapped handles on Windows.
+                // Avoid rewriting unchanged sources and release cached importer handles.
+                AssetDatabase.ReleaseCachedFileHandles();
+                foreach (var entry in backup)
+                    if (!File.ReadAllBytes(entry.Key).SequenceEqual(entry.Value)) File.WriteAllBytes(entry.Key, entry.Value);
                 foreach (string path in backup.Keys) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                // Restore the loaded native asset through Unity rather than truncating
+                // its memory-mapped file while the editor still has it loaded.
+                EditorUtility.CopySerialized(databaseBackup, database);
+                EditorUtility.SetDirty(database);
+                AssetDatabase.SaveAssetIfDirty(database);
+                Object.DestroyImmediate(databaseBackup);
                 Object.DestroyImmediate(draft);
             }
         }
@@ -63,10 +75,10 @@ namespace Factory.Tests
         [Test]
         public void Blender41_AsymmetricTestMachine_UsesProtocolCoordinatesAndStableAssets()
         {
-            var model = FactoryBuildingModelPipeline.Import(Key, Source);
+            var model = FactoryModelPipeline.Import(Key, Source);
             string path = AssetDatabase.GetAssetPath(model);
             Assert.That(path, Does.StartWith(Folder));
-            Assert.That(FactoryBuildingModelPipeline.Import(Key, path), Is.EqualTo(model), "Project FBX is referenced directly.");
+            Assert.That(FactoryModelPipeline.Import(Key, path), Is.EqualTo(model), "Project FBX is referenced directly.");
             var instance = Object.Instantiate(model);
             try
             {
@@ -79,28 +91,28 @@ namespace Factory.Tests
                 Assert.That(body.bounds.min.y, Is.EqualTo(0).Within(.001f), "Keep the exported bottom origin, no bounds recentering.");
             }
             finally { Object.DestroyImmediate(instance); }
-            var sources = FactoryBuildingModelPipeline.Sources(path);
+            var sources = FactoryModelPipeline.Sources(path);
             Assert.That(sources.Length, Is.GreaterThan(0));
-            bool hadMatch = FactoryBuildingModelPipeline.Matches(sources[0].name).Length != 0;
-            var createdMaterial = FactoryBuildingModelPipeline.CreateMaterial(path, sources[0]);
+            bool hadMatch = FactoryModelPipeline.Matches(sources[0].name).Length != 0;
+            var createdMaterial = FactoryModelPipeline.CreateMaterial(path, sources[0]);
             if (!hadMatch) createdMaterialPath = AssetDatabase.GetAssetPath(createdMaterial);
             Assert.That(createdMaterial.shader.name, Is.EqualTo("Universal Render Pipeline/Lit"));
-            Assert.That(FactoryBuildingModelPipeline.CreateMaterial(path, sources[0]), Is.EqualTo(createdMaterial));
-            Assert.That(FactoryBuildingModelPipeline.Matches(sources[0].name), Does.Contain(createdMaterial));
+            Assert.That(FactoryModelPipeline.CreateMaterial(path, sources[0]), Is.EqualTo(createdMaterial));
+            Assert.That(FactoryModelPipeline.Matches(sources[0].name), Does.Contain(createdMaterial));
             Directory.CreateDirectory(MaterialFolder);
             var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             AssetDatabase.CreateAsset(material, MaterialFolder + "/Manual.mat");
             material.SetColor("_BaseColor", Color.magenta);
-            FactoryBuildingModelPipeline.Remap(path, sources[0], material);
+            FactoryModelPipeline.Remap(path, sources[0], material);
             var json = FactoryBuildingJson.Read("Tools/Blender/Fixtures/testMachine/testMachine.factory.json");
             string modelGuid = AssetDatabase.AssetPathToGUID(path);
-            FactoryBuildingModelPipeline.Import(Key, Source);
+            FactoryModelPipeline.Import(Key, Source);
             Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(modelGuid));
             Assert.That(File.Exists(Prefab), Is.False);
             var importer = (ModelImporter)AssetImporter.GetAtPath(path);
             Assert.That(importer.GetExternalObjectMap()[sources[0]], Is.EqualTo(material));
             Assert.That(material.GetColor("_BaseColor"), Is.EqualTo(Color.magenta));
-            Assert.That(FactoryBuildingModelPipeline.CreateMaterial(path, sources[0]), Is.EqualTo(material));
+            Assert.That(FactoryModelPipeline.CreateMaterial(path, sources[0]), Is.EqualTo(material));
             // Exercise the real Baker, including blob registration. Baking APIs are internal
             // in Entities 1.4; reflection stays confined to this acceptance test.
             var world = new World("FBX catalog baking acceptance");
@@ -114,6 +126,7 @@ namespace Factory.Tests
             candidate.buildings[furnace].colliders = json.Colliders;
             candidate.buildings[storage].visualPrefab = model;
             candidate.buildings[storage].colliders = new[] { new FactoryColliderProxy { name = "wide", type = "Box", size = new Vector3(8, 1, 1) } };
+            candidate.items[1].model = candidate.items[0].model;
             authoring.database = candidate;
             authoring.inputPortVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Ports/InputPortView.prefab");
             authoring.outputPortVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Ports/OutputPortView.prefab");
@@ -127,6 +140,26 @@ namespace Factory.Tests
                 settingsType.GetProperty("BlobAssetStore").SetValue(settings, store);
                 var bake = hybrid.GetType("Unity.Entities.BakingUtility").GetMethod("BakeGameObjects", BindingFlags.Static | BindingFlags.NonPublic);
                 bake.Invoke(null, new object[] { world, new[] { catalogRoot }, settings });
+                var manager = world.EntityManager;
+                using var itemQuery = manager.CreateEntityQuery(typeof(ItemPrefabEntry));
+                var owner = itemQuery.GetSingletonEntity();
+                var itemEntries = manager.GetBuffer<ItemPrefabEntry>(owner);
+                Entity itemA = itemEntries[0].Prefab, itemB = itemEntries[1].Prefab;
+                Assert.That(itemA, Is.Not.EqualTo(itemB), "Shared FBX models require separate item identities.");
+                Assert.That(manager.GetComponentData<Item>(itemA).ItemType.Value, Is.EqualTo(candidate.items[0].id));
+                Assert.That(manager.GetComponentData<Item>(itemB).ItemType.Value, Is.EqualTo(candidate.items[1].id));
+                var runtimeItem = manager.Instantiate(itemA);
+                using (var members = manager.GetBuffer<LinkedEntityGroup>(runtimeItem).ToNativeArray(Unity.Collections.Allocator.Temp))
+                    foreach (var member in members)
+                    {
+                        Assert.That(manager.HasComponent<Unity.Physics.PhysicsCollider>(member.Value), Is.False);
+                        Assert.That(manager.HasComponent<Unity.Physics.PhysicsVelocity>(member.Value), Is.False);
+                    }
+                manager.DestroyEntity(runtimeItem);
+                using var templates = manager.CreateEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<Item>() }, Options = EntityQueryOptions.IncludePrefab });
+                Assert.That(templates.CalculateEntityCount(), Is.EqualTo(candidate.items.Length));
+                world.GetExistingSystemManaged<ItemPrefabBakingSystem>().Update();
+                Assert.That(templates.CalculateEntityCount(), Is.EqualTo(candidate.items.Length), "Repeated baking must replace previous templates.");
                 using var query = world.EntityManager.CreateEntityQuery(typeof(BuildingVisualPrefabEntry));
                 var entries = world.EntityManager.GetBuffer<BuildingVisualPrefabEntry>(query.GetSingletonEntity());
                 var first = entries.ToNativeArray(Unity.Collections.Allocator.Temp);

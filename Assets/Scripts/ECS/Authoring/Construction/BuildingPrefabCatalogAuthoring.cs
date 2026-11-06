@@ -134,16 +134,16 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
 
             DynamicBuffer<ItemPrefabEntry> itemPrefabs =
                 AddBuffer<ItemPrefabEntry>(entity);
+            var itemSources = AddBuffer<ItemModelSourceBakingData>(entity);
             for (int i = 0; i < authoring.database.items.Length; i++)
             {
                 FactoryItemTableRow item = authoring.database.items[i];
-                Entity itemPrefab = GetEntity(
-                    item.prefab,
-                    TransformUsageFlags.Dynamic);
+                Entity itemPrefab = GetEntity(item.model, TransformUsageFlags.Dynamic);
+                itemSources.Add(new ItemModelSourceBakingData { Source = itemPrefab, ItemType = new ItemId { Value = item.id } });
                 itemPrefabs.Add(new ItemPrefabEntry
                 {
                     ItemType = new ItemId { Value = item.id },
-                    Prefab = itemPrefab
+                    Prefab = Entity.Null
                 });
             }
         }
@@ -163,25 +163,22 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             bool valid = true;
             System.Collections.Generic.HashSet<ushort> itemIds =
                 new System.Collections.Generic.HashSet<ushort>();
-            System.Collections.Generic.HashSet<GameObject> itemPrefabs =
-                new System.Collections.Generic.HashSet<GameObject>();
             for (int i = 0; i < authoring.database.items.Length; i++)
             {
                 FactoryItemTableRow item = authoring.database.items[i];
-                if (item.prefab != null)
+                if (item.model != null)
                 {
-                    DependsOn(item.prefab);
+                    DependsOn(item.model);
                 }
 
                 if (item.id == 0 ||
                     !itemIds.Add(item.id) ||
-                    string.IsNullOrWhiteSpace(item.prefabKey) ||
-                    item.prefab == null ||
-                    !itemPrefabs.Add(item.prefab))
+                    string.IsNullOrWhiteSpace(item.modelPath) ||
+                    item.model == null)
                 {
                     Debug.LogError(
                         $"Generated item row '{item.key}' has an invalid " +
-                        $"id or unresolved prefab key '{item.prefabKey}'.",
+                        $"id or unresolved prefab key '{item.modelPath}'.",
                         authoring);
                     valid = false;
                 }
@@ -232,7 +229,9 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
                 NorthEdge = GetRenderableEntity(northEdge),
                 WestEdge = GetRenderableEntity(westEdge),
                 SouthEdge = GetRenderableEntity(southEdge),
-                DirectionTriangle = GetRenderableEntity(directionTriangle)
+                DirectionTriangle = GetRenderableEntity(directionTriangle),
+                TriangleBindRotation = directionTriangle.localRotation,
+                TriangleParentRotation = Quaternion.Inverse(prefab.transform.rotation) * directionTriangle.parent.rotation
             });
         }
 

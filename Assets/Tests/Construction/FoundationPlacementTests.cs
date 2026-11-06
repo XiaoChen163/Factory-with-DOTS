@@ -315,15 +315,13 @@ namespace Factory.Tests
                 "Assets/Data/FactoryTables/buildings/buildings.csv");
             string names = File.ReadAllText(
                 "Assets/Data/FactoryTables/buildings/building_names.csv");
-            string prefab = File.ReadAllText(
-                "Assets/Prefabs/Buildings/Foundation.prefab");
+            var model = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/Art/Buildings/foundation/foundation.fbx");
             Assert.That(buildings, Does.StartWith("key,behavior,"));
             Assert.That(buildings, Does.Contain("foundation,Foundation,"));
             Assert.That(names, Does.Contain("foundation,zh-CN,地基"));
-            Assert.That(prefab, Does.Contain("MeshFilter:"));
-            Assert.That(prefab, Does.Contain("MeshRenderer:"));
-            Assert.That(prefab, Does.Not.Contain("Collider:"));
-            Assert.That(prefab, Does.Not.Contain("MonoBehaviour:"));
+            Assert.That(model.GetComponentsInChildren<UnityEngine.MeshRenderer>().Length, Is.EqualTo(1));
+            Assert.That(model.GetComponentsInChildren<UnityEngine.Collider>(), Is.Empty);
+            Assert.That(model.GetComponentsInChildren<UnityEngine.MonoBehaviour>(), Is.Empty);
             Assert.That(File.Exists(
                 "Assets/Art/Icons/Buildings/Foundation.png"), Is.True);
 

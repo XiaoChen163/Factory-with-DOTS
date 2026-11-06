@@ -48,6 +48,8 @@ public struct BeltVisualParts : IComponentData
     public Entity WestEdge;
     public Entity SouthEdge;
     public Entity DirectionTriangle;
+    public quaternion TriangleBindRotation;
+    public quaternion TriangleParentRotation;
 }
 
 public struct Merger : IComponentData
@@ -110,4 +112,14 @@ public struct Stage3SimulationStats : IComponentData
     public ulong TickCount;
     public ulong TotalReadyRequestCount;
     public ulong TotalAcceptedTransferCount;
+}
+
+public static class BeltVisualRotationUtility
+{
+    public static quaternion LocalRotation(quaternion parent, quaternion bind, float angle)
+    {
+        if (math.lengthsq(parent.value) < .5f) parent = quaternion.identity;
+        if (math.lengthsq(bind.value) < .5f) bind = quaternion.identity;
+        return math.mul(math.inverse(parent), math.mul(quaternion.RotateY(angle), math.mul(parent, bind)));
+    }
 }

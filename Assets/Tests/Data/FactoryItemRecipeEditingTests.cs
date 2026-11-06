@@ -110,9 +110,9 @@ namespace Factory.Tests
                 int itemRow = draft.AddItem();
                 var item = draft.GetItems().Single(i => i.row == itemRow);
                 Assert.That(item.id, Is.EqualTo(7));
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Items/TestA.prefab");
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Art/Items/test_a/test_a.fbx");
                 Assert.That(prefab, Is.Not.Null);
-                draft.SetItemValue(itemRow, "prefab_key", FactoryItemAssetBindings.PrefabKey(prefab));
+                draft.SetItemValue(itemRow, "model_path", FactoryItemAssetBindings.ModelPath(prefab));
                 var icon = FactoryDatabaseCsvImporter.BuildSpriteIndex(FactoryDatabaseCsvImporter.ItemIconDirectory).Values.First();
                 draft.SetItemValue(itemRow, "icon_key", FactoryItemAssetBindings.IconKey(icon));
                 int recipeRow = draft.AddRecipe();
@@ -128,7 +128,7 @@ namespace Factory.Tests
                 Assert.That(draft.GetIngredients(key, false)[0].count, Is.EqualTo(3));
                 Assert.That(draft.GetIngredients(key, true).Select(i => i.itemKey), Is.EqualTo(new[] { "test_b", "test_a" }));
                 var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath);
-                Assert.That(database.items.Single(i => i.key == item.key).prefab, Is.EqualTo(prefab));
+                Assert.That(database.items.Single(i => i.key == item.key).model, Is.EqualTo(prefab));
                 Assert.That(database.items.Single(i => i.key == item.key).icon, Is.EqualTo(icon));
                 Assert.That(database.recipes.Single(r => r.key == key).outputs.Select(i => i.itemKey), Is.EqualTo(new[] { "test_b", "test_a" }));
                 draft.DeleteRecipe(draft.GetRecipes().Single(r => r.key == key).row);

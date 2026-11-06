@@ -305,7 +305,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
         SetTriangleDirection(
             visual.DirectionTriangle,
             displayDirection,
-            placement.QuarterTurns);
+            placement.QuarterTurns,
+            visual.TriangleParentRotation, visual.TriangleBindRotation);
     }
 
     private bool TryFindIncomingDirection(
@@ -611,7 +612,8 @@ public partial class BeltTopologyVisualSystem : SystemBase
     private void SetTriangleDirection(
         Entity triangle,
         int2 worldDirection,
-        int quarterTurns)
+        int quarterTurns,
+        quaternion parentRotation, quaternion bindRotation)
     {
         if (triangle == Entity.Null ||
             !EntityManager.Exists(triangle) ||
@@ -628,7 +630,7 @@ public partial class BeltTopologyVisualSystem : SystemBase
             localDirection.x);
         LocalTransform transform =
             EntityManager.GetComponentData<LocalTransform>(triangle);
-        transform.Rotation = quaternion.RotateY(angle);
+        transform.Rotation = BeltVisualRotationUtility.LocalRotation(parentRotation, bindRotation, angle);
         EntityManager.SetComponentData(triangle, transform);
     }
 }

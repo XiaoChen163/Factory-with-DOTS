@@ -18,7 +18,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     private Button save, delete;
     private ScrollView list, detail;
     private VisualElement warnings;
-    private Dictionary<string, GameObject> prefabs;
+    private FactoryModelImportWindow modelImportWindow;
     private Dictionary<string, Sprite> icons;
     private bool Writable => !EditorApplication.isPlayingOrWillChangePlaymode;
 
@@ -42,6 +42,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     private void OnDestroy()
     {
         if (buildingImportWindow != null) buildingImportWindow.Close();
+        if (modelImportWindow != null) modelImportWindow.Close();
         if (draft != null) DestroyImmediate(draft);
     }
     private void OnPlayModeChanged(PlayModeStateChange state) => Refresh();
@@ -64,7 +65,6 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     {
         if (draft == null || draft.Tables.Count == 0) return;
         rootVisualElement.Clear();
-        prefabs = FactoryDatabaseCsvImporter.BuildPrefabIndex(FactoryDatabaseCsvImporter.ItemPrefabDirectory);
         icons = FactoryDatabaseCsvImporter.BuildSpriteIndex(FactoryDatabaseCsvImporter.ItemIconDirectory);
         var tabs = new Toolbar();
         string[] labels = { "建筑", "物品", "配方" };
@@ -93,6 +93,12 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         add.SetEnabled(Writable);
         toolbar.Add(add);
         if (selectedTab == 0) AddBuildingToolbar(toolbar);
+        if (selectedTab != 2)
+        {
+            var import = new Button(() => OpenModelImport(selectedTab == 0 ? FactoryModelKind.Building : FactoryModelKind.Item))
+                { text = "导入模型…", name = "content-import-model" };
+            import.SetEnabled(Writable); toolbar.Add(import);
+        }
         delete = new Button(() => Run(DeleteSelected)) { text = "删除", name = "content-delete" };
         toolbar.Add(delete);
         save = new Button(() => { try { SaveChanges(); } catch { /* Error remains in the window. */ } })
@@ -237,11 +243,22 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         Bind(detail, new TextField("名称 / name_key") { name = "item-name", value = item.name, multiline = true }, value => draft.SetItemValue(item.row, "name_key", value));
         Bind(detail, new IntegerField("最大堆叠") { name = "item-max-stack", value = item.maxStack }, value => draft.SetItemValue(item.row, "max_stack", Number(value)));
         Bind(detail, new EnumField("分类", item.category) { name = "item-category" }, value => draft.SetItemValue(item.row, "category", value.ToString()));
-        var prefab = new ObjectField("Prefab") { name = "item-prefab", objectType = typeof(GameObject), allowSceneObjects = false, value = ItemPrefab(item) };
-        Bind(detail, prefab, value => draft.SetItemValue(item.row, "prefab_key", FactoryItemAssetBindings.PrefabKey(value as GameObject)));
+        var model = new ObjectField("FBX 模型") { name = "item-model", objectType = typeof(GameObject), allowSceneObjects = false, value = ItemModel(item) };
+        Bind(detail, model, value =>
+        {
+            if (value != null) FactoryModelPipeline.Configure(AssetDatabase.GetAssetPath(value));
+            draft.SetItemValue(item.row, "model_path", FactoryItemAssetBindings.ModelPath(value as GameObject));
+        });
+        var material = new Button(() => FactoryModelMaterialWindow.Open(ItemModel(item))) { text = "材质映射与 URP 适配" };
+        material.SetEnabled(ItemModel(item) != null); detail.Add(material);
         var icon = new ObjectField("图标（可留空）") { name = "item-icon", objectType = typeof(Sprite), allowSceneObjects = false, value = ExplicitIcon(item) };
         Bind(detail, icon, value => draft.SetItemValue(item.row, "icon_key", FactoryItemAssetBindings.IconKey(value as Sprite)));
-        detail.Add(new HelpBox("Prefab 位于 Assets/Prefabs/Items；图标位于 Assets/Art/Icons/Items，按文件名绑定。图标留空时沿用 Prefab Key 的默认图标。name_key 保持现有语义。", HelpBoxMessageType.Info));
+        detail.Add(new Button(() => Run(() =>
+        {
+            if (draft.IsModified) throw new InvalidOperationException("请先保存草稿，再烘焙图标。");
+            FactoryIconBaker.BakeChangedFromMenu(); Refresh();
+        })) { text = "烘焙变化的图标" });
+        detail.Add(new HelpBox("物品直接引用 FBX，不生成碰撞体或刚体。图标留空时按物品 Key 查找默认图标。模型引用随草稿保存到物品表。", HelpBoxMessageType.Info));
     }
 
     private void DrawRecipe(FactoryContentRecipe recipe)
@@ -290,7 +307,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
             if (item == null) return;
             var overflow = draft.GetItemReferences(item.key, item.maxStack);
             if (overflow.Count > 0) warnings.Add(new HelpBox("以下配方数量超过最大堆叠，请调整后再保存：\n" + string.Join("\n", overflow), HelpBoxMessageType.Warning));
-            if (ItemPrefab(item) == null) warnings.Add(new HelpBox("请选择有效的物品 Prefab 后再保存。", HelpBoxMessageType.Warning));
+            if (ItemModel(item) == null) warnings.Add(new HelpBox("请选择有效的物品 FBX 后再保存。", HelpBoxMessageType.Warning));
             if (!string.IsNullOrEmpty(item.iconKey) && ExplicitIcon(item) == null) warnings.Add(new HelpBox("指定图标不存在，请重新选择。", HelpBoxMessageType.Warning));
         }
         FactoryDatabaseAsset candidate = null;
@@ -335,12 +352,25 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         status.text = e.Message + (e.InnerException == null ? "" : "\n" + e.InnerException.Message);
     }
 
-    private GameObject ItemPrefab(FactoryContentItem item) => item != null && prefabs.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(item.prefabKey), out var value) ? value : null;
+    private GameObject ItemModel(FactoryContentItem item) => item == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(item.modelPath);
     private void WriteDraftText(string path, int row, string column, string value) =>
         draft.SetCell(draft.Tables.ToList().FindIndex(t => t.path == FactoryContentDraft.TableDirectory + "/" + path), row, column, value);
     private Sprite ExplicitIcon(FactoryContentItem item) => item != null && icons.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(item.iconKey), out var value) ? value : null;
-    private Sprite ItemIcon(FactoryContentItem item) => item != null && icons.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(string.IsNullOrEmpty(item.iconKey) ? item.prefabKey : item.iconKey), out var value) ? value : null;
+    private Sprite ItemIcon(FactoryContentItem item) => item != null && icons.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(string.IsNullOrEmpty(item.iconKey) ? item.key : item.iconKey), out var value) ? value : null;
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
+    public FactoryModelImportWindow OpenModelImport(FactoryModelKind mode)
+    {
+        if (modelImportWindow != null) modelImportWindow.Close();
+        modelImportWindow = FactoryModelImportWindow.Open(draft, mode, (kind, key, row) =>
+        {
+            selectedTab = kind == FactoryModelKind.Building ? 0 : 1;
+            if (kind == FactoryModelKind.Building) selectedBuildingKey = key;
+            else selectedItemRow = row;
+            search = ""; Refresh();
+        });
+        return modelImportWindow;
+    }
+
     private static Label ListLabel(string value)
     {
         var label = new Label(value);

@@ -129,8 +129,8 @@ namespace Factory.Tests
                 Assert.That(recipe.inputs, Is.Empty);
                 Assert.That(recipe.outputs.Select(i => (i.itemKey, i.count)),
                     Is.EquivalentTo(new[] { (item.key, 1) }));
-                Assert.That(item.prefab.GetComponent<MeshFilter>().sharedMesh.name, Is.EqualTo("Sphere"));
-                Assert.That(item.prefab.GetComponentsInChildren<MonoBehaviour>(), Is.Empty);
+                Assert.That(item.model.GetComponentInChildren<MeshFilter>().sharedMesh.name, Does.StartWith("Test"));
+                Assert.That(item.model.GetComponentsInChildren<MonoBehaviour>(), Is.Empty);
                 Assert.That(item.icon, Is.Not.Null);
             }
             Assert.That(machine.icon, Is.Not.Null);

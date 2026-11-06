@@ -17,14 +17,7 @@ public sealed partial class FactoryContentManagerWindow
         key.style.width = 130;
         key.RegisterValueChangedCallback(e => newBuildingKey = e.newValue);
         toolbar.Add(key);
-        var import = new Button(() => Run(() =>
-        {
-            string path = EditorUtility.OpenFilePanel("导入 Factory 建筑", "", "json");
-            if (string.IsNullOrEmpty(path)) return;
-            PreviewBuildingImport(FactoryBuildingJson.Read(path));
-        })) { text = "导入 .factory.json", name = "building-import" };
-        import.SetEnabled(Writable);
-        toolbar.Add(import);
+
     }
 
     // The preview owns no draft: apply changes to this manager only after confirmation.

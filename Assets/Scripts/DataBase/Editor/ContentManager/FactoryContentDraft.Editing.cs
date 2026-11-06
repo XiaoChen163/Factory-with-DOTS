@@ -10,7 +10,7 @@ using UnityEngine;
 public sealed class FactoryContentItem
 {
     public int row, id, maxStack;
-    public string key, name, prefabKey, iconKey;
+    public string key, name, modelPath, iconKey;
     public FactoryItemCategory category;
 }
 
@@ -46,7 +46,7 @@ public sealed partial class FactoryContentDraft
         return Rows(table).Select(row => new FactoryContentItem
         {
             row = row, id = Int(table.Get(row, "id")), key = table.Get(row, "key"), name = table.Get(row, "name_key"),
-            maxStack = Int(table.Get(row, "max_stack")), prefabKey = table.Get(row, "prefab_key"),
+            maxStack = Int(table.Get(row, "max_stack")), modelPath = table.Get(row, "model_path"),
             iconKey = table.TryGet(row, "icon_key", out string icon) ? icon : "",
             category = Enum.TryParse(table.Get(row, "category"), true, out FactoryItemCategory category) ? category : FactoryItemCategory.None
         }).Where(i => Matches(i.key, search) || Matches(i.name, search)).ToList();
@@ -115,7 +115,7 @@ public sealed partial class FactoryContentDraft
         Edit("新增物品", docs => row = docs[ItemsPath].Append(new Dictionary<string, string>
         {
             ["id"] = id.ToString(CultureInfo.InvariantCulture), ["key"] = key, ["name_key"] = key,
-            ["max_stack"] = "64", ["category"] = "Component", ["prefab_key"] = ""
+            ["max_stack"] = "64", ["category"] = "Component", ["model_path"] = ""
         }), ItemsPath);
         return row;
     }
@@ -283,11 +283,12 @@ public sealed partial class FactoryContentDraft
 
 public static class FactoryItemAssetBindings
 {
-    public static string PrefabKey(GameObject prefab)
+    public static string ModelPath(GameObject model)
     {
-        if (prefab == null) return "";
-        return AssetKey(prefab, FactoryDatabaseCsvImporter.ItemPrefabDirectory,
-            FactoryDatabaseCsvImporter.BuildPrefabIndex(FactoryDatabaseCsvImporter.ItemPrefabDirectory));
+        if (model == null) return "";
+        string path = AssetDatabase.GetAssetPath(model);
+        FactoryDatabaseCsvImporter.LoadModel(path);
+        return path;
     }
 
     public static string IconKey(Sprite icon)

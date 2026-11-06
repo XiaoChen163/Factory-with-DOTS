@@ -12,7 +12,6 @@ public static class FactoryDatabaseCsvImporter
     private const string ItemTableDirectory = TableDirectory + "/items";
     private const string RecipeTableDirectory = ItemTableDirectory + "/recipes";
     private const string BuildingTableDirectory = TableDirectory + "/buildings";
-    public const string ItemPrefabDirectory = "Assets/Prefabs/Items";
     public const string ItemIconDirectory = "Assets/Art/Icons/Items";
     private const string ItemTablePath = ItemTableDirectory + "/items.csv";
     private const string MachineTypeTablePath = BuildingTableDirectory + "/machine_types.csv";
@@ -119,7 +118,6 @@ public static class FactoryDatabaseCsvImporter
     private static FactoryItemTableRow[] ReadItems(Func<string, FactoryCsvTable> read)
     {
         FactoryCsvTable table = read(ItemTablePath);
-        Dictionary<string, GameObject> prefabs = BuildPrefabIndex(ItemPrefabDirectory);
         Dictionary<string, Sprite> icons = BuildSpriteIndex(ItemIconDirectory);
         List<FactoryItemTableRow> result = new List<FactoryItemTableRow>(table.RowCount);
         HashSet<ushort> ids = new HashSet<ushort>();
@@ -128,17 +126,15 @@ public static class FactoryDatabaseCsvImporter
         {
             ushort id = ParseUShort(table.Get(row, "id"), "item id");
             string key = RequiredKey(table.Get(row, "key"), "item key");
-            string prefabKey = RequiredKey(table.Get(row, "prefab_key"), "item prefab key");
+            string modelPath = table.Get(row, "model_path");
             bool hasConfiguredIcon = table.TryGet(row, "icon_key", out string configuredIcon) &&
                 !string.IsNullOrWhiteSpace(configuredIcon);
             string iconKey = hasConfiguredIcon
                 ? RequiredKey(configuredIcon, "item icon key")
-                : prefabKey;
+                : key;
             if (id == 0 || !ids.Add(id) || !keys.Add(key))
                 throw new InvalidDataException($"Duplicate or invalid item '{key}' ({id}).");
-            GameObject prefab = ResolvePrefab(prefabs, prefabKey, ItemPrefabDirectory);
-            if (prefab.GetComponentsInChildren<MonoBehaviour>(true).Length > 0)
-                throw new InvalidDataException($"Item prefab '{prefabKey}' must be presentation-only.");
+            GameObject model = LoadModel(modelPath);
             result.Add(new FactoryItemTableRow
             {
                 id = id,
@@ -146,8 +142,8 @@ public static class FactoryDatabaseCsvImporter
                 nameKey = table.Get(row, "name_key"),
                 maxStack = ParseUShort(table.Get(row, "max_stack"), "max stack"),
                 category = ParseEnum<FactoryItemCategory>(table.Get(row, "category"), "item category"),
-                prefabKey = prefabKey,
-                prefab = prefab,
+                modelPath = modelPath,
+                model = model,
                 iconKey = iconKey,
                 icon = hasConfiguredIcon
                     ? ResolveSprite(icons, iconKey, ItemIconDirectory)
@@ -195,9 +191,7 @@ public static class FactoryDatabaseCsvImporter
         {
             string key = RequiredKey(table.Get(row, "key"), "building key");
             string path = table.Get(row, "model_path");
-            if (!path.StartsWith("Assets/", StringComparison.Ordinal) || !(path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidDataException($"Building '{key}' model_path must reference a project FBX or existing procedural prefab.");
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            GameObject prefab = LoadModel(path);
             if (prefab == null) throw new InvalidDataException($"Building '{key}' prefab not found: '{path}'.");
             BuildingKind kind = ParseEnum<BuildingKind>(table.Get(row, "behavior"), "building behavior");
             ValidateBuildingVisualPrefab(prefab, path, kind);
@@ -404,6 +398,19 @@ public static class FactoryDatabaseCsvImporter
             ? rows.ToArray()
             : Array.Empty<FactoryRecipeIngredientTableRow>();
 
+    public static GameObject LoadModel(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !path.StartsWith("Assets/", StringComparison.Ordinal) || !path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("模型必须是项目内的 FBX：" + path);
+        var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (model == null || model.GetComponentInChildren<MeshRenderer>(true) == null)
+            throw new InvalidDataException("FBX 未找到或缺少静态网格：" + path);
+        foreach (var component in model.GetComponentsInChildren<Component>(true))
+            if (!(component is Transform || component is MeshFilter || component is MeshRenderer))
+                throw new InvalidDataException($"模型 '{path}' 包含不支持的组件：{component?.GetType().Name}。仅允许网格表现，不允许碰撞体、刚体或脚本。");
+        return model;
+    }
+
     private static void ValidateBuildingVisualPrefab(
         GameObject prefab,
         string prefabKey,
@@ -427,23 +434,6 @@ public static class FactoryDatabaseCsvImporter
                 $"Building visual prefab '{prefabKey}' contains non-rendering component " +
                 $"'{component.GetType().Name}'. Only Transform, MeshFilter and MeshRenderer are allowed.");
         }
-    }
-
-    public static Dictionary<string, GameObject> BuildPrefabIndex(string directory)
-    {
-        Dictionary<string, GameObject> result = new Dictionary<string, GameObject>(StringComparer.Ordinal);
-        foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { directory }))
-        {
-            string path = AssetDatabase.GUIDToAssetPath(guid);
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (prefab == null)
-                continue;
-            string key = NormalizeKey(Path.GetFileNameWithoutExtension(path));
-            if (string.IsNullOrEmpty(key) || result.ContainsKey(key))
-                throw new InvalidDataException($"Duplicate or invalid prefab name at '{path}'.");
-            result.Add(key, prefab);
-        }
-        return result;
     }
 
     public static Dictionary<string, Sprite> BuildSpriteIndex(string directory)
@@ -485,15 +475,6 @@ public static class FactoryDatabaseCsvImporter
         return sprite;
     }
 
-    private static GameObject ResolvePrefab(
-        Dictionary<string, GameObject> prefabs,
-        string key,
-        string directory)
-    {
-        if (prefabs.TryGetValue(NormalizeKey(key), out GameObject prefab))
-            return prefab;
-        throw new InvalidDataException($"Prefab key '{key}' was not found in '{directory}'.");
-    }
 
     private static Dictionary<string, T> IndexByKey<T>(T[] rows, Func<T, string> selector, string label)
     {

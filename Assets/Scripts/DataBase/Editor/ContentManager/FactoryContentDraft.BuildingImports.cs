@@ -27,16 +27,7 @@ public sealed partial class FactoryContentDraft
     public void SetBuildingModel(string key, GameObject model)
     {
         string path = model == null ? "" : AssetDatabase.GetAssetPath(model);
-        if (model != null) FactoryBuildingModelPipeline.RequireFbx(path);
-        SetBuildingVisual(key, path);
-    }
-
-    // Existing procedural assets remain usable until their FBX replacements are available.
-    public void SetBuildingPrefab(string key, GameObject prefab)
-    {
-        string path = prefab == null ? "" : AssetDatabase.GetAssetPath(prefab);
-        if (prefab != null && !path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-            throw new System.IO.InvalidDataException("请选择项目内的 .prefab 资产。");
+        if (model != null) FactoryModelPipeline.RequireFbx(path);
         SetBuildingVisual(key, path);
     }
 

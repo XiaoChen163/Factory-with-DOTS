@@ -211,6 +211,7 @@ public partial class BeltTransferSystem : SystemBase
             GetBufferLookup<ItemPoolEntry>(false);
         job.DisableRenderingLookup =
             GetComponentLookup<DisableRendering>(true);
+        job.ItemLinkedEntityGroupLookup = GetBufferLookup<LinkedEntityGroup>(true);
         job.ItemPrefabVisualInfo = itemPrefabVisualInfo;
         job.WorldGrid = GetWorldGridConfig();
 

@@ -27,7 +27,7 @@
 Foundation、RampFoundation、VerticalBeltEntry、VerticalBeltExit、VerticalBeltSegment`。
 矿机、熔炉都属于 Processor，其区别由加工种类、配方、模型和端口定义。
 
-模型和图标使用完整的 `Assets/...` 工程相对路径。`model_path` 直接引用 `.fbx`；现有程序生成模型仍允许 `.prefab`，新 FBX 无需包装。
+模型和图标使用完整的 `Assets/...` 工程相对路径。`model_path` 只允许直接引用 `.fbx`，不再使用模型包装 Prefab。
 `icon_path` 可以留空；填写时必须能加载为 Sprite。游戏图标由表现表指定；图标烘焙
 设置仍负责图像生成，但不在导入时覆盖表现表的路径。
 名称导入当前优先取 `zh-CN`，缺少时回退为该建筑第一条名称；这不是运行时语言切换系统。

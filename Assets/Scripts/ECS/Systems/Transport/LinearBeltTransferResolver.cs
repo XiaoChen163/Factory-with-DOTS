@@ -1030,6 +1030,8 @@ public partial struct FactoryTransferArbitrationJob : IJob
     [ReadOnly]
     public ComponentLookup<DisableRendering> DisableRenderingLookup;
     [ReadOnly]
+    public BufferLookup<LinkedEntityGroup> ItemLinkedEntityGroupLookup;
+    [ReadOnly]
     public NativeParallelHashMap<ItemId, ItemPrefabVisualInfo>
         ItemPrefabVisualInfo;
 
@@ -1400,9 +1402,10 @@ public partial struct FactoryTransferArbitrationJob : IJob
                 {
                     item = Ecb.Instantiate(prefab);
                 }
-                else if (DisableRenderingLookup.HasComponent(item))
+                else
                 {
-                    Ecb.RemoveComponent<DisableRendering>(item);
+                    ItemRenderingUtility.SetVisible(item, true,
+                        ItemLinkedEntityGroupLookup, DisableRenderingLookup, ref Ecb);
                 }
 
                 Item itemData = new Item
@@ -1991,10 +1994,8 @@ public partial struct FactoryTransferArbitrationJob : IJob
             {
                 Entity = itemEntity
             });
-        if (!DisableRenderingLookup.HasComponent(itemEntity))
-        {
-            Ecb.AddComponent<DisableRendering>(itemEntity);
-        }
+        ItemRenderingUtility.SetVisible(itemEntity, false,
+            ItemLinkedEntityGroupLookup, DisableRenderingLookup, ref Ecb);
         Ecb.SetComponentEnabled<Item>(itemEntity, false);
     }
 

@@ -44,6 +44,10 @@ namespace Factory.Tests
                     });
 
                 Entity item = CreateItem(1);
+                Entity meshChild = EntityManager.CreateEntity();
+                var itemGroup = EntityManager.AddBuffer<LinkedEntityGroup>(item);
+                itemGroup.Add(new LinkedEntityGroup { Value = item });
+                itemGroup.Add(new LinkedEntityGroup { Value = meshChild });
                 Entity belt = EntityManager.CreateEntity();
                 EntityManager.AddComponentData(
                     belt,
@@ -97,6 +101,7 @@ namespace Factory.Tests
                     EntityManager.GetBuffer<ItemPoolEntry>(pool);
                 Assert.That(entries.Length, Is.EqualTo(1));
                 Assert.That(entries[0].Entity, Is.EqualTo(item));
+                Assert.That(EntityManager.HasComponent<DisableRendering>(meshChild), Is.True);
                 Assert.That(EntityManager.Exists(belt), Is.False);
             }
             finally

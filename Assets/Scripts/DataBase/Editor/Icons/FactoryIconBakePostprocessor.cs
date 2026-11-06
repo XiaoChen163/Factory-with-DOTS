@@ -63,17 +63,18 @@ public sealed class FactoryIconBakePostprocessor : AssetPostprocessor
             .Concat(deletedAssets)
             .Concat(movedAssets)
             .Concat(movedFromAssetPaths);
-        if (changedAssets.Any(IsFactoryPrefab) || changedAssets.Any(IsIconSource))
+        if (changedAssets.Any(IsIconSource))
             QueueIncrementalBake();
     }
 
     private static bool IsIconSource(string path)
     {
-        if (path == FactoryIconBaker.SettingsAssetPath || path == "Assets/Data/FactoryTables/buildings/buildings.csv") return true;
-        const string buildings = "Assets/Data/FactoryTables/buildings/buildings.csv";
-        if (System.IO.File.Exists(buildings))
+        if (path == FactoryIconBaker.SettingsAssetPath) return true;
+        foreach (string tablePath in new[] { "Assets/Data/FactoryTables/buildings/buildings.csv", "Assets/Data/FactoryTables/items/items.csv" })
         {
-            var table = FactoryCsvTable.Read(buildings);
+            if (path == tablePath) return true;
+            if (!System.IO.File.Exists(tablePath)) continue;
+            var table = FactoryCsvTable.Read(tablePath);
             for (int row = 0; row < table.RowCount; row++)
             {
                 string modelPath = table.Get(row, "model_path");
@@ -91,22 +92,6 @@ public sealed class FactoryIconBakePostprocessor : AssetPostprocessor
             if (!string.IsNullOrEmpty(model) && AssetDatabase.GetDependencies(model).Contains(path)) return true;
         }
         return false;
-    }
-
-    private static bool IsFactoryPrefab(string path)
-    {
-        if (string.IsNullOrEmpty(path) ||
-            !path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return path.StartsWith(
-                   FactoryIconBaker.ItemPrefabDirectory + "/",
-                   StringComparison.Ordinal) ||
-               path.StartsWith(
-                   FactoryIconBaker.BuildingPrefabDirectory + "/",
-                   StringComparison.Ordinal);
     }
 
     private static void QueueIncrementalBake()

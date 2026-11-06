@@ -17,8 +17,8 @@ public struct FactoryItemTableRow
     public string nameKey;
     public ushort maxStack;
     public FactoryItemCategory category;
-    public string prefabKey;
-    public GameObject prefab;
+    public string modelPath;
+    [UnityEngine.Serialization.FormerlySerializedAs("prefab")] public GameObject model;
     public string iconKey;
     public Sprite icon;
 }

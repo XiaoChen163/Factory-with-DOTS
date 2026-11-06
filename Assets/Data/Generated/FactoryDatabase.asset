@@ -19,54 +19,54 @@ MonoBehaviour:
     nameKey: "\u94C1\u77FF"
     maxStack: 64
     category: 1
-    prefabKey: iron_ore
-    prefab: {fileID: 210000, guid: c21f07a46487418a8bcd9bac9777ec26, type: 3}
-    iconKey: iron_ore
+    modelPath: Assets/Art/Items/iron_ore/iron_ore.fbx
+    model: {fileID: 919132149155446097, guid: d7f9520635a7bad47a4bafc068cf1407, type: 3}
+    iconKey: IronOre
     icon: {fileID: 21300000, guid: c9a7c18fe9d8e5d4792e93a332129a99, type: 3}
   - id: 2
     key: iron_ingot
     nameKey: "\u94C1\u952D"
     maxStack: 64
     category: 2
-    prefabKey: iron_ingot
-    prefab: {fileID: 220000, guid: d42df505a758468db0c476485424dffd, type: 3}
-    iconKey: iron_ingot
+    modelPath: Assets/Art/Items/iron_ingot/iron_ingot.fbx
+    model: {fileID: 919132149155446097, guid: 7712298fbc9e3e64fa87b4c516350f0e, type: 3}
+    iconKey: IronIngot
     icon: {fileID: 21300000, guid: aafebab3a53944b4ea554efc6ca042a4, type: 3}
   - id: 3
     key: test_a
     nameKey: "\u7EA2\u8272\u7269\u54C1A"
     maxStack: 64
     category: 3
-    prefabKey: test_a
-    prefab: {fileID: 210000, guid: 0b25e0e5a5a94fa9b92134152f6dfcb2, type: 3}
-    iconKey: test_a
+    modelPath: Assets/Art/Items/test_a/test_a.fbx
+    model: {fileID: 919132149155446097, guid: aafa17aaa59c23c4d95a8ab9a4381986, type: 3}
+    iconKey: TestA
     icon: {fileID: 21300000, guid: 43b7418465fc2ee45814ce84fe7aa471, type: 3}
   - id: 4
     key: test_b
     nameKey: "\u7EFF\u8272\u7269\u54C1B"
     maxStack: 64
     category: 3
-    prefabKey: test_b
-    prefab: {fileID: 210000, guid: ed30f689f3d94da1b0d62387f807973e, type: 3}
-    iconKey: test_b
+    modelPath: Assets/Art/Items/test_b/test_b.fbx
+    model: {fileID: 919132149155446097, guid: 18be2eb2701ef3240bb976be8d5dec5d, type: 3}
+    iconKey: TestB
     icon: {fileID: 21300000, guid: 713b544a8b0bf7f4dbd46c30221101d8, type: 3}
   - id: 5
     key: test_c
     nameKey: "\u84DD\u8272\u7269\u54C1C"
     maxStack: 64
     category: 3
-    prefabKey: test_c
-    prefab: {fileID: 210000, guid: 72b4f5b6836c49e3ae8d424618c59b4d, type: 3}
-    iconKey: test_c
+    modelPath: Assets/Art/Items/test_c/test_c.fbx
+    model: {fileID: 919132149155446097, guid: d013f5e2b6ac9424a8bd44a2f47a0ca9, type: 3}
+    iconKey: TestC
     icon: {fileID: 21300000, guid: 37e003ba40fb1ce4986e58eb93b3b912, type: 3}
   - id: 6
     key: test_d
     nameKey: "\u9EC4\u8272\u7269\u54C1D"
     maxStack: 64
     category: 3
-    prefabKey: test_d
-    prefab: {fileID: 210000, guid: d82ba76fc31942eb92bbfdc7760c13d4, type: 3}
-    iconKey: test_d
+    modelPath: Assets/Art/Items/test_d/test_d.fbx
+    model: {fileID: 919132149155446097, guid: b025aa1fd889e504ebb17c0686fb563f, type: 3}
+    iconKey: TestD
     icon: {fileID: 21300000, guid: 2846773377b4e5648a2dd0dd85c2bb0d, type: 3}
   machineTypes:
   - id: 1
@@ -83,8 +83,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/Belt.prefab
-    visualPrefab: {fileID: 110000, guid: 61bcbf65f38a4fd4b08216c77115681d, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/belt_mk1/belt_mk1.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 8810fb719ec2f0f41a6d71a330509bea, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk1"
     icon: {fileID: 21300000, guid: 84f6d24af323254498b4a3bafb2dace4, type: 3}
     menuOrder: 100
@@ -132,8 +132,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/BeltMk2.prefab
-    visualPrefab: {fileID: 194256, guid: f0bf725215764e23aeb4dfd6bf746bc7, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/belt_mk2/belt_mk2.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 3ca14463d8244d44681f21eeef09b60a, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk2"
     icon: {fileID: 21300000, guid: 9ae6dfb0b5de48140ba147aca9586de6, type: 3}
     menuOrder: 101
@@ -181,8 +181,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/BeltMk3.prefab
-    visualPrefab: {fileID: 143296, guid: ba623fa09eba45dfbba2b343f380e337, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/belt_mk3/belt_mk3.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: ae575e14ed739454685673033f7710ea, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk3"
     icon: {fileID: 21300000, guid: 0f0728b880970f544856851f4bd29305, type: 3}
     menuOrder: 102
@@ -230,8 +230,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/BeltMk4.prefab
-    visualPrefab: {fileID: 132144, guid: f729e0e61af447f9a16bbc93cdfaa2fc, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/belt_mk4/belt_mk4.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 1fb610abc50e87c4692ae1bcf02b5ea5, type: 3}
     displayName: "\u4F20\u9001\u5E26 Mk4"
     icon: {fileID: 21300000, guid: 3ce66c5e5faf6594faf9875decc0f10b, type: 3}
     menuOrder: 103
@@ -480,8 +480,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/Merger.prefab
-    visualPrefab: {fileID: 2122583483547373132, guid: c1c2f0efe071a1b46acf2dd314ae30fb, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/merger/merger.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: f72890b64f9ab0b45891db0ae4f50906, type: 3}
     displayName: "\u5408\u6D41\u5668"
     icon: {fileID: 21300000, guid: 9d0e06efb66c15a4eb48738129d6d16b, type: 3}
     menuOrder: 500
@@ -523,8 +523,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/Splitter.prefab
-    visualPrefab: {fileID: 2789682611480364091, guid: 9ab8aedc0cb5a1c4dbc3144d983dade1, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/splitter/splitter.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: b05679616adae324199d4e7bc8dfe9e9, type: 3}
     displayName: "\u5206\u6D41\u5668"
     icon: {fileID: 21300000, guid: 11bcb1e2fac0dc74184a00dd96351721, type: 3}
     menuOrder: 600
@@ -566,8 +566,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/Foundation.prefab
-    visualPrefab: {fileID: 170000, guid: 5d3a5f2ec5f94c6397b21e2e0f57d3b5, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/foundation/foundation.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 1230ee4a27d1b3c4d829ceca5b68cd33, type: 3}
     displayName: "\u5730\u57FA"
     icon: {fileID: 21300000, guid: 8001c504d5b02c145a8fc159c117b521, type: 3}
     menuOrder: 50
@@ -585,8 +585,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/RampFoundation.prefab
-    visualPrefab: {fileID: 180000, guid: e2787148eed64483b8d83433a7ec9501, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/ramp_foundation_1_1/ramp_foundation_1_1.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 1034c40696e19a643acbef65545bd29b, type: 3}
     displayName: "\u659C\u9762\u5730\u57FA 1/1"
     icon: {fileID: 21300000, guid: 5612dd97c6f2408438dc2e6fdb403d8f, type: 3}
     menuOrder: 51
@@ -604,8 +604,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/RampFoundationHalf.prefab
-    visualPrefab: {fileID: 9170977669439321830, guid: eb1209f8468ce2041b268eccb98c3d67, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/ramp_foundation_1_2/ramp_foundation_1_2.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 93edb617c389f0a49a603284fb2e9079, type: 3}
     displayName: "\u659C\u9762\u5730\u57FA 1/2"
     icon: {fileID: 21300000, guid: 7c13d3c6e2b65f04b9cb34bddb1af855, type: 3}
     menuOrder: 52
@@ -623,8 +623,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/RampFoundationQuarter.prefab
-    visualPrefab: {fileID: 5424966742386246050, guid: 75ceaac5cd7168c4ca3654a9adc594b9, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/ramp_foundation_1_4/ramp_foundation_1_4.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 4d703a7b58d4f3649868a569d16de9f3, type: 3}
     displayName: "\u659C\u9762\u5730\u57FA 1/4"
     icon: {fileID: 21300000, guid: 7bb5b0d9ca85eec488473324854dc75c, type: 3}
     menuOrder: 53
@@ -642,8 +642,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk1.prefab
-    visualPrefab: {fileID: 849880541941752008, guid: 427e9682af365624db4f8093bc5a5272, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_entry_mk1/vertical_belt_entry_mk1.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: e1bcc2d5d7f92d149b99875dfb2920a7, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk1"
     icon: {fileID: 21300000, guid: 872ae47e01ee2304fa11a55b8350b42a, type: 3}
     menuOrder: 111
@@ -667,8 +667,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk2.prefab
-    visualPrefab: {fileID: 756550717548969875, guid: 550ad97ca2b33fc41af712c62f46eb9a, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_entry_mk2/vertical_belt_entry_mk2.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: ee66aaafe7f19174693dd95679ffa26a, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk2"
     icon: {fileID: 21300000, guid: 7ae7aa3c66710a147ac8cee93b5237d3, type: 3}
     menuOrder: 112
@@ -692,8 +692,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk3.prefab
-    visualPrefab: {fileID: 8263080865558837001, guid: 7616b77f29429604ba0c596c90867131, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_entry_mk3/vertical_belt_entry_mk3.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: ae46fe327cd847f4793ba851448bde5f, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk3"
     icon: {fileID: 21300000, guid: 54382fadc46a56248b23405f054411bd, type: 3}
     menuOrder: 113
@@ -717,8 +717,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltEntryMk4.prefab
-    visualPrefab: {fileID: 8642908834916057529, guid: d9392b01d0a1cfe428a0dcf54ee44787, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_entry_mk4/vertical_belt_entry_mk4.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: fd931b21e38b91b438c2df00c7d785fc, type: 3}
     displayName: "\u5782\u76F4\u5E26\u5165\u53E3 Mk4"
     icon: {fileID: 21300000, guid: c70ef67eccb23504eb2098c626188c6e, type: 3}
     menuOrder: 114
@@ -742,8 +742,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk1.prefab
-    visualPrefab: {fileID: 198289212279591929, guid: 420382c9b697fbd4cb0cf7fb658359cb, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_exit_mk1/vertical_belt_exit_mk1.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 4ffb9d4a447ddc64b90941b3e64f28ab, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk1"
     icon: {fileID: 21300000, guid: 4095b0f1b1f55d345bba3dcc5a65b65b, type: 3}
     menuOrder: 121
@@ -767,8 +767,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk2.prefab
-    visualPrefab: {fileID: 7353657416348320044, guid: 6677dcd17691afc438e9b37ef2e71330, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_exit_mk2/vertical_belt_exit_mk2.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: f8ada2f07c18ace4bacf66d0f7b2581d, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk2"
     icon: {fileID: 21300000, guid: 109ebe0ca147e74498fbec7a3b26d8de, type: 3}
     menuOrder: 122
@@ -792,8 +792,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk3.prefab
-    visualPrefab: {fileID: 975789746718991501, guid: b3318c48439c93e49b2f54d63dea01a3, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_exit_mk3/vertical_belt_exit_mk3.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: e3ccb4218142df147b5aee092ad8aa81, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk3"
     icon: {fileID: 21300000, guid: f2099cc7385492c408c70dd511d7915a, type: 3}
     menuOrder: 123
@@ -817,8 +817,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltExitMk4.prefab
-    visualPrefab: {fileID: 6766636972588932620, guid: 1bea08d822543f948a8bd8eff4477321, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_exit_mk4/vertical_belt_exit_mk4.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 7aaec97b1f993dc40926b93b042fa180, type: 3}
     displayName: "\u5782\u76F4\u5E26\u51FA\u53E3 Mk4"
     icon: {fileID: 21300000, guid: ce4daa05a65d7dc46b270f4eda33947f, type: 3}
     menuOrder: 124
@@ -842,8 +842,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk1.prefab
-    visualPrefab: {fileID: 2170183881831946398, guid: c93ad474fb5ccdc4ea041ff840d2cc37, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_segment_mk1/vertical_belt_segment_mk1.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: d757b5d4cf4e7f94180188655916da34, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk1"
     icon: {fileID: 21300000, guid: 5b8f0e1b54d122c4cb5956396eeb42ce, type: 3}
     menuOrder: 131
@@ -861,8 +861,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk2.prefab
-    visualPrefab: {fileID: 4950480565365963600, guid: ffbdfc7250a0122458278a47b7741a59, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_segment_mk2/vertical_belt_segment_mk2.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 069944e504abc374ea4c3e9321322c6d, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk2"
     icon: {fileID: 21300000, guid: ec898dbb678be3445b2924f98e73ad9a, type: 3}
     menuOrder: 132
@@ -880,8 +880,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk3.prefab
-    visualPrefab: {fileID: 3340782413726316499, guid: 0cec2e3db679b7b458a8bd7852b7c0b8, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_segment_mk3/vertical_belt_segment_mk3.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: aef552b3e88f63c45b036fff83d917e4, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk3"
     icon: {fileID: 21300000, guid: 27c8aca8d9b2f5c43a1ec83f33e30ec8, type: 3}
     menuOrder: 133
@@ -899,8 +899,8 @@ MonoBehaviour:
     footprintHeight: 1
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/VerticalBeltSegmentMk4.prefab
-    visualPrefab: {fileID: 2980616878522348748, guid: 15303e1a7d66cad489a1f40dfdeff6c2, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/vertical_belt_segment_mk4/vertical_belt_segment_mk4.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: f55d881df72438241b5927b2cda734c6, type: 3}
     displayName: "\u5782\u76F4\u4F20\u9001\u8282\u70B9 Mk4"
     icon: {fileID: 21300000, guid: 8d00d5606124cc64f994c0b2910c93e5, type: 3}
     menuOrder: 134
@@ -918,8 +918,8 @@ MonoBehaviour:
     footprintHeight: 3
     isRectangle: 1
     footprintBitmap: 
-    visualPrefabPath: Assets/Prefabs/Buildings/TestMachineM.prefab
-    visualPrefab: {fileID: 210000, guid: fe6055f407864a38bd1a339b42c3b921, type: 3}
+    visualPrefabPath: Assets/Art/Buildings/test_machine_m/test_machine_m.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: 3811ae5107079554a835f074f0de1bb9, type: 3}
     displayName: "\u6D4B\u8BD5\u673A\u5668M"
     icon: {fileID: 21300000, guid: feaad6a9f302d99439208a760d1ed65a, type: 3}
     menuOrder: 350

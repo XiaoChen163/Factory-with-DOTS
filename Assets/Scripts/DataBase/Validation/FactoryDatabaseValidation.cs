@@ -12,7 +12,9 @@ public static class FactoryDatabaseValidation
             throw new InvalidDataException("Factory database is missing required generated rows.");
         HashSet<ushort> items = new HashSet<ushort>();
         foreach (var item in source.items)
+        {
             Require(item.id != 0 && items.Add(item.id) && item.maxStack > 0, "Invalid or duplicate item.");
+        }
         HashSet<ushort> machines = new HashSet<ushort>();
         foreach (var machine in source.machineTypes)
             Require(machine.id != 0 && machines.Add(machine.id), "Invalid or duplicate machine type.");

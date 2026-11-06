@@ -272,8 +272,8 @@ CSV 保存后，Editor 导入器会校验跨表引用、稳定 ID、端口和配
 
 ### 6. 自动图标渲染烘焙
 
-图标管线直接从 `Assets/Prefabs/Items` 和 `Assets/Prefabs/Buildings` 中的表现
-Prefab 渲染透明背景 Sprite，输出到：
+图标管线直接从建筑表和物品表的 `model_path` 引用的 FBX 模型
+渲染透明背景 Sprite，输出到：
 
 ```text
 Assets/Art/Icons/Items
@@ -282,9 +282,9 @@ Assets/Art/Icons/Buildings
 
 管线由以下部分组成：
 
-- `FactoryIconRenderer`：创建隔离预览场景、相机和灯光并渲染 Prefab；
+- `FactoryIconRenderer`：创建隔离预览场景、相机和灯光并渲染模型；
 - `FactoryIconBakeSettings`：统一控制分辨率、视角、光照和构图边距；
-- `FactoryIconBakeManifest`：记录 Prefab 依赖哈希、设置和 Baker 版本；
+- `FactoryIconBakeManifest`：记录模型依赖哈希、设置和 Baker 版本；
 - `FactoryIconBakePostprocessor`：资源变化后排队执行增量烘焙；
 - `FactoryIconBaker`：只重建变更项，配置 Sprite 导入参数，并刷新数据绑定。
 

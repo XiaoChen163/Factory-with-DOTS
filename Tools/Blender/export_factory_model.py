@@ -1,7 +1,7 @@
 """Blender 4.1: --background --python this.py -- source.blend output_dir addon_repo
 
 Exports the current evaluated static meshes and plugin JSON without saving the blend.
-The fixed FBX preset is paired with FactoryBuildingModelPipeline.Configure.
+The fixed FBX preset is paired with FactoryModelPipeline.Configure.
 """
 import sys
 import json

@@ -116,6 +116,53 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void BuildingInput_HidesFbxHierarchyUntilPoolReuseRestoresEveryMesh()
+        {
+            CreateGrid();
+            CreateItemCatalog();
+            CreatePool(IronOre);
+            Entity item = CreateItemWithVisualState(IronOre);
+            EntityManager.AddComponentData(item, LocalTransform.Identity);
+            Entity child = EntityManager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld));
+            Entity leaf = EntityManager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld));
+            Entity sibling = EntityManager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld));
+            EntityManager.AddComponentData(child, new Parent { Value = item });
+            EntityManager.AddComponentData(leaf, new Parent { Value = child });
+            EntityManager.AddComponentData(sibling, new Parent { Value = item });
+            var linked = EntityManager.AddBuffer<LinkedEntityGroup>(item);
+            foreach (Entity member in new[] { item, child, leaf, sibling }) linked.Add(new LinkedEntityGroup { Value = member });
+            Entity belt = CreateBelt(new GridCell(0, 0, 0), East, item, 1f);
+            CreateInputOwner(new GridCell(0, 0, 0));
+            Entity outputBelt = CreateBelt(new GridCell(5, 0, 0), East);
+            Entity outputOwner = CreateOutputOwner(new GridCell(5, 0, 0));
+            var outputPort = EntityManager.GetBuffer<ItemOutputPortCurrent>(outputOwner)[0];
+            outputPort.Value.Enabled = 0;
+            var outputPorts = EntityManager.GetBuffer<ItemOutputPortCurrent>(outputOwner);
+            outputPorts[0] = outputPort;
+
+            UpdateTransferTick();
+
+            Assert.That(EntityManager.GetComponentData<BeltState>(belt).CurrentItem, Is.EqualTo(Entity.Null));
+            foreach (Entity member in new[] { item, child, leaf, sibling })
+                Assert.That(EntityManager.HasComponent<DisableRendering>(member), Is.True, "Pooled FBX child meshes must disappear with their logical item.");
+            // No following item arrives to mask the last returned model.
+            UpdateTransferTick();
+            Assert.That(EntityManager.IsComponentEnabled<Item>(item), Is.False);
+            foreach (Entity member in new[] { child, leaf, sibling })
+                Assert.That(EntityManager.HasComponent<DisableRendering>(member), Is.True);
+
+            outputPort.Value.Enabled = 1;
+            outputPorts = EntityManager.GetBuffer<ItemOutputPortCurrent>(outputOwner);
+            outputPorts[0] = outputPort;
+            UpdateTransferTick();
+
+            Assert.That(EntityManager.GetComponentData<BeltState>(outputBelt).CurrentItem, Is.EqualTo(item));
+            Assert.That(EntityManager.IsComponentEnabled<Item>(item), Is.True);
+            foreach (Entity member in new[] { item, child, leaf, sibling })
+                Assert.That(EntityManager.HasComponent<DisableRendering>(member), Is.False, "Reused FBX meshes must become visible again.");
+        }
+
+        [Test]
         public void VisualCaptureSystem_SamplesLatestTransportPosition()
         {
             Entity item = CreateItemWithVisualState(IronOre);

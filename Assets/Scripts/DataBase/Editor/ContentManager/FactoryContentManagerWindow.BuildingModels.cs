@@ -13,28 +13,26 @@ public sealed partial class FactoryContentManagerWindow
         var modelField = new ObjectField("FBX 模型") { name = "building-model", objectType = typeof(GameObject), allowSceneObjects = false, value = data.model != null && AssetDatabase.GetAssetPath(data.model).EndsWith(".fbx", StringComparison.OrdinalIgnoreCase) ? data.model : null };
         modelField.RegisterValueChangedCallback(e =>
         {
-            if (Run(() => { if (e.newValue != null) FactoryBuildingModelPipeline.Configure(AssetDatabase.GetAssetPath(e.newValue)); draft.SetBuildingModel(key, e.newValue as GameObject); }))
+            if (Run(() => { if (e.newValue != null) FactoryModelPipeline.Configure(AssetDatabase.GetAssetPath(e.newValue)); draft.SetBuildingModel(key, e.newValue as GameObject); }))
             { DrawDetail(); UpdateModified(); }
             else modelField.SetValueWithoutNotify(e.previousValue);
         });
         detail.Add(modelField);
-        string pair = FactoryBuildingModelPipeline.Pair(data);
+        string pair = FactoryModelPipeline.Pair(data);
         detail.Add(new Label(pair == null ? "未找到 JSON 配对 FBX，可手动选择。" : "配对 FBX：" + pair));
         var import = new Button(() => BuildingAction(() =>
         {
             string path = pair ?? EditorUtility.OpenFilePanel("导入建筑 FBX（连同同目录纹理）", "", "fbx");
-            if (!string.IsNullOrEmpty(path)) draft.SetBuildingModel(key, FactoryBuildingModelPipeline.Import(key, path, data.model));
+            if (!string.IsNullOrEmpty(path)) draft.SetBuildingModel(key, FactoryModelPipeline.Import(key, path, data.model));
         })) { text = pair == null ? "从外部导入 FBX…" : "导入配对 FBX", name = "building-import-fbx" };
         detail.Add(import);
         if (pair != null) detail.Add(new Button(() => BuildingAction(() =>
         {
             string path = EditorUtility.OpenFilePanel("手动选择建筑 FBX", "", "fbx");
-            if (!string.IsNullOrEmpty(path)) draft.SetBuildingModel(key, FactoryBuildingModelPipeline.Import(key, path, data.model));
+            if (!string.IsNullOrEmpty(path)) draft.SetBuildingModel(key, FactoryModelPipeline.Import(key, path, data.model));
         })) { text = "选择其他 FBX…" });
-        var materials = new Button(() => FactoryBuildingMaterialWindow.Open(data.model)) { text = "材质映射与 URP 适配", name = "building-materials" };
+        var materials = new Button(() => FactoryModelMaterialWindow.Open(data.model)) { text = "材质映射与 URP 适配", name = "building-materials" };
         materials.SetEnabled(data.model != null && AssetDatabase.GetAssetPath(data.model).EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)); detail.Add(materials);
-        if (data.model != null && !AssetDatabase.GetAssetPath(data.model).EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-            detail.Add(new HelpBox("当前使用旧版程序生成模型。选择或导入 FBX 后直接替换引用。", HelpBoxMessageType.Info));
         detail.Add(new HelpBox("选择或导入 FBX 后，保存草稿即可用于建造，无需生成 Prefab。传送带需包含唯一命名的 Connection Edge East / North / West / South 和 Direction Triangle 网格子物体；允许分组嵌套。", HelpBoxMessageType.Info));
     }
 

@@ -1,7 +1,7 @@
-id,key,name_key,max_stack,category,prefab_key
-1,iron_ore,铁矿,64,Ore,iron_ore
-2,iron_ingot,铁锭,64,Ingot,iron_ingot
-3,test_a,红色物品A,64,Component,test_a
-4,test_b,绿色物品B,64,Component,test_b
-5,test_c,蓝色物品C,64,Component,test_c
-6,test_d,黄色物品D,64,Component,test_d
+id,key,name_key,max_stack,category,model_path,icon_key
+1,iron_ore,铁矿,64,Ore,Assets/Art/Items/iron_ore/iron_ore.fbx,IronOre
+2,iron_ingot,铁锭,64,Ingot,Assets/Art/Items/iron_ingot/iron_ingot.fbx,IronIngot
+3,test_a,红色物品A,64,Component,Assets/Art/Items/test_a/test_a.fbx,TestA
+4,test_b,绿色物品B,64,Component,Assets/Art/Items/test_b/test_b.fbx,TestB
+5,test_c,蓝色物品C,64,Component,Assets/Art/Items/test_c/test_c.fbx,TestC
+6,test_d,黄色物品D,64,Component,Assets/Art/Items/test_d/test_d.fbx,TestD

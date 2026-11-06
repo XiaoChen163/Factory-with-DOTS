@@ -25,9 +25,9 @@
 
 ## 自定义图标
 
-在 `Assets/Settings/FactoryIconBakeSettings.asset` 的 `overrides` 中添加对应建筑 prefab：
+在 `Assets/Settings/FactoryIconBakeSettings.asset` 的 `overrides` 中添加对应建筑 FBX：
 
-- `prefab`：需要配置图标的实际建筑 prefab。
+- `prefab`：需要配置图标的实际建筑 FBX。
 - `customIcon`：可直接指定现有 Sprite，烘焙管线不会写入或覆盖该图片。
 - `iconPrefab`：可指定专门用于图标的模型；仍自动渲染到原建筑对应的图标 PNG。
 - 两者都不指定时继续自动渲染建筑自身模型；同时指定时优先使用 `customIcon`。
@@ -35,10 +35,7 @@
 
 建筑等级 CSV 的可选 `icon_key` 仍可直接引用其他图标，非空时优先于上述默认回退。空值与未配置一致。
 
-四个等级的组合图标模型位于 `Assets/Prefabs/IconSources/VerticalBeltMk1.prefab`～`VerticalBeltMk4.prefab`，
-由入口、中间段、出口的真实 prefab 组成，不会替换运行时建筑模型。
-使用 `Factory/Assets/Rebuild Vertical Belt Catalog Icons` 可重建组合图标模型、图标和数据库，
-`Factory/Icons/Bake Changed` 则只增量更新需要重新生成的图片。
+四个等级的组合图标模型位于 `Assets/Art/IconSources/VerticalBeltMk1/VerticalBeltMk1.fbx` 至 `VerticalBeltMk4/VerticalBeltMk4.fbx`，由入口、中间段、出口的网格组成，不会替换运行时模型。可使用 `Tools/Blender/generate_placeholder_fbx.py` 重建，`Factory/Icons/Bake Changed` 增量更新图标。
 
 ## 实现与验证
 

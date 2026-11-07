@@ -9,6 +9,21 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: Gray
     second: {fileID: 2100000, guid: 9c087f03bd857214982667fc4fc23143, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Item_iron_ingot_Metal
+    second: {fileID: 2100000, guid: 4ed2e575bf1732c46b5a12e5620842c3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Item_iron_ingot_MetalDark
+    second: {fileID: 2100000, guid: 0139c7a7b80f3a04a9b406cccd322824, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Item_iron_ingot_MetalLight
+    second: {fileID: 2100000, guid: d4ce70e02a4f418489d97f28631fb8df, type: 2}
   materials:
     materialImportMode: 1
     materialName: 0

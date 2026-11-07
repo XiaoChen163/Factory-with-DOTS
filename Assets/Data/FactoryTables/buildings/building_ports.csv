@@ -50,3 +50,9 @@ testMachine,Input,1,-1,1,1,0,,
 testMachine,Input,2,-1,0,1,0,,
 testMachine,Output,0,3,2,1,0,1,1
 testMachine,Output,1,3,0,1,0,2,2
+generator,Input,0,-1,1,1,0,,
+stamping_press,Input,0,-1,1,1,0,,
+stamping_press,Output,0,3,1,1,0,1,1
+assembly_machine,Input,0,-1,0,1,0,,
+assembly_machine,Input,1,-1,2,1,0,,
+assembly_machine,Output,0,3,1,1,0,1,1

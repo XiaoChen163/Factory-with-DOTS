@@ -7,6 +7,26 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: Item_iron_ore_Basalt
+    second: {fileID: 2100000, guid: e2a8a9677315d0f4daccc5865755ea17, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Item_iron_ore_BasaltLight
+    second: {fileID: 2100000, guid: 4d59a7efdeb77fe44b6a7a4ea468953a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Item_iron_ore_ExposedIron
+    second: {fileID: 2100000, guid: 1b89490b447fa064eb77f33d9bf7918a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Item_iron_ore_Hematite
+    second: {fileID: 2100000, guid: fc19e354f7734da4caff7bac85081c69, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: Orange
     second: {fileID: 2100000, guid: 8ffeed4bb3e4ae2448002217d84ebe44, type: 2}
   materials:

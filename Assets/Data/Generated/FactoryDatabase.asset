@@ -68,12 +68,79 @@ MonoBehaviour:
     model: {fileID: 919132149155446097, guid: b025aa1fd889e504ebb17c0686fb563f, type: 3}
     iconKey: TestD
     icon: {fileID: 21300000, guid: 2846773377b4e5648a2dd0dd85c2bb0d, type: 3}
+  - id: 7
+    key: copper_ore
+    nameKey: "\u94DC\u77FF"
+    maxStack: 64
+    category: 1
+    modelPath: Assets/Art/Items/copper_ore/copper_ore.fbx
+    model: {fileID: 919132149155446097, guid: b3aa9ed4b47938f47821cbc66f680116, type: 3}
+    iconKey: copper_ore
+    icon: {fileID: 21300000, guid: 57bc3290d93019745a644bd353ae69bf, type: 3}
+  - id: 8
+    key: copper_ingot
+    nameKey: "\u94DC\u952D"
+    maxStack: 64
+    category: 2
+    modelPath: Assets/Art/Items/copper_ingot/copper_ingot.fbx
+    model: {fileID: 919132149155446097, guid: 04c9892e1f0614c46b8ea7bdb6dcd185, type: 3}
+    iconKey: copper_ingot
+    icon: {fileID: 21300000, guid: 9a75c065ad322844a9e32063ef26df78, type: 3}
+  - id: 9
+    key: copper_wire
+    nameKey: "\u94DC\u7EBF"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/copper_wire/copper_wire.fbx
+    model: {fileID: 919132149155446097, guid: 2f0a65f4ec2878844842ff9a3c5ec293, type: 3}
+    iconKey: copper_wire
+    icon: {fileID: 21300000, guid: 4f19ec4b8b2f4de48a95b34d7aa59b36, type: 3}
+  - id: 10
+    key: iron_nail
+    nameKey: "\u94C1\u9489"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_nail/iron_nail.fbx
+    model: {fileID: 919132149155446097, guid: 73278d42cd3b3d547ba23c39aabc3c3e, type: 3}
+    iconKey: iron_nail
+    icon: {fileID: 21300000, guid: b5df4009806129d4ebcf8faa26c3c188, type: 3}
+  - id: 11
+    key: iron_plate
+    nameKey: "\u94C1\u677F"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_plate/iron_plate.fbx
+    model: {fileID: 919132149155446097, guid: 1ea68dd48dc6e8b4684c252ce05d30d0, type: 3}
+    iconKey: iron_plate
+    icon: {fileID: 21300000, guid: 0b2b8d8ca9a7ea24cb419c97fd5f52f5, type: 3}
+  - id: 12
+    key: iron_gear
+    nameKey: "\u94C1\u9F7F\u8F6E"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_gear/iron_gear.fbx
+    model: {fileID: 919132149155446097, guid: b7abd658086453642a699d55568bed28, type: 3}
+    iconKey: iron_gear
+    icon: {fileID: 21300000, guid: 72f3105ca26bc7345ba59052eb275f17, type: 3}
+  - id: 13
+    key: iron_pipe
+    nameKey: "\u94C1\u7BA1"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_pipe/iron_pipe.fbx
+    model: {fileID: 919132149155446097, guid: 678cc854cf949a346bad827c03ec638d, type: 3}
+    iconKey: iron_pipe
+    icon: {fileID: 21300000, guid: 431a2c1cef3895442a56f64cbadb7090, type: 3}
   machineTypes:
   - id: 1
-    key: mining
+    key: assembly
   - id: 2
-    key: smelting
+    key: mining
   - id: 3
+    key: smelting
+  - id: 4
+    key: stamping
+  - id: 5
     key: test_machine_m
   buildings:
   - id: 1
@@ -284,7 +351,7 @@ MonoBehaviour:
     displayName: "\u77FF\u673A"
     icon: {fileID: 21300000, guid: 20da7f8b07af01742ba8f98442c763c5, type: 3}
     menuOrder: 200
-    machineTypeId: 1
+    machineTypeId: 2
     beltTier: 0
     cellsPerSecond: 0
     storageSlotCount: 0
@@ -357,7 +424,7 @@ MonoBehaviour:
     displayName: "\u7194\u7089"
     icon: {fileID: 21300000, guid: aebb22e899058fc46baad2286cc74bb8, type: 3}
     menuOrder: 300
-    machineTypeId: 2
+    machineTypeId: 3
     beltTier: 0
     cellsPerSecond: 0
     storageSlotCount: 0
@@ -923,7 +990,7 @@ MonoBehaviour:
     displayName: "\u6D4B\u8BD5\u673A\u5668M"
     icon: {fileID: 21300000, guid: feaad6a9f302d99439208a760d1ed65a, type: 3}
     menuOrder: 350
-    machineTypeId: 3
+    machineTypeId: 5
     beltTier: 0
     cellsPerSecond: 0
     storageSlotCount: 0
@@ -978,7 +1045,7 @@ MonoBehaviour:
     displayName: "\u6D4B\u8BD5\u673A\u5668"
     icon: {fileID: 21300000, guid: 98c800d5aabe7c241b1e0e662c424c22, type: 3}
     menuOrder: 351
-    machineTypeId: 3
+    machineTypeId: 5
     beltTier: 0
     cellsPerSecond: 0
     storageSlotCount: 0
@@ -1031,74 +1098,431 @@ MonoBehaviour:
       size: {x: 2.8, y: 1, z: 2.8}
       radius: 0
       height: 0
+  - id: 28
+    key: generator
+    kind: 4
+    footprintWidth: 3
+    footprintHeight: 3
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Art/Buildings/generator/generator.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: f26e13a435c4ca947aedb9d80a947ba5, type: 3}
+    displayName: "\u53D1\u7535\u673A"
+    icon: {fileID: 21300000, guid: 7b3493dd1942c064fbc4737d872f1f49, type: 3}
+    menuOrder: 301
+    machineTypeId: 0
+    beltTier: 0
+    cellsPerSecond: 0
+    storageSlotCount: 1
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      number: 0
+      outputSlot: 0
+      cellOffset: {x: -1, y: 1}
+      direction: {x: 1, y: 0}
+    colliders:
+    - name: UC_Alternator
+      type: Cylinder
+      axis: Y
+      position: {x: 0.87, y: 1.29, z: 0.1}
+      rotation: {x: -0.5, y: -0.5, z: -0.5, w: 0.5}
+      size: {x: 0, y: 0, z: 0}
+      radius: 0.7
+      height: 1.07
+    - name: UC_Engine
+      type: Box
+      axis: 
+      position: {x: -0.53, y: 1.49, z: 0.1}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 1.53, y: 1.8, z: 2}
+      radius: 0
+      height: 0
+    - name: UC_Foundation
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.3, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 2.9, y: 0.6, z: 2.9}
+      radius: 0
+      height: 0
+    - name: UC_Junction
+      type: Box
+      axis: 
+      position: {x: 0.82, y: 2.06, z: 0.1}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.8, y: 0.56, z: 0.87}
+      radius: 0
+      height: 0
+    - name: UC_Stack
+      type: Cylinder
+      axis: Y
+      position: {x: -0.6, y: 2.89, z: 0.69}
+      rotation: {x: 0, y: 1, z: 0, w: 0.000000075}
+      size: {x: 0, y: 0, z: 0}
+      radius: 0.27
+      height: 1.02
+  - id: 29
+    key: stamping_press
+    kind: 2
+    footprintWidth: 3
+    footprintHeight: 3
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Art/Buildings/stamping_press/stamping_press.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: c675b6ebc5f236a4d8a58b8a5d5d111c, type: 3}
+    displayName: "\u51B2\u538B\u673A"
+    icon: {fileID: 21300000, guid: b353a2419d99069479c660fdec50acaf, type: 3}
+    menuOrder: 302
+    machineTypeId: 4
+    beltTier: 0
+    cellsPerSecond: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      number: 0
+      outputSlot: 0
+      cellOffset: {x: -1, y: 1}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 0
+      number: 1
+      outputSlot: 1
+      cellOffset: {x: 3, y: 1}
+      direction: {x: 1, y: 0}
+    colliders:
+    - name: UC_Bolster
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.87, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 1.9, y: 0.55, z: 2.05}
+      radius: 0
+      height: 0
+    - name: UC_Crosshead
+      type: Box
+      axis: 
+      position: {x: 0, y: 3.2, z: 0.22}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 2.18, y: 0.64, z: 1.55}
+      radius: 0
+      height: 0
+    - name: UC_Flywheel
+      type: Cylinder
+      axis: Y
+      position: {x: 1.27, y: 2.86, z: 0.22}
+      rotation: {x: -0.5, y: -0.5, z: -0.5, w: 0.5}
+      size: {x: 0, y: 0, z: 0}
+      radius: 0.71
+      height: 0.31
+    - name: UC_Foundation
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.3, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 2.9, y: 0.6, z: 2.9}
+      radius: 0
+      height: 0
+    - name: UC_Ram
+      type: Box
+      axis: 
+      position: {x: 0, y: 2.16, z: 0.04}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 1.68, y: 1, z: 1.06}
+      radius: 0
+      height: 0
+    - name: UC_Rear cabinet
+      type: Box
+      axis: 
+      position: {x: 0, y: 2.55, z: 0.99}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 1.4, y: 1.15, z: 0.43}
+      radius: 0
+      height: 0
+    - name: UC_Upright_-1.02
+      type: Box
+      axis: 
+      position: {x: -1.02, y: 1.85, z: 0.22}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.47, y: 2.5, z: 1.4}
+      radius: 0
+      height: 0
+    - name: UC_Upright_1.02
+      type: Box
+      axis: 
+      position: {x: 1.02, y: 1.85, z: 0.22}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.47, y: 2.5, z: 1.4}
+      radius: 0
+      height: 0
+  - id: 30
+    key: assembly_machine
+    kind: 2
+    footprintWidth: 3
+    footprintHeight: 3
+    isRectangle: 1
+    footprintBitmap: 
+    visualPrefabPath: Assets/Art/Buildings/assembly_machine/assembly_machine.fbx
+    visualPrefab: {fileID: 919132149155446097, guid: ace3e04bf85fe854f914642298be389d, type: 3}
+    displayName: "\u88C5\u914D\u673A"
+    icon: {fileID: 21300000, guid: 6961ab369fe75064f84d4c13ebda56b0, type: 3}
+    menuOrder: 303
+    machineTypeId: 1
+    beltTier: 0
+    cellsPerSecond: 0
+    storageSlotCount: 0
+    rampRiseHeightUnits: 0
+    ports:
+    - type: 0
+      index: 0
+      number: 0
+      outputSlot: 0
+      cellOffset: {x: -1, y: 0}
+      direction: {x: 1, y: 0}
+    - type: 0
+      index: 1
+      number: 0
+      outputSlot: 0
+      cellOffset: {x: -1, y: 2}
+      direction: {x: 1, y: 0}
+    - type: 1
+      index: 0
+      number: 1
+      outputSlot: 1
+      cellOffset: {x: 3, y: 1}
+      direction: {x: 1, y: 0}
+    colliders:
+    - name: UC_Cabinet
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.95, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 2.61, y: 0.7, z: 2.61}
+      radius: 0
+      height: 0
+    - name: UC_Foundation
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.3, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 2.9, y: 0.6, z: 2.9}
+      radius: 0
+      height: 0
+    - name: UC_Gantry_-1.19_-1.19
+      type: Box
+      axis: 
+      position: {x: -1.19, y: 2.38, z: -1.19}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.25, y: 2.22, z: 0.25}
+      radius: 0
+      height: 0
+    - name: UC_Gantry_-1.19_1.19
+      type: Box
+      axis: 
+      position: {x: -1.19, y: 2.38, z: 1.19}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.25, y: 2.22, z: 0.25}
+      radius: 0
+      height: 0
+    - name: UC_Gantry_1.19_-1.19
+      type: Box
+      axis: 
+      position: {x: 1.19, y: 2.38, z: -1.19}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.25, y: 2.22, z: 0.25}
+      radius: 0
+      height: 0
+    - name: UC_Gantry_1.19_1.19
+      type: Box
+      axis: 
+      position: {x: 1.19, y: 2.38, z: 1.19}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.25, y: 2.22, z: 0.25}
+      radius: 0
+      height: 0
+    - name: UC_Robotics
+      type: Box
+      axis: 
+      position: {x: -0.66628796, y: 2.1630018, z: 0.65327}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.8700001, y: 1.19, z: 1.08}
+      radius: 0
+      height: 0
+    - name: UC_Robotics.001
+      type: Box
+      axis: 
+      position: {x: 0.68059033, y: 2.1630018, z: 0.59327}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.8700001, y: 1.19, z: 0.99000007}
+      radius: 0
+      height: 0
+    - name: UC_Roof
+      type: Box
+      axis: 
+      position: {x: 0, y: 3.4, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 2.58, y: 0.2, z: 2.58}
+      radius: 0
+      height: 0
   recipes:
   - id: 1
+    key: mine_copper
+    machineTypeKey: mining
+    machineTypeId: 2
+    durationSeconds: 1
+    inputs: []
+    outputs:
+    - itemKey: copper_ore
+      itemId: 7
+      count: 1
+  - id: 2
     key: mine_iron
     machineTypeKey: mining
-    machineTypeId: 1
+    machineTypeId: 2
     durationSeconds: 1
     inputs: []
     outputs:
     - itemKey: iron_ore
       itemId: 1
       count: 1
-  - id: 2
+  - id: 3
     key: mine_test_a
     machineTypeKey: mining
-    machineTypeId: 1
+    machineTypeId: 2
     durationSeconds: 1
     inputs: []
     outputs:
     - itemKey: test_a
       itemId: 3
       count: 1
-  - id: 3
+  - id: 4
     key: mine_test_b
     machineTypeKey: mining
-    machineTypeId: 1
+    machineTypeId: 2
     durationSeconds: 1
     inputs: []
     outputs:
     - itemKey: test_b
       itemId: 4
       count: 1
-  - id: 4
+  - id: 5
     key: mine_test_c
     machineTypeKey: mining
-    machineTypeId: 1
+    machineTypeId: 2
     durationSeconds: 1
     inputs: []
     outputs:
     - itemKey: test_c
       itemId: 5
       count: 1
-  - id: 5
+  - id: 6
     key: mine_test_d
     machineTypeKey: mining
-    machineTypeId: 1
+    machineTypeId: 2
     durationSeconds: 1
     inputs: []
     outputs:
     - itemKey: test_d
       itemId: 6
       count: 1
-  - id: 6
+  - id: 7
+    key: smelt_copper
+    machineTypeKey: smelting
+    machineTypeId: 3
+    durationSeconds: 2
+    inputs:
+    - itemKey: copper_ore
+      itemId: 7
+      count: 1
+    outputs:
+    - itemKey: copper_ingot
+      itemId: 8
+      count: 1
+  - id: 8
     key: smelt_iron
     machineTypeKey: smelting
-    machineTypeId: 2
+    machineTypeId: 3
     durationSeconds: 2
     inputs:
     - itemKey: iron_ore
       itemId: 1
-      count: 2
+      count: 1
     outputs:
     - itemKey: iron_ingot
       itemId: 2
       count: 1
-  - id: 7
+  - id: 9
+    key: stamp_copper_wire
+    machineTypeKey: stamping
+    machineTypeId: 4
+    durationSeconds: 1
+    inputs:
+    - itemKey: copper_ingot
+      itemId: 8
+      count: 1
+    outputs:
+    - itemKey: copper_wire
+      itemId: 9
+      count: 2
+  - id: 10
+    key: stamp_iron_gear
+    machineTypeKey: stamping
+    machineTypeId: 4
+    durationSeconds: 1
+    inputs:
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+    outputs:
+    - itemKey: iron_gear
+      itemId: 12
+      count: 1
+  - id: 11
+    key: stamp_iron_nail
+    machineTypeKey: stamping
+    machineTypeId: 4
+    durationSeconds: 1
+    inputs:
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+    outputs:
+    - itemKey: iron_nail
+      itemId: 10
+      count: 4
+  - id: 12
+    key: stamp_iron_pipe
+    machineTypeKey: stamping
+    machineTypeId: 4
+    durationSeconds: 1
+    inputs:
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+    outputs:
+    - itemKey: iron_pipe
+      itemId: 13
+      count: 1
+  - id: 13
+    key: stamp_iron_plate
+    machineTypeKey: stamping
+    machineTypeId: 4
+    durationSeconds: 1
+    inputs:
+    - itemKey: iron_ingot
+      itemId: 2
+      count: 1
+    outputs:
+    - itemKey: iron_plate
+      itemId: 11
+      count: 1
+  - id: 14
     key: test_abc_to_d
     machineTypeKey: test_machine_m
-    machineTypeId: 3
+    machineTypeId: 5
     durationSeconds: 1
     inputs:
     - itemKey: test_a

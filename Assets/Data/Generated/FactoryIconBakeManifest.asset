@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: FactoryIconBakeManifest
   m_EditorClassIdentifier: Factory.Editor::FactoryIconBakeManifest
   entries:
+  - prefabPath: building:assembly_machine
+    outputPath: Assets/Art/Icons/Buildings/assembly_machine.png
+    hash: 9bc5ea34767906c36d07116ad3d57b2b
   - prefabPath: building:belt_mk1
     outputPath: Assets/Art/Icons/Buildings/Belt.png
     hash: a36b80cec40cd2293d037168d9aca89f
@@ -31,6 +34,9 @@ MonoBehaviour:
   - prefabPath: building:furnace
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
     hash: 64d1ca198f381b8d06ba5ca885db602d
+  - prefabPath: building:generator
+    outputPath: Assets/Art/Icons/Buildings/generator.png
+    hash: cdd2308a61fa0e52c6190432a34ec3ef
   - prefabPath: building:merger
     outputPath: Assets/Art/Icons/Buildings/Merger.png
     hash: c2247c98533e2966370a5c6520675e26
@@ -49,6 +55,9 @@ MonoBehaviour:
   - prefabPath: building:splitter
     outputPath: Assets/Art/Icons/Buildings/Splitter.png
     hash: 748d3403a8ddc4dc4684f0eac6554792
+  - prefabPath: building:stamping_press
+    outputPath: Assets/Art/Icons/Buildings/stamping_press.png
+    hash: f2c397963dc059665227e569c1ea3882
   - prefabPath: building:storage
     outputPath: Assets/Art/Icons/Buildings/Storage.png
     hash: 60a6b6c3efcdfc83c84b95cad79ce8d7
@@ -94,12 +103,33 @@ MonoBehaviour:
   - prefabPath: building:vertical_belt_segment_mk4
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk4.png
     hash: e40a249a41c70b07861e05b9e068df30
+  - prefabPath: item:copper_ingot
+    outputPath: Assets/Art/Icons/Items/copper_ingot.png
+    hash: e50a6c361956274205c0f06628b8b198
+  - prefabPath: item:copper_ore
+    outputPath: Assets/Art/Icons/Items/copper_ore.png
+    hash: 8977424faf4d746db8d6228e152b8eb2
+  - prefabPath: item:copper_wire
+    outputPath: Assets/Art/Icons/Items/copper_wire.png
+    hash: 31a83cf1ba991ae7d7d5680096080197
+  - prefabPath: item:iron_gear
+    outputPath: Assets/Art/Icons/Items/iron_gear.png
+    hash: 0a32434566a25d0d8f5968114ebd39b2
   - prefabPath: item:iron_ingot
     outputPath: Assets/Art/Icons/Items/IronIngot.png
-    hash: e6dd5e629ed004278058d898335461cf
+    hash: 7e774f29a55e795d6b664aebefd41372
+  - prefabPath: item:iron_nail
+    outputPath: Assets/Art/Icons/Items/iron_nail.png
+    hash: eb0cad5466523a8e1935cb7601eb4ee4
   - prefabPath: item:iron_ore
     outputPath: Assets/Art/Icons/Items/IronOre.png
-    hash: ce6db4ba21b62d677352a680a0039cd7
+    hash: d2b38101c4c42e39bc43d8b064ed6081
+  - prefabPath: item:iron_pipe
+    outputPath: Assets/Art/Icons/Items/iron_pipe.png
+    hash: 81de827c9747bec48a745d1f444bb5f7
+  - prefabPath: item:iron_plate
+    outputPath: Assets/Art/Icons/Items/iron_plate.png
+    hash: 8980e977dbbb9ce84c6c65ecc10a1e99
   - prefabPath: item:test_a
     outputPath: Assets/Art/Icons/Items/TestA.png
     hash: 10c782dbb7b744065508ce79410362b4

@@ -5,7 +5,6 @@ belt_mk3,Assets/Art/Icons/Buildings/BeltMk3.png,102
 belt_mk4,Assets/Art/Icons/Buildings/BeltMk4.png,103
 miner,Assets/Art/Icons/Buildings/Miner.png,200
 furnace,Assets/Art/Icons/Buildings/Furnace.png,300
-test_machine_m,Assets/Art/Icons/Buildings/TestMachineM.png,350
 storage,Assets/Art/Icons/Buildings/Storage.png,400
 merger,Assets/Art/Icons/Buildings/Merger.png,500
 splitter,Assets/Art/Icons/Buildings/Splitter.png,600
@@ -25,7 +24,6 @@ vertical_belt_segment_mk1,Assets/Art/Icons/Buildings/VerticalBeltSegmentMk1.png,
 vertical_belt_segment_mk2,Assets/Art/Icons/Buildings/VerticalBeltSegmentMk2.png,132
 vertical_belt_segment_mk3,Assets/Art/Icons/Buildings/VerticalBeltSegmentMk3.png,133
 vertical_belt_segment_mk4,Assets/Art/Icons/Buildings/VerticalBeltSegmentMk4.png,134
-testMachine,Assets/Art/Icons/Buildings/testMachine.png,351
 generator,Assets/Art/Icons/Buildings/Generator.png,301
 stamping_press,Assets/Art/Icons/Buildings/StampingPress.png,302
 assembly_machine,Assets/Art/Icons/Buildings/AssemblyMachine.png,303

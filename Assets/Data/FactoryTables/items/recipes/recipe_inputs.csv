@@ -1,7 +1,4 @@
 recipe_key,item_key,count
-test_abc_to_d,test_a,1
-test_abc_to_d,test_b,1
-test_abc_to_d,test_c,1
 smelt_iron,iron_ore,1
 smelt_copper,copper_ore,1
 stamp_iron_plate,iron_ingot,1

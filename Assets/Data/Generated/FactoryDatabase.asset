@@ -32,42 +32,6 @@ MonoBehaviour:
     model: {fileID: 919132149155446097, guid: 7712298fbc9e3e64fa87b4c516350f0e, type: 3}
     iconKey: IronIngot
     icon: {fileID: 21300000, guid: aafebab3a53944b4ea554efc6ca042a4, type: 3}
-  - id: 3
-    key: test_a
-    nameKey: "\u7EA2\u8272\u7269\u54C1A"
-    maxStack: 64
-    category: 3
-    modelPath: Assets/Art/Items/test_a/test_a.fbx
-    model: {fileID: 919132149155446097, guid: aafa17aaa59c23c4d95a8ab9a4381986, type: 3}
-    iconKey: TestA
-    icon: {fileID: 21300000, guid: 43b7418465fc2ee45814ce84fe7aa471, type: 3}
-  - id: 4
-    key: test_b
-    nameKey: "\u7EFF\u8272\u7269\u54C1B"
-    maxStack: 64
-    category: 3
-    modelPath: Assets/Art/Items/test_b/test_b.fbx
-    model: {fileID: 919132149155446097, guid: 18be2eb2701ef3240bb976be8d5dec5d, type: 3}
-    iconKey: TestB
-    icon: {fileID: 21300000, guid: 713b544a8b0bf7f4dbd46c30221101d8, type: 3}
-  - id: 5
-    key: test_c
-    nameKey: "\u84DD\u8272\u7269\u54C1C"
-    maxStack: 64
-    category: 3
-    modelPath: Assets/Art/Items/test_c/test_c.fbx
-    model: {fileID: 919132149155446097, guid: d013f5e2b6ac9424a8bd44a2f47a0ca9, type: 3}
-    iconKey: TestC
-    icon: {fileID: 21300000, guid: 37e003ba40fb1ce4986e58eb93b3b912, type: 3}
-  - id: 6
-    key: test_d
-    nameKey: "\u9EC4\u8272\u7269\u54C1D"
-    maxStack: 64
-    category: 3
-    modelPath: Assets/Art/Items/test_d/test_d.fbx
-    model: {fileID: 919132149155446097, guid: b025aa1fd889e504ebb17c0686fb563f, type: 3}
-    iconKey: TestD
-    icon: {fileID: 21300000, guid: 2846773377b4e5648a2dd0dd85c2bb0d, type: 3}
   - id: 7
     key: copper_ore
     nameKey: "\u94DC\u77FF"
@@ -979,126 +943,6 @@ MonoBehaviour:
     ports: []
     colliders: []
   - id: 26
-    key: test_machine_m
-    kind: 2
-    footprintWidth: 3
-    footprintHeight: 3
-    isRectangle: 1
-    footprintBitmap: 
-    visualPrefabPath: Assets/Art/Buildings/test_machine_m/test_machine_m.fbx
-    visualPrefab: {fileID: 919132149155446097, guid: 3811ae5107079554a835f074f0de1bb9, type: 3}
-    displayName: "\u6D4B\u8BD5\u673A\u5668M"
-    icon: {fileID: 21300000, guid: feaad6a9f302d99439208a760d1ed65a, type: 3}
-    menuOrder: 350
-    machineTypeId: 5
-    beltTier: 0
-    cellsPerSecond: 0
-    storageSlotCount: 0
-    rampRiseHeightUnits: 0
-    ports:
-    - type: 0
-      index: 0
-      number: 0
-      outputSlot: 0
-      cellOffset: {x: -1, y: 0}
-      direction: {x: 1, y: 0}
-    - type: 0
-      index: 1
-      number: 0
-      outputSlot: 0
-      cellOffset: {x: -1, y: 1}
-      direction: {x: 1, y: 0}
-    - type: 0
-      index: 2
-      number: 0
-      outputSlot: 0
-      cellOffset: {x: -1, y: 2}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 0
-      number: 1
-      outputSlot: 1
-      cellOffset: {x: 3, y: 0}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 1
-      number: 2
-      outputSlot: 2
-      cellOffset: {x: 3, y: 1}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 2
-      number: 3
-      outputSlot: 3
-      cellOffset: {x: 3, y: 2}
-      direction: {x: 1, y: 0}
-    colliders: []
-  - id: 27
-    key: testMachine
-    kind: 2
-    footprintWidth: 3
-    footprintHeight: 3
-    isRectangle: 1
-    footprintBitmap: 
-    visualPrefabPath: Assets/Art/Buildings/testMachine/testMachine.fbx
-    visualPrefab: {fileID: 919132149155446097, guid: 07b5451f34e729a4c96322f3e456476c, type: 3}
-    displayName: "\u6D4B\u8BD5\u673A\u5668"
-    icon: {fileID: 21300000, guid: 98c800d5aabe7c241b1e0e662c424c22, type: 3}
-    menuOrder: 351
-    machineTypeId: 5
-    beltTier: 0
-    cellsPerSecond: 0
-    storageSlotCount: 0
-    rampRiseHeightUnits: 0
-    ports:
-    - type: 0
-      index: 0
-      number: 0
-      outputSlot: 0
-      cellOffset: {x: -1, y: 2}
-      direction: {x: 1, y: 0}
-    - type: 0
-      index: 1
-      number: 0
-      outputSlot: 0
-      cellOffset: {x: -1, y: 1}
-      direction: {x: 1, y: 0}
-    - type: 0
-      index: 2
-      number: 0
-      outputSlot: 0
-      cellOffset: {x: -1, y: 0}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 0
-      number: 1
-      outputSlot: 1
-      cellOffset: {x: 3, y: 2}
-      direction: {x: 1, y: 0}
-    - type: 1
-      index: 1
-      number: 2
-      outputSlot: 2
-      cellOffset: {x: 3, y: 0}
-      direction: {x: 1, y: 0}
-    colliders:
-    - name: "UnityCollider_Box_\u67F1\u4F53"
-      type: Box
-      axis: 
-      position: {x: 0.6, y: 1.9398389, z: 0.75}
-      rotation: {x: 0, y: 0, z: 0, w: 1}
-      size: {x: 0.51898265, y: 2, z: 0.51898265}
-      radius: 0
-      height: 0
-    - name: "UnityCollider_Box_\u7ACB\u65B9\u4F53"
-      type: Box
-      axis: 
-      position: {x: 0, y: 0.5, z: 0}
-      rotation: {x: 0, y: 0, z: 0, w: 1}
-      size: {x: 2.8, y: 1, z: 2.8}
-      radius: 0
-      height: 0
-  - id: 28
     key: generator
     kind: 4
     footprintWidth: 3
@@ -1163,7 +1007,7 @@ MonoBehaviour:
       size: {x: 0, y: 0, z: 0}
       radius: 0.27
       height: 1.02
-  - id: 29
+  - id: 27
     key: stamping_press
     kind: 2
     footprintWidth: 3
@@ -1258,7 +1102,7 @@ MonoBehaviour:
       size: {x: 0.47, y: 2.5, z: 1.4}
       radius: 0
       height: 0
-  - id: 30
+  - id: 28
     key: assembly_machine
     kind: 2
     footprintWidth: 3
@@ -1389,46 +1233,6 @@ MonoBehaviour:
       itemId: 1
       count: 1
   - id: 3
-    key: mine_test_a
-    machineTypeKey: mining
-    machineTypeId: 2
-    durationSeconds: 1
-    inputs: []
-    outputs:
-    - itemKey: test_a
-      itemId: 3
-      count: 1
-  - id: 4
-    key: mine_test_b
-    machineTypeKey: mining
-    machineTypeId: 2
-    durationSeconds: 1
-    inputs: []
-    outputs:
-    - itemKey: test_b
-      itemId: 4
-      count: 1
-  - id: 5
-    key: mine_test_c
-    machineTypeKey: mining
-    machineTypeId: 2
-    durationSeconds: 1
-    inputs: []
-    outputs:
-    - itemKey: test_c
-      itemId: 5
-      count: 1
-  - id: 6
-    key: mine_test_d
-    machineTypeKey: mining
-    machineTypeId: 2
-    durationSeconds: 1
-    inputs: []
-    outputs:
-    - itemKey: test_d
-      itemId: 6
-      count: 1
-  - id: 7
     key: smelt_copper
     machineTypeKey: smelting
     machineTypeId: 3
@@ -1441,7 +1245,7 @@ MonoBehaviour:
     - itemKey: copper_ingot
       itemId: 8
       count: 1
-  - id: 8
+  - id: 4
     key: smelt_iron
     machineTypeKey: smelting
     machineTypeId: 3
@@ -1454,7 +1258,7 @@ MonoBehaviour:
     - itemKey: iron_ingot
       itemId: 2
       count: 1
-  - id: 9
+  - id: 5
     key: stamp_copper_wire
     machineTypeKey: stamping
     machineTypeId: 4
@@ -1467,7 +1271,7 @@ MonoBehaviour:
     - itemKey: copper_wire
       itemId: 9
       count: 2
-  - id: 10
+  - id: 6
     key: stamp_iron_gear
     machineTypeKey: stamping
     machineTypeId: 4
@@ -1480,7 +1284,7 @@ MonoBehaviour:
     - itemKey: iron_gear
       itemId: 12
       count: 1
-  - id: 11
+  - id: 7
     key: stamp_iron_nail
     machineTypeKey: stamping
     machineTypeId: 4
@@ -1493,7 +1297,7 @@ MonoBehaviour:
     - itemKey: iron_nail
       itemId: 10
       count: 4
-  - id: 12
+  - id: 8
     key: stamp_iron_pipe
     machineTypeKey: stamping
     machineTypeId: 4
@@ -1506,7 +1310,7 @@ MonoBehaviour:
     - itemKey: iron_pipe
       itemId: 13
       count: 1
-  - id: 13
+  - id: 9
     key: stamp_iron_plate
     machineTypeKey: stamping
     machineTypeId: 4
@@ -1518,23 +1322,4 @@ MonoBehaviour:
     outputs:
     - itemKey: iron_plate
       itemId: 11
-      count: 1
-  - id: 14
-    key: test_abc_to_d
-    machineTypeKey: test_machine_m
-    machineTypeId: 5
-    durationSeconds: 1
-    inputs:
-    - itemKey: test_a
-      itemId: 3
-      count: 1
-    - itemKey: test_b
-      itemId: 4
-      count: 1
-    - itemKey: test_c
-      itemId: 5
-      count: 1
-    outputs:
-    - itemKey: test_d
-      itemId: 6
       count: 1

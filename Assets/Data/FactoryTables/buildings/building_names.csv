@@ -5,7 +5,6 @@ belt_mk3,zh-CN,传送带 Mk3
 belt_mk4,zh-CN,传送带 Mk4
 miner,zh-CN,矿机
 furnace,zh-CN,熔炉
-test_machine_m,zh-CN,测试机器M
 storage,zh-CN,仓库
 merger,zh-CN,合流器
 splitter,zh-CN,分流器
@@ -25,7 +24,6 @@ vertical_belt_segment_mk1,zh-CN,垂直传送节点 Mk1
 vertical_belt_segment_mk2,zh-CN,垂直传送节点 Mk2
 vertical_belt_segment_mk3,zh-CN,垂直传送节点 Mk3
 vertical_belt_segment_mk4,zh-CN,垂直传送节点 Mk4
-testMachine,zh-CN,测试机器
 generator,zh-CN,发电机
 stamping_press,zh-CN,冲压机
 assembly_machine,zh-CN,装配机

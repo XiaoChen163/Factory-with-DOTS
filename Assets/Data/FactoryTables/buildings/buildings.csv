@@ -24,8 +24,6 @@ vertical_belt_segment_mk1,VerticalBeltSegment,1,1,Assets/Art/Buildings/vertical_
 vertical_belt_segment_mk2,VerticalBeltSegment,1,1,Assets/Art/Buildings/vertical_belt_segment_mk2/vertical_belt_segment_mk2.fbx,true,
 vertical_belt_segment_mk3,VerticalBeltSegment,1,1,Assets/Art/Buildings/vertical_belt_segment_mk3/vertical_belt_segment_mk3.fbx,true,
 vertical_belt_segment_mk4,VerticalBeltSegment,1,1,Assets/Art/Buildings/vertical_belt_segment_mk4/vertical_belt_segment_mk4.fbx,true,
-test_machine_m,Processor,3,3,Assets/Art/Buildings/test_machine_m/test_machine_m.fbx,true,
-testMachine,Processor,3,3,Assets/Art/Buildings/testMachine/testMachine.fbx,true,
 generator,Storage,3,3,Assets/Art/Buildings/generator/generator.fbx,true,
 stamping_press,Processor,3,3,Assets/Art/Buildings/stamping_press/stamping_press.fbx,true,
 assembly_machine,Processor,3,3,Assets/Art/Buildings/assembly_machine/assembly_machine.fbx,true,

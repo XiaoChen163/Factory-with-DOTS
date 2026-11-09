@@ -546,7 +546,15 @@ MonoBehaviour:
       outputSlot: 0
       cellOffset: {x: 1, y: 0}
       direction: {x: 1, y: 0}
-    colliders: []
+    colliders:
+    - name: UC_LogisticsHousing
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.46, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.96, y: 0.92, z: 0.96}
+      radius: 0
+      height: 0
   - id: 9
     key: splitter
     kind: 6
@@ -589,7 +597,15 @@ MonoBehaviour:
       outputSlot: 0
       cellOffset: {x: 0, y: -1}
       direction: {x: 0, y: -1}
-    colliders: []
+    colliders:
+    - name: UC_LogisticsHousing
+      type: Box
+      axis: 
+      position: {x: 0, y: 0.46, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      size: {x: 0.96, y: 0.92, z: 0.96}
+      radius: 0
+      height: 0
   - id: 10
     key: foundation
     kind: 7

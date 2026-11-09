@@ -19,6 +19,36 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: Purple
     second: {fileID: 2100000, guid: d4dda0bc231d396458b2f029a400ac8b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Splitter_EdgeSteel
+    second: {fileID: 2100000, guid: 46f9a527bcc3ff646a3f6f01e6ea95dc, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Splitter_Graphite
+    second: {fileID: 2100000, guid: 8e119d868d29ece41bc8899a6f6e3be5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Splitter_InputOrange
+    second: {fileID: 2100000, guid: 3113081cc8e9a38429c08321a15f723e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Splitter_Interior
+    second: {fileID: 2100000, guid: 5c9d5c71c56f8764d8fb2cdd64025482, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Splitter_OutputMint
+    second: {fileID: 2100000, guid: 7fa0a4363d99c3746b90532411b02936, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Splitter_RollerSteel
+    second: {fileID: 2100000, guid: 7788eefb07edaa547bb257de91a5e1f2, type: 2}
   materials:
     materialImportMode: 1
     materialName: 0

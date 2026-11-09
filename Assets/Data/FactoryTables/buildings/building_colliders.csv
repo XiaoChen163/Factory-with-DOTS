@@ -38,3 +38,5 @@ assembly_machine,UC_Gantry_1.19_1.19,Box,1.19,2.38,1.19,0,0,0,1,0.25,2.22,0.25,0
 assembly_machine,UC_Robotics,Box,-0.666287959,2.16300178,0.65327,0,0,0,1,0.8700001,1.19,1.08,0,0
 assembly_machine,UC_Robotics.001,Box,0.680590332,2.16300178,0.59327,0,0,0,1,0.8700001,1.19,0.990000069,0,0
 assembly_machine,UC_Roof,Box,0,3.4,0,0,0,0,1,2.58,0.2,2.58,0,0
+merger,UC_LogisticsHousing,Box,0,0.46,0,0,0,0,1,0.96,0.92,0.96,0,0
+splitter,UC_LogisticsHousing,Box,0,0.46,0,0,0,0,1,0.96,0.92,0.96,0,0

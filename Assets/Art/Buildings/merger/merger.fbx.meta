@@ -17,6 +17,36 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: Merger_EdgeSteel
+    second: {fileID: 2100000, guid: 7dbe42c86a3e1194aa878275a5740179, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Merger_Graphite
+    second: {fileID: 2100000, guid: 9088405745ec73845949ee2c57864aaf, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Merger_InputOrange
+    second: {fileID: 2100000, guid: d3c3c93f14473964c95a300af785142f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Merger_Interior
+    second: {fileID: 2100000, guid: 426964bfe5ff94843be814310a9f7294, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Merger_OutputMint
+    second: {fileID: 2100000, guid: d0fc5f104c071e2448619dd89dd1c04d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Merger_RollerSteel
+    second: {fileID: 2100000, guid: 0ca277c0aa6af0c4a9da5bf6c95c8763, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: Orange
     second: {fileID: 2100000, guid: 8ffeed4bb3e4ae2448002217d84ebe44, type: 2}
   materials:

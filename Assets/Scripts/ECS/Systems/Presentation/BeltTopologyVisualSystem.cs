@@ -568,6 +568,16 @@ public partial class BeltTopologyVisualSystem : SystemBase
 
     private void SetVisible(Entity visualEntity, bool visible)
     {
+        QueueVisibility(visualEntity, visible);
+        if (visualEntity == Entity.Null || !EntityManager.Exists(visualEntity) ||
+            !EntityManager.HasBuffer<BeltEdgeRenderEntity>(visualEntity))
+            return;
+        foreach (var renderer in EntityManager.GetBuffer<BeltEdgeRenderEntity>(visualEntity, true))
+            QueueVisibility(renderer.Value, visible);
+    }
+
+    private void QueueVisibility(Entity visualEntity, bool visible)
+    {
         if (visualEntity == Entity.Null ||
             !EntityManager.Exists(visualEntity))
         {

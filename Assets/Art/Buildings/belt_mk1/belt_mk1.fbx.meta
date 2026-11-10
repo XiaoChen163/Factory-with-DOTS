@@ -7,6 +7,26 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: Belt_Fasteners
+    second: {fileID: 2100000, guid: 4187a7bf806d1364cb8089bd58925cc0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Belt_Frame
+    second: {fileID: 2100000, guid: 98e4cabd58dd1314eb175bd2c6902fb8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Belt_Surface
+    second: {fileID: 2100000, guid: a22a9830fc9792947aba18b8723503d0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Belt_Tier1_Orange
+    second: {fileID: 2100000, guid: 3fa7da753e90b004f9f2f00393066fa3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: Gray
     second: {fileID: 2100000, guid: 9c087f03bd857214982667fc4fc23143, type: 2}
   - first:

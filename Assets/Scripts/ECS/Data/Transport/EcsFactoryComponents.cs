@@ -41,6 +41,13 @@ public struct BeltState : IComponentData
     public float Progress;
 }
 
+// Multi-material MeshRenderers bake into additional render entities. Keep their
+// references on the named rail so visibility follows the entire assembly.
+public struct BeltEdgeRenderEntity : IBufferElementData
+{
+    public Entity Value;
+}
+
 public struct BeltVisualParts : IComponentData
 {
     public Entity EastEdge;

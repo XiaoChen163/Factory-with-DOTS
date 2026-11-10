@@ -1,5 +1,7 @@
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Entities.Hybrid.Baking;
+using Unity.Rendering;
 
 [TemporaryBakingType]
 public struct BeltVisualPartsBakingData : IBufferElementData
@@ -65,6 +67,10 @@ public partial class BeltVisualPartsBakingSystem : SystemBase
                 TriangleBindRotation = mapping.TriangleBindRotation,
                 TriangleParentRotation = mapping.TriangleParentRotation
             };
+            MapEdgeRenderEntities(mapping.EastEdge);
+            MapEdgeRenderEntities(mapping.NorthEdge);
+            MapEdgeRenderEntities(mapping.WestEdge);
+            MapEdgeRenderEntities(mapping.SouthEdge);
             if (EntityManager.HasComponent<BeltVisualParts>(
                     mapping.Prefab))
             {
@@ -75,6 +81,21 @@ public partial class BeltVisualPartsBakingSystem : SystemBase
                 EntityManager.AddComponentData(mapping.Prefab, parts);
             }
         }
+    }
+
+    private void MapEdgeRenderEntities(Entity edge)
+    {
+        // Snapshot before AddBuffer, which invalidates live buffer references.
+        using var additional = EntityManager.HasBuffer<AdditionalEntitiesBakingData>(edge)
+            ? EntityManager.GetBuffer<AdditionalEntitiesBakingData>(edge, true).ToNativeArray(Allocator.Temp)
+            : new NativeArray<AdditionalEntitiesBakingData>(0, Allocator.Temp);
+        var renderers = EntityManager.HasBuffer<BeltEdgeRenderEntity>(edge)
+            ? EntityManager.GetBuffer<BeltEdgeRenderEntity>(edge)
+            : EntityManager.AddBuffer<BeltEdgeRenderEntity>(edge);
+        renderers.Clear();
+        foreach (var entry in additional)
+            if (entry.Value != edge && EntityManager.HasComponent<RenderBounds>(entry.Value))
+                renderers.Add(new BeltEdgeRenderEntity { Value = entry.Value });
     }
 
     private bool IsValid(in BeltVisualPartsBakingData mapping)

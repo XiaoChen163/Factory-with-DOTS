@@ -5,7 +5,7 @@
 
 ## 1. 目标与范围
 
-本计划承接 [未来计划](Future-Plan.md)，以 [玩法构想对话](FactoryFPS-ChatLog.md) 为设计背景，遵循 [玩法开发框架](../Guide/Gameplay-Development-Framework.md)。任务编号表示建议实施顺序，不代表工期承诺。
+本计划承接 [未来计划](Archive/Future-Plan.md)，以 [玩法构想对话](FactoryFPS-ChatLog.md) 为设计背景，遵循 [玩法开发框架](../Guide/Gameplay-Development-Framework.md)。任务编号表示建议实施顺序，不代表工期承诺。
 
 美术风格确定为 **Low Poly**，资产范围与交付要求见 [Demo 美术资产清单](Art-Assets-List.md)。每种加工机器必须具备空闲和工作两种动画状态，空闲允许完全静止；对应 ECS 表现支持列入 A07a，属于首个 Demo 的必需交付。
 

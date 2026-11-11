@@ -337,10 +337,12 @@ public static class FactoryPerformanceScenarioLayout
     private static FactoryPerformanceScenarioDefinition CreateProducerConsumer(
         int laneCount)
     {
-        Builder builder = new Builder(new int2(22, laneCount * 3 - 1));
+        // Three-cell machines use the middle row for their input/output ports.
+        // Keep eight belts per link and one empty row between production lanes.
+        Builder builder = new Builder(new int2(25, laneCount * 4 - 1));
         for (int lane = 0; lane < laneCount; lane++)
         {
-            int y = lane * 3;
+            int y = lane * 4;
             builder.AddProcessor(
                 BuildingKind.Processor,
                 new int2(0, y),
@@ -349,26 +351,26 @@ public static class FactoryPerformanceScenarioLayout
                 "mine_iron");
 
             List<int2> oreRoute = new List<int2>(8);
-            for (int x = 2; x <= 9; x++)
+            for (int x = 3; x <= 10; x++)
             {
-                oreRoute.Add(new int2(x, y));
+                oreRoute.Add(new int2(x, y + 1));
             }
             builder.AddBeltRoute(oreRoute, Mk4BeltKey, new int2(1, 0));
 
             builder.AddProcessor(
                 BuildingKind.Processor,
-                new int2(10, y),
+                new int2(11, y),
                 new int2(1, 0),
                 FurnaceKey,
                 "smelt_iron");
 
             List<int2> ingotRoute = new List<int2>(8);
-            for (int x = 12; x <= 19; x++)
+            for (int x = 14; x <= 21; x++)
             {
-                ingotRoute.Add(new int2(x, y));
+                ingotRoute.Add(new int2(x, y + 1));
             }
             builder.AddBeltRoute(ingotRoute, Mk4BeltKey, new int2(1, 0));
-            builder.AddStorage(new int2(20, y), new int2(1, 0));
+            builder.AddStorage(new int2(22, y), new int2(1, 0));
         }
 
         return builder.Build(
@@ -520,9 +522,10 @@ public static class FactoryPerformanceScenarioLayout
     private static FactoryPerformanceScenarioDefinition
         CreateBlockedSerpentine(int side)
     {
-        Builder builder = new Builder(new int2(side + 3, side));
+        // Leave room for the 3x3 storage and the slow belt at its middle port.
+        Builder builder = new Builder(new int2(side + 4, side + 1));
         List<int2> mainRoute = BuildSerpentine(
-            new int2(3, 0),
+            new int2(4, 0),
             side,
             side,
             true);
@@ -536,7 +539,7 @@ public static class FactoryPerformanceScenarioLayout
         }
 
         builder.AddBelt(
-            new int2(2, side - 1),
+            new int2(3, side - 1),
             new int2(-1, 0),
             Mk1BeltKey);
         builder.AddStorage(
@@ -757,10 +760,9 @@ public static class FactoryPerformanceScenarioLayout
 
         private void ReserveSquareBuilding(int2 anchor, BuildingKind kind)
         {
-            ReserveCell(new GridCell(anchor), kind);
-            ReserveCell(new GridCell(anchor + new int2(1, 0)), kind);
-            ReserveCell(new GridCell(anchor + new int2(0, 1)), kind);
-            ReserveCell(new GridCell(anchor + new int2(1, 1)), kind);
+            for (int z = 0; z < 3; z++)
+            for (int x = 0; x < 3; x++)
+                ReserveCell(new GridCell(anchor + new int2(x, z)), kind);
         }
     }
 }

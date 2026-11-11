@@ -41,7 +41,7 @@ Splitter 使用数据库中唯一的 `splitter_mk1`。
 
 ### Perf_4096_Mk4_Blocking
 
-- 默认网格：`67 × 64`
+- 默认网格：`68 × 65`，额外空间容纳 3×3 储物箱和入口尾带
 - 默认 4096 格四级传送带折叠为 `64 × 64`，初始全部满载
 - 可通过 `-factoryPerformanceScale` 设置主蛇形边长，默认 `64`，从 `2` 起无硬上限
 - 尾部连接 1 格一级传送带
@@ -88,6 +88,7 @@ Splitter 使用数据库中唯一的 `splitter_mk1`。
 - 默认 64 条相互独立的持续生产线
 - 可通过 `-factoryPerformanceScale` 设置生产线数，默认 `64`，从 `1` 起无硬上限
 - 每条为 `Miner → 8 Mk4 Belt → Furnace → 8 Mk4 Belt → Storage`
+- 建筑占地为 3×3，传送带对齐建筑中间端口，生产线之间留一行空格；默认网格 `25 × 255`
 - 合计 128 个 Processor、64 个 Storage 和 1024 格四级传送带
 - Miner 持续产生铁矿石，Furnace 冶炼铁锭，Storage 持续消费运输实体
 

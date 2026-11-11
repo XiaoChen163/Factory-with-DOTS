@@ -1,11 +1,66 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEditor;
 using Unity.Mathematics;
 
 namespace Factory.Tests
 {
     public sealed class PerformanceScenarioLayoutTests
     {
+        [TestCase(FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1, 2)]
+        [TestCase(FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1, 8)]
+        [TestCase(FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1, 64)]
+        [TestCase(FactoryPerformanceScenario.ProducerConsumer, 1)]
+        [TestCase(FactoryPerformanceScenario.ProducerConsumer, 4)]
+        [TestCase(FactoryPerformanceScenario.ProducerConsumer, 64)]
+        public void MachineScenarios_FitCurrentFootprintsAndConnectEveryMachinePort(
+            FactoryPerformanceScenario scenario, int scale)
+        {
+            var definition = FactoryPerformanceScenarioLayout.Create(scenario, scale);
+            var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(
+                FactoryDatabaseCsvImporter.DatabaseAssetPath);
+            Assert.That(database, Is.Not.Null);
+            // Read source tables so an art/data change cannot hide behind a stale cache.
+            var buildings = FactoryDatabaseCsvImporter.ReadBuildingDefinitions(
+                "Assets/Data/FactoryTables/buildings", database.machineTypes);
+            var byKey = new Dictionary<string, FactoryBuildingDefinitionRow>();
+            foreach (var building in buildings) byKey.Add(building.key, building);
+            var occupied = new HashSet<GridCell>();
+            var belts = new Dictionary<GridCell, FactoryPerformancePlacement>();
+            foreach (var placement in definition.Placements)
+            {
+                var building = byKey[placement.BuildingKey];
+                var size = new int2(building.footprintWidth, building.footprintHeight);
+                foreach (var offset in FactoryBuildingFootprintUtility.GetOccupiedOffsets(building))
+                {
+                    var cell = placement.Cell + EcsGridUtility.RotateBuildingCellOffset(
+                        offset, size, placement.QuarterTurns);
+                    Assert.That(cell.X, Is.InRange(0, definition.GridSize.x - 1), placement.BuildingKey);
+                    Assert.That(cell.Z, Is.InRange(0, definition.GridSize.y - 1), placement.BuildingKey);
+                    Assert.That(occupied.Add(cell), Is.True, "Overlapping footprint at " + cell);
+                }
+                if (placement.Kind == BuildingKind.Belt) belts.Add(placement.Cell, placement);
+            }
+            foreach (var placement in definition.Placements)
+            {
+                if (placement.Kind != BuildingKind.Processor && placement.Kind != BuildingKind.Storage)
+                    continue;
+                var building = byKey[placement.BuildingKey];
+                var size = new int2(building.footprintWidth, building.footprintHeight);
+                foreach (var port in building.ports)
+                {
+                    var cell = placement.Cell + EcsGridUtility.RotateBuildingCellOffset(
+                        new int2(port.cellOffset.x, port.cellOffset.y), size, placement.QuarterTurns);
+                    Assert.That(belts.TryGetValue(cell, out var belt), Is.True,
+                        placement.BuildingKey + " has an unconnected port at " + cell);
+                    var direction = EcsGridUtility.Rotate(
+                        new int2(port.direction.x, port.direction.y), placement.QuarterTurns);
+                    Assert.That(EcsGridUtility.Rotate(new int2(1, 0), belt.QuarterTurns),
+                        Is.EqualTo(direction), "Belt faces away from machine port at " + cell);
+                }
+            }
+        }
+
         [Test]
         public void HalfLoadedScenario_UsesMinimal64By64Grid()
         {
@@ -87,7 +142,7 @@ namespace Factory.Tests
                 FactoryPerformanceScenarioLayout.Create(
                     FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1);
 
-            Assert.That(definition.GridSize, Is.EqualTo(new int2(67, 64)));
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(68, 65)));
             Assert.That(definition.Scale, Is.EqualTo(64));
             Assert.That(definition.ScaleUnit, Is.EqualTo("side"));
             Assert.That(definition.BeltCount, Is.EqualTo(4097));
@@ -107,7 +162,7 @@ namespace Factory.Tests
                     FactoryPerformanceScenario.Mk4SerpentineBlockedByMk1,
                     8);
 
-            Assert.That(definition.GridSize, Is.EqualTo(new int2(11, 8)));
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(12, 9)));
             Assert.That(definition.Scale, Is.EqualTo(8));
             Assert.That(definition.ScaleUnit, Is.EqualTo("side"));
             Assert.That(definition.BeltCount, Is.EqualTo(65));
@@ -246,7 +301,7 @@ namespace Factory.Tests
                 FactoryPerformanceScenarioLayout.Create(
                     FactoryPerformanceScenario.ProducerConsumer);
 
-            Assert.That(definition.GridSize, Is.EqualTo(new int2(22, 191)));
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(25, 255)));
             Assert.That(definition.Scale, Is.EqualTo(64));
             Assert.That(definition.ScaleUnit, Is.EqualTo("lanes"));
             Assert.That(definition.BeltCount, Is.EqualTo(1024));
@@ -267,7 +322,7 @@ namespace Factory.Tests
                     FactoryPerformanceScenario.ProducerConsumer,
                     4);
 
-            Assert.That(definition.GridSize, Is.EqualTo(new int2(22, 11)));
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(25, 15)));
             Assert.That(definition.Scale, Is.EqualTo(4));
             Assert.That(definition.ScaleUnit, Is.EqualTo("lanes"));
             Assert.That(definition.BeltCount, Is.EqualTo(64));
@@ -288,7 +343,7 @@ namespace Factory.Tests
                     FactoryPerformanceScenario.ProducerConsumer,
                     257);
 
-            Assert.That(definition.GridSize, Is.EqualTo(new int2(22, 770)));
+            Assert.That(definition.GridSize, Is.EqualTo(new int2(25, 1027)));
             Assert.That(definition.Scale, Is.EqualTo(257));
             Assert.That(definition.BeltCount, Is.EqualTo(4112));
             Assert.That(definition.MinerCount, Is.EqualTo(257));

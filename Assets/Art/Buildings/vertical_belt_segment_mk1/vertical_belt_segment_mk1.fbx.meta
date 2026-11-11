@@ -7,6 +7,31 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: Belt_Tier1_Orange
+    second: {fileID: 2100000, guid: 3fa7da753e90b004f9f2f00393066fa3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_Graphite
+    second: {fileID: 2100000, guid: 4cea91c42c544104191a7555f657549b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_Interior
+    second: {fileID: 2100000, guid: 778b8ca8251d47f4580a5830aaa032f5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_MachinedSteel
+    second: {fileID: 2100000, guid: 667153cfe0e81d84fa9906f6d6f198c6, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_Steel
+    second: {fileID: 2100000, guid: d7014439576bf8f41a0afe4f2df54011, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: Orange
     second: {fileID: 2100000, guid: 8ffeed4bb3e4ae2448002217d84ebe44, type: 2}
   - first:

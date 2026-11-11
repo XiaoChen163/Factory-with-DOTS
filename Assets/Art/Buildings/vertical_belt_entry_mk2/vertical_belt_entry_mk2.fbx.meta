@@ -7,8 +7,33 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: Belt_Tier2_Green
+    second: {fileID: 2100000, guid: 331b1917f1fbd1b4c8fecfd6cbfb8dda, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: Green
     second: {fileID: 2100000, guid: d31ce4c5a4d724a47b891c3c3cf41db0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_Graphite
+    second: {fileID: 2100000, guid: 4cea91c42c544104191a7555f657549b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_Interior
+    second: {fileID: 2100000, guid: 778b8ca8251d47f4580a5830aaa032f5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_MachinedSteel
+    second: {fileID: 2100000, guid: 667153cfe0e81d84fa9906f6d6f198c6, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lift_Steel
+    second: {fileID: 2100000, guid: d7014439576bf8f41a0afe4f2df54011, type: 2}
   materials:
     materialImportMode: 1
     materialName: 0

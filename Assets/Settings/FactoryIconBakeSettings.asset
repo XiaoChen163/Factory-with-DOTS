@@ -28,25 +28,25 @@ MonoBehaviour:
   - prefab: {fileID: 919132149155446097, guid: e1bcc2d5d7f92d149b99875dfb2920a7, type: 3}
     iconPrefab: {fileID: 919132149155446097, guid: 5e0ebadce7d3d96449f524981666337e, type: 3}
     customIcon: {fileID: 0}
-    viewDirection: {x: -1, y: -0.75, z: -1}
+    viewDirection: {x: 4, y: -2, z: 6}
     padding: 1.12
     centerOffset: {x: 0, y: 0, z: 0}
   - prefab: {fileID: 919132149155446097, guid: ee66aaafe7f19174693dd95679ffa26a, type: 3}
     iconPrefab: {fileID: 919132149155446097, guid: 556395dc77088684abc829616ebc0964, type: 3}
     customIcon: {fileID: 0}
-    viewDirection: {x: -1, y: -0.75, z: -1}
+    viewDirection: {x: 4, y: -2, z: 6}
     padding: 1.12
     centerOffset: {x: 0, y: 0, z: 0}
   - prefab: {fileID: 919132149155446097, guid: ae46fe327cd847f4793ba851448bde5f, type: 3}
     iconPrefab: {fileID: 919132149155446097, guid: 34899a0a16e40794c85aa662f7f1c5c8, type: 3}
     customIcon: {fileID: 0}
-    viewDirection: {x: -1, y: -0.75, z: -1}
+    viewDirection: {x: 4, y: -2, z: 6}
     padding: 1.12
     centerOffset: {x: 0, y: 0, z: 0}
   - prefab: {fileID: 919132149155446097, guid: fd931b21e38b91b438c2df00c7d785fc, type: 3}
     iconPrefab: {fileID: 919132149155446097, guid: 464ce42d1ad4cfd4ebbd74af75576906, type: 3}
     customIcon: {fileID: 0}
-    viewDirection: {x: -1, y: -0.75, z: -1}
+    viewDirection: {x: 4, y: -2, z: 6}
     padding: 1.12
     centerOffset: {x: 0, y: 0, z: 0}
   - prefab: {fileID: 919132149155446097, guid: 8810fb719ec2f0f41a6d71a330509bea, type: 3}

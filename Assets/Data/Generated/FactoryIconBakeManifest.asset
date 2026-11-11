@@ -15,112 +15,112 @@ MonoBehaviour:
   entries:
   - prefabPath: building:assembly_machine
     outputPath: Assets/Art/Icons/Buildings/assembly_machine.png
-    hash: 9bc5ea34767906c36d07116ad3d57b2b
+    hash: feee4d8ddd3a292bb840ea57f1809bda
   - prefabPath: building:belt_mk1
     outputPath: Assets/Art/Icons/Buildings/Belt.png
-    hash: a36b80cec40cd2293d037168d9aca89f
+    hash: 837c06db92aba4fd61148b656d8fcf21
   - prefabPath: building:belt_mk2
     outputPath: Assets/Art/Icons/Buildings/BeltMk2.png
-    hash: c223c46915e2c0aa02745fa9079f8835
+    hash: 648c11c1ae3ad1163c961db9e686d3f8
   - prefabPath: building:belt_mk3
     outputPath: Assets/Art/Icons/Buildings/BeltMk3.png
-    hash: d0697a3562b5455b758c0d210c38c3bf
+    hash: ea0bae7ea918d85891ae79af83ef3120
   - prefabPath: building:belt_mk4
     outputPath: Assets/Art/Icons/Buildings/BeltMk4.png
-    hash: a289b0f9f5eb9b26201ed8266552ee33
+    hash: aecdbf19f13ce857e7f427f9d06acff0
   - prefabPath: building:foundation
     outputPath: Assets/Art/Icons/Buildings/Foundation.png
-    hash: 974bd940acc84a6a807eb8140f937595
+    hash: dbe9c2f7197ce66fdd3908e5b760d60d
   - prefabPath: building:furnace
     outputPath: Assets/Art/Icons/Buildings/Furnace.png
-    hash: 64d1ca198f381b8d06ba5ca885db602d
+    hash: 949ceb8cf3c759b745fa0621d91208c5
   - prefabPath: building:generator
     outputPath: Assets/Art/Icons/Buildings/generator.png
-    hash: cdd2308a61fa0e52c6190432a34ec3ef
+    hash: c4cd19b27c047a88fd59e056b0542357
   - prefabPath: building:merger
     outputPath: Assets/Art/Icons/Buildings/Merger.png
-    hash: c2247c98533e2966370a5c6520675e26
+    hash: 40fef11f02fb1546ebc71c8d13a02c58
   - prefabPath: building:miner
     outputPath: Assets/Art/Icons/Buildings/Miner.png
-    hash: 688de68925e99cbbaed7125f2bd8bf98
+    hash: 9cdd86cbb6f2d7d695c497e80d632ec8
   - prefabPath: building:ramp_foundation_1_1
     outputPath: Assets/Art/Icons/Buildings/RampFoundation.png
-    hash: 27e47470c1bee5f3e63302dafe8d5185
+    hash: 7cc62739fcca0d95747d7c8fb90e17cc
   - prefabPath: building:ramp_foundation_1_2
     outputPath: Assets/Art/Icons/Buildings/RampFoundationHalf.png
-    hash: 8f28f9a97590b6fa415899baeda4f08b
+    hash: bb9506abc76c6266e9a91bb8bbf57581
   - prefabPath: building:ramp_foundation_1_4
     outputPath: Assets/Art/Icons/Buildings/RampFoundationQuarter.png
-    hash: c5c2d5e5aab28e2860a9fbe757423fc5
+    hash: 8db738e66cbbeb8c811172d80965f300
   - prefabPath: building:splitter
     outputPath: Assets/Art/Icons/Buildings/Splitter.png
-    hash: 748d3403a8ddc4dc4684f0eac6554792
+    hash: 70ec33ee3e2defa4fb2f7a1931c6e387
   - prefabPath: building:stamping_press
     outputPath: Assets/Art/Icons/Buildings/stamping_press.png
-    hash: f2c397963dc059665227e569c1ea3882
+    hash: 987639af9f0aab26814fe698a49efedb
   - prefabPath: building:storage
     outputPath: Assets/Art/Icons/Buildings/Storage.png
-    hash: 60a6b6c3efcdfc83c84b95cad79ce8d7
+    hash: 16194adf635f5a3e33df5cbe4d412876
   - prefabPath: building:vertical_belt_entry_mk1
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk1.png
-    hash: d4267c25991646b5f51eb394647da259
+    hash: f945057c10f5aa85800039e0727a6ccb
   - prefabPath: building:vertical_belt_entry_mk2
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk2.png
-    hash: d91bcd461b1ebaa1c82dd45ebe17df47
+    hash: 1220e2cf1abec2f1eb5a6d15c530c0c3
   - prefabPath: building:vertical_belt_entry_mk3
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk3.png
-    hash: 7e7d15ea2f51525709e7c2155ff0f925
+    hash: b9a8e714ff95279b6eacdb2c82322d09
   - prefabPath: building:vertical_belt_entry_mk4
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltEntryMk4.png
-    hash: 055e364ac95867ab2ef80b731c4cbb17
+    hash: c88e792fe1df0291d097d0c45ca287d2
   - prefabPath: building:vertical_belt_exit_mk1
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk1.png
-    hash: 0b188c607545cae038736d0ed0a44853
+    hash: aadf6feb1a55366e332db9de1e8cdf58
   - prefabPath: building:vertical_belt_exit_mk2
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk2.png
-    hash: b03da5260ba3eedbbc80ab1081d0fa69
+    hash: cbd35ff9adc7be18e54a18a2b21f395c
   - prefabPath: building:vertical_belt_exit_mk3
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk3.png
-    hash: 8ba472dfca7d85a89af8042f9d47e6de
+    hash: fa4951bf61b6ab746f65527205dab152
   - prefabPath: building:vertical_belt_exit_mk4
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltExitMk4.png
-    hash: 418fb681ac11a31fb8070c1afc128330
+    hash: e6956d6e5524d1002b7c77ff764815a4
   - prefabPath: building:vertical_belt_segment_mk1
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk1.png
-    hash: b9a3f1e42565416f7c514510b755a3ab
+    hash: e37b3d2650189b21e1aa4eb32741563c
   - prefabPath: building:vertical_belt_segment_mk2
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk2.png
-    hash: d13ba5b9156ee6b7fb7e9ce165717183
+    hash: 0211e4f59cbe6e3cbd9b27bbac0f901e
   - prefabPath: building:vertical_belt_segment_mk3
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk3.png
-    hash: f3614d64c0d8950f17ec04a3e39ac695
+    hash: 72078c550b513ba37ab6b855b4673937
   - prefabPath: building:vertical_belt_segment_mk4
     outputPath: Assets/Art/Icons/Buildings/VerticalBeltSegmentMk4.png
-    hash: e40a249a41c70b07861e05b9e068df30
+    hash: 2fc53043943056e1a23b18de3eb29ebe
   - prefabPath: item:copper_ingot
     outputPath: Assets/Art/Icons/Items/copper_ingot.png
-    hash: e50a6c361956274205c0f06628b8b198
+    hash: 802a17b46d517029420db61f87f8268a
   - prefabPath: item:copper_ore
     outputPath: Assets/Art/Icons/Items/copper_ore.png
-    hash: 8977424faf4d746db8d6228e152b8eb2
+    hash: a0c8e6562805533a929e48e1a9223c12
   - prefabPath: item:copper_wire
     outputPath: Assets/Art/Icons/Items/copper_wire.png
-    hash: 31a83cf1ba991ae7d7d5680096080197
+    hash: 910d4cdfcd956b162cf50aad8758c5dd
   - prefabPath: item:iron_gear
     outputPath: Assets/Art/Icons/Items/iron_gear.png
-    hash: 0a32434566a25d0d8f5968114ebd39b2
+    hash: ab1b686ccad928bce9189e0119b4bf03
   - prefabPath: item:iron_ingot
     outputPath: Assets/Art/Icons/Items/IronIngot.png
-    hash: 7e774f29a55e795d6b664aebefd41372
+    hash: eac8da0ff9f09d32aac68dee2d41c99b
   - prefabPath: item:iron_nail
     outputPath: Assets/Art/Icons/Items/iron_nail.png
-    hash: eb0cad5466523a8e1935cb7601eb4ee4
+    hash: fb729787ee7c7e3d699842ab735ee1d8
   - prefabPath: item:iron_ore
     outputPath: Assets/Art/Icons/Items/IronOre.png
-    hash: d2b38101c4c42e39bc43d8b064ed6081
+    hash: 96155d0d6596407bd25bec0c2003a5ef
   - prefabPath: item:iron_pipe
     outputPath: Assets/Art/Icons/Items/iron_pipe.png
-    hash: 81de827c9747bec48a745d1f444bb5f7
+    hash: 4dfb89f3b97362f0e974de18f54aad0d
   - prefabPath: item:iron_plate
     outputPath: Assets/Art/Icons/Items/iron_plate.png
-    hash: 8980e977dbbb9ce84c6c65ecc10a1e99
+    hash: d0129783158a3e7184eb64a30be8e3e6

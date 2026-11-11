@@ -11,6 +11,7 @@ public static class FactoryDatabaseValidation
         if (source == null || source.items == null || source.machineTypes == null ||
             source.buildings == null || source.recipes == null || source.buildings.Length == 0)
             throw new InvalidDataException("Factory database is missing required content rows.");
+        FactoryItemCapabilityValidation.Validate(source.items);
         Require(source.version > 0, "Invalid database version.");
         ValidateKeys(source.items.Select(i => i.key), "item");
         ValidateKeys(source.machineTypes.Select(m => m.key), "machine type");

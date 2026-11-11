@@ -113,7 +113,7 @@ namespace Factory.Tests
         [Test]
         public void NewItemAndRecipe_SaveReopenPreservesCountsBindingsAndOutputOrder()
         {
-            var backup = Object.Instantiate(FactoryDatabaseEditor.Load());
+            var backup = FactoryDatabaseEditor.CreateSnapshot(FactoryDatabaseEditor.Load());
             try
             {
                 EnsureEditingMachine();
@@ -123,7 +123,7 @@ namespace Factory.Tests
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Art/Items/test_a/test_a.fbx");
                 Assert.That(prefab, Is.Not.Null);
                 draft.SetItemValue(itemRow, "model_path", FactoryItemAssetBindings.ModelPath(prefab));
-                var icon = FactoryDatabaseEditor.BuildSpriteIndex(FactoryDatabaseEditor.ItemIconDirectory).Values.First();
+                var icon = backup.items.Select(i => i.icon).First(i => i != null);
                 draft.SetItemIcon(itemRow, icon);
                 int recipeRow = draft.AddRecipe();
                 draft.SetRecipeValue(recipeRow, "machine_type_key", "test_machine_m");

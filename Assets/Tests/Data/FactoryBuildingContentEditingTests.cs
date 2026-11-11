@@ -95,7 +95,7 @@ namespace Factory.Tests
         public void CompleteImport_SaveReopenAndDeleteKeepAssetConsistent()
         {
             const string key = "fixture_building";
-            var backup = Object.Instantiate(FactoryDatabaseEditor.Load());
+            var backup = FactoryDatabaseEditor.CreateSnapshot(FactoryDatabaseEditor.Load());
             byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);
             string modelPath = "Assets/Art/Buildings/furnace/furnace.fbx";
             string modelGuid = AssetDatabase.AssetPathToGUID(modelPath);

@@ -35,7 +35,7 @@ namespace Factory.Tests
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             draft.Load();
             var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseEditor.DatabaseAssetPath);
-            var databaseBackup = Object.Instantiate(database);
+            var databaseBackup = FactoryDatabaseEditor.CreateSnapshot(database);
             databaseBackup.name = database.name;
             try
             {
@@ -57,9 +57,7 @@ namespace Factory.Tests
             {
                 // Restore the loaded native asset through Unity rather than truncating
                 // its memory-mapped file while the editor still has it loaded.
-                EditorUtility.CopySerialized(databaseBackup, database);
-                EditorUtility.SetDirty(database);
-                AssetDatabase.SaveAssetIfDirty(database);
+                FactoryDatabaseEditor.Save(databaseBackup);
                 Object.DestroyImmediate(databaseBackup);
                 Object.DestroyImmediate(draft);
             }

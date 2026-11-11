@@ -21,6 +21,7 @@ public struct FactoryItemTableRow
     [UnityEngine.Serialization.FormerlySerializedAs("prefab")] public GameObject model;
     public string iconKey;
     public Sprite icon;
+    public ItemCapabilityDefinition[] capabilities;
 }
 
 [Serializable]
@@ -86,15 +87,42 @@ public struct FactoryBuildingDefinitionRow
     public FactoryColliderProxy[] colliders;
 }
 
-// Authoritative content asset. Edit through Factory > 内容管理器; Baking generates runtime Blobs.
+// Persistent roots reference domain libraries. Inline rows exist only for migration
+// and isolated editor/test snapshots; persistent roots leave them empty.
 public sealed class FactoryDatabaseAsset : ScriptableObject
 {
     [Min(1)] public int version = 1;
-    public FactoryItemTableRow[] items = Array.Empty<FactoryItemTableRow>();
-    public FactoryMachineTypeTableRow[] machineTypes =
-        Array.Empty<FactoryMachineTypeTableRow>();
-    public FactoryBuildingDefinitionRow[] buildings =
-        Array.Empty<FactoryBuildingDefinitionRow>();
-    public FactoryRecipeTableRow[] recipes =
-        Array.Empty<FactoryRecipeTableRow>();
+    public FactoryItemDatabaseAsset itemDatabase;
+    public FactoryRecipeDatabaseAsset recipeDatabase;
+    public FactoryBuildingDatabaseAsset buildingDatabase;
+
+    [SerializeField, HideInInspector, UnityEngine.Serialization.FormerlySerializedAs("items")]
+    private FactoryItemTableRow[] inlineItems = Array.Empty<FactoryItemTableRow>();
+    [SerializeField, HideInInspector, UnityEngine.Serialization.FormerlySerializedAs("recipes")]
+    private FactoryRecipeTableRow[] inlineRecipes = Array.Empty<FactoryRecipeTableRow>();
+    [SerializeField, HideInInspector, UnityEngine.Serialization.FormerlySerializedAs("buildings")]
+    private FactoryBuildingDefinitionRow[] inlineBuildings = Array.Empty<FactoryBuildingDefinitionRow>();
+    [SerializeField, HideInInspector, UnityEngine.Serialization.FormerlySerializedAs("machineTypes")]
+    private FactoryMachineTypeTableRow[] inlineMachines = Array.Empty<FactoryMachineTypeTableRow>();
+
+    public FactoryItemTableRow[] items { get => itemDatabase != null ? itemDatabase.items : inlineItems; set { if (itemDatabase != null) itemDatabase.items = value; else inlineItems = value; } }
+    public FactoryRecipeTableRow[] recipes { get => recipeDatabase != null ? recipeDatabase.recipes : inlineRecipes; set { if (recipeDatabase != null) recipeDatabase.recipes = value; else inlineRecipes = value; } }
+    public FactoryBuildingDefinitionRow[] buildings { get => buildingDatabase != null ? buildingDatabase.buildings : inlineBuildings; set { if (buildingDatabase != null) buildingDatabase.buildings = value; else inlineBuildings = value; } }
+    public FactoryMachineTypeTableRow[] machineTypes { get => buildingDatabase != null ? buildingDatabase.machineTypes : inlineMachines; set { if (buildingDatabase != null) buildingDatabase.machineTypes = value; else inlineMachines = value; } }
+
+    public void ClearInlineData()
+    {
+        inlineItems = Array.Empty<FactoryItemTableRow>(); inlineRecipes = Array.Empty<FactoryRecipeTableRow>();
+        inlineBuildings = Array.Empty<FactoryBuildingDefinitionRow>(); inlineMachines = Array.Empty<FactoryMachineTypeTableRow>();
+    }
+
+    [NonSerialized] public bool ownsInlineCapabilities;
+    private void OnDestroy()
+    {
+        if (!ownsInlineCapabilities) return;
+        var destroyed = new System.Collections.Generic.HashSet<ItemCapabilityDefinition>();
+        foreach (var item in inlineItems)
+            foreach (var capability in item.capabilities ?? Array.Empty<ItemCapabilityDefinition>())
+                if (capability != null && destroyed.Add(capability)) DestroyImmediate(capability);
+    }
 }

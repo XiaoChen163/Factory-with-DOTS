@@ -8,6 +8,7 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
 {
     [SerializeField] private FactoryDatabaseAsset database;
 
+    private WeaponPresentationCapabilityDefinition[] weaponPresentations = Array.Empty<WeaponPresentationCapabilityDefinition>();
     private Sprite[] itemIcons = Array.Empty<Sprite>();
     private Sprite[] buildingIcons = Array.Empty<Sprite>();
 
@@ -15,14 +16,21 @@ public sealed class FactoryPresentationCatalog : ScriptableObject
     {
         if (database == null)
         {
+            weaponPresentations = Array.Empty<WeaponPresentationCapabilityDefinition>();
             itemIcons = Array.Empty<Sprite>();
             buildingIcons = Array.Empty<Sprite>();
             return;
         }
 
         itemIcons = BuildItemIndex(database.items);
+        weaponPresentations = new WeaponPresentationCapabilityDefinition[itemIcons.Length];
+        foreach (var item in database.items)
+            weaponPresentations[item.id] = FactoryItemCapabilityValidation.Get<WeaponPresentationCapabilityDefinition>(item);
         buildingIcons = BuildBuildingIndex(database.buildings);
     }
+
+    public WeaponPresentationCapabilityDefinition GetWeaponPresentation(ItemId id) =>
+        id.Value < weaponPresentations.Length ? weaponPresentations[id.Value] : null;
 
     public Sprite GetItemIcon(ItemId id) =>
         id.Value < itemIcons.Length ? itemIcons[id.Value] : null;

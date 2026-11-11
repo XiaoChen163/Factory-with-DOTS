@@ -4,13 +4,14 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// Only this transient draft participates in Undo. Saving validates and commits one asset.
+// Only this transient draft participates in Undo. Saving commits the referenced libraries.
 public sealed partial class FactoryContentDraft : ScriptableObject
 {
     [Serializable]
     private sealed class Content
     {
         public int version = 1;
+        public System.Collections.Generic.List<CapabilityRecord> capabilityRecords = new System.Collections.Generic.List<CapabilityRecord>();
         public FactoryItemTableRow[] items = Array.Empty<FactoryItemTableRow>();
         public FactoryMachineTypeTableRow[] machineTypes = Array.Empty<FactoryMachineTypeTableRow>();
         public FactoryBuildingDefinitionRow[] buildings = Array.Empty<FactoryBuildingDefinitionRow>();
@@ -29,10 +30,14 @@ public sealed partial class FactoryContentDraft : ScriptableObject
         var asset = FactoryDatabaseEditor.Load();
         content = new Content { version = asset.version, items = asset.items, machineTypes = asset.machineTypes,
             buildings = asset.buildings, recipes = asset.recipes };
+        content = JsonUtility.FromJson<Content>(JsonUtility.ToJson(content));
+        foreach (var item in content.items)
+            foreach (var capability in item.capabilities ?? Array.Empty<ItemCapabilityDefinition>())
+                content.capabilityRecords.Add(new CapabilityRecord { itemId = item.id, kind = capability.Kind, json = JsonUtility.ToJson(capability) });
+        for (int i = 0; i < content.items.Length; i++) content.items[i].capabilities = Array.Empty<ItemCapabilityDefinition>();
         original = JsonUtility.ToJson(content);
-        content = JsonUtility.FromJson<Content>(original);
-        sourceJson = EditorJsonUtility.ToJson(asset);
-        sourceBytes = Convert.ToBase64String(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath));
+        sourceJson = FactoryDatabaseEditor.SourceJson();
+        sourceBytes = FactoryDatabaseEditor.SourceBytes();
         LoadBuildingImports();
         Undo.ClearUndo(this);
     }
@@ -57,7 +62,13 @@ public sealed partial class FactoryContentDraft : ScriptableObject
         candidate.machineTypes = copy.machineTypes;
         candidate.buildings = copy.buildings;
         candidate.recipes = copy.recipes;
-        try { FactoryDatabaseEditor.Validate(candidate); return candidate; }
+        candidate.ownsInlineCapabilities = true;
+        try
+        {
+            for (int i = 0; i < candidate.items.Length; i++)
+                candidate.items[i].capabilities = copy.capabilityRecords.Where(r => r.itemId == candidate.items[i].id).Select(CreateCapability).ToArray();
+            FactoryDatabaseEditor.Validate(candidate); return candidate;
+        }
         catch { DestroyImmediate(candidate); throw; }
     }
 
@@ -65,9 +76,7 @@ public sealed partial class FactoryContentDraft : ScriptableObject
     {
         FactoryDatabaseEditor.EnsureCanWrite();
         if (!IsModified) return;
-        var source = FactoryDatabaseEditor.Load();
-        if (EditorJsonUtility.ToJson(source) != sourceJson ||
-            Convert.ToBase64String(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath)) != sourceBytes)
+        if (FactoryDatabaseEditor.SourceJson() != sourceJson || FactoryDatabaseEditor.SourceBytes() != sourceBytes)
             throw new IOException("数据资产已被其他操作修改，请放弃草稿并重新读取。未覆盖外部修改。");
         var candidate = ReadCandidate();
         try { FactoryDatabaseEditor.Save(candidate); Load(); }

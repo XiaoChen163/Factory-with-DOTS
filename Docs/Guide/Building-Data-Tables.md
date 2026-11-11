@@ -4,18 +4,18 @@
 
 ## 数据来源与编辑
 
-`Assets/Data/FactoryDatabase.asset` 是唯一正式数据源，通过 **Factory > 内容管理器** 编辑。CSV 保存层已移除；资产移出 Generated 目录，保留原有 GUID，不再执行 CSV 重建。**Factory > Validate Static Database** 可校验现有资产。
+`Assets/Data/FactoryDatabase.asset` 是正式数据总入口，通过 **Factory > 内容管理器** 编辑其引用的三个领域内容库。CSV 保存层已移除，不再执行 CSV 重建。**Factory > Validate Static Database** 可校验整个定义集合。
 
-数据库保留四组现有强类型数据：
+内容库保留四组现有强类型数据：
 
-| 数组 | 元素类型 | 内容 |
+| 内容库 / 数组 | 元素类型 | 内容 |
 |---|---|---|
-| `items` | `FactoryItemTableRow` | ID、Key、名称、最大堆叠、分类、模型和图标引用 |
-| `machineTypes` | `FactoryMachineTypeTableRow` | 加工类型 ID 和 Key |
-| `buildings` | `FactoryBuildingDefinitionRow` | 建筑基础属性、空间、表现、行为参数、端口与碰撞体 |
-| `recipes` | `FactoryRecipeTableRow` | 配方 ID、Key、加工类型、加工时间和内嵌原料/产物 |
+| `ItemDatabase.asset / items` | `FactoryItemTableRow` | ID、Key、名称、堆叠、分类、模型/图标及能力子资产引用 |
+| `BuildingDatabase.asset / machineTypes` | `FactoryMachineTypeTableRow` | 加工类型 ID 和 Key |
+| `BuildingDatabase.asset / buildings` | `FactoryBuildingDefinitionRow` | 建筑基础属性、空间、表现、行为参数、端口与碰撞体 |
+| `RecipeDatabase.asset / recipes` | `FactoryRecipeTableRow` | 配方 ID、Key、加工类型、加工时间和内嵌原料/产物 |
 
-类型名中的 TableRow 为现有代码名称，不代表仍需外部表格。本轮不增加能力组件，不拆分每物品独立资产。
+类型名中的 TableRow 为现有代码名称，不代表仍需外部表格。物品能力以物品库内部的 ScriptableObject 子资产保存，不拆分每物品独立资产，见 [物品能力与领域内容库](Item-Capabilities.md)。端口、碰撞体、配方原料/产物保持内嵌，不重新拆成关联表。
 
 所有既有数字 ID 原样保留。新增项分配当前同类最大 ID + 1；数组重排和 Key 修改不重算 ID。Key 用于内容查找，模拟使用数字 ID；配方同时保存关联 ID/Key，并校验两者一致。该迁移不建立跨版本存档兼容层。
 

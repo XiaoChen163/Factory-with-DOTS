@@ -1,0 +1,105 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de7a740874434cf78a737fb98b8d9312, type: 3}
+  m_Name: ItemDatabase
+  m_EditorClassIdentifier: Factory.Runtime::FactoryItemDatabaseAsset
+  items:
+  - id: 1
+    key: iron_ore
+    nameKey: "\u94C1\u77FF"
+    maxStack: 64
+    category: 1
+    modelPath: Assets/Art/Items/iron_ore/iron_ore.fbx
+    model: {fileID: 919132149155446097, guid: d7f9520635a7bad47a4bafc068cf1407, type: 3}
+    iconKey: IronOre
+    icon: {fileID: 21300000, guid: c9a7c18fe9d8e5d4792e93a332129a99, type: 3}
+    capabilities: []
+  - id: 2
+    key: iron_ingot
+    nameKey: "\u94C1\u952D"
+    maxStack: 64
+    category: 2
+    modelPath: Assets/Art/Items/iron_ingot/iron_ingot.fbx
+    model: {fileID: 919132149155446097, guid: 7712298fbc9e3e64fa87b4c516350f0e, type: 3}
+    iconKey: IronIngot
+    icon: {fileID: 21300000, guid: aafebab3a53944b4ea554efc6ca042a4, type: 3}
+    capabilities: []
+  - id: 7
+    key: copper_ore
+    nameKey: "\u94DC\u77FF"
+    maxStack: 64
+    category: 1
+    modelPath: Assets/Art/Items/copper_ore/copper_ore.fbx
+    model: {fileID: 919132149155446097, guid: b3aa9ed4b47938f47821cbc66f680116, type: 3}
+    iconKey: copper_ore
+    icon: {fileID: 21300000, guid: 57bc3290d93019745a644bd353ae69bf, type: 3}
+    capabilities: []
+  - id: 8
+    key: copper_ingot
+    nameKey: "\u94DC\u952D"
+    maxStack: 64
+    category: 2
+    modelPath: Assets/Art/Items/copper_ingot/copper_ingot.fbx
+    model: {fileID: 919132149155446097, guid: 04c9892e1f0614c46b8ea7bdb6dcd185, type: 3}
+    iconKey: copper_ingot
+    icon: {fileID: 21300000, guid: 9a75c065ad322844a9e32063ef26df78, type: 3}
+    capabilities: []
+  - id: 9
+    key: copper_wire
+    nameKey: "\u94DC\u7EBF"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/copper_wire/copper_wire.fbx
+    model: {fileID: 919132149155446097, guid: 2f0a65f4ec2878844842ff9a3c5ec293, type: 3}
+    iconKey: copper_wire
+    icon: {fileID: 21300000, guid: 4f19ec4b8b2f4de48a95b34d7aa59b36, type: 3}
+    capabilities: []
+  - id: 10
+    key: iron_nail
+    nameKey: "\u94C1\u9489"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_nail/iron_nail.fbx
+    model: {fileID: 919132149155446097, guid: 73278d42cd3b3d547ba23c39aabc3c3e, type: 3}
+    iconKey: iron_nail
+    icon: {fileID: 21300000, guid: b5df4009806129d4ebcf8faa26c3c188, type: 3}
+    capabilities: []
+  - id: 11
+    key: iron_plate
+    nameKey: "\u94C1\u677F"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_plate/iron_plate.fbx
+    model: {fileID: 919132149155446097, guid: 1ea68dd48dc6e8b4684c252ce05d30d0, type: 3}
+    iconKey: iron_plate
+    icon: {fileID: 21300000, guid: 0b2b8d8ca9a7ea24cb419c97fd5f52f5, type: 3}
+    capabilities: []
+  - id: 12
+    key: iron_gear
+    nameKey: "\u94C1\u9F7F\u8F6E"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_gear/iron_gear.fbx
+    model: {fileID: 919132149155446097, guid: b7abd658086453642a699d55568bed28, type: 3}
+    iconKey: iron_gear
+    icon: {fileID: 21300000, guid: 72f3105ca26bc7345ba59052eb275f17, type: 3}
+    capabilities: []
+  - id: 13
+    key: iron_pipe
+    nameKey: "\u94C1\u7BA1"
+    maxStack: 64
+    category: 3
+    modelPath: Assets/Art/Items/iron_pipe/iron_pipe.fbx
+    model: {fileID: 919132149155446097, guid: 678cc854cf949a346bad827c03ec638d, type: 3}
+    iconKey: iron_pipe
+    icon: {fileID: 21300000, guid: 431a2c1cef3895442a56f64cbadb7090, type: 3}
+    capabilities: []

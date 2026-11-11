@@ -59,6 +59,22 @@ public static class FactoryDatabaseBakingUtility
             };
         }
 
+        var guns = builder.Allocate(ref root.GunsByItemId, maxItemId + 1);
+        var ammunition = builder.Allocate(ref root.AmmunitionByItemId, maxItemId + 1);
+        foreach (var item in source.items)
+        {
+            var gun = FactoryItemCapabilityValidation.Get<GunCapabilityDefinition>(item);
+            if (gun != null) guns[item.id] = new GunDefinitionBlob
+            {
+                Item = new ItemId { Value = item.id }, AmmunitionItem = gun.ammunitionItem, FireMode = gun.fireMode,
+                MagazineCapacity = (ushort)gun.magazineCapacity, RoundsPerMinute = gun.roundsPerMinute,
+                ReloadSeconds = gun.reloadSeconds, RangeMeters = gun.rangeMeters
+            };
+            var ammo = FactoryItemCapabilityValidation.Get<AmmunitionCapabilityDefinition>(item);
+            if (ammo != null) ammunition[item.id] = new AmmunitionDefinitionBlob
+                { Item = new ItemId { Value = item.id }, BaseDamage = ammo.baseDamage };
+        }
+
         BlobBuilderArray<FactoryMachineTypeBlob> machines =
             builder.Allocate(ref root.MachineTypesById, maxMachineId + 1);
         foreach (FactoryMachineTypeTableRow row in source.machineTypes)

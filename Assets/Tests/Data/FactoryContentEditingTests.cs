@@ -38,7 +38,7 @@ namespace Factory.Tests
         public void Save_AssetRoundTripPreservesUnicodeReferencesAndGuid()
         {
             var asset = FactoryDatabaseEditor.Load();
-            var backup = Object.Instantiate(asset);
+            var backup = FactoryDatabaseEditor.CreateSnapshot(asset);
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             var reopened = ScriptableObject.CreateInstance<FactoryContentDraft>();
             string guid = AssetDatabase.AssetPathToGUID(FactoryDatabaseEditor.DatabaseAssetPath);
@@ -115,7 +115,7 @@ namespace Factory.Tests
         [Test]
         public void CompetingDraftSave_RejectsStaleSourceWithoutOverwritingIt()
         {
-            var backup = Object.Instantiate(FactoryDatabaseEditor.Load());
+            var backup = FactoryDatabaseEditor.CreateSnapshot(FactoryDatabaseEditor.Load());
             var first = ScriptableObject.CreateInstance<FactoryContentDraft>();
             var second = ScriptableObject.CreateInstance<FactoryContentDraft>();
             try
@@ -138,7 +138,7 @@ namespace Factory.Tests
         public void DiskOrInspectorChanges_RejectStaleDraft()
         {
             var asset = FactoryDatabaseEditor.Load();
-            var backup = Object.Instantiate(asset);
+            var backup = FactoryDatabaseEditor.CreateSnapshot(asset);
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);
             try
@@ -163,7 +163,7 @@ namespace Factory.Tests
         public void LockedAsset_SaveFailsBeforeMutationAndCanBeRetried()
         {
             var asset = FactoryDatabaseEditor.Load();
-            var backup = Object.Instantiate(asset);
+            var backup = FactoryDatabaseEditor.CreateSnapshot(asset);
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             string source = EditorJsonUtility.ToJson(asset);
             byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);

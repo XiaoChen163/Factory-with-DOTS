@@ -250,14 +250,14 @@ Mesh、材质和可见性策略；两者不会因更新频率不同而互相干�
 
 ### 5. 数据驱动的玩法逻辑
 
-`Assets/Data/FactoryDatabase.asset` 是物品、建筑与配方的唯一正式数据源，由内容管理器直接编辑：
+`Assets/Data/FactoryDatabase.asset` 是正式数据总入口，引用物品、建筑与配方三个领域内容库，由内容管理器统一编辑：
 
 | 数据 | 内容 |
 |---|---|
-| `items` | Item ID、Key、名称、堆叠、分类、模型和图标引用 |
-| `buildings` | 建筑行为、占格、表现、菜单顺序、端口、碰撞体及行为参数 |
-| `machineTypes` | 加工类型 ID 与 Key |
-| `recipes` | 配方 ID、加工类型、耗时及内嵌原料/产物 |
+| `ItemDatabase.asset / items` | Item ID、Key、名称、堆叠、分类、模型/图标和私有能力子资产 |
+| `BuildingDatabase.asset / buildings` | 建筑行为、占格、表现、菜单顺序、端口、碰撞体及行为参数 |
+| `BuildingDatabase.asset / machineTypes` | 加工类型 ID 与 Key |
+| `RecipeDatabase.asset / recipes` | 配方 ID、加工类型、耗时及内嵌原料/产物 |
 
 内容管理器保存前校验 ID、引用、端口和配方约束，再写入正式资产。
 Baking 阶段把资产转换为紧凑、
@@ -267,6 +267,8 @@ Baking 阶段把资产转换为紧凑、
 这种结构把“添加内容”和“修改引擎逻辑”分开：新增物品、建筑、速度、槽数、
 端口或配方主要通过内容管理器完成；重排数据不重新生成 ID，资源引用由 GUID 保持。
 详细字段与约束见 [建筑与生产内容定义](Docs/Guide/Building-Data-Tables.md)。
+
+物品详情可添加基础枪械、武器表现和弹药能力；组件作为物品库内部的 ScriptableObject 子资产保存，无须逐物品创建文件。当前仅提供参数和资源引用，不执行射击或播放动画，详见 [物品能力与领域内容库](Docs/Guide/Item-Capabilities.md)。
 
 ### 6. 自动图标渲染烘焙
 
@@ -301,7 +303,10 @@ Assets/Art/Icons/Buildings
 
 ```text
 Assets/
-├─ Data/FactoryDatabase.asset   # 正式内容数据源
+├─ Data/FactoryDatabase.asset   # 正式内容总入口
+├─ Data/ItemDatabase.asset      # 物品记录与能力子资产
+├─ Data/RecipeDatabase.asset    # 配方及原料/产物
+├─ Data/BuildingDatabase.asset  # 建筑与加工类型
 ├─ Data/Generated/              # 图标 Manifest、表现目录等派生资源
 ├─ Prefabs/                     # 纯表现建筑、物品与端口 Prefab
 ├─ Scenes/Ecs.unity             # 正式 ECS 游戏场景

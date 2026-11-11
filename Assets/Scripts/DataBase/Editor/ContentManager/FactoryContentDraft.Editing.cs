@@ -82,6 +82,7 @@ public sealed partial class FactoryContentDraft
                 case "id":
                     if (!ushort.TryParse(value, out ushort id) || id == 0 || c.items.Where((i, n) => n != row).Any(i => i.id == id))
                         throw new InvalidDataException("物品 ID 必须为 1–65535，且不能重复。");
+                    RemapCapabilityItemId(c, item.id, id);
                     item.id = id; break;
                 case "name_key": item.nameKey = value; break;
                 case "max_stack":
@@ -123,13 +124,31 @@ public sealed partial class FactoryContentDraft
                 foreach (var i in output ? recipe.outputs : recipe.inputs)
                     if (i.itemKey == key && (!overStack.HasValue || i.count > overStack.Value))
                         result.Add($"{recipe.key} / {(output ? "产物" : "原料")} × {i.count}");
+        if (!overStack.HasValue)
+        {
+            ushort id = content.items.FirstOrDefault(i => i.key == key).id;
+            foreach (var record in content.capabilityRecords.Where(r => r.kind == ItemCapabilityKind.Gun))
+            {
+                var gun = (GunCapabilityDefinition)CreateCapability(record);
+                try
+                {
+                    if (id != 0 && gun.ammunitionItem.Value == id)
+                        result.Add(content.items.Single(i => i.id == record.itemId).key + " / 枪械兼容弹药");
+                }
+                finally { DestroyImmediate(gun); }
+            }
+        }
         return result;
     }
     public void DeleteItem(int row)
     {
         var references = GetItemReferences(content.items[row].key);
-        if (references.Count > 0) throw new InvalidDataException("物品仍被配方引用，请先处理：\n" + string.Join("\n", references));
-        Edit("删除物品", c => c.items = c.items.Where((i, n) => n != row).ToArray());
+        if (references.Count > 0) throw new InvalidDataException("物品仍被配方或枪械引用，请先处理：\n" + string.Join("\n", references));
+        Edit("删除物品", c =>
+        {
+            c.capabilityRecords.RemoveAll(r => r.itemId == c.items[row].id);
+            c.items = c.items.Where((i, n) => n != row).ToArray();
+        });
     }
     public int AddRecipe()
     {

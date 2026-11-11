@@ -1,6 +1,6 @@
 # 建筑占格与端口定义
 
-建筑源数据为 `Assets/Data/FactoryDatabase.asset` 中的建筑定义。通过 **Factory > 内容管理器** 导入 Blender `.factory.json` 并保存；管理器中的空间示意保持只读。字段对应 `footprintWidth / footprintHeight / isRectangle / footprintBitmap`。
+建筑源数据为 `Assets/Data/BuildingDatabase.asset`，由 `FactoryDatabase.asset` 总入口引用。通过 **Factory > 内容管理器** 导入 Blender `.factory.json` 并保存；管理器中的空间示意保持只读。字段对应 `footprintWidth / footprintHeight / isRectangle / footprintBitmap`。
 
 完整定义结构见 [建筑与生产内容定义](Building-Data-Tables.md)。
 

@@ -23,6 +23,7 @@
 | 固定模拟频率 | `ECS/Systems/Core/Stage3FixedRateSystem.cs` |
 | 运行时静态数据库及 Baking | `ECS/Data/Content`、`ECS/Authoring/Content` |
 | 数据库定义、校验 | `DataBase/Definitions`、`DataBase/Validation` |
+| 领域内容库、枪械/表现/弹药能力 | `DataBase/Definitions/Factory*DatabaseAsset.cs`、`*CapabilityDefinition.cs`；校验 `FactoryItemCapabilityValidation` |
 | 内容管理器及其草稿/partial 文件 | `DataBase/Editor/ContentManager` |
 | 数据资产保存/构建校验、建筑模型导入、图标烘焙 | `DataBase/Editor/Import`、`Buildings`、`Icons` |
 | UI/建筑资源生成、玩家预制体安装 | `DataBase/Editor/Setup`、`ECS/Editor/Player` |

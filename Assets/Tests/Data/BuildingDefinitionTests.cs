@@ -12,7 +12,7 @@ namespace Factory.Tests
     public sealed class BuildingDefinitionTests : FactoryWorldFixture
     {
         private FactoryDatabaseAsset asset;
-        [SetUp] public void LoadAsset() => asset = Object.Instantiate(FactoryDatabaseEditor.Load());
+        [SetUp] public void LoadAsset() => asset = FactoryDatabaseEditor.CreateSnapshot(FactoryDatabaseEditor.Load());
         public override void TearDownWorld()
         {
             base.TearDownWorld();

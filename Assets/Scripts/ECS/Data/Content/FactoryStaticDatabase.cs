@@ -113,6 +113,24 @@ public struct FactoryItemBlob
     public FixedString64Bytes NameKey;
 }
 
+// Definition data only; no firing, reload progression or ammo mutation is implemented.
+public struct GunDefinitionBlob
+{
+    public ItemId Item;
+    public ItemId AmmunitionItem;
+    public GunFireMode FireMode;
+    public ushort MagazineCapacity;
+    public float RoundsPerMinute;
+    public float ReloadSeconds;
+    public float RangeMeters;
+}
+
+public struct AmmunitionDefinitionBlob
+{
+    public ItemId Item;
+    public float BaseDamage;
+}
+
 public struct FactoryRecipeIngredientBlob
 {
     public ItemId ItemId;
@@ -176,6 +194,8 @@ public struct FactoryDatabaseBlob
 {
     public int Version;
     public BlobArray<FactoryItemBlob> ItemsById;
+    public BlobArray<GunDefinitionBlob> GunsByItemId;
+    public BlobArray<AmmunitionDefinitionBlob> AmmunitionByItemId;
     public BlobArray<FactoryMachineTypeBlob> MachineTypesById;
     public BlobArray<FactoryBuildingDefinitionBlob> BuildingDefinitionsById;
     public BlobArray<BuildingDefinitionId> BuildingDefinitionMenu;

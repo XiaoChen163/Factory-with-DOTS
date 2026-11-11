@@ -255,6 +255,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
             FactoryIconBaker.BakeChangedFromMenu(); draft.Load(); Refresh();
         })) { text = "烘焙变化的图标" });
         detail.Add(new HelpBox("物品直接引用 FBX，不生成碰撞体或刚体。图标直接引用 Sprite；烘焙图标后自动绑定。模型引用随草稿保存到数据资产。", HelpBoxMessageType.Info));
+        DrawItemCapabilities(item);
     }
 
     private void DrawRecipe(FactoryContentRecipe recipe)

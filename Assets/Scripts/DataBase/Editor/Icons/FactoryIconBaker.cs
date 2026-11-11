@@ -115,7 +115,7 @@ public static class FactoryIconBaker
 
     private static void BindBakedIcons(IReadOnlyDictionary<string, FactoryIconBakeManifestEntry> previous, FactoryIconBakeManifest manifest)
     {
-        var candidate = UnityEngine.Object.Instantiate(FactoryDatabaseEditor.Load());
+        var candidate = FactoryDatabaseEditor.CreateSnapshot(FactoryDatabaseEditor.Load());
         try
         {
             var entries = manifest.entries.ToDictionary(e => e.prefabPath, StringComparer.Ordinal);

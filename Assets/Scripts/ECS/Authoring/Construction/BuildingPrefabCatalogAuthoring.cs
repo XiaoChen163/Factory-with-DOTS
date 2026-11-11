@@ -38,6 +38,12 @@ public sealed class BuildingPrefabCatalogAuthoring : MonoBehaviour
             }
 
             DependsOn(authoring.database);
+            if (authoring.database.itemDatabase != null) DependsOn(authoring.database.itemDatabase);
+            if (authoring.database.recipeDatabase != null) DependsOn(authoring.database.recipeDatabase);
+            if (authoring.database.buildingDatabase != null) DependsOn(authoring.database.buildingDatabase);
+            foreach (var item in authoring.database.items)
+                foreach (var capability in item.capabilities ?? System.Array.Empty<ItemCapabilityDefinition>())
+                    if (capability != null) DependsOn(capability);
             DependsOn(authoring.inputPortVisualPrefab);
             DependsOn(authoring.outputPortVisualPrefab);
             if (authoring.rampFoundationVisualPrefab != null)

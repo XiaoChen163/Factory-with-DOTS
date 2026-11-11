@@ -193,7 +193,7 @@ namespace Factory.Tests
 
         private void Initialize(int turns)
         {
-            asset = Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(
+            asset = FactoryDatabaseEditor.CreateSnapshot(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(
                 FactoryDatabaseEditor.DatabaseAssetPath));
             int index = Array.FindIndex(asset.buildings, b => b.kind == BuildingKind.Storage);
             FactoryBuildingDefinitionRow row = asset.buildings[index];

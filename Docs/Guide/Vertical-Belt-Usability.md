@@ -33,7 +33,7 @@
 - 两者都不指定时继续自动渲染建筑自身模型；同时指定时优先使用 `customIcon`。
 - 同一 override 的相机朝向、留白和中心偏移继续生效；自定义模型依赖变化也会参与增量烘焙失效。
 
-建筑等级 CSV 的可选 `icon_key` 仍可直接引用其他图标，非空时优先于上述默认回退。空值与未配置一致。
+内容管理器的建筑图标字段直接引用 Sprite。烘焙更新既有生成图标，保留显式选择的其他 Sprite；配置保存在正式 `FactoryDatabaseAsset` 中。
 
 四个等级的组合图标模型位于 `Assets/Art/IconSources/VerticalBeltMk1/VerticalBeltMk1.fbx` 至 `VerticalBeltMk4/VerticalBeltMk4.fbx`，由入口、中间段、出口的网格组成，不会替换运行时模型。可使用 `Tools/Blender/generate_placeholder_fbx.py` 重建，`Factory/Icons/Bake Changed` 增量更新图标。
 

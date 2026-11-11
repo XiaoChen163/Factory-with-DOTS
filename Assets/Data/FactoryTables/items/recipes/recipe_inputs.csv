@@ -1,8 +1,0 @@
-recipe_key,item_key,count
-smelt_iron,iron_ore,1
-smelt_copper,copper_ore,1
-stamp_iron_plate,iron_ingot,1
-stamp_iron_gear,iron_ingot,1
-stamp_iron_pipe,iron_ingot,1
-stamp_iron_nail,iron_ingot,1
-stamp_copper_wire,copper_ingot,1

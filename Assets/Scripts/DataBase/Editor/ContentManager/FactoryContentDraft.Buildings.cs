@@ -25,153 +25,101 @@ public sealed class FactoryContentBuilding
 
 public sealed partial class FactoryContentDraft
 {
-    public const string BuildingsPath = "buildings/buildings.csv";
-    public const string NamesPath = "buildings/building_names.csv";
-    public const string PresentationPath = "buildings/building_presentation.csv";
-    public const string PortsPath = "buildings/building_ports.csv";
-    private static readonly string[] BuildingPaths = { BuildingsPath, NamesPath, PresentationPath, PortsPath,
-        "buildings/processor_stats.csv", "buildings/belt_stats.csv", "buildings/storage_stats.csv", "buildings/ramp_stats.csv", CollidersPath };
-
-    public List<FactoryContentBuilding> GetBuildings(string search = "")
+    public List<FactoryContentBuilding> GetBuildings(string search = "") => content.buildings.Select((b, row) => new FactoryContentBuilding
     {
-        var table = ReadTable(BuildingsPath);
-        var names = ReadTable(NamesPath);
-        var presentation = ReadTable(PresentationPath);
-        var ports = ReadTable(PortsPath);
-        return Rows(table).Select(row =>
-        {
-            string key = table.Get(row, "key");
-            int[] localized = Rows(names).Where(r => names.Get(r, "key") == key).ToArray();
-            int nameRow = localized.Where(r => names.Get(r, "locale") == "zh-CN").DefaultIfEmpty(-1).First();
-            if (nameRow < 0) nameRow = localized.Length == 0 ? -1 : localized[0];
-            int p = Find(presentation, key);
-            return new FactoryContentBuilding
-            {
-                row = row, key = key, name = nameRow < 0 ? key : names.Get(nameRow, "name"), behavior = table.Get(row, "behavior"),
-                width = Int(table.Get(row, "width")), length = Int(table.Get(row, "length")),
-                rectangle = bool.TryParse(table.Get(row, "is_rectangle"), out bool rect) && rect, bitmap = table.Get(row, "bitmap"),
-                modelPath = table.Get(row, "model_path"), iconPath = p < 0 ? "" : presentation.Get(p, "icon_path"), menuOrder = p < 0 ? 0 : Int(presentation.Get(p, "menu_order")),
-                ports = Rows(ports).Where(r => ports.Get(r, "key") == key).Select(r => ReadDraftPort(ports, r)).ToArray()
-            };
-        }).Where(b => Matches(b.key, search) || Matches(b.name, search)).ToList();
-    }
-
-    private static int Find(FactoryCsvTable table, string key) => Rows(table).Where(r => table.Get(r, "key") == key).DefaultIfEmpty(-1).First();
-    private static string Num(int n) => n.ToString(CultureInfo.InvariantCulture);
-    private static FactoryBuildingPortTableRow ReadDraftPort(FactoryCsvTable table, int row) => new FactoryBuildingPortTableRow
+        row = row, key = b.key, name = b.displayName, behavior = b.kind == 0 ? "" : b.kind.ToString(),
+        width = b.footprintWidth, length = b.footprintHeight, rectangle = b.isRectangle, bitmap = b.footprintBitmap,
+        modelPath = UnityEditor.AssetDatabase.GetAssetPath(b.visualPrefab), iconPath = UnityEditor.AssetDatabase.GetAssetPath(b.icon),
+        menuOrder = b.menuOrder, ports = (b.ports ?? Array.Empty<FactoryBuildingPortTableRow>()).ToArray()
+    }).Where(b => Matches(b.key, search) || Matches(b.name, search)).ToList();
+    private FactoryBuildingDefinitionRow Building(string key) => content.buildings.Single(b => b.key == key);
+    private void EditBuilding(string key, string label, Func<FactoryBuildingDefinitionRow, FactoryBuildingDefinitionRow> edit) => Edit(label, c =>
     {
-        type = Enum.Parse<BuildingPortType>(table.Get(row, "type")), index = byte.Parse(table.Get(row, "index"), CultureInfo.InvariantCulture),
-        cellOffset = new Vector2Int(Int(table.Get(row, "cell_x")), Int(table.Get(row, "cell_z"))),
-        direction = new Vector2Int(Int(table.Get(row, "direction_x")), Int(table.Get(row, "direction_z"))),
-        number = table.TryGet(row, "number", out string n) && !string.IsNullOrEmpty(n) ? ushort.Parse(n, CultureInfo.InvariantCulture) : (ushort)0,
-        outputSlot = table.TryGet(row, "output_slot", out string s) && !string.IsNullOrEmpty(s) ? ushort.Parse(s, CultureInfo.InvariantCulture) : (ushort)0
+        int row = Array.FindIndex(c.buildings, b => b.key == key);
+        if (row < 0) throw new InvalidDataException("建筑不存在：" + key);
+        c.buildings[row] = edit(c.buildings[row]);
+    });
+    private static FactoryBuildingDefinitionRow NewBuilding(Content c, string key) => new FactoryBuildingDefinitionRow
+    {
+        id = NextId(c.buildings.Select(b => b.id)), key = key, displayName = key, isRectangle = true, footprintBitmap = "",
+        ports = Array.Empty<FactoryBuildingPortTableRow>(), colliders = Array.Empty<FactoryColliderProxy>()
     };
-
-    private static void RemoveKey(FactoryCsvTable table, string key)
-    {
-        foreach (int row in Rows(table).Where(r => table.Get(r, "key") == key).Reverse().ToArray()) table.RemoveAt(row);
-    }
-    private static void Upsert(FactoryCsvTable table, string key, Dictionary<string, string> values)
-    {
-        int row = Find(table, key);
-        if (row < 0) { values["key"] = key; table.Append(values); }
-        else foreach (var v in values) { table.EnsureColumn(v.Key); table.Set(row, v.Key, v.Value); }
-    }
-
-    private static void AppendBuilding(Dictionary<string, FactoryCsvTable> docs, string key)
-    {
-        docs[BuildingsPath].Append(new Dictionary<string, string>
-        {
-            ["key"] = key, ["behavior"] = "", ["width"] = "0", ["length"] = "0", ["model_path"] = "",
-            ["is_rectangle"] = "true", ["bitmap"] = ""
-        });
-        docs[NamesPath].Append(new Dictionary<string, string> { ["key"] = key, ["locale"] = "zh-CN", ["name"] = key });
-        docs[PresentationPath].Append(new Dictionary<string, string> { ["key"] = key, ["icon_path"] = "", ["menu_order"] = "0" });
-    }
-
     public string AddBuilding(string key = null)
     {
-        key = key ?? FreeKey(GetBuildings().Select(b => b.key), "new_building");
+        key = key ?? FreeKey(content.buildings.Select(b => b.key), "new_building");
         RequireKey(key);
-        if (GetBuildings().Any(b => b.key == key)) throw new InvalidDataException($"建筑 Key 已存在：{key}");
+        if (content.buildings.Any(b => b.key == key)) throw new InvalidDataException("建筑 Key 已存在：" + key);
         string newKey = key;
-        Edit("新增建筑草稿", docs => AppendBuilding(docs, newKey), BuildingsPath, NamesPath, PresentationPath);
+        Edit("新增建筑草稿", c => c.buildings = c.buildings.Append(NewBuilding(c, newKey)).ToArray());
         return key;
     }
-
     public void DeleteBuilding(string key)
     {
-        Edit("删除建筑配置", docs =>
-        {
-            foreach (var entry in docs)
-            {
-                if (entry.Key == CollidersPath) FactoryBuildingColliderCsv.Write(entry.Value, key, Array.Empty<FactoryColliderProxy>());
-                else RemoveKey(entry.Value, key);
-            }
-        }, BuildingPaths);
+        Edit("删除建筑配置", c => c.buildings = c.buildings.Where(b => b.key != key).ToArray());
         buildingImports.RemoveAll(i => i.buildingKey == key);
     }
-
-    public void SetBuildingName(string key, string value)
+    public void SetBuildingName(string key, string value) => EditBuilding(key, "修改建筑名称", b => { b.displayName = value; return b; });
+    public string GetBuildingStat(string key, string section, string column, string fallback = "")
     {
-        Edit("修改建筑名称", docs =>
+        var b = Building(key);
+        switch (section + "/" + column)
         {
-            var table = docs[NamesPath];
-            int row = Rows(table).Where(r => table.Get(r, "key") == key && table.Get(r, "locale") == "zh-CN").DefaultIfEmpty(-1).First();
-            if (row < 0) table.Append(new Dictionary<string, string> { ["key"] = key, ["locale"] = "zh-CN", ["name"] = value });
-            else table.Set(row, "name", value);
-        }, NamesPath);
+            case "processor_stats/machine_type_key": return content.machineTypes.FirstOrDefault(m => m.id == b.machineTypeId).key ?? fallback;
+            case "belt_stats/tier": return Num(b.beltTier);
+            case "belt_stats/cells_per_second": return b.cellsPerSecond.ToString("R", CultureInfo.InvariantCulture);
+            case "storage_stats/slot_count": return Num(b.storageSlotCount);
+            case "ramp_stats/rise_height_units": return Num(b.rampRiseHeightUnits);
+            case "building_presentation/icon_path": return UnityEditor.AssetDatabase.GetAssetPath(b.icon);
+            case "building_presentation/menu_order": return Num(b.menuOrder);
+            default: throw new ArgumentException("未知建筑属性：" + section + "/" + column);
+        }
     }
-
-    public string GetBuildingStat(string key, string tableName, string column, string fallback = "")
+    public void SetBuildingStat(string key, string section, string column, string value) => EditBuilding(key, "修改建筑属性", b =>
     {
-        var table = ReadTable("buildings/" + tableName + ".csv");
-        int row = Find(table, key);
-        return row < 0 ? fallback : table.Get(row, column);
-    }
-
-    public void SetBuildingStat(string key, string tableName, string column, string value)
-    {
-        string path = "buildings/" + tableName + ".csv";
-        Edit("修改建筑属性", docs => Upsert(docs[path], key, new Dictionary<string, string> { [column] = value }), path);
-    }
-
+        switch (section + "/" + column)
+        {
+            case "processor_stats/machine_type_key":
+                var machine = content.machineTypes.SingleOrDefault(m => m.key == value);
+                if (machine.id == 0) throw new InvalidDataException("加工类型不存在：" + value);
+                b.machineTypeId = machine.id; break;
+            case "belt_stats/tier": b.beltTier = byte.Parse(value, CultureInfo.InvariantCulture); break;
+            case "belt_stats/cells_per_second": b.cellsPerSecond = float.Parse(value, CultureInfo.InvariantCulture); break;
+            case "storage_stats/slot_count": b.storageSlotCount = ushort.Parse(value, CultureInfo.InvariantCulture); break;
+            case "ramp_stats/rise_height_units": b.rampRiseHeightUnits = sbyte.Parse(value, CultureInfo.InvariantCulture); break;
+            case "building_presentation/menu_order": b.menuOrder = int.Parse(value, CultureInfo.InvariantCulture); break;
+            case "building_presentation/icon_path":
+                b.icon = string.IsNullOrEmpty(value) ? null : UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(value);
+                if (!string.IsNullOrEmpty(value) && b.icon == null) throw new InvalidDataException("图标不存在：" + value);
+                break;
+            default: throw new ArgumentException("未知建筑属性：" + section + "/" + column);
+        }
+        return b;
+    });
     public void SetBuildingBehavior(string key, BuildingKind kind)
     {
         if (!Enum.IsDefined(typeof(BuildingKind), kind)) throw new InvalidDataException("请选择建筑行为。");
-        var building = GetBuildings().Single(b => b.key == key);
-        if (building.Kind == kind) return;
-        Edit("修改建筑行为", docs =>
+        if (Building(key).kind == kind) return;
+        EditBuilding(key, "修改建筑行为", b =>
         {
-            docs[BuildingsPath].Set(Find(docs[BuildingsPath], key), "behavior", kind.ToString());
-            foreach (string path in BuildingPaths.Skip(4).Where(p => p != CollidersPath)) RemoveKey(docs[path], key);
-            if (kind == BuildingKind.Processor)
-                Upsert(docs["buildings/processor_stats.csv"], key, new Dictionary<string, string> { ["machine_type_key"] = "" });
-            else if (kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(kind))
-                Upsert(docs["buildings/belt_stats.csv"], key, new Dictionary<string, string> { ["tier"] = "1", ["cells_per_second"] = "1" });
-            else if (kind == BuildingKind.Storage)
-                Upsert(docs["buildings/storage_stats.csv"], key, new Dictionary<string, string> { ["slot_count"] = "8" });
-            else if (kind == BuildingKind.RampFoundation)
-                Upsert(docs["buildings/ramp_stats.csv"], key, new Dictionary<string, string> { ["rise_height_units"] = "4" });
-            WritePorts(docs[PortsPath], key, NormalizePorts(kind, building.ports, true));
-        }, BuildingPaths);
+            b.kind = kind;
+            b.machineTypeId = 0; b.beltTier = 0; b.cellsPerSecond = 0; b.storageSlotCount = 0; b.rampRiseHeightUnits = 0;
+            if (kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(kind)) { b.beltTier = 1; b.cellsPerSecond = 1; }
+            else if (kind == BuildingKind.Storage) b.storageSlotCount = 8;
+            else if (kind == BuildingKind.RampFoundation) b.rampRiseHeightUnits = 4;
+            b.ports = NormalizePorts(kind, b.ports, true);
+            return b;
+        });
     }
-
     public void SetBuildingFootprint(string key, int width, int length, bool rectangle, string bitmap)
     {
         if (width < 1 || width > 255 || length < 1 || length > 255) throw new InvalidDataException("占格尺寸必须为 1–255。");
-        var shape = new FactoryBuildingDefinitionRow { key = key, footprintWidth = (byte)width, footprintHeight = (byte)length, isRectangle = rectangle, footprintBitmap = bitmap };
-        FactoryBuildingFootprintUtility.GetOccupiedOffsets(shape);
-        Edit("修改建筑占格", docs => WriteFootprint(docs[BuildingsPath], key, width, length, rectangle, bitmap), BuildingsPath);
+        EditBuilding(key, "修改建筑占格", b =>
+        {
+            b.footprintWidth = (byte)width; b.footprintHeight = (byte)length; b.isRectangle = rectangle; b.footprintBitmap = bitmap;
+            FactoryBuildingFootprintUtility.GetOccupiedOffsets(b);
+            return b;
+        });
     }
-
-    private static void WriteFootprint(FactoryCsvTable table, string key, int width, int length, bool rectangle, string bitmap)
-    {
-        int row = Find(table, key);
-        table.Set(row, "width", Num(width)); table.Set(row, "length", Num(length));
-        table.Set(row, "is_rectangle", rectangle ? "true" : "false"); table.Set(row, "bitmap", bitmap);
-    }
-
     public void ToggleBuildingCell(string key, Vector2Int cell)
     {
         var b = GetBuildings().Single(v => v.key == key);
@@ -214,33 +162,14 @@ public sealed partial class FactoryContentDraft
         throw new InvalidDataException("没有可用的产物槽或端口编号。");
     }
 
-    private static void WritePorts(FactoryCsvTable table, string key, FactoryBuildingPortTableRow[] ports)
-    {
-        int[] existing = Rows(table).Where(r => table.Get(r, "key") == key).ToArray();
-        for (int i = 0; i < ports.Length; i++)
-        {
-            var p = ports[i];
-            var values = new Dictionary<string, string>
-            {
-                ["key"] = key, ["type"] = p.type.ToString(), ["index"] = Num(p.index), ["cell_x"] = Num(p.cellOffset.x), ["cell_z"] = Num(p.cellOffset.y),
-                ["direction_x"] = Num(p.direction.x), ["direction_z"] = Num(p.direction.y),
-                ["number"] = p.number == 0 ? "" : Num(p.number), ["output_slot"] = p.outputSlot == 0 ? "" : Num(p.outputSlot)
-            };
-            if (i >= existing.Length) table.Append(values);
-            else foreach (var value in values) { table.EnsureColumn(value.Key); table.Set(existing[i], value.Key, value.Value); }
-        }
-        foreach (int row in existing.Skip(ports.Length).Reverse()) table.RemoveAt(row);
-    }
-
     public void SetBuildingPorts(string key, FactoryBuildingPortTableRow[] ports)
     {
-        var b = GetBuildings().Single(v => v.key == key);
-        var normalized = NormalizePorts(b.Kind, ports, false);
-        var definition = b.SpatialDefinition(); definition.ports = normalized;
-        FactoryBuildingFootprintUtility.ValidatePorts(definition, FactoryBuildingFootprintUtility.GetOccupiedOffsets(definition));
-        Edit("修改建筑端口", docs => WritePorts(docs[PortsPath], key, normalized), PortsPath);
+        var b = Building(key);
+        var normalized = NormalizePorts(b.kind, ports, false);
+        b.ports = normalized;
+        FactoryBuildingFootprintUtility.ValidatePorts(b, FactoryBuildingFootprintUtility.GetOccupiedOffsets(b));
+        EditBuilding(key, "修改建筑端口", value => { value.ports = normalized; return value; });
     }
-
     public void AddBuildingPort(string key, Vector2Int cell, Vector2Int direction, BuildingPortType type)
     {
         var b = GetBuildings().Single(v => v.key == key);
@@ -259,22 +188,27 @@ public sealed partial class FactoryContentDraft
 
     public string ImportBuildingJson(FactoryBuildingJson json, bool footprint, bool ports, bool colliders)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         footprint &= json.HasFootprint; ports &= json.HasPorts; colliders &= json.HasColliders;
         if (!footprint && !ports && !colliders) throw new InvalidDataException("请选择至少一个 JSON 中包含的导入部分。");
         string key = json.Building.key;
-        var docs = BuildingPaths.ToDictionary(p => p, ReadTable, StringComparer.Ordinal);
-        var existing = GetBuildings().SingleOrDefault(b => b.key == key);
-        if (existing == null) AppendBuilding(docs, key);
-        if (footprint) WriteFootprint(docs[BuildingsPath], key, json.Building.width.Value, json.Building.length.Value, json.Building.is_rectangle.Value, json.Building.bitmap);
-        if (ports) WritePorts(docs[PortsPath], key, NormalizePorts(existing?.Kind ?? 0, json.Ports, false, false));
         var data = GetBuildingImport(key);
         if (json.Building.model_file != null) data.modelFile = json.Building.model_file;
         data.sourceJsonPath = json.SourcePath;
-        if (colliders) FactoryBuildingColliderCsv.Write(docs[CollidersPath], key, json.Colliders);
-        UnityEditor.Undo.IncrementCurrentGroup();
-        UnityEditor.Undo.RegisterCompleteObjectUndo(this, "导入建筑 JSON 草稿");
-        foreach (var document in docs) Source(document.Key).text = document.Value.Text;
+        Edit("导入建筑 JSON 草稿", c =>
+        {
+            int row = Array.FindIndex(c.buildings, b => b.key == key);
+            if (row < 0) { row = c.buildings.Length; c.buildings = c.buildings.Append(NewBuilding(c, key)).ToArray(); }
+            var b = c.buildings[row];
+            if (footprint)
+            {
+                b.footprintWidth = checked((byte)json.Building.width.Value); b.footprintHeight = checked((byte)json.Building.length.Value);
+                b.isRectangle = json.Building.is_rectangle.Value; b.footprintBitmap = json.Building.bitmap;
+            }
+            if (ports) b.ports = NormalizePorts(b.kind, json.Ports, false, false);
+            if (colliders) b.colliders = json.Colliders;
+            c.buildings[row] = b;
+        });
         PutBuildingImport(data);
         return key;
     }

@@ -114,8 +114,8 @@ Input / UI
 
 ### 4.1 新增建筑
 
-1. 在 `Assets/Data/FactoryTables` 的 CSV 中补充建筑、等级、端口、配方数据；
-2. 运行 `FactoryDatabaseCsvImporter` 重新生成 `FactoryDatabase`；
+1. 在 **Factory > 内容管理器** 中新增建筑，导入模型/空间数据，配置行为、端口和配方；
+2. 点击“保存”，校验并写入正式 `FactoryDatabaseAsset`；需要时通过 **Factory > Validate Static Database** 复核，Baking 从资产生成运行时 Blob；
 3. 在 `Assets/Scripts/ECS/Data` 对应领域子目录添加该建筑需要的 ECS 组件；
 4. 在 `GridBuildCommandSystem.AddLogicComponents` 中接入创建逻辑；
 5. 如果建筑有输入/输出端口，按现有 `BuildingPort` 和 Port Snapshot 规则接入；
@@ -126,7 +126,7 @@ Input / UI
 
 ### 4.2 新增物品或配方
 
-1. 只通过数据库表定义物品和配方，不硬编码 ItemId；
+1. 只通过内容管理器编辑数据库资产来定义物品和配方，不硬编码 ItemId；
 2. 使用 Item Prefab Catalog 和 `ItemPool` 管理生命周期；
 3. 稳态 Tick 中复用池化物品，不持续 `Instantiate/Destroy`；
 4. 表现状态使用 `ItemVisualState`，逻辑状态使用 `Item`；

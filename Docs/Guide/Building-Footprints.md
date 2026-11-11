@@ -1,11 +1,12 @@
 # 建筑占格与端口定义
 
-建筑源数据为 `Assets/Data/FactoryTables/buildings/buildings.csv`。修改后使用
-`Factory > Rebuild Static Database` 重新生成数据库，不要直接修改生成的 asset。
+建筑源数据为 `Assets/Data/FactoryDatabase.asset` 中的建筑定义。通过 **Factory > 内容管理器** 导入 Blender `.factory.json` 并保存；管理器中的空间示意保持只读。字段对应 `footprintWidth / footprintHeight / isRectangle / footprintBitmap`。
 
-完整表结构见 [建筑数据表](Building-Data-Tables.md)。
+完整定义结构见 [建筑与生产内容定义](Building-Data-Tables.md)。
 
 ## 占格字段
+
+下表沿用 Blender JSON 字段名，导入后映射到建筑资产的强类型字段。
 
 | 字段 | 含义 |
 |---|---|
@@ -38,7 +39,7 @@ bitmap=1111/1111/1100
 
 ## 端口坐标与方向
 
-端口仍定义在 `building_ports.csv`：
+端口定义在建筑的 `ports` 数组中（下文沿用 Blender JSON 的字段名）：
 
 - `cell_x/cell_z` 是未旋转时的局部连接格坐标，第二坐标对应世界 Z。
 - 连接格位于建筑占格以外，可以在包围矩形外，也可以在内部的凹口或孔洞中。
@@ -55,11 +56,11 @@ bitmap=1111/1111/1100
 
 ## 运行时数据
 
-CSV 导入及 Blob 烘焙共用形状、端口校验。烘焙将矩形和位图统一展开成
+内容编辑及 Blob 烘焙共用形状、端口校验。烘焙将矩形和位图统一展开成
 `FactoryDatabaseBlob.BuildingOccupiedCells`，每种建筑通过
 `OccupiedCellStart/OccupiedCellCount` 引用连续偏移列表。
 放置候选、实体的 `OccupiedCellOffset` 和预览都读取该列表。
 运行时不解析位图，也不需要按矩形/异形分支处理。
 
-自动化回归见 `Assets/Tests/IrregularBuildingFootprintTests.cs`，覆盖四向放置、
+自动化回归见 `Assets/Tests/Construction/IrregularBuildingFootprintTests.cs`，覆盖四向放置、
 预览、占用、拆除、空缺区域共存、稀疏表面、位图格式及凹边端口校验。

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 /// <summary>Validates resolved rows before they enter the runtime Blob.</summary>
 public static class FactoryDatabaseValidation
@@ -9,11 +10,16 @@ public static class FactoryDatabaseValidation
     {
         if (source == null || source.items == null || source.machineTypes == null ||
             source.buildings == null || source.recipes == null || source.buildings.Length == 0)
-            throw new InvalidDataException("Factory database is missing required generated rows.");
+            throw new InvalidDataException("Factory database is missing required content rows.");
+        Require(source.version > 0, "Invalid database version.");
+        ValidateKeys(source.items.Select(i => i.key), "item");
+        ValidateKeys(source.machineTypes.Select(m => m.key), "machine type");
+        ValidateKeys(source.buildings.Select(b => b.key), "building");
+        ValidateKeys(source.recipes.Select(r => r.key), "recipe");
         HashSet<ushort> items = new HashSet<ushort>();
         foreach (var item in source.items)
         {
-            Require(item.id != 0 && items.Add(item.id) && item.maxStack > 0, "Invalid or duplicate item.");
+            Require(item.id != 0 && items.Add(item.id) && item.maxStack > 0 && Enum.IsDefined(typeof(FactoryItemCategory), item.category), "Invalid or duplicate item.");
         }
         HashSet<ushort> machines = new HashSet<ushort>();
         foreach (var machine in source.machineTypes)
@@ -37,6 +43,9 @@ public static class FactoryDatabaseValidation
             var offsets = FactoryBuildingFootprintUtility.GetOccupiedOffsets(building);
             FactoryBuildingFootprintUtility.ValidatePorts(building, offsets);
             bool processor = building.kind == BuildingKind.Processor;
+            Require(!processor || (building.ports ?? Array.Empty<FactoryBuildingPortTableRow>()).Any(p => p.type == BuildingPortType.Output), label + " requires an output port.");
+            Require((building.kind != BuildingKind.Foundation && building.kind != BuildingKind.RampFoundation) ||
+                (building.ports?.Length ?? 0) == 0, label + " cannot declare logistics ports.");
             Require(processor ? machines.Contains(building.machineTypeId) : building.machineTypeId == 0,
                 label + " has an invalid processor configuration.");
             bool belt = building.kind == BuildingKind.Belt || VerticalBeltUtility.IsVertical(building.kind);
@@ -68,10 +77,9 @@ public static class FactoryDatabaseValidation
             Require(recipe.id != 0 && recipes.Add(recipe.id) && machines.Contains(recipe.machineTypeId) &&
                 recipe.durationSeconds > 0f && !float.IsNaN(recipe.durationSeconds) && !float.IsInfinity(recipe.durationSeconds) &&
                 (recipe.outputs?.Length ?? 0) > 0, $"Recipe '{recipe.key}' is invalid.");
-            foreach (var ingredient in recipe.inputs ?? Array.Empty<FactoryRecipeIngredientTableRow>())
-                Require(items.Contains(ingredient.itemId) && ingredient.count > 0, "Invalid recipe input.");
-            foreach (var ingredient in recipe.outputs)
-                Require(items.Contains(ingredient.itemId) && ingredient.count > 0, "Invalid recipe output.");
+            Require(source.machineTypes.Any(m => m.id == recipe.machineTypeId && m.key == recipe.machineTypeKey), "Recipe machine ID/Key mismatch.");
+            ValidateIngredients(recipe.inputs ?? Array.Empty<FactoryRecipeIngredientTableRow>(), source.items);
+            ValidateIngredients(recipe.outputs, source.items);
             foreach (var building in source.buildings)
             {
                 if (building.kind != BuildingKind.Processor || building.machineTypeId != recipe.machineTypeId)
@@ -85,6 +93,24 @@ public static class FactoryDatabaseValidation
                     Require(bound, $"Building '{building.key}' has no outlet for recipe '{recipe.key}' output slot {slot}.");
                 }
             }
+        }
+    }
+
+    private static void ValidateKeys(IEnumerable<string> values, string label)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string key in values)
+            Require(!string.IsNullOrWhiteSpace(key) && !key.Any(char.IsWhiteSpace) && keys.Add(key), "Invalid or duplicate " + label + " key: " + key);
+    }
+
+    private static void ValidateIngredients(FactoryRecipeIngredientTableRow[] values, FactoryItemTableRow[] items)
+    {
+        var seen = new HashSet<ushort>();
+        foreach (var ingredient in values)
+        {
+            var item = items.FirstOrDefault(i => i.id == ingredient.itemId);
+            Require(item.id != 0 && item.key == ingredient.itemKey && seen.Add(item.id) &&
+                ingredient.count > 0 && ingredient.count <= item.maxStack, "Invalid, duplicate or over-stack recipe ingredient: " + ingredient.itemKey);
         }
     }
 

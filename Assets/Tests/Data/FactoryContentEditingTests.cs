@@ -1,9 +1,7 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -37,187 +35,175 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void Save_RebuildsDatabaseAndCanBeReadByANewDraft()
+        public void Save_AssetRoundTripPreservesUnicodeReferencesAndGuid()
         {
+            var asset = FactoryDatabaseEditor.Load();
+            var backup = Object.Instantiate(asset);
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             var reopened = ScriptableObject.CreateInstance<FactoryContentDraft>();
-            var backups = new Dictionary<string, byte[]>();
+            string guid = AssetDatabase.AssetPathToGUID(FactoryDatabaseEditor.DatabaseAssetPath);
             try
             {
                 draft.Load();
-                int namesIndex = draft.Tables.ToList().FindIndex(t => t.path.EndsWith("building_names.csv"));
-                int itemsIndex = draft.Tables.ToList().FindIndex(t => t.path.EndsWith("/items.csv"));
-                foreach (string path in new[] { draft.Tables[namesIndex].path, draft.Tables[itemsIndex].path, FactoryDatabaseCsvImporter.DatabaseAssetPath })
-                    backups.Add(path, File.ReadAllBytes(path));
-                var names = FactoryCsvTable.Parse(draft.Tables[namesIndex].text);
-                int row = Enumerable.Range(0, names.RowCount).First(r => names.Get(r, "key") == "furnace" && names.Get(r, "locale") == "zh-CN");
-                const string displayName = "测试熔炉,\"中文\"\n下一行";
-                draft.SetCell(namesIndex, row, "name", displayName);
-                draft.SetCell(itemsIndex, 0, "name_key", "测试物品名称");
+                const string name = "测试熔炉,\"中文\"\n下一行";
+                draft.SetBuildingName("furnace", name);
+                draft.SetItemValue(0, "name_key", name);
                 draft.Save();
                 Assert.That(draft.IsModified, Is.False);
-                Assert.That(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath)
-                    .buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo(displayName));
                 reopened.Load();
                 var candidate = reopened.ReadCandidate();
                 try
                 {
-                    Assert.That(candidate.buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo(displayName));
-                    Assert.That(candidate.items.Any(i => i.nameKey == "测试物品名称"), Is.True);
+                    Assert.That(candidate.buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo(name));
+                    Assert.That(candidate.items[0].nameKey, Is.EqualTo(name));
+                    Assert.That(candidate.items[0].model, Is.EqualTo(backup.items[0].model));
+                    Assert.That(candidate.items[0].icon, Is.EqualTo(backup.items[0].icon));
+                    Assert.That(AssetDatabase.AssetPathToGUID(FactoryDatabaseEditor.DatabaseAssetPath), Is.EqualTo(guid));
                 }
                 finally { Object.DestroyImmediate(candidate); }
             }
             finally
             {
-                foreach (var backup in backups) File.WriteAllBytes(backup.Key, backup.Value);
-                foreach (string path in backups.Keys) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-                Object.DestroyImmediate(draft);
-                Object.DestroyImmediate(reopened);
+                FactoryDatabaseEditor.Save(backup);
+                Object.DestroyImmediate(backup); Object.DestroyImmediate(draft); Object.DestroyImmediate(reopened);
             }
         }
 
         [Test]
-        public void CsvEdit_RoundTripsEscapesAndPreservesUnrelatedRecords()
-        {
-            const string source = "# 注释中的\"引号\r\nkey,locale,name,extra\r\nfurnace,en-US,Furnace,untouched\r\nfurnace,zh-CN,熔炉,x\r\n\r\n";
-            var table = FactoryCsvTable.Parse(source);
-            Assert.That(table.Text, Is.EqualTo(source));
-            const string name = "中文,\"名称\"\r\n第二行\n末行";
-            table.Set(1, "name", name);
-            var reread = FactoryCsvTable.Parse(table.Text);
-            Assert.That(reread.Get(1, "name"), Is.EqualTo(name));
-            Assert.That(reread.Get(1, "extra"), Is.EqualTo("x"));
-            Assert.That(table.Text, Does.StartWith("# 注释中的\"引号\r\nkey,locale,name,extra\r\nfurnace,en-US,Furnace,untouched\r\n"));
-            Assert.That(table.Text, Does.EndWith("\r\n\r\n"));
-            // Structural edits must also retain comments and unrelated extra columns.
-            table.EnsureColumn("icon_key");
-            table.Set(1, "icon_key", "熔炉图标");
-            int added = table.Append(new Dictionary<string, string> { ["key"] = "new", ["locale"] = "zh-CN", ["name"] = "新增" });
-            table.RemoveAt(added);
-            reread = FactoryCsvTable.Parse(table.Text);
-            Assert.That(reread.Get(1, "icon_key"), Is.EqualTo("熔炉图标"));
-            Assert.That(reread.Get(0, "extra"), Is.EqualTo("untouched"));
-            Assert.That(reread.RowCount, Is.EqualTo(2));
-        }
-
-        [TestCase("key,name\na,\"unclosed")]
-        [TestCase("key,name\na,\"closed\"junk\n")]
-        [TestCase("key,key\na,b\n")]
-        public void CsvRead_RejectsMalformedText(string text) =>
-            Assert.Throws<InvalidDataException>(() => FactoryCsvTable.Parse(text));
-
-        [Test]
-        public void Draft_EditUndoRedoAndDiscard_DoNotWriteSources()
+        public void Draft_UndoRedoDiscardAndSerializationDoNotWriteSource()
         {
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
+            var restored = ScriptableObject.CreateInstance<FactoryContentDraft>();
+            byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);
+            string source = EditorJsonUtility.ToJson(FactoryDatabaseEditor.Load());
             try
             {
                 draft.Load();
-                int index = draft.Tables.ToList().FindIndex(t => t.path.EndsWith("building_names.csv"));
-                string original = draft.Tables[index].original;
-                draft.SetCell(index, 0, "name", "草稿名称");
+                draft.SetBuildingName("furnace", "草稿名称");
                 Assert.That(draft.IsModified, Is.True);
-                Undo.PerformUndo();
-                Assert.That(draft.IsModified, Is.False);
+                Undo.PerformUndo(); Assert.That(draft.IsModified, Is.False);
                 Undo.PerformRedo();
-                Assert.That(FactoryCsvTable.Parse(draft.Tables[index].text).Get(0, "name"), Is.EqualTo("草稿名称"));
-                Assert.That(File.ReadAllText(draft.Tables[index].path), Is.EqualTo(original));
-                draft.Load();
-                Assert.That(draft.IsModified, Is.False);
+                Assert.That(draft.GetBuildings().Single(b => b.key == "furnace").name, Is.EqualTo("草稿名称"));
+                EditorJsonUtility.FromJsonOverwrite(EditorJsonUtility.ToJson(draft), restored);
+                Assert.That(restored.IsModified, Is.True);
+                Assert.That(restored.GetItems()[0].model, Is.EqualTo(draft.GetItems()[0].model));
+                Assert.That(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath), Is.EqualTo(disk));
+                Assert.That(EditorJsonUtility.ToJson(FactoryDatabaseEditor.Load()), Is.EqualTo(source));
+                draft.Load(); Assert.That(draft.IsModified, Is.False);
             }
-            finally { Object.DestroyImmediate(draft); }
+            finally { Object.DestroyImmediate(draft); Object.DestroyImmediate(restored); }
         }
 
         [Test]
-        public void InvalidDraft_SaveLeavesAllSourcesAndGeneratedDatabaseIntact()
+        public void InvalidDraft_DoesNotModifySavedAsset()
         {
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
+            byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);
+            string source = EditorJsonUtility.ToJson(FactoryDatabaseEditor.Load());
             try
             {
                 draft.Load();
-                var bytes = draft.Tables.ToDictionary(t => t.path, t => File.ReadAllBytes(t.path));
-                byte[] database = File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath);
-                int index = draft.Tables.ToList().FindIndex(t => t.path.EndsWith("/items.csv"));
-                draft.SetCell(index, 0, "max_stack", "0");
-                Assert.Catch(() => draft.Save());
-                foreach (var file in bytes) Assert.That(File.ReadAllBytes(file.Key), Is.EqualTo(file.Value));
-                Assert.That(File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath), Is.EqualTo(database));
+                draft.AddItem(); // Missing FBX.
+                Assert.Throws<InvalidDataException>(() => draft.Save());
                 Assert.That(draft.IsModified, Is.True);
+                Assert.That(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath), Is.EqualTo(disk));
+                Assert.That(EditorJsonUtility.ToJson(FactoryDatabaseEditor.Load()), Is.EqualTo(source));
             }
             finally { Object.DestroyImmediate(draft); }
         }
 
         [Test]
-        public void ValidCandidate_SaveAndRebuildReadsEditedFieldWithoutChangingBuildingIds()
+        public void CompetingDraftSave_RejectsStaleSourceWithoutOverwritingIt()
         {
-            var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
-            string directory = Path.Combine("Temp", "FactoryCsv-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(directory);
+            var backup = Object.Instantiate(FactoryDatabaseEditor.Load());
+            var first = ScriptableObject.CreateInstance<FactoryContentDraft>();
+            var second = ScriptableObject.CreateInstance<FactoryContentDraft>();
             try
             {
-                draft.Load();
-                int index = draft.Tables.ToList().FindIndex(t => t.path.EndsWith("building_names.csv"));
-                var names = FactoryCsvTable.Parse(draft.Tables[index].text);
-                int row = Enumerable.Range(0, names.RowCount).First(r => names.Get(r, "key") == "furnace" && names.Get(r, "locale") == "zh-CN");
-                const string changed = "新熔炉,\"中文\"\n第二行";
-                draft.SetCell(index, row, "name", changed);
-                var candidate = draft.ReadCandidate();
-                try { Assert.That(candidate.buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo(changed)); }
-                finally { Object.DestroyImmediate(candidate); }
-                var files = draft.Tables.ToDictionary(t => t.path, t => Path.Combine(directory, Path.GetFileName(t.path)));
-                foreach (var t in draft.Tables) File.WriteAllText(files[t.path], t.original);
-                string target = files[draft.Tables[index].path];
-                int rebuilt = 0;
-                FactoryCsvSaveTransaction.Commit(new Dictionary<string, string> { [target] = draft.Tables[index].text }, () =>
-                {
-                    rebuilt++;
-                    var reread = FactoryDatabaseCsvImporter.ReadCandidate(path => FactoryCsvTable.Read(files[path]));
-                    try
-                    {
-                        Assert.That(reread.buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo(changed));
-                        Assert.That(reread.buildings.Select(b => b.id), Is.EqualTo(Enumerable.Range(1, reread.buildings.Length).Select(n => (ushort)n)));
-                    }
-                    finally { Object.DestroyImmediate(reread); }
-                });
-                Assert.That(rebuilt, Is.EqualTo(1));
+                first.Load(); second.Load();
+                first.SetBuildingName("furnace", "第一个窗口"); first.Save();
+                second.SetBuildingName("furnace", "过期窗口");
+                Assert.Throws<IOException>(() => second.Save());
+                Assert.That(FactoryDatabaseEditor.Load().buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo("第一个窗口"));
+                Assert.That(second.IsModified, Is.True);
             }
             finally
             {
-                Object.DestroyImmediate(draft);
-                foreach (string file in Directory.GetFiles(directory)) File.Delete(file);
-                Directory.Delete(directory);
+                FactoryDatabaseEditor.Save(backup);
+                Object.DestroyImmediate(backup); Object.DestroyImmediate(first); Object.DestroyImmediate(second);
             }
         }
 
         [Test]
-        public void MultiTableWriteFailure_RestoresBytesAndDoesNotRebuild()
+        public void DiskOrInspectorChanges_RejectStaleDraft()
         {
-            string directory = Path.Combine("Temp", "FactoryCsv-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(directory);
-            string first = Path.Combine(directory, "first.csv");
-            string second = Path.Combine(directory, "second.csv");
-            File.WriteAllText(first, "name\r\n原文\r\n", new UTF8Encoding(true));
-            File.WriteAllText(second, "name\nother\n");
-            byte[] original = File.ReadAllBytes(first);
+            var asset = FactoryDatabaseEditor.Load();
+            var backup = Object.Instantiate(asset);
+            var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
+            byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);
             try
             {
-                // Read sharing permits the backup; denying write forces the second write to fail.
-                using (var locked = new FileStream(second, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    int rebuilt = 0;
-                    var error = Assert.Throws<IOException>(() => FactoryCsvSaveTransaction.Commit(
-                        new Dictionary<string, string> { [first] = "name\nchanged\n", [second] = "name\nchanged\n" }, () => rebuilt++));
-                    Assert.That(error.Message, Does.Contain(second));
-                    Assert.That(File.ReadAllBytes(first), Is.EqualTo(original));
-                    Assert.That(rebuilt, Is.Zero);
-                }
+                draft.Load(); draft.SetBuildingName("furnace", "草稿");
+                asset.items[0].nameKey = "Inspector 修改";
+                Assert.Throws<IOException>(() => draft.Save());
+                FactoryDatabaseEditor.CopyData(backup, asset);
+                File.AppendAllText(FactoryDatabaseEditor.DatabaseAssetPath, "\n");
+                Assert.Throws<IOException>(() => draft.Save());
             }
             finally
             {
-                File.Delete(first);
-                File.Delete(second);
-                Directory.Delete(directory);
+                AssetDatabase.ReleaseCachedFileHandles();
+                File.WriteAllBytes(FactoryDatabaseEditor.DatabaseAssetPath, disk);
+                FactoryDatabaseEditor.CopyData(backup, asset);
+                Object.DestroyImmediate(backup); Object.DestroyImmediate(draft);
             }
+        }
+
+        [Test]
+        public void LockedAsset_SaveFailsBeforeMutationAndCanBeRetried()
+        {
+            var asset = FactoryDatabaseEditor.Load();
+            var backup = Object.Instantiate(asset);
+            var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
+            string source = EditorJsonUtility.ToJson(asset);
+            byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);
+            try
+            {
+                draft.Load(); draft.SetBuildingName("furnace", "稍后保存");
+                AssetDatabase.ReleaseCachedFileHandles();
+                using (new FileStream(FactoryDatabaseEditor.DatabaseAssetPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    Assert.Throws<IOException>(() => draft.Save());
+                    Assert.That(EditorJsonUtility.ToJson(asset), Is.EqualTo(source));
+                    Assert.That(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath), Is.EqualTo(disk));
+                    Assert.That(draft.IsModified, Is.True);
+                }
+                draft.Save(); Assert.That(draft.IsModified, Is.False);
+            }
+            finally { FactoryDatabaseEditor.Save(backup); Object.DestroyImmediate(backup); Object.DestroyImmediate(draft); }
+        }
+
+        [Test]
+        public void AssetReorderingAndAddingContent_PreservesExistingIdsAndBindings()
+        {
+            var candidate = FactoryDatabaseEditor.ReadCandidate();
+            try
+            {
+                var ids = candidate.buildings.ToDictionary(b => b.key, b => b.id);
+                candidate.buildings = candidate.buildings.Reverse().ToArray();
+                candidate.items = candidate.items.Reverse().ToArray();
+                candidate.machineTypes = candidate.machineTypes.Reverse().ToArray();
+                candidate.recipes = candidate.recipes.Reverse().ToArray();
+                FactoryDatabaseEditor.Validate(candidate);
+                Assert.That(FactoryDatabaseBakingUtility.TryBuild(candidate, null, out var blob), Is.True);
+                try
+                {
+                    foreach (var pair in ids)
+                        Assert.That(FactoryDatabaseUtility.GetBuildingDefinitionId(ref blob.Value, pair.Key).Value, Is.EqualTo(pair.Value));
+                }
+                finally { blob.Dispose(); }
+            }
+            finally { Object.DestroyImmediate(candidate); }
         }
     }
 }

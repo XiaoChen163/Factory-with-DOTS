@@ -1,6 +1,6 @@
 # Scripts 源码目录导航
 
-更新日期：2026-11-04。
+更新日期：2026-11-11。
 
 源码保留“技术层 / 业务领域”的两级组织方式：先区分 ECS 数据、系统、Authoring、表现和编辑器，再在各层按领域查找。尚未实现的 Combat、Bases、Power 等领域不提前创建空目录。运行时与编辑器程序集边界保持不变。
 
@@ -24,7 +24,7 @@
 | 运行时静态数据库及 Baking | `ECS/Data/Content`、`ECS/Authoring/Content` |
 | 数据库定义、校验 | `DataBase/Definitions`、`DataBase/Validation` |
 | 内容管理器及其草稿/partial 文件 | `DataBase/Editor/ContentManager` |
-| CSV 导入、建筑模型导入、图标烘焙 | `DataBase/Editor/Import`、`Buildings`、`Icons` |
+| 数据资产保存/构建校验、建筑模型导入、图标烘焙 | `DataBase/Editor/Import`、`Buildings`、`Icons` |
 | UI/建筑资源生成、玩家预制体安装 | `DataBase/Editor/Setup`、`ECS/Editor/Player` |
 | 性能场景、指标采集及批处理入口 | `ECS/Performance`、`DataBase/Editor/Performance` |
 | 原型诊断 HUD | `ECS/Presentation/Diagnostics`，不作为正式 UI 入口 |

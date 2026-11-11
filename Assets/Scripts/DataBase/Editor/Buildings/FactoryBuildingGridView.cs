@@ -19,7 +19,7 @@ public sealed class FactoryBuildingGridView : IMGUIContainer
             { GUI.Label(rect, "待补全占格"); return; }
             HashSet<Vector2Int> occupied;
             try { occupied = new HashSet<Vector2Int>(FactoryBuildingFootprintUtility.GetOccupiedOffsets(b.SpatialDefinition()).Select(c => new Vector2Int(c.x, c.y))); }
-            catch { GUI.Label(rect, "占格无效，请修改 CSV 或重新导入"); return; }
+            catch { GUI.Label(rect, "占格无效，请重新导入占格数据"); return; }
             float size = Mathf.Min(rect.width / (b.width + 2), rect.height / (b.length + 2));
             var origin = new Vector2(rect.x, rect.y);
             var coordinates = new GUIStyle(EditorStyles.miniLabel)

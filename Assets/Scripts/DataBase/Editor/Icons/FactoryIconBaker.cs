@@ -32,6 +32,7 @@ public static class FactoryIconBaker
 
     public static void BakeAll(bool force)
     {
+        FactoryDatabaseEditor.EnsureCanWrite();
         if (IsBaking || EditorApplication.isCompiling)
             return;
 
@@ -63,7 +64,7 @@ public static class FactoryIconBaker
             }
 
             AssetDatabase.SaveAssets();
-            FactoryDatabaseCsvImporter.RebuildFromMenu();
+            BindBakedIcons(previous, manifest);
             Debug.Log(
                 $"Factory icon bake complete: {changedOutputs.Count} updated, " +
                 $"{next.Count - changedOutputs.Count} unchanged.",
@@ -86,10 +87,13 @@ public static class FactoryIconBaker
         IReadOnlyDictionary<string, FactoryIconBakeManifestEntry> previous,
         ICollection<FactoryIconBakeManifestEntry> next, ICollection<string> changedOutputs, bool force)
     {
-        var table = FactoryCsvTable.Read("Assets/Data/FactoryTables/" + kind + "/" + kind + ".csv");
-        for (int row = 0; row < table.RowCount; row++)
+        var database = FactoryDatabaseEditor.Load();
+        var models = kind == "items"
+            ? database.items.Select(i => (i.key, model: i.model))
+            : database.buildings.Select(b => (b.key, model: b.visualPrefab));
+        foreach (var definition in models)
         {
-            string key = table.Get(row, "key"), path = table.Get(row, "model_path");
+            string key = definition.key, path = AssetDatabase.GetAssetPath(definition.model);
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (model == null) throw new InvalidDataException($"Building '{key}' model not found: {path}");
             string identity = kind == "items" ? ItemManifestKey(key) : BuildingManifestKey(key);
@@ -107,6 +111,45 @@ public static class FactoryIconBaker
             }
             next.Add(new FactoryIconBakeManifestEntry { prefabPath = identity, outputPath = output, hash = hash });
         }
+    }
+
+    private static void BindBakedIcons(IReadOnlyDictionary<string, FactoryIconBakeManifestEntry> previous, FactoryIconBakeManifest manifest)
+    {
+        var candidate = UnityEngine.Object.Instantiate(FactoryDatabaseEditor.Load());
+        try
+        {
+            var entries = manifest.entries.ToDictionary(e => e.prefabPath, StringComparer.Ordinal);
+            for (int n = 0; n < candidate.items.Length; n++)
+            {
+                var item = candidate.items[n];
+                string identity = ItemManifestKey(item.key);
+                if (entries.TryGetValue(identity, out var entry) && CanBind(item.icon, identity, previous, ItemIconDirectory, item.key))
+                {
+                    item.icon = AssetDatabase.LoadAssetAtPath<Sprite>(entry.outputPath);
+                    item.iconKey = Path.GetFileNameWithoutExtension(entry.outputPath);
+                    candidate.items[n] = item;
+                }
+            }
+            for (int n = 0; n < candidate.buildings.Length; n++)
+            {
+                var building = candidate.buildings[n];
+                string identity = BuildingManifestKey(building.key);
+                if (entries.TryGetValue(identity, out var entry) && CanBind(building.icon, identity, previous, BuildingIconDirectory, building.key))
+                {
+                    building.icon = AssetDatabase.LoadAssetAtPath<Sprite>(entry.outputPath);
+                    candidate.buildings[n] = building;
+                }
+            }
+            FactoryDatabaseEditor.Save(candidate);
+        }
+        finally { UnityEngine.Object.DestroyImmediate(candidate); }
+    }
+
+    private static bool CanBind(Sprite current, string identity, IReadOnlyDictionary<string, FactoryIconBakeManifestEntry> previous, string directory, string key)
+    {
+        string path = AssetDatabase.GetAssetPath(current);
+        return current == null || path == directory + "/" + Uri.EscapeDataString(key) + ".png" ||
+            previous.TryGetValue(identity, out var old) && path == old.outputPath;
     }
 
     private static string CalculateBakeHash(

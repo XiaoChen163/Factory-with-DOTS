@@ -17,7 +17,7 @@ public static class VerticalBeltArtBatch
         try
         {
             draft.Load();
-            var tables = draft.Tables.ToDictionary(t => t.path, t => t.text);
+            string beforeContent = EditorJsonUtility.ToJson(draft);
             var settings = AssetDatabase.LoadAssetAtPath<FactoryIconBakeSettings>(FactoryIconBaker.SettingsAssetPath);
             if (settings == null) throw new Exception("Missing icon settings.");
             for (int tier = 1; tier <= 4; tier++)
@@ -74,11 +74,10 @@ public static class VerticalBeltArtBatch
                     "Downward X-flipped profile matches upward profile\nDefault entry=-X, default exit=+X\n" +
                     "Icon demonstrates a quarter-turned outlet; individual source models retain default directions\n");
             }
-            foreach (var table in draft.Tables)
-                if (table.text != tables[table.path]) throw new Exception("Gameplay table changed: " + table.path);
+            if (EditorJsonUtility.ToJson(draft) != beforeContent) throw new Exception("Gameplay content changed.");
             draft.Save();
             var candidate = draft.ReadCandidate();
-            try { FactoryDatabaseCsvImporter.Generate(candidate); }
+            try { FactoryDatabaseEditor.Save(candidate); }
             finally { UnityEngine.Object.DestroyImmediate(candidate); }
             AssetDatabase.SaveAssets();
             Debug.Log("VERTICAL_BELT_ART_IMPORT_OK tiers=4 modules=12 splice_checks=passed");
@@ -112,7 +111,7 @@ public static class VerticalBeltArtBatch
 
     static Bounds ValidateModel(GameObject model, string folder, string key, int tier)
     {
-        FactoryDatabaseCsvImporter.LoadModel(AssetDatabase.GetAssetPath(model));
+        FactoryDatabaseEditor.LoadModel(AssetDatabase.GetAssetPath(model));
         var renderers = model.GetComponentsInChildren<MeshRenderer>(true);
         var expected = (JArray)JObject.Parse(File.ReadAllText(folder + "/" + key + ".geometry.json"))["meshes"];
         if (renderers.Length != expected.Count) throw new Exception("Mesh count mismatch: " + key);

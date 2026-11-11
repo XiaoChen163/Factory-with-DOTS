@@ -36,15 +36,12 @@ public static class FactoryItemArtBatch
             draft.Load();
             var before = draft.GetItems().ToDictionary(x => x.key);
             var guids = before.Values.ToDictionary(x => x.key, x => AssetDatabase.AssetPathToGUID(x.modelPath));
-            var untouched = draft.Tables.Where(t => !new[] { FactoryContentDraft.ItemsPath, FactoryContentDraft.RecipesPath,
-                FactoryContentDraft.InputsPath, FactoryContentDraft.OutputsPath }.Any(p => t.path.EndsWith("/" + p, StringComparison.Ordinal)))
-                .ToDictionary(t => t.path, t => t.text);
+            string buildingsBefore = string.Join(";", draft.GetBuildings().Select(b => JsonUtility.ToJson(b)));
             var items = JArray.Parse(File.ReadAllText(Root + "/Model/items-manifest.json"));
             foreach (var item in items) Import(draft, item);
             foreach (var recipe in Recipes) ConfigureRecipe(draft, recipe);
-            foreach (var table in draft.Tables)
-                if (untouched.TryGetValue(table.path, out var text) && table.text != text)
-                    throw new Exception("Unexpected table change: " + table.path);
+            if (string.Join(";", draft.GetBuildings().Select(b => JsonUtility.ToJson(b))) != buildingsBefore)
+                throw new Exception("Unexpected building change.");
             draft.Save();
             AssetDatabase.SaveAssets();
             draft.Load();
@@ -100,8 +97,8 @@ public static class FactoryItemArtBatch
             settings.resolution = 700;
             File.WriteAllBytes(Root + "/Preview/" + key + "_Unity.png", FactoryIconRenderer.RenderPng(model, settings));
             string iconKey = string.IsNullOrEmpty(current.iconKey) ? key : current.iconKey;
-            var index = FactoryDatabaseCsvImporter.BuildSpriteIndex(FactoryIconBaker.ItemIconDirectory);
-            string icon = index.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(iconKey), out var sprite)
+            var index = FactoryDatabaseEditor.BuildSpriteIndex(FactoryIconBaker.ItemIconDirectory);
+            string icon = index.TryGetValue(FactoryDatabaseEditor.NormalizeKey(iconKey), out var sprite)
                 ? AssetDatabase.GetAssetPath(sprite) : FactoryIconBaker.ItemIconDirectory + "/" + iconKey + ".png";
             settings.resolution = 256;
             File.WriteAllBytes(icon, FactoryIconRenderer.RenderPng(model, settings));
@@ -160,7 +157,7 @@ public static class FactoryItemArtBatch
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(item.modelPath);
         Bounds bounds = ValidateGeometry(model, folder, key);
         string iconKey = string.IsNullOrEmpty(item.iconKey) ? key : item.iconKey;
-        if (!FactoryDatabaseCsvImporter.BuildSpriteIndex(FactoryIconBaker.ItemIconDirectory).ContainsKey(FactoryDatabaseCsvImporter.NormalizeKey(iconKey)))
+        if (!FactoryDatabaseEditor.BuildSpriteIndex(FactoryIconBaker.ItemIconDirectory).ContainsKey(FactoryDatabaseEditor.NormalizeKey(iconKey)))
             throw new Exception("Missing item icon: " + key);
         string report = "ITEM_IMPORT_OK\nKey=" + key + "\nID=" + item.id + "\nModel=" + item.modelPath +
             "\nGUID=" + AssetDatabase.AssetPathToGUID(item.modelPath) + "\nBounds=" + bounds +

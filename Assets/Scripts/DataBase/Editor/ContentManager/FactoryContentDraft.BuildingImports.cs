@@ -6,8 +6,7 @@ using UnityEngine;
 
 public sealed partial class FactoryContentDraft
 {
-    public const string CollidersPath = "buildings/building_colliders.csv";
-    // Pairing hints live only in the editor draft; model and collision data live in CSV.
+    // Pairing hints live only in the editor draft; model and collision data live in the database asset.
     [SerializeField] private List<FactoryBuildingImportData> buildingImports = new List<FactoryBuildingImportData>();
     private void LoadBuildingImports() => buildingImports.Clear();
 
@@ -15,12 +14,12 @@ public sealed partial class FactoryContentDraft
     {
         var hint = buildingImports.FirstOrDefault(i => i.buildingKey == key);
         var building = GetBuildings().SingleOrDefault(b => b.key == key);
-        var shapes = FactoryBuildingColliderCsv.Read(ReadTable(CollidersPath));
+        var definition = content.buildings.FirstOrDefault(b => b.key == key);
         return new FactoryBuildingImportData
         {
             buildingKey = key, modelFile = hint?.modelFile, sourceJsonPath = hint?.sourceJsonPath,
-            model = building == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(building.modelPath),
-            colliders = shapes.TryGetValue(key, out var colliders) ? colliders : Array.Empty<FactoryColliderProxy>()
+            model = definition.visualPrefab,
+            colliders = definition.colliders == null ? Array.Empty<FactoryColliderProxy>() : definition.colliders.Select(c => c == null ? null : JsonUtility.FromJson<FactoryColliderProxy>(JsonUtility.ToJson(c))).ToArray()
         };
     }
 
@@ -32,10 +31,10 @@ public sealed partial class FactoryContentDraft
     }
 
     private void SetBuildingVisual(string key, string path) =>
-        Edit("设置建筑模型", docs => docs[BuildingsPath].Set(Find(docs[BuildingsPath], key), "model_path", path), BuildingsPath);
+        EditBuilding(key, "设置建筑模型", b => { b.visualPrefab = string.IsNullOrEmpty(path) ? null : FactoryDatabaseEditor.LoadModel(path); b.visualPrefabPath = path; return b; });
 
     public void SetBuildingColliders(string key, FactoryColliderProxy[] shapes) =>
-        Edit("修改建筑碰撞体", docs => FactoryBuildingColliderCsv.Write(docs[CollidersPath], key, shapes), CollidersPath);
+        EditBuilding(key, "修改建筑碰撞体", b => { b.colliders = shapes ?? Array.Empty<FactoryColliderProxy>(); return b; });
 
     private void PutBuildingImport(FactoryBuildingImportData data)
     {

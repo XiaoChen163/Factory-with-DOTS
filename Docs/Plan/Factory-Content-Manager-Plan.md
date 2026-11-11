@@ -1,5 +1,7 @@
 # Factory 内容管理器实施计划
 
+> 2026-11-11 后续改造已完成：内容管理器直接编辑正式 `FactoryDatabaseAsset`，CSV 解析、写入和重建入口已移除；本轮不引入能力组件。当前操作见 [内容管理器指南](../Guide/Factory-Content-Manager.md)，迁移与验证见 [数据源迁移记录](../Guide/Content-Asset-Migration.md)。下文保留原阶段计划及其历史验收记录，不作为当前 CSV 操作指引。
+
 日期：2026-11-01。状态：阶段一至四已完成（阶段四：2026-11-03）。
 
 ## 目标与范围
@@ -17,7 +19,7 @@ blender插件工程位于 `D:\UnityProject\Factory-with-DOTS-BuildingCreater` �
 | 数据 | 编辑源及规则 |
 |---|---|
 | 建筑、物品、配方配置 | `Assets/Data/FactoryTables` 中的 CSV，管理器负责读写 |
-| 运行时数据库 | `Assets/Data/Generated/FactoryDatabase.asset`，继续作为生成缓存，不直接编辑 |
+| 内容数据库（2026-11-11 更新） | `Assets/Data/FactoryDatabase.asset`，作为正式数据源，由内容管理器编辑；Baking 生成运行时 Blob |
 | 占格、端口 | 由 Blender 插件导出的 JSON 或 CSV 提供；Unity 内容管理器只读展示，导入时按勾选更新 CSV |
 | 模型和纹理 | FBX 与图片资产，交由 Unity 原生导入器处理 |
 | 最终材质 | Unity `.mat`，保存源材质到 Unity 材质的映射 |

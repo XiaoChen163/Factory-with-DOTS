@@ -30,12 +30,11 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void JsonFbx_SaveAndReopen_BindsFbxAndCsvCollidersWithoutWrapper()
+        public void JsonFbx_SaveAndReopen_BindsFbxAndCollidersWithoutWrapper()
         {
             var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
             draft.Load();
-            var backup = draft.Tables.ToDictionary(t => t.path, t => File.ReadAllBytes(t.path));
-            var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath);
+            var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseEditor.DatabaseAssetPath);
             var databaseBackup = Object.Instantiate(database);
             databaseBackup.name = database.name;
             try
@@ -52,16 +51,10 @@ namespace Factory.Tests
                 Assert.That(File.Exists(Prefab), Is.False);
                 Assert.That(draft.GetBuildingImport(Key).colliders.Length, Is.EqualTo(2));
                 Assert.That(draft.GetBuildings().Single(b => b.key == Key).modelPath, Is.EqualTo(AssetDatabase.GetAssetPath(model)));
-                Assert.That(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath).buildings.Single(b => b.key == Key).visualPrefab, Is.EqualTo(model));
+                Assert.That(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseEditor.DatabaseAssetPath).buildings.Single(b => b.key == Key).visualPrefab, Is.EqualTo(model));
             }
             finally
             {
-                // CSV importers may retain memory-mapped handles on Windows.
-                // Avoid rewriting unchanged sources and release cached importer handles.
-                AssetDatabase.ReleaseCachedFileHandles();
-                foreach (var entry in backup)
-                    if (!File.ReadAllBytes(entry.Key).SequenceEqual(entry.Value)) File.WriteAllBytes(entry.Key, entry.Value);
-                foreach (string path in backup.Keys) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
                 // Restore the loaded native asset through Unity rather than truncating
                 // its memory-mapped file while the editor still has it loaded.
                 EditorUtility.CopySerialized(databaseBackup, database);
@@ -118,7 +111,7 @@ namespace Factory.Tests
             var world = new World("FBX catalog baking acceptance");
             var catalogRoot = new GameObject("Catalog");
             var authoring = catalogRoot.AddComponent<BuildingPrefabCatalogAuthoring>();
-            var candidate = FactoryDatabaseCsvImporter.ReadCandidate();
+            var candidate = FactoryDatabaseEditor.ReadCandidate();
             // Two definitions share an FBX but require independent physics.
             int furnace = Array.FindIndex(candidate.buildings, b => b.key == "furnace");
             int storage = Array.FindIndex(candidate.buildings, b => b.key == "storage");

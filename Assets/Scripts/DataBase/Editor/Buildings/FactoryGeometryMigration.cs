@@ -31,7 +31,7 @@ public static class FactoryGeometryMigration
     [MenuItem("Factory/Models/Import Generated Placeholder FBX")]
     public static void ImportGeneratedModels()
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         var snapshot = JsonUtility.FromJson<Snapshot>(File.ReadAllText(SnapshotPath));
         var replacements = new Dictionary<string, string>();
         foreach (var entry in snapshot.models)
@@ -42,7 +42,7 @@ public static class FactoryGeometryMigration
             foreach (var slot in FactoryModelPipeline.Sources(entry.output))
                 if (materials.TryGetValue(slot.name, out var material)) importer.AddRemap(slot, material);
             importer.SaveAndReimport();
-            var model = FactoryDatabaseCsvImporter.LoadModel(entry.output);
+            var model = FactoryDatabaseEditor.LoadModel(entry.output);
             VerifyBounds(entry, model);
             AssetDatabase.TryGetGUIDAndLocalFileIdentifier(model, out string guid, out long id);
             replacements.Add(entry.guid, "{fileID: " + id + ", guid: " + guid + ", type: 3}");
@@ -61,8 +61,8 @@ public static class FactoryGeometryMigration
         foreach (var entry in snapshot.models)
             if (File.Exists(entry.source)) AssetDatabase.DeleteAsset(entry.source);
         AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-        var candidate = FactoryDatabaseCsvImporter.ReadCandidate();
-        try { FactoryDatabaseCsvImporter.Generate(candidate); }
+        var candidate = FactoryDatabaseEditor.ReadCandidate();
+        try { FactoryDatabaseEditor.Save(candidate); }
         finally { UnityEngine.Object.DestroyImmediate(candidate); }
         Debug.Log($"FACTORY_FBX_MIGRATION_COMPLETE {snapshot.models.Count} models; bounds and material mappings verified.");
     }

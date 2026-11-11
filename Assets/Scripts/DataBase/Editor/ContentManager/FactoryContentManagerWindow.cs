@@ -19,7 +19,6 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     private ScrollView list, detail;
     private VisualElement warnings;
     private FactoryModelImportWindow modelImportWindow;
-    private Dictionary<string, Sprite> icons;
     private bool Writable => !EditorApplication.isPlayingOrWillChangePlaymode;
 
     [MenuItem("Factory/内容管理器")]
@@ -30,7 +29,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         minSize = new Vector2(900, 500);
         Undo.undoRedoPerformed += Refresh;
         EditorApplication.playModeStateChanged += OnPlayModeChanged;
-        saveChangesMessage = "Factory 内容有未保存的修改。保存前会校验整组表，并重建数据库。";
+        saveChangesMessage = "Factory 内容有未保存的修改。保存前会校验全部内容，并保存数据资产。";
     }
 
     private void OnDisable()
@@ -63,9 +62,8 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
 
     private void Refresh()
     {
-        if (draft == null || draft.Tables.Count == 0) return;
+        if (draft == null || !draft.IsLoaded) return;
         rootVisualElement.Clear();
-        icons = FactoryDatabaseCsvImporter.BuildSpriteIndex(FactoryDatabaseCsvImporter.ItemIconDirectory);
         var tabs = new Toolbar();
         string[] labels = { "建筑", "物品", "配方" };
         string[] names = { "tab-buildings", "tab-items", "tab-recipes" };
@@ -102,11 +100,11 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         delete = new Button(() => Run(DeleteSelected)) { text = "删除", name = "content-delete" };
         toolbar.Add(delete);
         save = new Button(() => { try { SaveChanges(); } catch { /* Error remains in the window. */ } })
-            { text = "保存并重建", name = "content-save" };
+            { text = "保存", name = "content-save" };
         toolbar.Add(save);
         toolbar.Add(new Button(() =>
         {
-            if (!draft.IsModified || EditorUtility.DisplayDialog("放弃修改", "丢弃所有未保存修改，并重新读取 CSV？", "放弃并重新读取", "取消")) DiscardChanges();
+            if (!draft.IsModified || EditorUtility.DisplayDialog("放弃修改", "丢弃所有未保存修改，并重新读取数据资产？", "放弃并重新读取", "取消")) DiscardChanges();
         }) { text = "放弃 / 重新读取" });
         rootVisualElement.Add(toolbar);
         if (!Writable) rootVisualElement.Add(new HelpBox("Play Mode 中禁止写入。退出后可继续处理草稿。", HelpBoxMessageType.Info));
@@ -235,13 +233,11 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     private void DrawItem(FactoryContentItem item)
     {
         detail.Add(Heading("物品详情"));
-        // Keep incomplete numeric text in the draft while typing (e.g. an ID's
-        // first digit may temporarily collide). Validation still runs before save.
-        Bind(detail, new TextField("ID") { name = "item-id", value = draft.ReadTable(FactoryContentDraft.ItemsPath).Get(item.row, "id") },
-            value => WriteDraftText(FactoryContentDraft.ItemsPath, item.row, "id", value));
+        Bind(detail, new IntegerField("ID") { name = "item-id", value = item.id, isDelayed = true },
+            value => draft.SetItemValue(item.row, "id", Number(value)));
         Bind(detail, new TextField("Key") { name = "item-key", value = item.key }, value => draft.SetItemValue(item.row, "key", value));
         Bind(detail, new TextField("名称 / name_key") { name = "item-name", value = item.name, multiline = true }, value => draft.SetItemValue(item.row, "name_key", value));
-        Bind(detail, new IntegerField("最大堆叠") { name = "item-max-stack", value = item.maxStack }, value => draft.SetItemValue(item.row, "max_stack", Number(value)));
+        Bind(detail, new IntegerField("最大堆叠") { name = "item-max-stack", value = item.maxStack, isDelayed = true }, value => draft.SetItemValue(item.row, "max_stack", Number(value)));
         Bind(detail, new EnumField("分类", item.category) { name = "item-category" }, value => draft.SetItemValue(item.row, "category", value.ToString()));
         var model = new ObjectField("FBX 模型") { name = "item-model", objectType = typeof(GameObject), allowSceneObjects = false, value = ItemModel(item) };
         Bind(detail, model, value =>
@@ -251,22 +247,22 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         });
         var material = new Button(() => FactoryModelMaterialWindow.Open(ItemModel(item))) { text = "材质映射与 URP 适配" };
         material.SetEnabled(ItemModel(item) != null); detail.Add(material);
-        var icon = new ObjectField("图标（可留空）") { name = "item-icon", objectType = typeof(Sprite), allowSceneObjects = false, value = ExplicitIcon(item) };
-        Bind(detail, icon, value => draft.SetItemValue(item.row, "icon_key", FactoryItemAssetBindings.IconKey(value as Sprite)));
+        var icon = new ObjectField("图标（可留空）") { name = "item-icon", objectType = typeof(Sprite), allowSceneObjects = false, value = item.icon };
+        Bind(detail, icon, value => draft.SetItemIcon(item.row, value as Sprite));
         detail.Add(new Button(() => Run(() =>
         {
             if (draft.IsModified) throw new InvalidOperationException("请先保存草稿，再烘焙图标。");
-            FactoryIconBaker.BakeChangedFromMenu(); Refresh();
+            FactoryIconBaker.BakeChangedFromMenu(); draft.Load(); Refresh();
         })) { text = "烘焙变化的图标" });
-        detail.Add(new HelpBox("物品直接引用 FBX，不生成碰撞体或刚体。图标留空时按物品 Key 查找默认图标。模型引用随草稿保存到物品表。", HelpBoxMessageType.Info));
+        detail.Add(new HelpBox("物品直接引用 FBX，不生成碰撞体或刚体。图标直接引用 Sprite；烘焙图标后自动绑定。模型引用随草稿保存到数据资产。", HelpBoxMessageType.Info));
     }
 
     private void DrawRecipe(FactoryContentRecipe recipe)
     {
         detail.Add(Heading("配方详情"));
         Bind(detail, new TextField("Key") { name = "recipe-key", value = recipe.key }, value => draft.SetRecipeValue(recipe.row, "key", value));
-        Bind(detail, new TextField("生产时间（秒）") { name = "recipe-duration", value = draft.ReadTable(FactoryContentDraft.RecipesPath).Get(recipe.row, "duration_seconds") },
-            value => WriteDraftText(FactoryContentDraft.RecipesPath, recipe.row, "duration_seconds", value));
+        Bind(detail, new FloatField("生产时间（秒）") { name = "recipe-duration", value = recipe.duration, isDelayed = true },
+            value => draft.SetRecipeValue(recipe.row, "duration_seconds", value.ToString("R", CultureInfo.InvariantCulture)));
         var machines = draft.GetMachineTypes();
         if (!machines.Contains(recipe.machine)) machines.Add(recipe.machine);
         var machine = new PopupField<string>("加工类型", machines, recipe.machine) { name = "recipe-machine" };
@@ -308,7 +304,6 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
             var overflow = draft.GetItemReferences(item.key, item.maxStack);
             if (overflow.Count > 0) warnings.Add(new HelpBox("以下配方数量超过最大堆叠，请调整后再保存：\n" + string.Join("\n", overflow), HelpBoxMessageType.Warning));
             if (ItemModel(item) == null) warnings.Add(new HelpBox("请选择有效的物品 FBX 后再保存。", HelpBoxMessageType.Warning));
-            if (!string.IsNullOrEmpty(item.iconKey) && ExplicitIcon(item) == null) warnings.Add(new HelpBox("指定图标不存在，请重新选择。", HelpBoxMessageType.Warning));
         }
         FactoryDatabaseAsset candidate = null;
         try { candidate = draft.ReadCandidate(); }
@@ -333,7 +328,7 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
     {
         hasUnsavedChanges = draft != null && draft.IsModified;
         save?.SetEnabled(hasUnsavedChanges && Writable);
-        if (status != null) status.text = hasUnsavedChanges ? "有未保存的修改 · 保存前会校验所有内容" : "与源表一致";
+        if (status != null) status.text = hasUnsavedChanges ? "有未保存的修改 · 保存前会校验所有内容" : "与数据资产一致";
         UpdateDelete();
     }
 
@@ -352,11 +347,8 @@ public sealed partial class FactoryContentManagerWindow : EditorWindow
         status.text = e.Message + (e.InnerException == null ? "" : "\n" + e.InnerException.Message);
     }
 
-    private GameObject ItemModel(FactoryContentItem item) => item == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(item.modelPath);
-    private void WriteDraftText(string path, int row, string column, string value) =>
-        draft.SetCell(draft.Tables.ToList().FindIndex(t => t.path == FactoryContentDraft.TableDirectory + "/" + path), row, column, value);
-    private Sprite ExplicitIcon(FactoryContentItem item) => item != null && icons.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(item.iconKey), out var value) ? value : null;
-    private Sprite ItemIcon(FactoryContentItem item) => item != null && icons.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(string.IsNullOrEmpty(item.iconKey) ? item.key : item.iconKey), out var value) ? value : null;
+    private GameObject ItemModel(FactoryContentItem item) => item?.model;
+    private Sprite ItemIcon(FactoryContentItem item) => item?.icon;
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
     public FactoryModelImportWindow OpenModelImport(FactoryModelKind mode)
     {

@@ -70,15 +70,15 @@ public sealed class FactoryIconBakePostprocessor : AssetPostprocessor
     private static bool IsIconSource(string path)
     {
         if (path == FactoryIconBaker.SettingsAssetPath) return true;
-        foreach (string tablePath in new[] { "Assets/Data/FactoryTables/buildings/buildings.csv", "Assets/Data/FactoryTables/items/items.csv" })
+        if (path == FactoryDatabaseEditor.DatabaseAssetPath) return true;
+        var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseEditor.DatabaseAssetPath);
+        if (database != null)
         {
-            if (path == tablePath) return true;
-            if (!System.IO.File.Exists(tablePath)) continue;
-            var table = FactoryCsvTable.Read(tablePath);
-            for (int row = 0; row < table.RowCount; row++)
+            var models = database.items.Select(i => i.model).Concat(database.buildings.Select(b => b.visualPrefab));
+            foreach (var model in models)
             {
-                string modelPath = table.Get(row, "model_path");
-                if (path == modelPath || (!string.IsNullOrEmpty(modelPath) && AssetDatabase.GetDependencies(modelPath).Contains(path))) return true;
+                string modelPath = AssetDatabase.GetAssetPath(model);
+                if (!string.IsNullOrEmpty(modelPath) && (path == modelPath || AssetDatabase.GetDependencies(modelPath).Contains(path))) return true;
             }
         }
         FactoryIconBakeSettings settings = AssetDatabase.LoadAssetAtPath<FactoryIconBakeSettings>(FactoryIconBaker.SettingsAssetPath);

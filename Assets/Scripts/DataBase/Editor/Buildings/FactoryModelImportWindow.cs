@@ -98,7 +98,7 @@ public sealed class FactoryModelImportWindow : EditorWindow
         {
             try
             {
-                FactoryDatabaseCsvImporter.EnsureCanWrite();
+                FactoryDatabaseEditor.EnsureCanWrite();
                 if (mode == FactoryModelKind.Item)
                 {
                     int row = draft.ImportItemModel(itemKey, source);
@@ -115,7 +115,7 @@ public sealed class FactoryModelImportWindow : EditorWindow
             catch (Exception e) { error = e.Message; CreateGUI(); }
         }) { text = "应用到内容草稿", name = "model-import-apply" });
         body.SetEnabled(!EditorApplication.isPlayingOrWillChangePlaymode);
-        root.Add(new HelpBox("FBX 和纹理导入立即写入资产。表格修改可撤销，点击内容管理器“保存并重建”后统一写入 CSV。", HelpBoxMessageType.Info));
+        root.Add(new HelpBox("FBX 和纹理导入立即写入资产。内容修改可撤销，点击内容管理器“保存”后统一写入数据资产。", HelpBoxMessageType.Info));
         root.Add(new Button(Close) { text = "取消导入" });
     }
 

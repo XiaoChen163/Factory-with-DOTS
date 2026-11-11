@@ -11,7 +11,7 @@ public static class FactoryUiSceneSetup
     private const string PanelSettingsPath = "Assets/Art/UI/PanelSettings.asset";
     private const string ThemePath = "Assets/UI/Runtime/FactoryRuntimeTheme.tss";
     private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
-    private const string DatabasePath = FactoryDatabaseCsvImporter.DatabaseAssetPath;
+    private const string DatabasePath = FactoryDatabaseEditor.DatabaseAssetPath;
     private const string PresentationCatalogPath =
         "Assets/Data/Generated/FactoryPresentationCatalog.asset";
 

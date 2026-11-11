@@ -20,7 +20,7 @@ namespace Factory.Tests
         {
             // Bake the actual FBX models: mock single-entity rails miss the extra
             // render entities created by Entities Graphics for multiple materials.
-            var candidate = FactoryDatabaseCsvImporter.ReadCandidate();
+            var candidate = FactoryDatabaseEditor.ReadCandidate();
             var root = new GameObject("Belt rendering regression catalog");
             var authoring = root.AddComponent<BuildingPrefabCatalogAuthoring>();
             authoring.database = candidate;

@@ -1,133 +1,83 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using UnityEditor;
 using UnityEngine;
 
-// Undo records only this transient object; CSV and generated assets never participate
-// in draft undo/redo. Serialized text also survives an editor domain reload.
+// Only this transient draft participates in Undo. Saving validates and commits one asset.
 public sealed partial class FactoryContentDraft : ScriptableObject
 {
-    public const string TableDirectory = "Assets/Data/FactoryTables";
-
     [Serializable]
-    public sealed class Table
+    private sealed class Content
     {
-        public string path;
-        public string original;
-        public string text;
+        public int version = 1;
+        public FactoryItemTableRow[] items = Array.Empty<FactoryItemTableRow>();
+        public FactoryMachineTypeTableRow[] machineTypes = Array.Empty<FactoryMachineTypeTableRow>();
+        public FactoryBuildingDefinitionRow[] buildings = Array.Empty<FactoryBuildingDefinitionRow>();
+        public FactoryRecipeTableRow[] recipes = Array.Empty<FactoryRecipeTableRow>();
     }
 
-    [SerializeField] private List<Table> tables = new List<Table>();
-    public IReadOnlyList<Table> Tables => tables;
-    public bool IsModified => tables.Any(t => t.text != t.original);
+    [SerializeField] private Content content;
+    [SerializeField] private string original;
+    [SerializeField] private string sourceJson;
+    [SerializeField] private string sourceBytes;
+    public bool IsLoaded => content != null;
+    public bool IsModified => IsLoaded && JsonUtility.ToJson(content) != original;
 
     public void Load()
     {
-        var loaded = new List<Table>();
-        foreach (string path in Directory.GetFiles(TableDirectory, "*.csv", SearchOption.AllDirectories).OrderBy(p => p, StringComparer.Ordinal))
-        {
-            string text = File.ReadAllText(path, Encoding.UTF8);
-            FactoryCsvTable.Parse(text);
-            loaded.Add(new Table { path = path.Replace('\\', '/'), original = text, text = text });
-        }
+        var asset = FactoryDatabaseEditor.Load();
+        content = new Content { version = asset.version, items = asset.items, machineTypes = asset.machineTypes,
+            buildings = asset.buildings, recipes = asset.recipes };
+        original = JsonUtility.ToJson(content);
+        content = JsonUtility.FromJson<Content>(original);
+        sourceJson = EditorJsonUtility.ToJson(asset);
+        sourceBytes = Convert.ToBase64String(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath));
         LoadBuildingImports();
-        tables = loaded;
         Undo.ClearUndo(this);
     }
 
-    public void SetCell(int tableIndex, int row, string column, string value)
+    private void Edit(string label, Action<Content> edit)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
-        var table = FactoryCsvTable.Parse(tables[tableIndex].text);
-        if (table.Get(row, column) == value) return;
-        table.Set(row, column, value);
-        Undo.RegisterCompleteObjectUndo(this, "编辑 Factory 内容");
-        tables[tableIndex].text = table.Text;
+        FactoryDatabaseEditor.EnsureCanWrite();
+        var staged = JsonUtility.FromJson<Content>(JsonUtility.ToJson(content));
+        edit(staged);
+        if (JsonUtility.ToJson(staged) == JsonUtility.ToJson(content)) return;
+        Undo.IncrementCurrentGroup();
+        Undo.RegisterCompleteObjectUndo(this, label);
+        content = JsonUtility.FromJson<Content>(JsonUtility.ToJson(staged));
     }
 
     public FactoryDatabaseAsset ReadCandidate()
     {
-        var documents = tables.ToDictionary(t => t.path, t => t.text, StringComparer.Ordinal);
-        return FactoryDatabaseCsvImporter.ReadCandidate(path => FactoryCsvTable.Parse(documents[path]));
+        var copy = JsonUtility.FromJson<Content>(JsonUtility.ToJson(content));
+        var candidate = CreateInstance<FactoryDatabaseAsset>();
+        candidate.version = copy.version;
+        candidate.items = copy.items;
+        candidate.machineTypes = copy.machineTypes;
+        candidate.buildings = copy.buildings;
+        candidate.recipes = copy.recipes;
+        try { FactoryDatabaseEditor.Validate(candidate); return candidate; }
+        catch { DestroyImmediate(candidate); throw; }
     }
 
     public void Save()
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         if (!IsModified) return;
-        // Check every source: a changed dependency must not silently produce a stale database.
-        foreach (Table table in tables)
-            if (File.ReadAllText(table.path, Encoding.UTF8) != table.original)
-                throw new IOException($"源表已被其他操作修改，请放弃草稿并重新读取：{table.path}");
-
-
-        FactoryDatabaseAsset candidate = ReadCandidate();
-        try
-        {
-            var changed = tables.Where(t => t.text != t.original)
-                .ToDictionary(t => t.path, t => t.text, StringComparer.Ordinal);
-            // Release the CSV import pause only after all table writes complete.
-            AssetDatabase.StartAssetEditing();
-            bool importsPaused = true;
-            try
-            {
-                FactoryCsvSaveTransaction.Commit(changed, () =>
-                {
-                    importsPaused = false;
-                    AssetDatabase.StopAssetEditing();
-                    FactoryDatabaseCsvImporter.Generate(candidate);
-                });
-            }
-            finally { if (importsPaused) AssetDatabase.StopAssetEditing(); }
-            foreach (Table table in tables) table.original = table.text;
-            Undo.ClearUndo(this);
-        }
+        var source = FactoryDatabaseEditor.Load();
+        if (EditorJsonUtility.ToJson(source) != sourceJson ||
+            Convert.ToBase64String(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath)) != sourceBytes)
+            throw new IOException("数据资产已被其他操作修改，请放弃草稿并重新读取。未覆盖外部修改。");
+        var candidate = ReadCandidate();
+        try { FactoryDatabaseEditor.Save(candidate); Load(); }
         finally { DestroyImmediate(candidate); }
     }
-}
 
-public static class FactoryCsvSaveTransaction
-{
-    // Backups live only for this save. Preserve bytes, encoding and .meta files on rollback.
-    public static void Commit(IReadOnlyDictionary<string, string> changes, Action generate)
+    private static ushort NextId(System.Collections.Generic.IEnumerable<ushort> ids)
     {
-        var originals = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        foreach (string path in changes.Keys)
-        {
-            try { originals.Add(path, File.ReadAllBytes(path)); }
-            catch (Exception e) { throw new IOException($"无法读取待保存的 CSV：{path}", e); }
-        }
-        var attempted = new List<string>();
-        string current = "生成数据库";
-        try
-        {
-            foreach (var change in changes)
-            {
-                current = change.Key;
-                attempted.Add(current);
-                File.WriteAllText(current, change.Value, new UTF8Encoding(false));
-            }
-            current = "生成数据库";
-            generate();
-        }
-        catch (Exception e)
-        {
-            var errors = new List<string>();
-            foreach (string path in attempted)
-            {
-                try
-                {
-                    // A failed write can leave the original file intact (e.g. a locked file).
-                    if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(originals[path]))
-                        File.WriteAllBytes(path, originals[path]);
-                }
-                catch (Exception restore) { errors.Add(path + ": " + restore.Message); }
-            }
-            throw new IOException($"Factory 保存失败：{current}。" +
-                (errors.Count == 0 ? "本次涉及的 CSV 已恢复。" : "恢复失败：" + string.Join("; ", errors)), e);
-        }
+        int next = ids.Select(id => (int)id).DefaultIfEmpty(0).Max() + 1;
+        if (next > ushort.MaxValue) throw new InvalidDataException("没有可用的 ID。");
+        return (ushort)next;
     }
 }

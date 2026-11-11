@@ -107,7 +107,7 @@ public static class ProductionMachineArtBatch
         if (renderers.SelectMany(r => r.sharedMaterials).Any(m => m == null || m.shader.name != "Universal Render Pipeline/Lit" || ShaderUtil.ShaderHasError(m.shader)))
             throw new Exception("Invalid URP material: " + key);
         if (model.GetComponentsInChildren<Collider>(true).Length != 0 || model.GetComponentsInChildren<Rigidbody>(true).Length != 0)
-            throw new Exception("Collision proxies must be CSV shapes, not FBX components.");
+            throw new Exception("Collision proxies must be definition shapes, not FBX components.");
     }
 
     static void Verify(FactoryContentDraft draft, int i)

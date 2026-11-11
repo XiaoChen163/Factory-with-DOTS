@@ -86,7 +86,7 @@ public struct FactoryBuildingDefinitionRow
     public FactoryColliderProxy[] colliders;
 }
 
-// Generated cache. Edit the CSV files in Assets/Data/FactoryTables instead.
+// Authoritative content asset. Edit through Factory > 内容管理器; Baking generates runtime Blobs.
 public sealed class FactoryDatabaseAsset : ScriptableObject
 {
     [Min(1)] public int version = 1;

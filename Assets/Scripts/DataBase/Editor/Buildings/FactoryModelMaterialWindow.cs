@@ -22,7 +22,7 @@ public sealed class FactoryModelMaterialWindow : EditorWindow
     private void OnDisable() { if (materialEditor != null) DestroyImmediate(materialEditor); }
     private void Apply(Action action)
     {
-        try { FactoryDatabaseCsvImporter.EnsureCanWrite(); action(); error = null; }
+        try { FactoryDatabaseEditor.EnsureCanWrite(); action(); error = null; }
         catch (Exception e) { error = e.Message; }
     }
     private void OnGUI()

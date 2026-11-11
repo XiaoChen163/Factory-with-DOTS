@@ -18,11 +18,10 @@ namespace Factory.Tests
         {
             var definition = FactoryPerformanceScenarioLayout.Create(scenario, scale);
             var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(
-                FactoryDatabaseCsvImporter.DatabaseAssetPath);
+                FactoryDatabaseEditor.DatabaseAssetPath);
             Assert.That(database, Is.Not.Null);
-            // Read source tables so an art/data change cannot hide behind a stale cache.
-            var buildings = FactoryDatabaseCsvImporter.ReadBuildingDefinitions(
-                "Assets/Data/FactoryTables/buildings", database.machineTypes);
+            FactoryDatabaseValidation.Validate(database);
+            var buildings = database.buildings;
             var byKey = new Dictionary<string, FactoryBuildingDefinitionRow>();
             foreach (var building in buildings) byKey.Add(building.key, building);
             var occupied = new HashSet<GridCell>();

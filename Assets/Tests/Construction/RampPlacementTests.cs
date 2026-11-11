@@ -1,3 +1,4 @@
+using System.Linq;
 using System.IO;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -51,17 +52,11 @@ namespace Factory.Tests
         [Test]
         public void RampCatalog_ContainsOnlyRequestedSlopeBuildOptionsAndIcons()
         {
-            string buildings = File.ReadAllText(
-                "Assets/Data/FactoryTables/buildings/buildings.csv");
-            string ramps = File.ReadAllText(
-                "Assets/Data/FactoryTables/buildings/ramp_stats.csv");
-            Assert.That(buildings, Does.Contain("ramp_foundation_1_1,RampFoundation,"));
-            Assert.That(buildings, Does.Contain("ramp_foundation_1_2,RampFoundation,"));
-            Assert.That(buildings, Does.Contain("ramp_foundation_1_4,RampFoundation,"));
-            Assert.That(ramps, Does.Contain("ramp_foundation_1_1,8"));
-            Assert.That(ramps, Does.Contain("ramp_foundation_1_2,4"));
-            Assert.That(ramps, Does.Contain("ramp_foundation_1_4,2"));
-            Assert.That(ramps, Does.Not.Contain("ramp_foundation_1_8"));
+            var ramps = FactoryDatabaseEditor.Load().buildings.Where(b => b.kind == BuildingKind.RampFoundation).ToArray();
+            Assert.That(ramps.Select(b => b.key), Is.EquivalentTo(new[] { "ramp_foundation_1_1", "ramp_foundation_1_2", "ramp_foundation_1_4" }));
+            Assert.That(ramps.Single(b => b.key == "ramp_foundation_1_1").rampRiseHeightUnits, Is.EqualTo(8));
+            Assert.That(ramps.Single(b => b.key == "ramp_foundation_1_2").rampRiseHeightUnits, Is.EqualTo(4));
+            Assert.That(ramps.Single(b => b.key == "ramp_foundation_1_4").rampRiseHeightUnits, Is.EqualTo(2));
             Assert.That(File.Exists(
                 "Assets/Art/Icons/Buildings/RampFoundation.png"), Is.True);
             Assert.That(File.Exists(

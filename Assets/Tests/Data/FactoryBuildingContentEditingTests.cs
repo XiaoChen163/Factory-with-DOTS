@@ -48,20 +48,16 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void PartialImport_PreservesUnityEditsOtherLocalesAndUnselectedSections()
+        public void PartialImport_PreservesUnityEditsAndUnselectedSections()
         {
             draft.SetBuildingName("furnace", "Unity 自定义熔炉");
             draft.ToggleBuildingCell("furnace", new Vector2Int(0, 0));
-            var names = draft.ReadTable(FactoryContentDraft.NamesPath);
-            names.Append(new Dictionary<string, string> { ["key"] = "furnace", ["locale"] = "en-US", ["name"] = "Custom Furnace" });
-            draft.Tables.Single(t => t.path.EndsWith("/building_names.csv")).text = names.Text;
             var before = draft.GetBuildings().Single(b => b.key == "furnace");
             draft.ImportBuildingJson(Json("furnace"), false, false, true);
             var after = draft.GetBuildings().Single(b => b.key == "furnace");
             Assert.That(after.name, Is.EqualTo(before.name)); Assert.That(after.bitmap, Is.EqualTo(before.bitmap));
             Assert.That(after.modelPath, Is.EqualTo(before.modelPath)); Assert.That(after.behavior, Is.EqualTo(before.behavior));
             Assert.That(after.ports, Is.EqualTo(before.ports));
-            Assert.That(draft.ReadTable(FactoryContentDraft.NamesPath).Text, Does.Contain("Custom Furnace"));
             var empty = FactoryBuildingJson.Parse(@"{""schema_version"":1,""building"":{""key"":""furnace""},""ports"":[],""colliders"":[]}");
             draft.ImportBuildingJson(empty, true, true, false);
             Assert.That(draft.GetBuildings().Single(b => b.key == "furnace").ports, Is.Empty);
@@ -96,59 +92,36 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void CompleteImport_SaveReopenAndRollbackKeepCollisionCsvConsistent()
+        public void CompleteImport_SaveReopenAndDeleteKeepAssetConsistent()
         {
-            string key = "fixture_building";
-            string configPath = FactoryContentDraft.TableDirectory + "/" + FactoryContentDraft.CollidersPath;
-            var backups = draft.Tables.ToDictionary(t => t.path, t => File.ReadAllBytes(t.path));
-            backups.Add(FactoryDatabaseCsvImporter.DatabaseAssetPath, File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath));
-            string prefabPath = "Assets/Art/Buildings/furnace/furnace.fbx";
-            string prefabGuid = AssetDatabase.AssetPathToGUID(prefabPath);
+            const string key = "fixture_building";
+            var backup = Object.Instantiate(FactoryDatabaseEditor.Load());
+            byte[] disk = File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath);
+            string modelPath = "Assets/Art/Buildings/furnace/furnace.fbx";
+            string modelGuid = AssetDatabase.AssetPathToGUID(modelPath);
             try
             {
                 draft.ImportBuildingJson(Json(), true, true, true);
                 Assert.Catch(() => draft.Save(), "Missing behavior and model must remain unsaved.");
-                Assert.That(File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath), Is.EqualTo(backups[FactoryDatabaseCsvImporter.DatabaseAssetPath]));
-                Assert.That(File.ReadAllBytes(configPath), Is.EqualTo(backups[configPath]));
+                Assert.That(File.ReadAllBytes(FactoryDatabaseEditor.DatabaseAssetPath), Is.EqualTo(disk));
                 draft.SetBuildingBehavior(key, BuildingKind.Processor);
                 draft.SetBuildingStat(key, "processor_stats", "machine_type_key", "smelting");
-                draft.SetBuildingModel(key, AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
-                draft.Save();
-                string guid = AssetDatabase.AssetPathToGUID(configPath);
-                Assert.That(guid, Is.Not.Empty);
-                draft.Load();
+                draft.SetBuildingModel(key, AssetDatabase.LoadAssetAtPath<GameObject>(modelPath));
+                draft.Save(); draft.Load();
                 Assert.That(draft.GetBuildings().Single(b => b.key == key).bitmap, Is.EqualTo("1111/1111/1100"));
                 var data = draft.GetBuildingImport(key);
                 Assert.That(data.colliders.Length, Is.EqualTo(4));
                 Assert.That(data.colliders[0].position, Is.EqualTo(new Vector3(1, 3, 2)));
                 Assert.That(data.colliders[0].size, Is.EqualTo(new Vector3(2, 4, 3)));
                 Assert.That(data.colliders[3].type, Is.EqualTo("Cylinder"));
-                byte[] namesBefore = File.ReadAllBytes(FactoryContentDraft.TableDirectory + "/" + FactoryContentDraft.NamesPath);
-                byte[] databaseBefore = File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath);
-                draft.SetBuildingName(key, "待保存名称");
-                draft.ImportBuildingJson(FactoryBuildingJson.Parse(@"{""schema_version"":1,""building"":{""key"":""fixture_building""},""colliders"":[]}"), false, false, true);
-                using (new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    var error = Assert.Throws<IOException>(() => draft.Save());
-                    Assert.That(error.ToString(), Does.Contain(configPath));
-                    Assert.That(File.ReadAllBytes(FactoryContentDraft.TableDirectory + "/" + FactoryContentDraft.NamesPath), Is.EqualTo(namesBefore));
-                    Assert.That(File.ReadAllBytes(FactoryDatabaseCsvImporter.DatabaseAssetPath), Is.EqualTo(databaseBefore));
-                }
+                draft.SetBuildingColliders(key, Array.Empty<FactoryColliderProxy>());
                 draft.Save();
-                Assert.That(AssetDatabase.AssetPathToGUID(configPath), Is.EqualTo(guid));
                 Assert.That(draft.GetBuildingImport(key).colliders, Is.Empty);
-                draft.DeleteBuilding(key);
-                draft.Save();
-                foreach (string path in new[] { FactoryContentDraft.BuildingsPath, FactoryContentDraft.NamesPath, FactoryContentDraft.PortsPath, FactoryContentDraft.PresentationPath, "buildings/processor_stats.csv" })
-                    Assert.That(draft.ReadTable(path).Text, Does.Not.Contain(key));
-                Assert.That(AssetDatabase.AssetPathToGUID(prefabPath), Is.EqualTo(prefabGuid));
-                Assert.That(draft.ReadTable(FactoryContentDraft.CollidersPath).Text, Does.Not.Contain(key));
+                draft.DeleteBuilding(key); draft.Save();
+                Assert.That(FactoryDatabaseEditor.Load().buildings.Any(b => b.key == key), Is.False);
+                Assert.That(AssetDatabase.AssetPathToGUID(modelPath), Is.EqualTo(modelGuid));
             }
-            finally
-            {
-                foreach (var backup in backups) File.WriteAllBytes(backup.Key, backup.Value);
-                foreach (string path in backups.Keys) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-            }
+            finally { FactoryDatabaseEditor.Save(backup); Object.DestroyImmediate(backup); }
         }
 
         private static void Click(Button button)

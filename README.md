@@ -18,8 +18,8 @@
   Merger/Splitter 的确定性 round-robin 仲裁。
 - **逻辑与表现分离**：模拟系统只处理 ECS 数据组件；表现系统在渲染帧读取固定
   Tick 快照并插值更新 Transform，渲染帧率不会反向影响玩法逻辑。
-- **数据表驱动玩法**：物品、建筑、等级、端口和配方均由 CSV 定义，导入后生成
-  紧凑 Blob 数据库。扩展内容通常不需要修改既有系统控制流。
+- **数据驱动玩法**：内容管理器直接编辑 ScriptableObject 中的物品、建筑、端口和配方，
+  Baking 生成紧凑 Blob 数据库。扩展内容通常不需要修改既有系统控制流。
 - **自动化质量保障**：回归测试保护玩法不变量；固定规模性能测试量化优化收益；
   参数化压力测试定位 TPS、帧时间、GC、内存和系统级 Profiler 瓶颈。
 - **自动图标渲染烘焙**：从物品/建筑表现 Prefab 自动渲染 Sprite，支持依赖哈希、
@@ -57,8 +57,8 @@ cd Factory-with-DOTS
 3. 打开 `Assets/Scenes/Ecs.unity`。
 4. 点击 Editor 顶部的 **Play** 进入游戏。
 
-如果修改 CSV 后数据没有自动刷新，可执行
-`Factory > Rebuild Static Database`。首次调整或新增表现 Prefab 后，可执行
+通过 `Factory > 内容管理器` 修改内容并保存；可执行
+`Factory > Validate Static Database` 校验正式数据资产。首次调整或新增模型后，可执行
 `Factory > Icons > Bake All` 重新生成全部图标。
 
 ### 3. 操作说明
@@ -248,31 +248,29 @@ Render Frame：LocalTransform / LocalToWorld / Entities Graphics
 因此模拟 System 可以专注数据正确性和吞吐，渲染 System 可以独立调整插值、
 Mesh、材质和可见性策略；两者不会因更新频率不同而互相干扰。
 
-### 5. 数据表驱动的玩法逻辑
+### 5. 数据驱动的玩法逻辑
 
-`Assets/Data/FactoryTables` 下的 CSV 是物品、建筑与配方的唯一编辑源：
+`Assets/Data/FactoryDatabase.asset` 是物品、建筑与配方的唯一正式数据源，由内容管理器直接编辑：
 
 | 数据 | 内容 |
 |---|---|
-| `items.csv` | 稳定 Item ID、显示 Key、堆叠、分类、Prefab/Icon Key |
-| `buildings.csv` / `building_levels.csv` | 建筑类型、等级、占地、表现与菜单顺序 |
-| `building_ports.csv` | 输入/输出端口位置、方向与布局 |
-| `belt/processor/storage_level_stats.csv` | 各类建筑等级的专属数值 |
-| `recipes.csv` / `recipe_inputs.csv` / `recipe_outputs.csv` | 配方、耗时与物料关系 |
+| `items` | Item ID、Key、名称、堆叠、分类、模型和图标引用 |
+| `buildings` | 建筑行为、占格、表现、菜单顺序、端口、碰撞体及行为参数 |
+| `machineTypes` | 加工类型 ID 与 Key |
+| `recipes` | 配方 ID、加工类型、耗时及内嵌原料/产物 |
 
-CSV 保存后，Editor 导入器会校验跨表引用、稳定 ID、端口和配方约束，并生成
-`Assets/Data/Generated/FactoryDatabase.asset`。Baking 阶段再把数据转换为紧凑、
+内容管理器保存前校验 ID、引用、端口和配方约束，再写入正式资产。
+Baking 阶段把资产转换为紧凑、
 只读、Burst 可访问的 `FactoryDatabaseBlob`，运行时可以通过 ID 直接索引数组，
 无需字符串查找或散落在 System 中的硬编码分支。
 
-这种结构把“添加内容”和“修改引擎逻辑”分开：新增物品、建筑等级、速度、容量、
-端口或配方主要是表格操作；稳定 key 又允许存档和资源绑定不依赖易变化的数组
-下标。详细字段与约束见
-[Factory static data tables](Assets/Data/FactoryTables/README.md)。
+这种结构把“添加内容”和“修改引擎逻辑”分开：新增物品、建筑、速度、槽数、
+端口或配方主要通过内容管理器完成；重排数据不重新生成 ID，资源引用由 GUID 保持。
+详细字段与约束见 [建筑与生产内容定义](Docs/Guide/Building-Data-Tables.md)。
 
 ### 6. 自动图标渲染烘焙
 
-图标管线直接从建筑表和物品表的 `model_path` 引用的 FBX 模型
+图标管线直接从建筑与物品定义引用的 FBX 模型
 渲染透明背景 Sprite，输出到：
 
 ```text
@@ -303,8 +301,8 @@ Assets/Art/Icons/Buildings
 
 ```text
 Assets/
-├─ Data/FactoryTables/          # CSV 玩法数据
-├─ Data/Generated/              # 自动生成的数据库和图标 Manifest
+├─ Data/FactoryDatabase.asset   # 正式内容数据源
+├─ Data/Generated/              # 图标 Manifest、表现目录等派生资源
 ├─ Prefabs/                     # 纯表现建筑、物品与端口 Prefab
 ├─ Scenes/Ecs.unity             # 正式 ECS 游戏场景
 ├─ Scenes/EcsEntitiesSubscene.unity
@@ -314,7 +312,7 @@ Assets/
 ├─ Scripts/ECS/Authoring/       # Baker 与创作入口
 ├─ Scripts/ECS/Presentation/    # 输入、UI 与渲染表现
 ├─ Scripts/ECS/Performance/     # 性能场景、指标采集与压力驱动
-├─ Scripts/DataBase/Editor/     # CSV 导入、图标烘焙等 Editor 工具
+├─ Scripts/DataBase/Editor/     # 内容管理器、资产校验与图标烘焙等工具
 └─ Tests/                       # EditMode 与 PlayMode 自动化测试
 
 Docs/                           # 架构、开发、测试与性能指南
@@ -329,7 +327,7 @@ Tools/FactoryStress/             # 自动化压力测试脚本
 - 输入只提交命令，玩法 System 才能修改正式 ECS 状态。
 - 修改模拟规则时先补回归测试，再运行完整 `Factory.Tests`。
 - 性能优化必须保存同场景、同参数、同机器的基线与优化后报告。
-- 不要手工编辑 `Assets/Data/Generated/FactoryDatabase.asset`。
+- 通过 `Factory > 内容管理器` 编辑 `Assets/Data/FactoryDatabase.asset`，不要将其当作生成缓存删除。
 
 更多架构与扩展规则见
 [后续玩法开发框架指南](Docs/Gameplay-Development-Framework.md)。

@@ -44,7 +44,7 @@ namespace Factory.Tests
         [TestCase(0)] [TestCase(1)] [TestCase(2)] [TestCase(3)]
         public void BuildCommands_ImportedCollisionFollowsRotationUpperFloorAndRemoval(int turns)
         {
-            var asset = Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath));
+            var asset = Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseEditor.DatabaseAssetPath));
             BlobAssetReference<FactoryDatabaseBlob> database = default;
             BlobAssetReference<Collider> collider = default;
             try

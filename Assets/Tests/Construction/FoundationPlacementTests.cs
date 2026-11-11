@@ -311,14 +311,11 @@ namespace Factory.Tests
         [Test]
         public void FoundationContent_UsesKeyLocalizedNameAndPureVisualPrefab()
         {
-            string buildings = File.ReadAllText(
-                "Assets/Data/FactoryTables/buildings/buildings.csv");
-            string names = File.ReadAllText(
-                "Assets/Data/FactoryTables/buildings/building_names.csv");
-            var model = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/Art/Buildings/foundation/foundation.fbx");
-            Assert.That(buildings, Does.StartWith("key,behavior,"));
-            Assert.That(buildings, Does.Contain("foundation,Foundation,"));
-            Assert.That(names, Does.Contain("foundation,zh-CN,地基"));
+            var database = FactoryDatabaseEditor.Load();
+            var foundation = System.Array.Find(database.buildings, b => b.key == "foundation");
+            Assert.That(foundation.kind, Is.EqualTo(BuildingKind.Foundation));
+            Assert.That(foundation.displayName, Is.EqualTo("地基"));
+            var model = foundation.visualPrefab;
             Assert.That(model.GetComponentsInChildren<UnityEngine.MeshRenderer>().Length, Is.EqualTo(1));
             Assert.That(model.GetComponentsInChildren<UnityEngine.Collider>(), Is.Empty);
             Assert.That(model.GetComponentsInChildren<UnityEngine.MonoBehaviour>(), Is.Empty);

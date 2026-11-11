@@ -21,15 +21,16 @@ namespace Factory.Tests
         [TearDown] public void TearDown() { Object.DestroyImmediate(draft); }
 
         [Test]
-        public void ItemMode_ChangesOnlyItemTableAndPreservesExistingProperties()
+        public void ItemMode_ChangesOnlyItemsAndPreservesExistingProperties()
         {
-            var before = draft.Tables.ToDictionary(t => t.path, t => t.text);
+            var before = draft.GetBuildings().Select(b => JsonUtility.ToJson(b)).ToArray();
+            var recipes = draft.GetRecipes().Select(r => JsonUtility.ToJson(r)).ToArray();
             int row = draft.ImportItemModel("mode_item_fixture", ItemModel);
             var item = draft.GetItems().Single(i => i.row == row);
             Assert.That(item.modelPath, Is.EqualTo(ItemModel));
             Assert.That(item.maxStack, Is.EqualTo(64));
-            foreach (var table in draft.Tables.Where(t => !t.path.EndsWith("/items.csv")))
-                Assert.That(table.text, Is.EqualTo(before[table.path]), table.path);
+            Assert.That(draft.GetBuildings().Select(b => JsonUtility.ToJson(b)), Is.EqualTo(before));
+            Assert.That(draft.GetRecipes().Select(r => JsonUtility.ToJson(r)), Is.EqualTo(recipes));
             draft.SetItemValue(row, "name_key", "保留名称");
             draft.SetItemValue(row, "max_stack", "32");
             draft.ImportItemModel("mode_item_fixture", "Assets/Art/Items/test_b/test_b.fbx");
@@ -79,7 +80,7 @@ namespace Factory.Tests
                 }
             }
             finally { Object.DestroyImmediate(candidate); }
-            Assert.Throws<InvalidDataException>(() => FactoryDatabaseCsvImporter.LoadModel("Assets/Prefabs/Ports/InputPortView.prefab"));
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseEditor.LoadModel("Assets/Prefabs/Ports/InputPortView.prefab"));
         }
 
         [UnityTest]

@@ -6,12 +6,14 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// Views of CSV draft rows, not a second database. Row ordinals refer to source order.
+// Views of the typed asset draft. Row ordinals refer to the current array order.
 public sealed class FactoryContentItem
 {
     public int row, id, maxStack;
     public string key, name, modelPath, iconKey;
     public FactoryItemCategory category;
+    public GameObject model;
+    public Sprite icon;
 }
 
 public sealed class FactoryContentRecipe
@@ -29,73 +31,12 @@ public sealed class FactoryContentIngredient
 
 public sealed partial class FactoryContentDraft
 {
-    public const string ItemsPath = "items/items.csv";
-    public const string RecipesPath = "items/recipes/recipes.csv";
-    public const string InputsPath = "items/recipes/recipe_inputs.csv";
-    public const string OutputsPath = "items/recipes/recipe_outputs.csv";
-    public const string MachinesPath = "buildings/machine_types.csv";
-
-    public FactoryCsvTable ReadTable(string relativePath) => FactoryCsvTable.Parse(Source(relativePath).text);
-    private Table Source(string relativePath) => tables.Single(t => t.path == TableDirectory + "/" + relativePath);
-    private static IEnumerable<int> Rows(FactoryCsvTable table) => Enumerable.Range(0, table.RowCount);
-    private static int Int(string value) => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result) ? result : 0;
-
-    public List<FactoryContentItem> GetItems(string search = "")
-    {
-        var table = ReadTable(ItemsPath);
-        return Rows(table).Select(row => new FactoryContentItem
-        {
-            row = row, id = Int(table.Get(row, "id")), key = table.Get(row, "key"), name = table.Get(row, "name_key"),
-            maxStack = Int(table.Get(row, "max_stack")), modelPath = table.Get(row, "model_path"),
-            iconKey = table.TryGet(row, "icon_key", out string icon) ? icon : "",
-            category = Enum.TryParse(table.Get(row, "category"), true, out FactoryItemCategory category) ? category : FactoryItemCategory.None
-        }).Where(i => Matches(i.key, search) || Matches(i.name, search)).ToList();
-    }
-
+    private static string Num(int value) => value.ToString(CultureInfo.InvariantCulture);
     public static bool Matches(string value, string query) => (value ?? "").IndexOf(query ?? "", StringComparison.OrdinalIgnoreCase) >= 0;
-
-    public List<FactoryContentRecipe> GetRecipes(string search = "")
-    {
-        var table = ReadTable(RecipesPath);
-        return Rows(table).Select(row => new FactoryContentRecipe
-        {
-            row = row, key = table.Get(row, "key"), machine = table.Get(row, "machine_type_key"),
-            duration = float.TryParse(table.Get(row, "duration_seconds"), NumberStyles.Float, CultureInfo.InvariantCulture, out float time) ? time : 0
-        }).Where(r => Matches(r.key, search) || Matches(r.machine, search)).ToList();
-    }
-
-    public List<string> GetMachineTypes()
-    {
-        var table = ReadTable(MachinesPath);
-        return Rows(table).Select(r => table.Get(r, "key")).ToList();
-    }
-
-    public List<FactoryContentIngredient> GetIngredients(string recipe, bool output)
-    {
-        var table = ReadTable(output ? OutputsPath : InputsPath);
-        return Rows(table).Where(r => table.Get(r, "recipe_key") == recipe).Select(r => new FactoryContentIngredient
-        { row = r, itemKey = table.Get(r, "item_key"), count = Int(table.Get(r, "count")) }).ToList();
-    }
-
-    // An edit is committed to the ScriptableObject only after the whole operation
-    // succeeds, so reference renames/merges are one undo step and cannot half-apply.
-    private void Edit(string label, Action<Dictionary<string, FactoryCsvTable>> edit, params string[] paths)
-    {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
-        var documents = paths.Distinct().ToDictionary(p => p, ReadTable, StringComparer.Ordinal);
-        edit(documents);
-        if (documents.All(d => d.Value.Text == Source(d.Key).text)) return;
-        Undo.IncrementCurrentGroup();
-        Undo.RegisterCompleteObjectUndo(this, label);
-        foreach (var document in documents) Source(document.Key).text = document.Value.Text;
-    }
-
     private static void RequireKey(string key)
     {
-        if (string.IsNullOrWhiteSpace(key) || key.Any(char.IsWhiteSpace))
-            throw new InvalidDataException("Key 不能为空或包含空白字符。");
+        if (string.IsNullOrWhiteSpace(key) || key.Any(char.IsWhiteSpace)) throw new InvalidDataException("Key 不能为空或包含空白字符。");
     }
-
     private static string FreeKey(IEnumerable<string> keys, string prefix)
     {
         var used = new HashSet<string>(keys, StringComparer.Ordinal);
@@ -103,182 +44,186 @@ public sealed partial class FactoryContentDraft
         for (int i = 2; used.Contains(key); i++) key = prefix + "_" + i;
         return key;
     }
+    public List<FactoryContentItem> GetItems(string search = "") => content.items.Select((i, row) => new FactoryContentItem
+    {
+        row = row, id = i.id, key = i.key, name = i.nameKey, maxStack = i.maxStack, category = i.category,
+        modelPath = AssetDatabase.GetAssetPath(i.model), iconKey = i.iconKey, model = i.model, icon = i.icon
+    }).Where(i => Matches(i.key, search) || Matches(i.name, search)).ToList();
+
+    public List<FactoryContentRecipe> GetRecipes(string search = "") => content.recipes.Select((r, row) => new FactoryContentRecipe
+    { row = row, key = r.key, machine = r.machineTypeKey, duration = r.durationSeconds })
+        .Where(r => Matches(r.key, search) || Matches(r.machine, search)).ToList();
+    public List<string> GetMachineTypes() => content.machineTypes.Select(m => m.key).ToList();
+    private FactoryRecipeTableRow Recipe(string key) => content.recipes.FirstOrDefault(r => r.key == key);
+    public List<FactoryContentIngredient> GetIngredients(string recipe, bool output) =>
+        ((output ? Recipe(recipe).outputs : Recipe(recipe).inputs) ?? Array.Empty<FactoryRecipeIngredientTableRow>()).Select((i, row) => new FactoryContentIngredient
+        { row = row, itemKey = i.itemKey, count = i.count }).ToList();
 
     public int AddItem()
     {
-        var items = GetItems();
-        var ids = new HashSet<int>(items.Select(i => i.id));
-        int id = Enumerable.Range(1, ushort.MaxValue).FirstOrDefault(i => !ids.Contains(i));
-        if (id == 0) throw new InvalidDataException("没有可用的物品 ID。");
-        string key = FreeKey(items.Select(i => i.key), "new_item");
-        int row = -1;
-        Edit("新增物品", docs => row = docs[ItemsPath].Append(new Dictionary<string, string>
-        {
-            ["id"] = id.ToString(CultureInfo.InvariantCulture), ["key"] = key, ["name_key"] = key,
-            ["max_stack"] = "64", ["category"] = "Component", ["model_path"] = ""
-        }), ItemsPath);
+        int row = content.items.Length;
+        string key = FreeKey(content.items.Select(i => i.key), "new_item");
+        Edit("新增物品", c => c.items = c.items.Append(new FactoryItemTableRow
+        { id = NextId(c.items.Select(i => i.id)), key = key, nameKey = key, maxStack = 64, category = FactoryItemCategory.Component }).ToArray());
         return row;
     }
-
     public void SetItemValue(int row, string column, string value)
     {
-        var items = GetItems();
-        var item = items.Single(i => i.row == row);
-        if (column == "key")
+        Edit("编辑物品", c =>
         {
-            RequireKey(value);
-            if (items.Any(i => i.row != row && i.key == value)) throw new InvalidDataException($"物品 Key 已存在：{value}");
-        }
-        if (column == "id" && (!ushort.TryParse(value, out ushort id) || id == 0 || items.Any(i => i.row != row && i.id == id)))
-            throw new InvalidDataException("物品 ID 必须为 1–65535，且不能重复。");
-        if (column == "max_stack" && (!ushort.TryParse(value, out ushort stack) || stack == 0))
-            throw new InvalidDataException("最大堆叠必须为 1–65535。");
-        Edit("编辑物品", docs =>
-        {
-            docs[ItemsPath].EnsureColumn(column);
-            docs[ItemsPath].Set(row, column, value);
-            if (column == "key")
-                foreach (string path in new[] { InputsPath, OutputsPath })
-                    foreach (int r in Rows(docs[path]).Where(r => docs[path].Get(r, "item_key") == item.key))
-                        docs[path].Set(r, "item_key", value);
-        }, column == "key" ? new[] { ItemsPath, InputsPath, OutputsPath } : new[] { ItemsPath });
+            var item = c.items[row];
+            string oldKey = item.key;
+            switch (column)
+            {
+                case "key":
+                    RequireKey(value);
+                    if (c.items.Where((i, n) => n != row).Any(i => i.key == value)) throw new InvalidDataException("物品 Key 已存在：" + value);
+                    item.key = value; break;
+                case "id":
+                    if (!ushort.TryParse(value, out ushort id) || id == 0 || c.items.Where((i, n) => n != row).Any(i => i.id == id))
+                        throw new InvalidDataException("物品 ID 必须为 1–65535，且不能重复。");
+                    item.id = id; break;
+                case "name_key": item.nameKey = value; break;
+                case "max_stack":
+                    if (!ushort.TryParse(value, out ushort stack) || stack == 0) throw new InvalidDataException("最大堆叠必须为 1–65535。");
+                    item.maxStack = stack; break;
+                case "category": item.category = Enum.Parse<FactoryItemCategory>(value); break;
+                case "model_path": item.model = string.IsNullOrEmpty(value) ? null : FactoryDatabaseEditor.LoadModel(value); item.modelPath = value; break;
+                case "icon_key":
+                    item.iconKey = value;
+                    var icons = FactoryDatabaseEditor.BuildSpriteIndex(FactoryDatabaseEditor.ItemIconDirectory);
+                    icons.TryGetValue(FactoryDatabaseEditor.NormalizeKey(string.IsNullOrEmpty(value) ? item.key : value), out item.icon);
+                    if (!string.IsNullOrEmpty(value) && item.icon == null) throw new InvalidDataException("图标不存在：" + value);
+                    break;
+                default: throw new ArgumentException("未知物品字段：" + column);
+            }
+            c.items[row] = item;
+            if (column == "key" || column == "id")
+                for (int n = 0; n < c.recipes.Length; n++)
+                {
+                    var r = c.recipes[n];
+                    r.inputs = RenameIngredient(r.inputs, oldKey, item);
+                    r.outputs = RenameIngredient(r.outputs, oldKey, item);
+                    c.recipes[n] = r;
+                }
+        });
     }
-
+    private static FactoryRecipeIngredientTableRow[] RenameIngredient(FactoryRecipeIngredientTableRow[] values, string oldKey, FactoryItemTableRow item) =>
+        values.Select(i => { if (i.itemKey == oldKey) { i.itemKey = item.key; i.itemId = item.id; } return i; }).ToArray();
+    public void SetItemIcon(int row, Sprite icon) => Edit("设置物品图标", c =>
+    {
+        c.items[row].icon = icon;
+        c.items[row].iconKey = icon == null ? "" : Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(icon));
+    });
     public List<string> GetItemReferences(string key, int? overStack = null)
     {
         var result = new List<string>();
-        foreach (bool output in new[] { false, true })
-        {
-            var table = ReadTable(output ? OutputsPath : InputsPath);
-            foreach (int row in Rows(table))
-                if (table.Get(row, "item_key") == key && (!overStack.HasValue || Int(table.Get(row, "count")) > overStack.Value))
-                    result.Add($"{table.Get(row, "recipe_key")} / {(output ? "产物" : "原料")} × {table.Get(row, "count")}");
-        }
+        foreach (var recipe in content.recipes)
+            foreach (bool output in new[] { false, true })
+                foreach (var i in output ? recipe.outputs : recipe.inputs)
+                    if (i.itemKey == key && (!overStack.HasValue || i.count > overStack.Value))
+                        result.Add($"{recipe.key} / {(output ? "产物" : "原料")} × {i.count}");
         return result;
     }
-
     public void DeleteItem(int row)
     {
-        string key = GetItems().Single(i => i.row == row).key;
-        var references = GetItemReferences(key);
+        var references = GetItemReferences(content.items[row].key);
         if (references.Count > 0) throw new InvalidDataException("物品仍被配方引用，请先处理：\n" + string.Join("\n", references));
-        Edit("删除物品", docs => docs[ItemsPath].RemoveAt(row), ItemsPath);
+        Edit("删除物品", c => c.items = c.items.Where((i, n) => n != row).ToArray());
     }
-
     public int AddRecipe()
     {
-        string key = FreeKey(GetRecipes().Select(r => r.key), "new_recipe");
-        int row = -1;
-        Edit("新增配方", docs => row = docs[RecipesPath].Append(new Dictionary<string, string>
-        { ["key"] = key, ["machine_type_key"] = GetMachineTypes().FirstOrDefault() ?? "", ["duration_seconds"] = "1" }), RecipesPath);
+        int row = content.recipes.Length;
+        Edit("新增配方", c =>
+        {
+            var machine = c.machineTypes.FirstOrDefault();
+            c.recipes = c.recipes.Append(new FactoryRecipeTableRow
+            {
+                id = NextId(c.recipes.Select(r => r.id)), key = FreeKey(c.recipes.Select(r => r.key), "new_recipe"),
+                machineTypeKey = machine.key ?? "", machineTypeId = machine.id, durationSeconds = 1,
+                inputs = Array.Empty<FactoryRecipeIngredientTableRow>(), outputs = Array.Empty<FactoryRecipeIngredientTableRow>()
+            }).ToArray();
+        });
         return row;
     }
-
-    public void SetRecipeValue(int row, string column, string value)
+    public void SetRecipeValue(int row, string column, string value) => Edit("编辑配方", c =>
     {
-        var recipes = GetRecipes();
-        string oldKey = recipes.Single(r => r.row == row).key;
-        if (column == "key")
+        var recipe = c.recipes[row];
+        switch (column)
         {
-            RequireKey(value);
-            if (recipes.Any(r => r.row != row && r.key == value)) throw new InvalidDataException($"配方 Key 已存在：{value}");
+            case "key":
+                RequireKey(value);
+                if (c.recipes.Where((r, n) => n != row).Any(r => r.key == value)) throw new InvalidDataException("配方 Key 已存在：" + value);
+                recipe.key = value; break;
+            case "duration_seconds":
+                if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float time) || time <= 0 || float.IsNaN(time) || float.IsInfinity(time))
+                    throw new InvalidDataException("生产时间必须为有限正数。");
+                recipe.durationSeconds = time; break;
+            case "machine_type_key":
+                var machine = c.machineTypes.SingleOrDefault(m => m.key == value);
+                if (machine.id == 0) throw new InvalidDataException("请选择已有加工类型，或先新增类型。");
+                recipe.machineTypeKey = machine.key; recipe.machineTypeId = machine.id; break;
+            default: throw new ArgumentException("未知配方字段：" + column);
         }
-        if (column == "duration_seconds" && (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float time) ||
-            time <= 0 || float.IsNaN(time) || float.IsInfinity(time))) throw new InvalidDataException("生产时间必须为有限正数。");
-        if (column == "machine_type_key" && !GetMachineTypes().Contains(value)) throw new InvalidDataException("请选择已有加工类型，或先新增类型。");
-        Edit("编辑配方", docs =>
-        {
-            docs[RecipesPath].Set(row, column, value);
-            if (column == "key")
-                foreach (string path in new[] { InputsPath, OutputsPath })
-                    foreach (int r in Rows(docs[path]).Where(r => docs[path].Get(r, "recipe_key") == oldKey))
-                        docs[path].Set(r, "recipe_key", value);
-        }, column == "key" ? new[] { RecipesPath, InputsPath, OutputsPath } : new[] { RecipesPath });
-    }
-
-    public void DeleteRecipe(int row)
-    {
-        string key = GetRecipes().Single(r => r.row == row).key;
-        Edit("删除配方", docs =>
-        {
-            docs[RecipesPath].RemoveAt(row);
-            foreach (string path in new[] { InputsPath, OutputsPath })
-                foreach (int r in Rows(docs[path]).Where(r => docs[path].Get(r, "recipe_key") == key).Reverse().ToArray())
-                    docs[path].RemoveAt(r);
-        }, RecipesPath, InputsPath, OutputsPath);
-    }
-
+        c.recipes[row] = recipe;
+    });
+    public void DeleteRecipe(int row) => Edit("删除配方", c => c.recipes = c.recipes.Where((r, n) => n != row).ToArray());
     public void AddMachineType(string key)
     {
         RequireKey(key);
-        if (GetMachineTypes().Contains(key)) throw new InvalidDataException($"加工类型已存在：{key}");
-        Edit("新增加工类型", docs => docs[MachinesPath].Append(new Dictionary<string, string> { ["key"] = key }), MachinesPath);
+        if (GetMachineTypes().Contains(key)) throw new InvalidDataException("加工类型已存在：" + key);
+        Edit("新增加工类型", c => c.machineTypes = c.machineTypes.Append(new FactoryMachineTypeTableRow
+        { id = NextId(c.machineTypes.Select(m => m.id)), key = key }).ToArray());
     }
-
     private void CheckCount(string itemKey, int count)
     {
-        var item = GetItems().SingleOrDefault(i => i.key == itemKey);
-        if (item == null) throw new InvalidDataException($"物品不存在：{itemKey}");
-        if (count <= 0 || count > item.maxStack) throw new InvalidDataException($"{item.name} ({itemKey}) 数量必须为 1–{item.maxStack}，本次数量为 {count}。");
+        var item = content.items.SingleOrDefault(i => i.key == itemKey);
+        if (item.id == 0) throw new InvalidDataException("物品不存在：" + itemKey);
+        if (count <= 0 || count > item.maxStack) throw new InvalidDataException($"{item.nameKey} ({itemKey}) 数量必须为 1–{item.maxStack}，本次数量为 {count}。");
     }
-
+    private void EditIngredients(string recipe, bool output, Action<List<FactoryRecipeIngredientTableRow>> edit) => Edit("编辑配方条目", c =>
+    {
+        int row = Array.FindIndex(c.recipes, r => r.key == recipe);
+        if (row < 0) throw new InvalidDataException("配方不存在：" + recipe);
+        var r = c.recipes[row];
+        var list = (output ? r.outputs : r.inputs).ToList();
+        edit(list);
+        if (output) r.outputs = list.ToArray(); else r.inputs = list.ToArray();
+        c.recipes[row] = r;
+    });
     public void AddIngredient(string recipe, bool output, string itemKey, int count = 1)
     {
-        if (!GetRecipes().Any(r => r.key == recipe)) throw new InvalidDataException($"配方不存在：{recipe}");
-        string path = output ? OutputsPath : InputsPath;
-        var existing = GetIngredients(recipe, output).SingleOrDefault(i => i.itemKey == itemKey);
         CheckCount(itemKey, count);
-        int total = checked((existing?.count ?? 0) + count);
-        CheckCount(itemKey, total);
-        Edit("添加配方条目", docs =>
+        EditIngredients(recipe, output, list =>
         {
-            if (existing != null) docs[path].Set(existing.row, "count", total.ToString(CultureInfo.InvariantCulture));
-            else docs[path].Append(new Dictionary<string, string> { ["recipe_key"] = recipe, ["item_key"] = itemKey, ["count"] = count.ToString(CultureInfo.InvariantCulture) });
-        }, path);
+            int index = list.FindIndex(i => i.itemKey == itemKey);
+            int total = checked(count + (index < 0 ? 0 : list[index].count));
+            CheckCount(itemKey, total);
+            var value = new FactoryRecipeIngredientTableRow { itemKey = itemKey, itemId = content.items.Single(i => i.key == itemKey).id, count = total };
+            if (index < 0) list.Add(value); else list[index] = value;
+        });
     }
-
-    public void ReplaceIngredient(string recipe, bool output, int row, string itemKey)
+    public void ReplaceIngredient(string recipe, bool output, int row, string itemKey) => EditIngredients(recipe, output, list =>
     {
-        var ingredients = GetIngredients(recipe, output);
-        var current = ingredients.Single(i => i.row == row);
-        if (current.itemKey == itemKey) return;
-        var existing = ingredients.SingleOrDefault(i => i.row != row && i.itemKey == itemKey);
-        int total = checked(current.count + (existing?.count ?? 0));
+        if (list[row].itemKey == itemKey) return;
+        int existing = list.FindIndex(i => i.itemKey == itemKey);
+        int total = checked(list[row].count + (existing < 0 ? 0 : list[existing].count));
         CheckCount(itemKey, total);
-        string path = output ? OutputsPath : InputsPath;
-        Edit("更换配方物品", docs =>
-        {
-            if (existing == null) docs[path].Set(row, "item_key", itemKey);
-            else
-            {
-                docs[path].Set(existing.row, "count", total.ToString(CultureInfo.InvariantCulture));
-                docs[path].RemoveAt(row);
-            }
-        }, path);
-    }
-
-    public void SetIngredientCount(string recipe, bool output, int row, int count)
+        var value = new FactoryRecipeIngredientTableRow { itemKey = itemKey, itemId = content.items.Single(i => i.key == itemKey).id, count = total };
+        if (existing < 0) list[row] = value;
+        else { list[existing] = value; list.RemoveAt(row); }
+    });
+    public void SetIngredientCount(string recipe, bool output, int row, int count) => EditIngredients(recipe, output, list =>
     {
-        string key = GetIngredients(recipe, output).Single(i => i.row == row).itemKey;
-        CheckCount(key, count);
-        string path = output ? OutputsPath : InputsPath;
-        Edit("修改配方数量", docs => docs[path].Set(row, "count", count.ToString(CultureInfo.InvariantCulture)), path);
-    }
-
-    public void RemoveIngredient(string recipe, bool output, int row)
+        var value = list[row]; CheckCount(value.itemKey, count); value.count = count; list[row] = value;
+    });
+    public void RemoveIngredient(string recipe, bool output, int row) => EditIngredients(recipe, output, list => list.RemoveAt(row));
+    public void MoveOutput(string recipe, int index, int delta) => EditIngredients(recipe, true, list =>
     {
-        if (!GetIngredients(recipe, output).Any(i => i.row == row)) throw new InvalidDataException("配方条目不存在。");
-        string path = output ? OutputsPath : InputsPath;
-        Edit("移除配方条目", docs => docs[path].RemoveAt(row), path);
-    }
-
-    public void MoveOutput(string recipe, int index, int delta)
-    {
-        var rows = GetIngredients(recipe, true);
         int target = index + delta;
-        if (index < 0 || index >= rows.Count || target < 0 || target >= rows.Count) return;
-        Edit("移动产物槽位", docs => docs[OutputsPath].SwapRows(rows[index].row, rows[target].row), OutputsPath);
-    }
+        if (index < 0 || index >= list.Count || target < 0 || target >= list.Count) return;
+        var value = list[index]; list[index] = list[target]; list[target] = value;
+    });
 }
 
 public static class FactoryItemAssetBindings
@@ -287,24 +232,7 @@ public static class FactoryItemAssetBindings
     {
         if (model == null) return "";
         string path = AssetDatabase.GetAssetPath(model);
-        FactoryDatabaseCsvImporter.LoadModel(path);
+        FactoryDatabaseEditor.LoadModel(path);
         return path;
-    }
-
-    public static string IconKey(Sprite icon)
-    {
-        if (icon == null) return "";
-        return AssetKey(icon, FactoryDatabaseCsvImporter.ItemIconDirectory,
-            FactoryDatabaseCsvImporter.BuildSpriteIndex(FactoryDatabaseCsvImporter.ItemIconDirectory));
-    }
-
-    private static string AssetKey<T>(T asset, string directory, Dictionary<string, T> index) where T : UnityEngine.Object
-    {
-        string path = AssetDatabase.GetAssetPath(asset);
-        string key = Path.GetFileNameWithoutExtension(path);
-        if (!path.StartsWith(directory + "/", StringComparison.Ordinal) ||
-            !index.TryGetValue(FactoryDatabaseCsvImporter.NormalizeKey(key), out T resolved) || resolved != asset)
-            throw new InvalidDataException($"请选择 {directory} 下按文件名唯一匹配的资产。");
-        return key;
     }
 }

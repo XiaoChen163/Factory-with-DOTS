@@ -38,7 +38,7 @@ public sealed partial class FactoryContentManagerWindow
 
     private void DrawBuildingColliders(string key)
     {
-        detail.Add(Heading("碰撞体（building_colliders.csv）"));
+        detail.Add(Heading("碰撞体"));
         var shapes = draft.GetBuildingImport(key).colliders;
         detail.Add(new Label($"{shapes.Length} 个碰撞体 · 建筑局部坐标 · Unity 单位 · 胶囊 / 圆柱沿局部 Y 轴"));
         for (int i = 0; i < shapes.Length; i++)

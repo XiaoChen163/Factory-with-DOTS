@@ -71,7 +71,7 @@ public sealed class FactoryBuildingImportWindow : EditorWindow
         {
             try
             {
-                FactoryDatabaseCsvImporter.EnsureCanWrite();
+                FactoryDatabaseEditor.EnsureCanWrite();
                 apply(footprint.value, ports.value, colliders.value);
                 Close();
             }

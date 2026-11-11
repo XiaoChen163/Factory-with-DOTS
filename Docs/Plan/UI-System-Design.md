@@ -1,5 +1,7 @@
 # UI Toolkit UI 系统与玩家命令通道实现文档
 
+> 2026-11-11 数据源更新：当前使用内容管理器直接编辑 ScriptableObject，CSV 保存层已移除。下文涉及旧 CSV、建筑等级和仓储总容量的描述保留为原设计背景；当前字段与规则以 [建筑与生产内容定义](../Guide/Building-Data-Tables.md) 为准。
+
 ## 1. 文档目的
 
 本文定义 Factory-with-DOTS 正式运行时的 UI、玩家交互、物品拖放和命令通道实现方案。
@@ -29,7 +31,7 @@
 | 玩家输入 | `TopDownPlayerController`、`PlayerInteractionController`、`PlayerBuildController` 均为 `MonoBehaviour`，使用 Input System Action Map |
 | 命令入口 | 统一 `PlayerCommandBus`，所有 UI 和玩家控制器操作都带 `PlayerId + RequestId` |
 | 权威执行 | 配方选择、物品移动、建造/拆除由 Fixed Step ECS 系统验证并原子提交 |
-| 静态数据 | 现有 CSV + `FactoryDatabaseAsset`/Blob；图标引用保留在托管表现资产，不进入 Blob |
+| 静态数据 | 正式 `FactoryDatabaseAsset` → Baking → Blob；内容管理器直接编辑资产，图标引用不进入 Blob |
 
 核心边界如下：
 

@@ -1,131 +1,73 @@
-# 建筑数据表
+# 建筑与生产内容定义
 
-2026-10-30 起，建筑内容取消通用等级。加工建筑没有速度倍率，加工周期完全取决于
-`items/recipes/recipes.csv` 的 `duration_seconds`。传送带仍有专属 Tier。
+更新日期：2026-11-11。本文保留原文件名以维持文档链接。
 
-源表位于 `Assets/Data/FactoryTables/buildings`。建筑 Key 是唯一的源数据身份，
-扩展表直接通过同一个 Key 关联，不再维护类型 ID、等级 ID 或端口布局 Key。
+## 数据来源与编辑
 
-## 表的职责
+`Assets/Data/FactoryDatabase.asset` 是唯一正式数据源，通过 **Factory > 内容管理器** 编辑。CSV 保存层已移除；资产移出 Generated 目录，保留原有 GUID，不再执行 CSV 重建。**Factory > Validate Static Database** 可校验现有资产。
 
-| 表 | 字段 | 必填范围 |
+数据库保留四组现有强类型数据：
+
+| 数组 | 元素类型 | 内容 |
 |---|---|---|
-| `building_colliders.csv` | `building_key,collider_key,type,position_x/y/z,rotation_x/y/z/w,size_x/y/z,radius,height` | 每行一个建筑局部碰撞体 |
-| `buildings.csv` | `key,behavior,width,length,model_path,is_rectangle,bitmap` | 所有可建造对象各一行 |
-| `processor_stats.csv` | `key,machine_type_key` | 每个 Processor 各一行 |
-| `belt_stats.csv` | `key,tier,cells_per_second` | 水平带、垂直入口/出口/段各一行 |
-| `storage_stats.csv` | `key,slot_count` | 每个 Storage 各一行 |
-| `ramp_stats.csv` | `key,rise_height_units` | 每个 RampFoundation 各一行 |
-| `building_ports.csv` | `key,type,index,cell_x,cell_z,direction_x,direction_z` | 每个物理端口一行 |
-| `building_names.csv` | `key,locale,name` | 每个建筑至少一种语言 |
-| `building_presentation.csv` | `key,icon_path,menu_order` | 每个建筑各一行 |
-| `machine_types.csv` | `key` | 加工种类字典，供加工建筑和配方共同引用 |
+| `items` | `FactoryItemTableRow` | ID、Key、名称、最大堆叠、分类、模型和图标引用 |
+| `machineTypes` | `FactoryMachineTypeTableRow` | 加工类型 ID 和 Key |
+| `buildings` | `FactoryBuildingDefinitionRow` | 建筑基础属性、空间、表现、行为参数、端口与碰撞体 |
+| `recipes` | `FactoryRecipeTableRow` | 配方 ID、Key、加工类型、加工时间和内嵌原料/产物 |
 
-仓库仅配置 `slot_count`。每格按物品的 `max_stack` 堆叠，所有格子都达到各自物品的堆叠上限时满仓；不再配置总容量。
+类型名中的 TableRow 为现有代码名称，不代表仍需外部表格。本轮不增加能力组件，不拆分每物品独立资产。
 
-`behavior` 直接对应 `BuildingKind`：`Processor、Storage、Belt、Merger、Splitter、
-Foundation、RampFoundation、VerticalBeltEntry、VerticalBeltExit、VerticalBeltSegment`。
-矿机、熔炉都属于 Processor，其区别由加工种类、配方、模型和端口定义。
+所有既有数字 ID 原样保留。新增项分配当前同类最大 ID + 1；数组重排和 Key 修改不重算 ID。Key 用于内容查找，模拟使用数字 ID；配方同时保存关联 ID/Key，并校验两者一致。该迁移不建立跨版本存档兼容层。
 
-模型和图标使用完整的 `Assets/...` 工程相对路径。`model_path` 只允许直接引用 `.fbx`，不再使用模型包装 Prefab。
-`icon_path` 可以留空；填写时必须能加载为 Sprite。游戏图标由表现表指定；图标烘焙
-设置仍负责图像生成，但不在导入时覆盖表现表的路径。
-名称导入当前优先取 `zh-CN`，缺少时回退为该建筑第一条名称；这不是运行时语言切换系统。
+模型、图标直接引用 Unity 资产。路径和 iconKey 字段仅保留作兼容元数据，编辑器以实际对象引用为准。FBX 仍要求仅包含表现网格，不维护包装 Prefab。图标可为空，也可选择任意项目 Sprite。名称使用现有 `displayName`，没有运行时语言切换系统。
 
-## 示例
+## 建筑参数
 
-```csv
-key,behavior,width,length,model_path,is_rectangle,bitmap
-furnace,Processor,4,3,Assets/Art/Buildings/furnace/furnace.fbx,false,1111/1111/1100
-```
+建筑 `kind` 对应 `BuildingKind`：Processor、Storage、Belt、Merger、Splitter、Foundation、RampFoundation、VerticalBeltEntry、VerticalBeltExit、VerticalBeltSegment。
 
-```csv
-key,machine_type_key
-furnace,smelting
-```
+- Processor 配置 `machineTypeId`；矿机和熔炉的区别来自加工类型、配方、模型和端口。
+- Storage 配置 `storageSlotCount`；每格按物品最大堆叠计算，没有额外总容量。
+- 水平和垂直传送带配置 `beltTier / cellsPerSecond`。
+- RampFoundation 配置 `rampRiseHeightUnits`。
+- 非对应行为的参数必须清零。修改行为时，内容管理器自动清理旧行为字段并设置新行为默认值。
 
-```csv
-key,type,index,cell_x,cell_z,direction_x,direction_z,number,output_slot
-furnace,Input,0,-1,0,1,0,,
-furnace,Output,0,4,0,1,0,1,1
-```
+建筑没有通用等级或加工速度倍率。加工周期由配方 `durationSeconds` 决定，固定 Tick 下 `process.DurationTicks = recipe.DurationTicks`；并联机器增加理论产量，缺料和物流堵塞仍限制实际产量。
 
-一个 Processor 可以执行对应加工种类的配方，多种建筑可以绑定相同加工种类。
-所有输入口接受当前配方需要的任意原料，按物品类型汇入对应输入槽；不同输入口共享
-同一原料槽的容量和在途预约。一个槽满不会阻止其他口输入其他未满原料。
+## 占格、端口与生产
 
-Processor 输出口必须填写 `number` 和 `output_slot`，两者均为从 1 开始的正整数，
-在同一建筑内分别唯一：一个出口绑定一个产物槽，一个产物槽只有一个出口。
-`index` 仍是内部端口身份，不要求与玩家可见的 `number` 相同。
-`output_slot` 对应 `recipe_outputs.csv` 中同一配方条目的相对顺序，不按物品 ID 排序。
-当前配方没有对应槽时出口停用；每条可用配方的所有产物槽都必须有出口。
-输入口及非 Processor 端口的这两列留空。
+占格字段为 `footprintWidth / footprintHeight / isRectangle / footprintBitmap`；端口直接保存在建筑的 `ports` 数组中。坐标、位图及边界规则见 [建筑占格与端口定义](Building-Footprints.md)。管理器只展示空间示意，通过 Blender 导出的 `.factory.json` 更新空间数据。
 
-UI 在产物槽上方显示配置的出口编号；玩家在 10m 内瞄准出口时，在出口处通过世界空间
-TextMesh 显示相同编号，文字朝向相机，移开视线或被遮挡后隐藏，复用一个文字对象。
-该提示由相机交互控制器在 LateUpdate 更新，不依赖 UIDocument、HUD 层或屏幕坐标转换。
-端口命中区覆盖 OutputPortView 的完整可见区域（高 0.75 格、宽 1 格并留少量容差），
-随建筑旋转、楼层及 CellSize 变化。遮挡检测忽略玩家自身及触发器，文字材质使用深度测试。
-建筑尚无物理碰撞时，用实际占格组成的逻辑体积做遮挡（加工/仓储高度暂为 1.2 格，
-其他建筑暂为 0.5 格）；已有 ECS/场景物理碰撞也会阻挡提示。
+一个 Processor 可执行对应加工类型的所有配方，多种建筑可使用相同加工类型。所有输入口接受当前配方需要的任意原料，按物品类型汇入对应输入槽；不同输入口共享同一原料槽容量和在途预约。
 
-生产开始前要求所有输入齐备、所有输出槽放得下完整下一批，再统一扣除输入。
-任意产物槽放不下下一批，整机暂停开工；输出排空及未满输入槽的收料仍然继续。
-切换配方时返还/清理原有物料，并清除旧端口快照、预约和回执，随后重新发布绑定。
+Processor 输出口的 `number` 和 `outputSlot` 均为从 1 开始的正整数，在同一建筑内分别唯一。`index` 是内部端口身份，无须等于显示编号。`outputSlot` 对应配方 `outputs` 数组的相对顺序，不按物品 ID 排序。当前配方没有相应槽时出口停用；所有可用配方的每个产物槽都必须有出口。输入口和非 Processor 端口的这两个字段为零。
 
-旧熔炉样例 `test_multi_io` 已由测试机器 M 的两条专用配方替代，避免单出口对应多个产物槽。
-源数据不再包含 `work_rate_permille` 或加工等级属性。
-固定 Tick 下，`process.DurationTicks = recipe.DurationTicks`；增加并联机器增加理论产量，
-物流阻塞和缺料仍会限制实际产量。
+生产开始前检查所有原料齐备且所有产物槽放得下完整下一批，再统一扣料。任意产物槽不足则整机不开工，输出排空和未满输入槽收料仍继续。切换配方清理旧绑定、快照、预约和回执，沿用现有物资规则。
 
-占格坐标、位图和端口边界规则见 [建筑占格与端口定义](Building-Footprints.md)。
+UI 在产物槽显示出口编号；10m 内瞄准出口时，世界空间 TextMesh 显示同一编号，文字朝向相机并受遮挡限制。端口命中区、旋转、楼层和 CellSize 适配规则保持不变。
 
 ## 传送带
 
-同一个 Tier 的水平带和所有垂直部件必须填写相同的正数速度。
-`(behavior,tier)` 唯一，垂直 Tier 必须同时提供入口、出口和段。
-垂直路径按 Tier 查找对应部件，不依赖命名后缀或通用建筑等级。
-斜坡上的传送带复用水平带定义及其速度。
+同 Tier 的水平带和垂直部件必须配置相同的有限正数速度；`(kind, beltTier)` 唯一。垂直 Tier 必须同时具备入口、出口和段。垂直路径按 Tier 关联部件，不依赖命名后缀；斜坡传送带复用水平带定义。
 
-这里采用每个建筑 Key 直接配置 `tier,cells_per_second` 的方案，因此同等级速度在
-各部件行中重复，由导入校验保证一致。
+## 建筑碰撞体
 
-## 导入、运行时与迁移
+`FactoryBuildingDefinitionRow.colliders` 保存 `FactoryColliderProxy[]`，每个形状的 `name` 在本建筑内唯一。同一个 FBX 可以被多个建筑引用，各自拥有不同的碰撞定义。
 
-修改源 CSV 后执行 **Factory > Rebuild Static Database**。生成的
-`Assets/Data/Generated/FactoryDatabase.asset` 是缓存，不是另一份编辑源。
+位置和旋转相对建筑根节点，尺寸使用 Unity 单位，旋转保存单位四元数：
 
-导入器检查重复/未知 Key、必填扩展行、行为匹配、Prefab/图标路径、加工种类、
-仓储属性、传送带 Tier/速度、斜坡坡度、位图和端口边界。
-无效内容不会保存为新的生成数据库。
+| 形状 | 参数约束 |
+|---|---|
+| Box | 三个尺寸均大于零 |
+| Sphere | 半径大于零 |
+| Capsule | 半径大于零，总高度至少为直径，局部 Y 轴 |
+| Cylinder | 半径和高度大于零，局部 Y 轴；Unity Physics 采用 32 边圆柱 |
 
-生成缓存将同一建筑的扩展属性合并为 `FactoryBuildingDefinitionRow`；Blob 用
-`FactoryBuildingDefinitionBlob` 保存模拟所需数据。ECS 实体、建造命令、图标目录和
-快捷栏统一使用 `BuildingDefinitionId`，`BuildingIdentity` 仅保存这个 ID。
-UI 名称和图标留在表现层，不放入模拟 Blob。
+空数组表示不附加定义碰撞体；地基、坡道和垂直传送带的专用碰撞机制保持不变。建筑占格与碰撞形状独立定义。
 
-数字 ID 按建筑主表行序生成，仅在当前生成内容中有效，不能作为跨版本存档身份。
-按 Key 引用的内容应在加载/初始化边界解析 ID，模拟循环使用数字 ID。
-性能场景已改为按建筑 Key 选择内容，不再依赖主表行序。
-`GridCell.Level` 仍表示世界楼层，与本次移除的建筑等级无关。
+## 校验与运行时
 
-旧 `levels/building_levels.csv`、加工等级、仓储等级和传送带等级属性表已删除。
-普通建筑 Key 去掉 `_mk1`，传送带保留 `belt_mk1` 等具体建筑 Key。
-本次迁移没有新增存档格式兼容层。
+内容管理器保存前、构建前校验正式内容，Baking 校验模拟定义。检查唯一非零 ID、唯一有效 Key、加工类型与物品引用、原料/产物数量及重复项、最大堆叠、行为参数、占格、端口、产物覆盖和碰撞形状。编辑器额外检查 FBX 和建筑名称。
 
-回归测试见 `BuildingDefinitionSimplificationTests`、`IrregularBuildingFootprintTests`
-以及现有加工、建造和垂直运输测试。
+Baking 直接从 ScriptableObject 创建 `FactoryDatabaseBlob`。建筑模拟数据进入 `FactoryBuildingDefinitionBlob`，名称和图标留在表现目录。实体、建造命令及 UI 使用相同的 `BuildingDefinitionId`。运行时不解析源文本，也不读取编辑器草稿。
 
-## 建筑碰撞体表
-
-`building_colliders.csv` 通过 `building_key` 关联 `buildings.csv`，同一建筑可有多行；`collider_key` 在建筑内唯一。表头如下：
-
-```csv
-building_key,collider_key,type,position_x,position_y,position_z,rotation_x,rotation_y,rotation_z,rotation_w,size_x,size_y,size_z,radius,height
-furnace,body,Box,0,1,0,0,0,0,1,3,2,2,,
-furnace,chimney,Cylinder,1,3,0,0,0,0,1,,,,0.4,3
-```
-
-位置和旋转相对建筑根节点，尺寸使用 Unity 单位，旋转为单位四元数。Box 要求三个正尺寸；Sphere 要求正半径；Capsule 的总高度至少为直径；Cylinder 要求正高度和半径。Capsule / Cylinder 沿局部 Y 轴。与形状无关的尺寸列可留空，姿态列必须填写，单位旋转为 `0,0,0,1`。
-
-未知建筑、重复碰撞体 Key、非有限数值和非法尺寸会阻止保存及重建。同一 FBX 对应多个建筑时，各自使用其建筑 Key 对应的碰撞体；没有记录的建筑不生成 CSV 物理碰撞。占格仍由主表独立控制。
+操作细节见 [Factory 内容管理器](Factory-Content-Manager.md)。回归入口为 `BuildingDefinitionTests`、`FactoryContentEditingTests`、`FactoryBuildingContentEditingTests` 及现有建造、加工、碰撞与运输测试。

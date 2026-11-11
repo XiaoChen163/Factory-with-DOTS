@@ -23,9 +23,8 @@ public static class LogisticsNodeArtBatch
             var previous = Keys.Select(k => draft.GetBuildings().Single(b => b.key == k)).ToArray();
             var guids = previous.Select(b => AssetDatabase.AssetPathToGUID(b.modelPath)).ToArray();
             var iconGuids = previous.Select(b => AssetDatabase.AssetPathToGUID(b.iconPath)).ToArray();
-            var untouched = draft.Tables.Where(t => !t.path.EndsWith("/" + FactoryContentDraft.CollidersPath, StringComparison.Ordinal))
-                .ToDictionary(t => t.path, t => t.text);
-            var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>("Assets/Data/Generated/FactoryDatabase.asset");
+            string buildingsBefore = string.Join(";", draft.GetBuildings().Select(b => JsonUtility.ToJson(b)));
+            var database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>("Assets/Data/FactoryDatabase.asset");
             var ids = database.buildings.ToDictionary(b => b.key, b => b.id);
             for (int i = 0; i < Keys.Length; i++)
             {
@@ -44,9 +43,8 @@ public static class LogisticsNodeArtBatch
                 Render(model, imported.iconPath, Titles[i], key);
             }
             // Only collision data should need a table write: paths and gameplay stay identical.
-            foreach (var table in draft.Tables)
-                if (untouched.TryGetValue(table.path, out var text) && table.text != text)
-                    throw new Exception("Unexpected table change: " + table.path);
+            if (string.Join(";", draft.GetBuildings().Select(b => JsonUtility.ToJson(b))) != buildingsBefore)
+                throw new Exception("Unexpected building definition change.");
             draft.Save();
             AssetDatabase.SaveAssets();
             draft.Load();
@@ -69,11 +67,11 @@ public static class LogisticsNodeArtBatch
                     "\nFootprint=1x1, unchanged\nPorts=" + Ports(b) + "\nDefaultDirection=unchanged\nRoofArrows=actual FBX tip vertices and flow directions verified\n" +
                     "ApertureWidth=0.62m\nRollerWidth=0.586m\nFasteners=28; cap planes and actual FBX vertices verified against mounting normals\n" +
                     "Colliders=1 Box\nRenderers=6\nTriangles=" + triangles + "\nBounds=" + bounds +
-                    "\nModel and icon GUIDs preserved; all non-collider CSV tables unchanged\n";
+                    "\nModel and icon GUIDs preserved; all other definition fields unchanged\n";
                 File.WriteAllText(folder + "/unity-import-report.txt", report);
                 Debug.Log(report);
             }
-            database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>("Assets/Data/Generated/FactoryDatabase.asset");
+            database = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>("Assets/Data/FactoryDatabase.asset");
             foreach (var entry in database.buildings)
                 if (!ids.TryGetValue(entry.key, out var oldId) || oldId != entry.id) throw new Exception("Building ID changed: " + entry.key);
             Debug.Log("SPLITTER_MERGER_ART_IMPORT_OK");
@@ -119,7 +117,7 @@ public static class LogisticsNodeArtBatch
         if (renderers.SelectMany(r => r.sharedMaterials).Any(m => m == null || m.shader.name != "Universal Render Pipeline/Lit" || ShaderUtil.ShaderHasError(m.shader)))
             throw new Exception("Invalid URP mapping.");
         if (model.GetComponentsInChildren<Collider>(true).Length != 0 || model.GetComponentsInChildren<Rigidbody>(true).Length != 0)
-            throw new Exception("Proxy must remain CSV-only.");
+            throw new Exception("Proxy must remain definition-only.");
         var metadata = (JArray)JObject.Parse(File.ReadAllText(folder + "/orientation.json"))["ports"];
         foreach (var port in metadata)
         {

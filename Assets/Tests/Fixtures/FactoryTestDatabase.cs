@@ -8,10 +8,30 @@ namespace Factory.Tests
     {
         // Rule tests require two recipes and a two-output recipe regardless of which
         // demonstration recipes are currently edited through the content manager.
+        internal static FactoryBuildingDefinitionRow AddMultiOutputProcessor(FactoryDatabaseAsset asset)
+        {
+            var building = asset.buildings.Single(b => b.key == "furnace");
+            building.id = checked((ushort)(asset.buildings.Max(b => b.id) + 1));
+            building.key = "test_machine_m";
+            building.machineTypeId = asset.machineTypes.Single(m => m.key == "test_machine_m").id;
+            building.footprintWidth = building.footprintHeight = 3;
+            building.isRectangle = true; building.footprintBitmap = "";
+            building.ports = Enumerable.Range(0, 3).Select(n => new FactoryBuildingPortTableRow
+            {
+                type = BuildingPortType.Input, index = (byte)n, cellOffset = new Vector2Int(-1, n), direction = Vector2Int.right
+            }).Concat(Enumerable.Range(0, 3).Select(n => new FactoryBuildingPortTableRow
+            {
+                type = BuildingPortType.Output, index = (byte)n, number = (ushort)(n + 1), outputSlot = (ushort)(n + 1),
+                cellOffset = new Vector2Int(3, n), direction = Vector2Int.right
+            })).ToArray();
+            asset.buildings = asset.buildings.Append(building).ToArray();
+            return building;
+        }
+
         internal static void SetTwoOutputRecipes(FactoryDatabaseAsset asset, ushort machineId)
         {
-            var a = asset.items.Single(i => i.key == "test_a");
-            var b = asset.items.Single(i => i.key == "test_b");
+            var a = asset.items.Single(i => i.key == "iron_ore");
+            var b = asset.items.Single(i => i.key == "iron_ingot");
             string machineKey = asset.machineTypes.Single(m => m.id == machineId).key;
             ushort id = checked((ushort)(asset.recipes.Max(r => r.id) + 1));
             var first = new FactoryRecipeTableRow
@@ -96,7 +116,7 @@ namespace Factory.Tests
                     {
                         new FactoryRecipeIngredientTableRow
                         {
-                            itemKey = "iron_ingot",
+                            itemKey = "iron_ore",
                             itemId = 1,
                             count = 1
                         }

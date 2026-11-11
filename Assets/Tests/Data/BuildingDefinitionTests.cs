@@ -11,65 +11,81 @@ namespace Factory.Tests
 {
     public sealed class BuildingDefinitionTests : FactoryWorldFixture
     {
-        private string directory;
         private FactoryDatabaseAsset asset;
-
-        [SetUp]
-        public void CopyTables()
-        {
-            directory = Path.GetFullPath(Path.Combine("Temp", "BuildingTables-" + Guid.NewGuid().ToString("N")));
-            Directory.CreateDirectory(directory);
-            foreach (string file in Directory.GetFiles("Assets/Data/FactoryTables/buildings", "*.csv"))
-                File.Copy(file, Path.Combine(directory, Path.GetFileName(file)));
-            asset = Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath));
-        }
-
+        [SetUp] public void LoadAsset() => asset = Object.Instantiate(FactoryDatabaseEditor.Load());
         public override void TearDownWorld()
         {
             base.TearDownWorld();
             if (asset != null) Object.DestroyImmediate(asset);
-            if (directory != null && Directory.Exists(directory))
+        }
+
+        [Test]
+        public void ColliderDefinitions_RejectDuplicateKeysAndInvalidDimensions()
+        {
+            int row = Array.FindIndex(asset.buildings, b => b.key == "furnace");
+            var shape = new FactoryColliderProxy { name = "body", type = "Box", size = Vector3.one };
+            asset.buildings[row].colliders = new[] { shape, shape };
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
+            shape.size = new Vector3(-1, 1, 1);
+            asset.buildings[row].colliders = new[] { shape };
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
+        }
+
+        [Test]
+        public void ColliderDraft_RoundTripsQuaternionAndPreservesOtherBuildings()
+        {
+            var draft = ScriptableObject.CreateInstance<FactoryContentDraft>();
+            try
             {
-                foreach (string file in Directory.GetFiles(directory)) File.Delete(file);
-                Directory.Delete(directory);
+                draft.Load();
+                var before = draft.GetBuildingImport("storage").colliders.Select(c => JsonUtility.ToJson(c)).ToArray();
+                var shape = new FactoryColliderProxy { name = "body", type = "Box", position = new Vector3(.12345679f, 2, 3), rotation = Quaternion.Euler(21, 37, 89), size = Vector3.one };
+                draft.SetBuildingColliders("furnace", new[] { shape });
+                var candidate = draft.ReadCandidate();
+                try
+                {
+                    var value = candidate.buildings.Single(b => b.key == "furnace").colliders[0];
+                    Assert.That(value.rotation, Is.EqualTo(shape.rotation));
+                    Assert.That(value.position, Is.EqualTo(shape.position));
+                }
+                finally { Object.DestroyImmediate(candidate); }
+                draft.SetBuildingColliders("furnace", Array.Empty<FactoryColliderProxy>());
+                Assert.That(draft.GetBuildingImport("furnace").colliders, Is.Empty);
+                Assert.That(draft.GetBuildingImport("storage").colliders.Select(c => JsonUtility.ToJson(c)), Is.EqualTo(before));
             }
-        }
-
-        private FactoryBuildingDefinitionRow[] Read() =>
-            FactoryDatabaseCsvImporter.ReadBuildingDefinitions(directory, asset.machineTypes);
-
-        private void Write(string name, params string[] lines) =>
-            File.WriteAllLines(Path.Combine(directory, name + ".csv"), lines);
-
-        [Test]
-        public void ColliderTable_RejectsUnknownBuildingsDuplicateKeysAndInvalidDimensions()
-        {
-            string path = Path.Combine(directory, "building_colliders.csv");
-            string original = File.ReadAllText(path);
-            File.WriteAllText(path, original + "unknown,body,Box,0,0,0,0,0,0,1,1,1,1,,\n");
-            Assert.Throws<InvalidDataException>(() => Read());
-            File.WriteAllText(path, original + "furnace,UC_Base,Box,0,0,0,0,0,0,1,1,1,1,,\n");
-            Assert.Throws<InvalidDataException>(() => Read());
-            File.WriteAllText(path, FactoryBuildingColliderCsv.Header + "\nfurnace,body,Box,0,0,0,0,0,0,1,-1,1,1,,\n");
-            Assert.Throws<InvalidDataException>(() => Read());
-            File.WriteAllText(path, FactoryBuildingColliderCsv.Header + "\nfurnace,body,Sphere,NaN,0,0,0,0,0,1,,,,1,\n");
-            Assert.Throws<InvalidDataException>(() => Read());
+            finally { Object.DestroyImmediate(draft); }
         }
 
         [Test]
-        public void ColliderTable_RoundTripsQuaternionAndEmptyShapesWithoutChangingOtherBuildings()
+        public void Asset_PreservesExistingBuildingContent()
         {
-            var table = FactoryCsvTable.Parse(FactoryBuildingColliderCsv.Header + "\n");
-            var shape = new FactoryColliderProxy { name = "body", type = "Box", position = new Vector3(.12345679f, 2, 3), rotation = Quaternion.Euler(21, 37, 89), size = Vector3.one };
-            FactoryBuildingColliderCsv.Write(table, "furnace", new[] { shape });
-            FactoryBuildingColliderCsv.Write(table, "storage", new[] { shape });
-            var result = FactoryBuildingColliderCsv.Read(FactoryCsvTable.Parse(table.Text));
-            Assert.That(result["furnace"][0].rotation, Is.EqualTo(shape.rotation));
-            Assert.That(result["furnace"][0].position, Is.EqualTo(shape.position));
-            FactoryBuildingColliderCsv.Write(table, "furnace", Array.Empty<FactoryColliderProxy>());
-            result = FactoryBuildingColliderCsv.Read(table);
-            Assert.That(result.ContainsKey("furnace"), Is.False);
-            Assert.That(result["storage"].Length, Is.EqualTo(1));
+            Assert.That(asset.buildings.Length, Is.EqualTo(28));
+            Assert.That(asset.buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo("熔炉"));
+            Assert.That(asset.buildings.Single(b => b.key == "storage").storageSlotCount, Is.EqualTo(8));
+            Assert.That(asset.buildings.Single(b => b.key == "ramp_foundation_1_2").rampRiseHeightUnits, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void ProcessorDefinitions_CanShareMachineTypeAndRejectUnknownType()
+        {
+            int miner = Array.FindIndex(asset.buildings, b => b.key == "miner");
+            ushort smelting = asset.machineTypes.Single(m => m.key == "smelting").id;
+            asset.buildings[miner].machineTypeId = smelting;
+            FactoryDatabaseValidation.Validate(asset);
+            asset.buildings[miner].machineTypeId = ushort.MaxValue;
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
+        }
+
+        [TestCase(BuildingKind.Storage)]
+        [TestCase(BuildingKind.Belt)]
+        [TestCase(BuildingKind.RampFoundation)]
+        public void RequiredBehaviorParameters_AreValidated(BuildingKind kind)
+        {
+            int row = Array.FindIndex(asset.buildings, b => b.kind == kind);
+            asset.buildings[row].storageSlotCount = 0;
+            asset.buildings[row].cellsPerSecond = 0;
+            asset.buildings[row].rampRiseHeightUnits = 0;
+            Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
         }
 
         [Test]
@@ -91,55 +107,26 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void MainTable_ContainsOnlyUniversalFields()
+        public void ProductionContent_HasValidItemModelsAndRequiredRecipes()
         {
-            Assert.That(File.ReadLines(Path.Combine(directory, "buildings.csv")).First(),
-                Is.EqualTo("key,behavior,width,length,model_path,is_rectangle,bitmap"));
-            var rows = Read();
-            Assert.That(rows.Length, Is.EqualTo(27));
-            Assert.That(rows.Single(b => b.key == "furnace").kind, Is.EqualTo(BuildingKind.Processor));
-            Assert.That(rows.Single(b => b.key == "furnace").displayName, Is.EqualTo("熔炉"));
-            Assert.That(rows.Any(b => b.key == "furnace_mk1"), Is.False);
-            Assert.That(rows.Where(b => b.kind == BuildingKind.Processor).All(b => b.beltTier == 0), Is.True);
-            Assert.That(rows.Single(b => b.key == "storage").storageSlotCount, Is.EqualTo(8));
-            Assert.That(rows.Single(b => b.key == "ramp_foundation_1_2").rampRiseHeightUnits, Is.EqualTo(4));
-        }
-
-        [Test]
-        public void TestMachineContent_HasColoredSpheresAndRequiredRecipes()
-        {
-            FactoryDatabaseValidation.Validate(asset);
-            var machine = asset.buildings.Single(b => b.key == "test_machine_m");
-            Assert.That(machine.footprintWidth, Is.EqualTo(3));
-            Assert.That(machine.footprintHeight, Is.EqualTo(3));
-            Assert.That(machine.ports.Count(p => p.type == BuildingPortType.Input), Is.EqualTo(3));
-            Assert.That(machine.ports.Count(p => p.type == BuildingPortType.Output), Is.EqualTo(3));
-            Assert.That(asset.recipes.Count(r => r.machineTypeId == machine.machineTypeId), Is.EqualTo(1));
-            var forward = asset.recipes.Single(r => r.key == "test_abc_to_d");
-            Assert.That(forward.inputs.Select(i => (i.itemKey, i.count)),
-                Is.EquivalentTo(new[] { ("test_a", 1), ("test_b", 1), ("test_c", 1) }));
-            Assert.That(forward.outputs.Select(i => (i.itemKey, i.count)),
-                Is.EquivalentTo(new[] { ("test_d", 1) }));
-            ushort mining = asset.buildings.Single(b => b.key == "miner").machineTypeId;
-            foreach (string suffix in new[] { "a", "b", "c", "d" })
+            FactoryDatabaseEditor.Validate(asset);
+            Assert.That(asset.items.Length, Is.EqualTo(9));
+            foreach (var item in asset.items)
             {
-                var item = asset.items.Single(i => i.key == "test_" + suffix);
-                var recipe = asset.recipes.Single(r => r.key == "mine_test_" + suffix);
-                Assert.That(recipe.machineTypeId, Is.EqualTo(mining));
-                Assert.That(recipe.inputs, Is.Empty);
-                Assert.That(recipe.outputs.Select(i => (i.itemKey, i.count)),
-                    Is.EquivalentTo(new[] { (item.key, 1) }));
-                Assert.That(item.model.GetComponentInChildren<MeshFilter>().sharedMesh.name, Does.StartWith("Test"));
+                Assert.That(item.model.GetComponentInChildren<MeshFilter>(), Is.Not.Null);
                 Assert.That(item.model.GetComponentsInChildren<MonoBehaviour>(), Is.Empty);
                 Assert.That(item.icon, Is.Not.Null);
             }
-            Assert.That(machine.icon, Is.Not.Null);
+            Assert.That(asset.recipes.Single(r => r.key == "smelt_iron").outputs.Single().itemKey, Is.EqualTo("iron_ingot"));
+            Assert.That(asset.recipes.Single(r => r.key == "stamp_iron_nail").outputs.Single().count, Is.EqualTo(4));
+            Assert.That(asset.buildings.Single(b => b.key == "stamping_press").machineTypeId,
+                Is.EqualTo(asset.machineTypes.Single(m => m.key == "stamping").id));
         }
 
         [Test]
         public void ProcessorBindings_AreImportedAndBaked_AndRejectDuplicateSlotsOrMissingCoverage()
         {
-            var machine = asset.buildings.Single(b => b.key == "test_machine_m");
+            var machine = FactoryTestDatabase.AddMultiOutputProcessor(asset);
             FactoryTestDatabase.SetTwoOutputRecipes(asset, machine.machineTypeId);
             var ports = machine.ports.Where(p => p.type == BuildingPortType.Output).ToArray();
             Assert.That(ports.Select(p => p.number), Is.EqualTo(new ushort[] { 1, 2, 3 }));
@@ -164,52 +151,8 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void ProcessorMappings_AreReadFromExtension_AndCanShareMachineType()
-        {
-            Write("processor_stats", "key,machine_type_key", "miner,smelting", "furnace,smelting",
-                "test_machine_m,test_machine_m", "testMachine,test_machine_m");
-            var rows = Read();
-            ushort smelting = asset.machineTypes.Single(m => m.key == "smelting").id;
-            Assert.That(rows.Single(b => b.key == "miner").machineTypeId, Is.EqualTo(smelting));
-            Assert.That(rows.Single(b => b.key == "furnace").machineTypeId, Is.EqualTo(smelting));
-        }
-
-        [TestCase("miner,mining")] // Missing furnace.
-        [TestCase("miner,mining\nfurnace,smelting\nfurnace,smelting")]
-        [TestCase("miner,mining\nfurnace,smelting\nstorage,smelting")]
-        [TestCase("miner,mining\nfurnace,smelting\nunknown,smelting")]
-        [TestCase("miner,mining\nfurnace,unknown")]
-        public void InvalidProcessorExtensions_AreRejected(string rows)
-        {
-            Write("processor_stats", "key,machine_type_key", rows);
-            Assert.Throws<InvalidDataException>(() => Read());
-        }
-
-        [TestCase("storage_stats", "key,slot_count")]
-        [TestCase("ramp_stats", "key,rise_height_units")]
-        [TestCase("belt_stats", "key,tier,cells_per_second")]
-        [TestCase("building_presentation", "key,icon_path,menu_order")]
-        [TestCase("building_names", "key,locale,name")]
-        public void MissingRequiredExtensions_AreRejected(string table, string header)
-        {
-            Write(table, header);
-            Assert.Throws<InvalidDataException>(() => Read());
-        }
-
-        [TestCase("building_ports", "key,type,index,cell_x,cell_z,direction_x,direction_z", "unknown,Output,0,1,0,1,0")]
-        [TestCase("building_names", "key,locale,name", "unknown,zh-CN,不存在")]
-        [TestCase("storage_stats", "key,slot_count", "furnace,8")]
-        [TestCase("ramp_stats", "key,rise_height_units", "furnace,8")]
-        public void UnknownOrIncompatibleExtensions_AreRejected(string table, string header, string row)
-        {
-            Write(table, header, row);
-            Assert.Throws<InvalidDataException>(() => Read());
-        }
-
-        [Test]
         public void Belts_ShareTierSpeed_AndVerticalPartsMatchByTier()
         {
-            asset.buildings = Read();
             Assert.DoesNotThrow(() => FactoryDatabaseValidation.Validate(asset));
             Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, null, out var blob), Is.True);
             try
@@ -226,26 +169,6 @@ namespace Factory.Tests
             int index = Array.FindIndex(asset.buildings, b => b.key == "vertical_belt_entry_mk2");
             asset.buildings[index].cellsPerSecond = 99f;
             Assert.Throws<InvalidDataException>(() => FactoryDatabaseValidation.Validate(asset));
-        }
-
-        [Test]
-        public void ReorderingMainRows_PreservesKeyAssociations_AndResolvesNewRuntimeIds()
-        {
-            string path = Path.Combine(directory, "buildings.csv");
-            string[] lines = File.ReadAllLines(path);
-            File.WriteAllLines(path, new[] { lines[0] }.Concat(lines.Skip(1).Reverse()));
-            asset.buildings = Read();
-            Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, null, out var blob), Is.True);
-            try
-            {
-                var furnace = FactoryDatabaseUtility.GetBuildingDefinitionId(ref blob.Value, "furnace");
-                Assert.That(furnace.Value, Is.Not.EqualTo(6));
-                Assert.That(blob.Value.BuildingDefinitionsById[furnace.Value].Kind, Is.EqualTo(BuildingKind.Processor));
-                Assert.That(blob.Value.BuildingDefinitionsById[furnace.Value].MachineType.Value,
-                    Is.EqualTo(asset.machineTypes.Single(m => m.key == "smelting").id));
-                Assert.That(asset.buildings.Single(b => b.key == "furnace").displayName, Is.EqualTo("熔炉"));
-            }
-            finally { blob.Dispose(); }
         }
 
         [Test]

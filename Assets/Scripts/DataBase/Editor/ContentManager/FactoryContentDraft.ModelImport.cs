@@ -8,7 +8,7 @@ public sealed partial class FactoryContentDraft
 {
     public int ImportItemModel(string key, string source)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         RequireKey(key);
         var existing = GetItems().SingleOrDefault(i => i.key == key);
         var previous = existing == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(existing.modelPath);
@@ -27,7 +27,7 @@ public sealed partial class FactoryContentDraft
 
     public string ImportBuildingModel(FactoryBuildingJson json, string source, BuildingKind kind, string machineType)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         if (!json.HasFootprint || !json.HasPorts || !json.HasColliders)
             throw new InvalidDataException("建筑模式需要配对 JSON 同时包含占格、ports 和 colliders；空数组表示该部分为空。");
         string key = json.Building.key;
@@ -37,7 +37,7 @@ public sealed partial class FactoryContentDraft
             throw new InvalidDataException("请选择加工类型。");
         var previous = GetBuildingImport(key).model;
         var model = FactoryModelPipeline.Import(key, source, previous);
-        FactoryDatabaseCsvImporter.LoadModel(AssetDatabase.GetAssetPath(model));
+        FactoryDatabaseEditor.LoadModel(AssetDatabase.GetAssetPath(model));
         ApplyModelImport(staged =>
         {
             // Set behavior first so processor output-slot bindings retain their semantics.
@@ -55,14 +55,14 @@ public sealed partial class FactoryContentDraft
 
     private void ApplyModelImport(Action<FactoryContentDraft> edit)
     {
-        // Stage the entire multi-table operation before publishing a single undo step.
+        // Stage the entire content operation before publishing a single undo step.
         var staged = Instantiate(this);
         try
         {
             edit(staged);
             Undo.IncrementCurrentGroup();
             Undo.RegisterCompleteObjectUndo(this, "导入模型到内容草稿");
-            tables = staged.tables;
+            content = JsonUtility.FromJson<Content>(JsonUtility.ToJson(staged.content));
             buildingImports = staged.buildingImports;
         }
         finally { Undo.ClearUndo(staged); DestroyImmediate(staged); }

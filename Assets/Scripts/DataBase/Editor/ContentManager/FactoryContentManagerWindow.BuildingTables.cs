@@ -28,7 +28,7 @@ public sealed partial class FactoryContentManagerWindow
         buildingImportWindow = FactoryBuildingImportWindow.Open(json, isNew, (footprint, ports, colliders) =>
         {
             if (this == null || draft == null) throw new InvalidOperationException("内容管理器已关闭，请重新打开后导入。");
-            FactoryDatabaseCsvImporter.EnsureCanWrite();
+            FactoryDatabaseEditor.EnsureCanWrite();
             selectedBuildingKey = draft.ImportBuildingJson(json, footprint, ports, colliders);
             selectedTab = 0; gridExpanded = true; search = ""; Refresh();
         });
@@ -62,16 +62,10 @@ public sealed partial class FactoryContentManagerWindow
         Bind(detail, new IntegerField("菜单顺序") { value = b.menuOrder }, value => draft.SetBuildingStat(key, "building_presentation", "menu_order", Number(value)));
         var bake = new Button(() => Run(() =>
         {
-            FactoryDatabaseCsvImporter.EnsureCanWrite();
+            FactoryDatabaseEditor.EnsureCanWrite();
             if (draft.IsModified) throw new InvalidOperationException("请先保存草稿，再烘焙图标。");
             FactoryIconBaker.BakeChangedFromMenu();
-            // Building icons use the definition Key, including when FBX models are shared.
-            var manifest = AssetDatabase.LoadAssetAtPath<FactoryIconBakeManifest>(FactoryIconBaker.ManifestAssetPath);
-            if (manifest != null)
-            {
-                var icon = manifest.entries.FirstOrDefault(e => e.prefabPath == FactoryIconBaker.BuildingManifestKey(key));
-                if (!string.IsNullOrEmpty(icon.outputPath)) draft.SetBuildingStat(key, "building_presentation", "icon_path", icon.outputPath);
-            }
+            draft.Load();
             RefreshList(); DrawDetail(); UpdateModified();
         })) { text = "烘焙变化的图标并绑定" };
         detail.Add(bake);
@@ -101,12 +95,12 @@ public sealed partial class FactoryContentManagerWindow
         detail.Add(Heading("建筑导入配置"));
         DrawBuildingModel(b, import);
         DrawBuildingColliders(key);
-        detail.Add(new HelpBox("FBX 导入和材质操作立即写入模型资产；模型引用、碰撞体及玩法配置统一保存到 CSV。碰撞体在烘焙时生成 DOTS Physics 数据。", HelpBoxMessageType.Info));
+        detail.Add(new HelpBox("FBX 导入和材质操作立即写入模型资产；模型引用、碰撞体及玩法配置统一保存到数据资产。碰撞体在烘焙时生成 DOTS Physics 数据。", HelpBoxMessageType.Info));
     }
 
     private void BuildingStatField(string key, string table, string column, string label)
     {
-        Bind(detail, new TextField(label) { name = "building-" + column, value = draft.GetBuildingStat(key, table, column) },
+        Bind(detail, new TextField(label) { name = "building-" + column, value = draft.GetBuildingStat(key, table, column), isDelayed = true },
             value => draft.SetBuildingStat(key, table, column, value));
     }
 

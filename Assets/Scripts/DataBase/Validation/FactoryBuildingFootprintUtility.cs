@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Unity.Mathematics;
 
-/// <summary>Source-table footprint validation shared by CSV import and baking.</summary>
+/// <summary>Footprint validation shared by content editing and baking.</summary>
 public static class FactoryBuildingFootprintUtility
 {
     // Bitmap rows run from local Z=0 upwards; columns run from local X=0.

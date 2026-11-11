@@ -27,7 +27,7 @@ public static class FactoryModelPipeline
 
     public static GameObject Import(string key, string source, GameObject previousModel = null, FactoryModelKind kind = FactoryModelKind.Building)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         RequireFbx(source);
         string full = Path.GetFullPath(source), assets = Path.GetFullPath("Assets") + Path.DirectorySeparatorChar;
         string path;
@@ -105,7 +105,7 @@ public static class FactoryModelPipeline
 
     public static void Remap(string path, AssetImporter.SourceAssetIdentifier source, Material material)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         var importer = (ModelImporter)AssetImporter.GetAtPath(path);
         if (material == null) importer.RemoveRemap(source); else importer.AddRemap(source, material);
         importer.SaveAndReimport();
@@ -113,7 +113,7 @@ public static class FactoryModelPipeline
 
     public static Material CreateMaterial(string path, AssetImporter.SourceAssetIdentifier source)
     {
-        FactoryDatabaseCsvImporter.EnsureCanWrite();
+        FactoryDatabaseEditor.EnsureCanWrite();
         var importer = (ModelImporter)AssetImporter.GetAtPath(path);
         if (importer.GetExternalObjectMap().TryGetValue(source, out var mapped) && mapped is Material existing) return existing;
         var matches = Matches(source.name);

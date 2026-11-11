@@ -24,8 +24,9 @@ namespace Factory.Tests
         [Test]
         public void ProcessorSnapshot_ExportsBoundOutletNumbersAndMachineRelativeRecipe()
         {
-            var asset = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseCsvImporter.DatabaseAssetPath));
-            FactoryTestDatabase.SetTwoOutputRecipes(asset, asset.buildings.Single(b => b.key == "test_machine_m").machineTypeId);
+            var asset = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(FactoryDatabaseEditor.DatabaseAssetPath));
+            var fixture = FactoryTestDatabase.AddMultiOutputProcessor(asset);
+            FactoryTestDatabase.SetTwoOutputRecipes(asset, fixture.machineTypeId);
             Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, null, out var database), Is.True);
             try
             {

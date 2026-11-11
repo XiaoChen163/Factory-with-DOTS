@@ -31,7 +31,7 @@ namespace Factory.Tests
             EntityManager.AddBuffer<GridBuildCommand>(grid);
             EntityManager.AddBuffer<GridBuildResult>(grid);
             FactoryDatabaseAsset asset = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>(
-                "Assets/Data/Generated/FactoryDatabase.asset");
+                "Assets/Data/FactoryDatabase.asset");
             Assert.That(FactoryDatabaseBakingUtility.TryBuild(asset, asset, out database), Is.True);
             Entity prefab = EntityManager.CreateEntity(typeof(Prefab), typeof(LocalTransform), typeof(LocalToWorld));
             EntityManager.SetComponentData(prefab, LocalTransform.Identity);
@@ -260,7 +260,7 @@ namespace Factory.Tests
         [Test]
         public void Content_HasTwelvePureVisualPrefabsAndMatchingSpeeds()
         {
-            var asset = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>("Assets/Data/Generated/FactoryDatabase.asset");
+            var asset = AssetDatabase.LoadAssetAtPath<FactoryDatabaseAsset>("Assets/Data/FactoryDatabase.asset");
             var kinds = new[] { BuildingKind.VerticalBeltEntry,BuildingKind.VerticalBeltExit,BuildingKind.VerticalBeltSegment };
             foreach (var kind in kinds)
             {

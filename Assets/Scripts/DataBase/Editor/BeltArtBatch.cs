@@ -17,7 +17,7 @@ public static class BeltArtBatch
         try
         {
             draft.Load();
-            var tables = draft.Tables.ToDictionary(t => t.path, t => t.text);
+            string beforeContent = EditorJsonUtility.ToJson(draft);
             var settings = AssetDatabase.LoadAssetAtPath<FactoryIconBakeSettings>(FactoryIconBaker.SettingsAssetPath);
             if (settings == null) throw new Exception("Missing icon bake settings.");
             var overrides = settings.overrides.ToList();
@@ -65,11 +65,10 @@ public static class BeltArtBatch
                     "\nGrade color=" + model.GetComponentsInChildren<MeshRenderer>().Single(r => r.name == "Direction Triangle").sharedMaterial.name +
                     "\nSpeed=" + stats + " cells/s, unchanged\nGeometry=Blender/Unity bounds match within 0.001m\n");
             }
-            foreach (var t in draft.Tables)
-                if (t.text != tables[t.path]) throw new Exception("Gameplay table changed: " + t.path);
+            if (EditorJsonUtility.ToJson(draft) != beforeContent) throw new Exception("Gameplay content changed.");
             draft.Save();
             var candidate = draft.ReadCandidate();
-            try { FactoryDatabaseCsvImporter.Generate(candidate); }
+            try { FactoryDatabaseEditor.Save(candidate); }
             finally { UnityEngine.Object.DestroyImmediate(candidate); }
             AssetDatabase.SaveAssets();
             Debug.Log("REFERENCE_BELT_ART_IMPORT_OK tiers=4 colliders=0");
@@ -96,7 +95,7 @@ public static class BeltArtBatch
 
     static void Validate(GameObject model, GameObject icon, string folder, string key, int tier)
     {
-        FactoryDatabaseCsvImporter.LoadModel(AssetDatabase.GetAssetPath(model));
+        FactoryDatabaseEditor.LoadModel(AssetDatabase.GetAssetPath(model));
         var renderers = model.GetComponentsInChildren<MeshRenderer>(true);
         if (renderers.Length != 6) throw new Exception("Expected body, four edges and independent triangle.");
         var expected = (JArray)JObject.Parse(File.ReadAllText(folder + "/" + key + ".geometry.json"))["meshes"];

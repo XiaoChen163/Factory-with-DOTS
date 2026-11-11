@@ -128,7 +128,7 @@ public struct GunDefinitionBlob
 public struct AmmunitionDefinitionBlob
 {
     public ItemId Item;
-    public float BaseDamage;
+    public int BaseDamage;
 }
 
 public struct FactoryRecipeIngredientBlob

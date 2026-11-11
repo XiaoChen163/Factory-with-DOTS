@@ -16,6 +16,39 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void DisabledProcessorStopsAtEffectiveTickAndPreservesWorkInProgress()
+        {
+            database = CreateMultiRecipeDatabase();
+            Entity singleton = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(singleton, new FactoryDatabase { Value = database });
+            Entity processor = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(processor, new ItemProcessor { MachineType = new MachineTypeId { Value = 1 } });
+            EntityManager.AddComponentData(processor, new ItemProcessState
+                { SelectedRecipeIndex = -1, ActiveRecipeIndex = 0, Status = ItemProcessStatus.Processing, DurationTicks = 10 });
+            EntityManager.AddBuffer<ProcessorItemSlot>(processor).Add(new ProcessorItemSlot
+                { Kind = ProcessorSlotKind.Output, Count = 5, Capacity = 64 });
+            var resolver = GetOrCreateManagedSystem<HealthResolveSystem>();
+            VitalIdentity identity = resolver.InitializeTarget(processor, 10, ZeroHealthOutcome.Disable);
+            SystemHandle processSystem = TestWorld.GetOrCreateSystem<ItemProcessSystem>();
+            // Group ordering is covered in HealthResolveTests; keep this fixture limited to production.
+            void Advance()
+            {
+                UpdateSystem(resolver);
+                processSystem.Update(TestWorld.Unmanaged);
+                EntityManager.CompleteAllTrackedJobs();
+            }
+            resolver.Submit(new HealthRequest { Target = processor, TargetIdentity = identity,
+                Amount = 10, SourceStableId = 1, RequestId = 1 });
+            Advance();
+            Assert.That(EntityManager.GetComponentData<Health>(processor).Current, Is.Zero);
+            Assert.That(EntityManager.GetComponentData<ItemProcessState>(processor).ElapsedTicks, Is.EqualTo(1));
+            Advance();
+            Assert.That(EntityManager.GetComponentData<VitalStatus>(processor).Value, Is.EqualTo(VitalState.Disabled));
+            Assert.That(EntityManager.GetComponentData<ItemProcessState>(processor).ElapsedTicks, Is.EqualTo(1));
+            Assert.That(EntityManager.GetBuffer<ProcessorItemSlot>(processor)[0].Count, Is.EqualTo(5));
+        }
+
+        [Test]
         public void ProcessorOutputBlock_ResumesAfterManualExtractionOnlyWhenWholeBatchFits()
         {
             database = CreateMultiRecipeDatabase();

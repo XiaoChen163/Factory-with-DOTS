@@ -28,7 +28,7 @@ public static class FactoryItemCapabilityValidation
                 }
                 else if (capability is AmmunitionCapabilityDefinition ammo)
                 {
-                    if (float.IsNaN(ammo.baseDamage) || float.IsInfinity(ammo.baseDamage) || ammo.baseDamage < 0)
+                    if (ammo.baseDamage < 0)
                         throw new InvalidDataException($"Item '{item.key}' has invalid ammunition damage.");
                 }
                 else if (capability is WeaponPresentationCapabilityDefinition presentation)

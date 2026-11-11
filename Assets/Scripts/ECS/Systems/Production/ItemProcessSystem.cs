@@ -442,7 +442,8 @@ public partial struct ItemProcessSystem : ISystem
     {
         state.Dependency = new ItemProcessJob
         {
-            Database = SystemAPI.GetSingleton<FactoryDatabase>().Value
+            Database = SystemAPI.GetSingleton<FactoryDatabase>().Value,
+            VitalStates = SystemAPI.GetComponentLookup<VitalStatus>(true)
         }.ScheduleParallel(state.Dependency);
     }
 
@@ -450,12 +451,16 @@ public partial struct ItemProcessSystem : ISystem
     private partial struct ItemProcessJob : IJobEntity
     {
         public BlobAssetReference<FactoryDatabaseBlob> Database;
+        [Unity.Collections.ReadOnly] public ComponentLookup<VitalStatus> VitalStates;
 
         private void Execute(
+            Entity entity,
             in ItemProcessor processor,
             DynamicBuffer<ProcessorItemSlot> slots,
             ref ItemProcessState process)
         {
+            if (VitalStates.HasComponent(entity) && !VitalActivity.CanAct(VitalStates[entity].Value))
+                return;
             ref FactoryDatabaseBlob database = ref Database.Value;
             FactoryRecipeRangeBlob range = FactoryDatabaseUtility.GetRecipeRange(
                 ref database,

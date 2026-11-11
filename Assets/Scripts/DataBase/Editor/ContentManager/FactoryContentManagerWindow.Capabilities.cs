@@ -23,7 +23,7 @@ public sealed partial class FactoryContentManagerWindow
             {
                 if (capability is GunCapabilityDefinition gun) DrawGunCapability(section, item.row, gun);
                 else if (capability is AmmunitionCapabilityDefinition ammo)
-                    Bind(section, new FloatField("基础伤害") { value = ammo.baseDamage, isDelayed = true, name = "ammo-damage" },
+                    Bind(section, new IntegerField("基础伤害") { value = ammo.baseDamage, isDelayed = true, name = "ammo-damage" },
                         value => draft.EditItemCapability<AmmunitionCapabilityDefinition>(item.row, c => c.baseDamage = value));
                 else if (capability is WeaponPresentationCapabilityDefinition presentation) DrawWeaponPresentation(section, item.row, presentation);
             }

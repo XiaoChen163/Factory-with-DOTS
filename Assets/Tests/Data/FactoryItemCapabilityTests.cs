@@ -123,6 +123,26 @@ namespace Factory.Tests
         }
 
         [Test]
+        public void IntegerAmmunitionDamageAcceptsZeroAndMaximumButRejectsNegative()
+        {
+            draft.AddItemCapability(AmmoRow, ItemCapabilityKind.Ammunition);
+            foreach (int damage in new[] { 0, int.MaxValue })
+            {
+                draft.EditItemCapability<AmmunitionCapabilityDefinition>(AmmoRow, c => c.baseDamage = damage);
+                var candidate = draft.ReadCandidate();
+                try
+                {
+                    Assert.That(FactoryDatabaseBakingUtility.TryBuild(candidate, null, out var blob), Is.True);
+                    try { Assert.That(blob.Value.AmmunitionByItemId[candidate.items[AmmoRow].id].BaseDamage, Is.EqualTo(damage)); }
+                    finally { blob.Dispose(); }
+                }
+                finally { Object.DestroyImmediate(candidate); }
+            }
+            draft.EditItemCapability<AmmunitionCapabilityDefinition>(AmmoRow, c => c.baseDamage = -1);
+            Assert.Throws<InvalidDataException>(() => draft.ReadCandidate());
+        }
+
+        [Test]
         public void RemovingAmmoCapabilityInvalidatesGunAndIdRenameUpdatesItsReference()
         {
             Configure();
@@ -214,13 +234,13 @@ namespace Factory.Tests
                 window.Show(); yield return null; window.CreateGUI();
                 var windowDraft = (FactoryContentDraft)new SerializedObject(window).FindProperty("draft").objectReferenceValue;
                 windowDraft.AddItemCapability(0, ItemCapabilityKind.Ammunition); window.CreateGUI();
-                var field = window.rootVisualElement.Q<FloatField>("ammo-damage");
+                var field = window.rootVisualElement.Q<IntegerField>("ammo-damage");
                 Assert.That(field, Is.Not.Null); field.value = 19;
                 Assert.That(window.hasUnsavedChanges, Is.True);
                 var value = (AmmunitionCapabilityDefinition)windowDraft.ReadItemCapability(0, ItemCapabilityKind.Ammunition);
                 try { Assert.That(value.baseDamage, Is.EqualTo(19)); } finally { Object.DestroyImmediate(value); }
                 windowDraft.RemoveItemCapability(0, ItemCapabilityKind.Ammunition); window.CreateGUI();
-                Assert.That(window.rootVisualElement.Q<FloatField>("ammo-damage"), Is.Null);
+                Assert.That(window.rootVisualElement.Q<IntegerField>("ammo-damage"), Is.Null);
                 window.DiscardChanges();
             }
             finally { Object.DestroyImmediate(window); }

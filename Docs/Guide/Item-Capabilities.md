@@ -30,7 +30,7 @@ Assets/Data/FactoryDatabase.asset         总入口，保留原 GUID
 | 枪械 | `magazineCapacity` | 1～65535 |
 | 枪械 | `reloadSeconds / rangeMeters` | 有限正数，分别为秒、米 |
 | 枪械 | `ammunitionItem` | 一种物品的 `ItemId`，目标必须具有弹药能力 |
-| 弹药 | `baseDamage` | 有限非负数；没有护甲、穿透或伤害类型规则 |
+| 弹药 | `baseDamage` | 非负 int 整数；定义/内容管理器/Blob 使用相同单位，零基础伤害不产生伤害请求 |
 | 武器表现 | `firstPersonPrefab / thirdPersonPrefab` | 第一/第三人称模型或 Prefab，允许留空 |
 | 武器表现 | `firstPersonAnimations / thirdPersonAnimations` | RuntimeAnimatorController 引用，支持普通及 Override Controller；配置时要求相应模型存在 |
 
@@ -57,13 +57,13 @@ Baker 显式依赖三个内容库及能力子资产。Baking 汇总为原有 `Fa
 
 空槽的 `Item.IsValid == false`。表现资源保留在托管目录，通过 `FactoryPresentationCatalog.GetWeaponPresentation(ItemId)` 查询，不进入 Burst Blob。
 
-这些仅是只读规格。当前弹数、开火冷却、换弹进度、命中和伤害状态均未实现；没有新增射击系统、输入、扣弹、伤害结算或 Animator 播放逻辑。待机/开火/换弹/移动等 Animator 动作契约也由后续表现接入任务确定。
+这些仅是只读规格。通用整数生命与伤害结算已由 [A01 生命系统](Health-and-Damage.md) 提供；当前弹数、开火冷却、换弹进度和射击命中仍待 A04 接入，没有新增射击输入、扣弹或 Animator 播放逻辑。待机/开火/换弹/移动等 Animator 动作契约也由后续表现接入任务确定。
 
 修改工具或测试时，不能直接 `Instantiate` 总入口后编辑，因为引用的内容库仍会共享。使用 `FactoryDatabaseEditor.CreateSnapshot` 获取独立的扁平候选和能力克隆，结束后 `DestroyImmediate` 快照；`FactoryContentDraft` 已遵守此边界。
 
 ## 验证
 
-迁移后逐项核对原有 9 种物品、28 种建筑、9 个配方、5 种加工类型，与迁移前数据一致。总入口 GUID 保持不变，正式库未自动附加组件，无测试子资产残留。新增回归位于 `Assets/Tests/Data/FactoryItemCapabilityTests.cs`，共 14 项，覆盖草稿、子资产生命周期、引用校验、资源持久化和 Blob/表现目录查询。
+迁移后逐项核对原有 9 种物品、28 种建筑、9 个配方、5 种加工类型，与迁移前数据一致。总入口 GUID 保持不变，正式库未自动附加组件，无测试子资产残留。新增回归位于 `Assets/Tests/Data/FactoryItemCapabilityTests.cs`，覆盖草稿、子资产生命周期、引用校验、资源持久化和 Blob/表现目录查询。
 
 Unity `6000.3.19f1` 验证记录：
 

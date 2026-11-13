@@ -39,7 +39,9 @@ namespace Factory.Tests
             }
             resolver.Submit(new HealthRequest { Target = processor, TargetIdentity = identity,
                 Amount = 10, SourceStableId = 1, RequestId = 1 });
-            Advance();
+            resolver.FlushInbox();
+            processSystem.Update(TestWorld.Unmanaged);
+            EntityManager.CompleteAllTrackedJobs();
             Assert.That(EntityManager.GetComponentData<Health>(processor).Current, Is.Zero);
             Assert.That(EntityManager.GetComponentData<ItemProcessState>(processor).ElapsedTicks, Is.EqualTo(1));
             Advance();

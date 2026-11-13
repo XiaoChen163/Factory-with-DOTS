@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="31" result="Passed" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.5200264">
+  <test-suite type="TestSuite" id="1000" name="Factory-with-DOTS" fullname="Factory-with-DOTS" runstate="Runnable" testcasecount="385" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.520026" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1456" name="Factory.Tests.dll" fullname="D:/UnityProject/Factory-with-DOTS/Library/ScriptAssemblies/Factory.Tests.dll" runstate="Runnable" testcasecount="385" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.507981" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="25692" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1457" name="Factory" fullname="Factory" runstate="Runnable" testcasecount="385" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.503825" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1458" name="Tests" fullname="Factory.Tests" runstate="Runnable" testcasecount="385" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.500662" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="HealthResolveTests" fullname="Factory.Tests.HealthResolveTests" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.450382" total="30" passed="30" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1030" name="CollisionChildrenResolveToOneRootAndCyclesDoNotHang" fullname="Factory.Tests.HealthResolveTests.CollisionChildrenResolveToOneRootAndCyclesDoNotHang" methodname="CollisionChildrenResolveToOneRootAndCyclesDoNotHang" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1300284939" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.263233" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1035" name="CombatGroupCommitsBeforeNormalFixedSimulationAndMultipleTicksRetainAllEvents" fullname="Factory.Tests.HealthResolveTests.CombatGroupCommitsBeforeNormalFixedSimulationAndMultipleTicksRetainAllEvents" methodname="CombatGroupCommitsBeforeNormalFixedSimulationAndMultipleTicksRetainAllEvents" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1619160702" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.036827" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1014" name="DamageBatchDoesNotWaitForOrReorderQueuedHealing" fullname="Factory.Tests.HealthResolveTests.DamageBatchDoesNotWaitForOrReorderQueuedHealing" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.008726" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1012" name="DamageBatchDoesNotWaitForOrReorderQueuedHealing(False,0)" fullname="Factory.Tests.HealthResolveTests.DamageBatchDoesNotWaitForOrReorderQueuedHealing(False,0)" methodname="DamageBatchDoesNotWaitForOrReorderQueuedHealing" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="28200275" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.002602" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="DamageBatchDoesNotWaitForOrReorderQueuedHealing(True,5)" fullname="Factory.Tests.HealthResolveTests.DamageBatchDoesNotWaitForOrReorderQueuedHealing(True,5)" methodname="DamageBatchDoesNotWaitForOrReorderQueuedHealing" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="2072170744" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000875" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1005" name="DamageIntentSealsAtNextTickAndCommitsInThatTickBatch" fullname="Factory.Tests.HealthResolveTests.DamageIntentSealsAtNextTickAndCommitsInThatTickBatch" methodname="DamageIntentSealsAtNextTickAndCommitsInThatTickBatch" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1505887926" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.002898" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1024" name="DestroyedSourceDoesNotCancelSavedRequest" fullname="Factory.Tests.HealthResolveTests.DestroyedSourceDoesNotCancelSavedRequest" methodname="DestroyedSourceDoesNotCancelSavedRequest" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="309880693" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000971" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1027" name="DestroyedTargetJobRequestCannotHitReusedEntityIndex" fullname="Factory.Tests.HealthResolveTests.DestroyedTargetJobRequestCannotHitReusedEntityIndex" methodname="DestroyedTargetJobRequestCannotHitReusedEntityIndex" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="431427152" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001740" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1033" name="DifferentWorldDoesNotInheritRequestsEventsOrSequenceContext" fullname="Factory.Tests.HealthResolveTests.DifferentWorldDoesNotInheritRequestsEventsOrSequenceContext" methodname="DifferentWorldDoesNotInheritRequestsEventsOrSequenceContext" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="520946599" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.002329" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1015" name="DuplicateAttackIsPerTargetAndExpiresWithBoundedHistory" fullname="Factory.Tests.HealthResolveTests.DuplicateAttackIsPerTargetAndExpiresWithBoundedHistory" methodname="DuplicateAttackIsPerTargetAndExpiresWithBoundedHistory" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="187872327" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.002664" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1010" name="EndFixedEcbDamageIsFlushedInSameTickBeforeFollowingTickDeath" fullname="Factory.Tests.HealthResolveTests.EndFixedEcbDamageIsFlushedInSameTickBeforeFollowingTickDeath" methodname="EndFixedEcbDamageIsFlushedInSameTickBeforeFollowingTickDeath" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="365329213" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.010658" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1032" name="EventBackpressurePreservesAcceptedResultsAndEventsDrainOnce" fullname="Factory.Tests.HealthResolveTests.EventBackpressurePreservesAcceptedResultsAndEventsDrainOnce" methodname="EventBackpressurePreservesAcceptedResultsAndEventsDrainOnce" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="993699847" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.076311" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1028" name="FactionIsEvaluatedAtBatchCommitUsingSavedSourceFaction" fullname="Factory.Tests.HealthResolveTests.FactionIsEvaluatedAtBatchCommitUsingSavedSourceFaction" methodname="FactionIsEvaluatedAtBatchCommitUsingSavedSourceFaction" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1896828557" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001699" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1006" name="HealingIntentStillWaitsForIngressAndFollowingTick" fullname="Factory.Tests.HealthResolveTests.HealingIntentStillWaitsForIngressAndFollowingTick" methodname="HealingIntentStillWaitsForIngressAndFollowingTick" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="455261119" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001134" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1023" name="IntegerLimitsClampUsingWideArithmetic" fullname="Factory.Tests.HealthResolveTests.IntegerLimitsClampUsingWideArithmetic" methodname="IntegerLimitsClampUsingWideArithmetic" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1298662595" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000925" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1022" name="InvalidMaximumDoesNotPartiallyInitialize" fullname="Factory.Tests.HealthResolveTests.InvalidMaximumDoesNotPartiallyInitialize" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.003200" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1020" name="InvalidMaximumDoesNotPartiallyInitialize(0)" fullname="Factory.Tests.HealthResolveTests.InvalidMaximumDoesNotPartiallyInitialize(0)" methodname="InvalidMaximumDoesNotPartiallyInitialize" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1497663833" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001784" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1021" name="InvalidMaximumDoesNotPartiallyInitialize(-1)" fullname="Factory.Tests.HealthResolveTests.InvalidMaximumDoesNotPartiallyInitialize(-1)" methodname="InvalidMaximumDoesNotPartiallyInitialize" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="888227746" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000710" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1031" name="JobDamageExecutesAtCurrentSafePointAndRejectsOldOrFutureStamps" fullname="Factory.Tests.HealthResolveTests.JobDamageExecutesAtCurrentSafePointAndRejectsOldOrFutureStamps" methodname="JobDamageExecutesAtCurrentSafePointAndRejectsOldOrFutureStamps" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1140666936" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001843" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1004" name="LethalDamageCommitsAtBatchAndOutcomeAtNextTick" fullname="Factory.Tests.HealthResolveTests.LethalDamageCommitsAtBatchAndOutcomeAtNextTick" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.003608" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1002" name="LethalDamageCommitsAtBatchAndOutcomeAtNextTick(Death,Dead,Death)" fullname="Factory.Tests.HealthResolveTests.LethalDamageCommitsAtBatchAndOutcomeAtNextTick(Death,Dead,Death)" methodname="LethalDamageCommitsAtBatchAndOutcomeAtNextTick" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1756893184" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001560" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="LethalDamageCommitsAtBatchAndOutcomeAtNextTick(Disable,Disabled,Disabled)" fullname="Factory.Tests.HealthResolveTests.LethalDamageCommitsAtBatchAndOutcomeAtNextTick(Disable,Disabled,Disabled)" methodname="LethalDamageCommitsAtBatchAndOutcomeAtNextTick" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="738246635" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001313" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1007" name="MainAndJobDamageShareOneStableBatch" fullname="Factory.Tests.HealthResolveTests.MainAndJobDamageShareOneStableBatch" methodname="MainAndJobDamageShareOneStableBatch" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1580008681" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.002069" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1009" name="MissingBatchBoundaryRejectsMainThreadDamageInsteadOfApplyingItLate" fullname="Factory.Tests.HealthResolveTests.MissingBatchBoundaryRejectsMainThreadDamageInsteadOfApplyingItLate" methodname="MissingBatchBoundaryRejectsMainThreadDamageInsteadOfApplyingItLate" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1100156663" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000807" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1019" name="NonPositiveRequestsAreRejectedWithoutMutation" fullname="Factory.Tests.HealthResolveTests.NonPositiveRequestsAreRejectedWithoutMutation" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.002767" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1016" name="NonPositiveRequestsAreRejectedWithoutMutation(0)" fullname="Factory.Tests.HealthResolveTests.NonPositiveRequestsAreRejectedWithoutMutation(0)" methodname="NonPositiveRequestsAreRejectedWithoutMutation" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="856890044" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000870" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1017" name="NonPositiveRequestsAreRejectedWithoutMutation(-1)" fullname="Factory.Tests.HealthResolveTests.NonPositiveRequestsAreRejectedWithoutMutation(-1)" methodname="NonPositiveRequestsAreRejectedWithoutMutation" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="956370718" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000539" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1018" name="NonPositiveRequestsAreRejectedWithoutMutation(int.MinValue)" fullname="Factory.Tests.HealthResolveTests.NonPositiveRequestsAreRejectedWithoutMutation(int.MinValue)" methodname="NonPositiveRequestsAreRejectedWithoutMutation" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1586861535" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000503" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1008" name="ParallelTargetsPreservePerEntityOrderLifeValidationAndOneOutcome" fullname="Factory.Tests.HealthResolveTests.ParallelTargetsPreservePerEntityOrderLifeValidationAndOneOutcome" methodname="ParallelTargetsPreservePerEntityOrderLifeValidationAndOneOutcome" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1546184947" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.002559" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1011" name="PendingZeroRejectsRemainingBatchDamageAndTransitionPrecedesQueuedHealing" fullname="Factory.Tests.HealthResolveTests.PendingZeroRejectsRemainingBatchDamageAndTransitionPrecedesQueuedHealing" methodname="PendingZeroRejectsRemainingBatchDamageAndTransitionPrecedesQueuedHealing" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1382561068" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001926" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1034" name="PresentationExportsEveryFixedTickEventOnceAndReadsCommittedSnapshot" fullname="Factory.Tests.HealthResolveTests.PresentationExportsEveryFixedTickEventOnceAndReadsCommittedSnapshot" methodname="PresentationExportsEveryFixedTickEventOnceAndReadsCommittedSnapshot" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="605343483" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001913" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1029" name="RespawnCommitsAtRequestBoundaryAndInvalidatesPreviousLife" fullname="Factory.Tests.HealthResolveTests.RespawnCommitsAtRequestBoundaryAndInvalidatesPreviousLife" methodname="RespawnCommitsAtRequestBoundaryAndInvalidatesPreviousLife" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="697081740" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001557" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1025" name="SourceZeroDamageIsNoEffectWhileZeroRequestIsInvalid" fullname="Factory.Tests.HealthResolveTests.SourceZeroDamageIsNoEffectWhileZeroRequestIsInvalid" methodname="SourceZeroDamageIsNoEffectWhileZeroRequestIsInvalid" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1622990810" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.001135" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1026" name="TargetLifeChangeBeforeJobPlaybackRejectsOldRequestAndDestroyedTransition" fullname="Factory.Tests.HealthResolveTests.TargetLifeChangeBeforeJobPlaybackRejectsOldRequestAndDestroyedTransition" methodname="TargetLifeChangeBeforeJobPlaybackRejectsOldRequestAndDestroyedTransition" classname="Factory.Tests.HealthResolveTests" runstate="Runnable" seed="1925265878" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.000986" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1319" name="ProcessorInventoryTests" fullname="Factory.Tests.ProcessorInventoryTests" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" testcasecount="16" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.030360" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1320" name="DisabledProcessorStopsAtEffectiveTickAndPreservesWorkInProgress" fullname="Factory.Tests.ProcessorInventoryTests.DisabledProcessorStopsAtEffectiveTickAndPreservesWorkInProgress" methodname="DisabledProcessorStopsAtEffectiveTickAndPreservesWorkInProgress" classname="Factory.Tests.ProcessorInventoryTests" runstate="Runnable" seed="1613404607" result="Passed" start-time="2026-11-13 18:34:14Z" end-time="2026-11-13 18:34:14Z" duration="0.026869" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/Xiao_Chen/AppData/LocalLow/DefaultCompany/Factory-with-DOTS\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

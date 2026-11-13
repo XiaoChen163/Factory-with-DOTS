@@ -1,12 +1,12 @@
 # 统一生命与伤害（A01 基础交付）
 
-实现日期：2026-11-11。对应 [A01 计划](../Plan/A01-DamageSystem-Plan.md)。
+实现日期：2026-11-11，批处理修订：2026-11-14。对应 [A01 计划](../Plan/A01-DamageSystem-Plan.md)。伤害在当前固定 Tick 末批量结算，不逐次同步扣血，也不人为拖至下一 Tick。
 
 ## 当前交付范围
 
 玩家、单位和建筑可以组合相同的 `Health`、`HealthPolicy`、`VitalIdentity`、`VitalStatus`、`PendingVitalTransition` 和 `CombatFaction`。`Death` 策略归零后进入 Dead，`Disable` 策略进入 Disabled。当前提供通用初始化、伤害、普通治疗、显式复活、碰撞子实体映射、快照和正式事件；没有给现有场景对象自动添加生命。
 
-正式生命和状态只有 `HealthResolveSystem` 写入。初次生成使用 `InitializeTarget`；SubScene/Prefab 可使用根对象上的 `HealthAuthoring`，Baker 校验正整数最大生命和合法策略，运行时在首次固定 Tick 起始初始化。生命定义目前只有此最小创作入口；A03/B01 接入真实角色/建筑时再扩展既有领域定义和内容管理器，不另建生命内容库。
+正式生命和状态只有战斗结算模块写入：`HealthResolveSystem` 管理生命周期、延期操作及批次，`DamageResolveJob` 在其受控边界内并行写入生命。初次生成使用 `InitializeTarget`；SubScene/Prefab 可使用根对象上的 `HealthAuthoring`，Baker 校验正整数最大生命和合法策略，运行时在首次固定 Tick 起始初始化。生命定义目前只有此最小创作入口；A03/B01 接入真实角色/建筑时再扩展既有领域定义和内容管理器，不另建生命内容库。
 
 已经接入生产系统的可选状态门控：具有 VitalStatus 的加工设备在 Dead/Disabled 时不再启动、推进或发布加工结果，保留槽位和在制品。未接生命的既有设备继续工作。通用 `VitalActivity.CanAct` 只读取正式 VitalState，不读取当前血量。完整角色控制/AI/武器限制、掉落、碰撞退休、安全点重生由 A03 接入；射击和 ECS Physics 命中生成由 A04 接入；建筑维修物资事务、恢复资格、供电与重启由 B01 接入。当前不接受维修请求，也不允许治疗或复活解除 Disabled。
 
@@ -14,20 +14,19 @@
 
 `FixedStepSimulationSystemGroup` 的真实子组 `CombatTickStartGroup` 使用 OrderFirst，位于同父组的 `BeginFixedStepSimulationEntityCommandBufferSystem` 之后，普通生产、传输和物理组之前。没有移动现有领域系统，也没有通过跨父组排序属性推断顺序。
 
-每次组更新：完成 ECS 依赖；推进世界内 ulong Tick；初始化新目标；提交已到期转换；接收已封口的 Job 请求及渲染意图；最后稳定排序并结算已到期生命请求。新归零转换在结算后追加，最早到下一个 Tick 才提交，正式状态直接写入 ECS，不等待帧末 ECB。
+每次起始组更新：推进世界内 ulong Tick；初始化新目标；提交已到期转换；封口渲染意图；稳定排序并结算已到期治疗/复活。`HealthRequestFlushSystem` 位于固定组 OrderLast，明确在 EndFixedStepSimulation ECB 之后，将主线程及 Job inbox 的本 Tick 伤害合为一批。主线程排序和分组，Burst Job 在不同目标之间并行结算，同一目标内按稳定顺序处理；随后主线程按原稳定顺序导出结果并预约归零转换。归零转换最早到下一个 Tick 才正式提交。
 
 | 时点 | 10 血目标收到 15 点伤害 |
 |---|---|
-| N 正常模拟 | 只接收请求，仍为 10 血 Active |
-| N+1 起始 | 结算为 0 血 Active，并锁存 PendingVitalTransition |
-| N+1 正常模拟 | 仍允许行动/加工，追加普通伤害和治疗均失败 |
-| N+2 起始 | 正式进入 Dead/Disabled，发布一次生效事件 |
+| N 正常模拟调用伤害入口 | 只入队，仍为 10 血 Active，不同步等待 Job |
+| N 末批次结算 | 变为 0 血 Active，并锁存 PendingVitalTransition；同目标批内后续伤害不能重复归零 |
+| N+1 起始 | 正式进入 Dead/Disabled，发布一次生效事件 |
 
-暂停不更新固定组，因此不会推进请求或转换。一帧多次固定更新分别推进 Tick，表现导出在这些更新之后统一消费。
+暂停不更新固定组，因此正常世界不会自动结算伤害、延期治疗/复活或归零转换。输入/攻击生产者仍应停止在暂停时发出新伤害，不能手动调用 FlushInbox 绕过模拟阶段。一帧多次固定更新分别结算各 Tick 的批次，表现出口在这些更新之后统一消费；屏幕在下一次可用的表现更新/呈现时显示结果。
 
 ## 请求入口
 
-固定模拟主线程从世界获取 `HealthResolveSystem`，调用 `Submit`。填写 Kind、Target、TargetIdentity、正整数 Amount、SourceStableId 和 RequestId；系统分配 GeneratedTick=当前 Tick、ExecuteTick=当前 Tick+1。`SubmitDamage` 另接受发出时复制的 `DamageSource`，复制伤害、类型、责任主体、物品和阵营快照；基础伤害为 0 返回 NoEffect，不创建请求。普通零值请求返回 InvalidAmount。
+固定模拟主线程在 CombatTickStartGroup 之后、Tick 末结算之前调用 `Submit`。填写 Kind、Target、TargetIdentity、正整数 Amount、SourceStableId 和 RequestId。Damage 使用 GeneratedTick=ExecuteTick=当前 Tick，只做入口校验、去重、容量预约和入队，不访问目标组件、不等待 Job、不立即扣血；Heal/Respawn 仍使用当前 Tick/当前 Tick+1。`SubmitDamage` 接受发出时复制的 `DamageSource`，复制伤害、类型、责任主体、物品和阵营快照；基础伤害为 0 返回 NoEffect，不创建请求。普通零值请求返回 InvalidAmount。这些是主线程入口，并行生产者应使用 ECB inbox。
 
 ```csharp
 var health = world.GetOrCreateSystemManaged<HealthResolveSystem>();
@@ -49,13 +48,17 @@ if (health.TryGetDamageTarget(colliderEntity, out Entity root, out VitalIdentity
 }
 ```
 
-渲染帧输入只调用 `SubmitIntent`，不调用固定模拟的 Submit。意图在下一个固定 Tick 起始封口，该 Tick 作为 GeneratedTick，再到其下一 Tick 执行；MonoBehaviour 的调用早晚不会使它在封口 Tick 扣血。
+渲染帧桥接使用 `SubmitIntent`：所有意图在下一固定 Tick 起始封口，分配当 Tick 时间戳；Damage 在该 Tick 末结算，非伤害意图仍再等一 Tick。它不承诺渲染帧调用返回前血量更新。不要在固定 Tick 外使用 Submit 留下旧时间戳。原始鼠标输入仍应交给武器/命中流程，不能由 HUD 绕过命中判断生成正式伤害。
 
-Job 生产者读取唯一 `CombatClock.Tick`，生成 K/K+1 时间戳的 `HealthRequestInbox`，通过 ECB 追加到 `resolver.InboxEntity`。ECB 必须在下次 CombatTickStartGroup 前回放，推荐 EndFixedStepSimulation ECB；不要追加到渲染帧末 ECB。消费者只接受恰好上一 Tick 产生、本 Tick 到期的记录，过早/过迟均返回 InvalidRequest。生产者需要限制本 Tick 的写入量；消费者对溢出请求返回 QueueFull。
+Job 生产者读取唯一 `CombatClock.Tick`，伤害使用 K/K 时间戳，治疗/复活使用 K/K+1，通过 ECB 将 `HealthRequestInbox` 追加到 `resolver.InboxEntity`。使用 EndFixedStepSimulation ECB 回放，并注册生产者依赖，由其后的 HealthRequestFlushSystem 在同一 Tick 消费；测试/自定义管线可在明确安全点由主线程调用 FlushInbox，但不要逐次命中调用它。不要留到渲染帧末或下一固定 Tick 才回放；主线程及 Job 伤害错过本 Tick 的批次都返回 InvalidRequest，不静默拖到下一 Tick。延期操作仍可在到期 Tick 起始消费。生产者需要限制本 Tick 的写入量；消费者对溢出请求返回 QueueFull。
 
-统一顺序为 ExecuteTick、SourceStableId、RequestId、目标身份、生命代次。Job inbox 在容量仲裁之前也按此键排序。每个生产者必须使用唯一、稳定的 SourceStableId，RequestId 使用非零且不复用的 ulong 序号；不要使用 Entity 遍历/ECB 追加顺序分配攻击优先级。同一攻击命中同一生命根目标复用同一 RequestId，跨目标合法独立结算。
+每个合并批次按 ExecuteTick、SourceStableId、RequestId、目标身份和代次排序；Job inbox 在容量仲裁之前也按此键排序。按实际目标 Entity（含 Version）分组，不按请求声称的身份分组：同一实体即使被不同/错误身份引用，也只有一个写入者。`DamageResolveJob` 每组执行一次，组内顺序处理所有请求，组间独立并行，单个目标的生命最多写回一次。主线程按排序索引合并结果，Job 完成先后不决定事件及转换序号。
 
-所有入口只接收请求。目标存在性、身份、生命代次、合法血量、正式状态和阵营在执行时复核。阵营 0 为无队伍限制；非零源阵营与执行时目标阵营相同时，默认拒绝伤害。`AllowFriendlyFire` 为世界内统一规则。SourceEntity 和责任主体消失不取消已保存请求；结算不再读取它们。
+Tick 起始已到期治疗/复活先于当 Tick 末伤害；未来治疗不能取消本 Tick 已确定的归零。不同显式批次按其安全消费顺序生效；默认管线每 Tick 一批。每个生产者必须使用唯一、稳定的 SourceStableId，RequestId 使用非零且不复用的 ulong 序号，不以 Entity 遍历/ECB 偶然追加顺序决定玩法。同一范围攻击对同一生命根复用同一请求身份，跨目标合法独立结算。
+
+入口返回值只表达接收情况，None 不等于目标一定成功受伤；Damage 的 RequestResolved 在批次结束时产生，延期操作的结果在执行 Tick 产生。目标存在性、身份、生命代次、合法血量、正式状态和阵营在实际执行时复核。阵营 0 为无队伍限制；非零源阵营与执行时目标阵营相同时，默认拒绝伤害。`AllowFriendlyFire` 为世界内统一规则；后续阵营变化不追溯已提交伤害。SourceEntity 和责任主体消失不取消已保存请求；结算不再读取它们。
+
+批次只同步 Health、PendingVitalTransition、VitalIdentity、HealthPolicy、VitalStatus 和 CombatFaction 的相关依赖，不再逐次调用 CompleteAllTrackedJobs。每批统一等待其伤害 Job 完成后汇总结果。主线程排序/分组、去重、事件预约及汇总仍有串行成本；单目标集中受击仍需保持顺序。DamageBatchCount、LastDamageBatchRequestCount 和 LastDamageBatchTargetCount 可辅助诊断；这些不是性能基准，本次只运行正确性回归，没有量化 FPS 或进行大规模压力测试。
 
 `Respawn` 使用 Amount=0，只允许无待生效转换的 Dead 目标；到期 Tick 恢复满血和 Active，并增加 LifeGeneration，没有额外隐式延迟。旧代次请求失败。此入口只负责新生命，不负责玩家控制关联、位置、库存或碰撞体流程，不能单独用来宣称完整玩家重生已交付。
 

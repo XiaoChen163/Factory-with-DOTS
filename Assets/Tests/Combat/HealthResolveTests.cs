@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Entities;
+using Unity.Jobs;
 
 namespace Factory.Tests
 {
@@ -42,62 +43,202 @@ namespace Factory.Tests
             return result;
         }
 
+        private void QueueJob(HealthRequest request)
+        {
+            request.GeneratedTick = resolver.Tick;
+            request.ExecuteTick = request.Kind == HealthRequestKind.Damage ? resolver.Tick : resolver.Tick + 1;
+            EntityManager.GetBuffer<HealthRequestInbox>(resolver.InboxEntity).Add(new HealthRequestInbox { Value = request });
+        }
+
+        private void Batch() => resolver.FlushInbox();
+
         private void Tick() => UpdateSystem(resolver);
 
         [TestCase(ZeroHealthOutcome.Death, VitalState.Dead, HealthEventKind.Death)]
         [TestCase(ZeroHealthOutcome.Disable, VitalState.Disabled, HealthEventKind.Disabled)]
-        public void LethalRequestUsesTwoDistinctTickBoundaries(ZeroHealthOutcome outcome,
+        public void LethalDamageCommitsAtBatchAndOutcomeAtNextTick(ZeroHealthOutcome outcome,
             VitalState expected, HealthEventKind eventKind)
         {
             EntityManager.SetComponentData(target, new HealthPolicy { OnZero = outcome });
             Assert.That(resolver.Submit(Request(15)), Is.EqualTo(HealthFailure.None));
             Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
             Assert.That(Drain(), Is.Empty);
-            Tick();
+            Assert.That(resolver.DamageBatchCount, Is.Zero);
+            Batch();
+            Assert.That(resolver.Tick, Is.Zero);
             Assert.That(Snapshot().Health.Current, Is.Zero);
             Assert.That(Snapshot().State, Is.EqualTo(VitalState.Active));
             Assert.That(VitalActivity.CanAct(Snapshot().State), Is.True);
             Assert.That(Snapshot().HasPendingTransition, Is.True);
             var changed = Drain().Single();
-            Assert.That(changed.Kind, Is.EqualTo(HealthEventKind.RequestResolved));
             Assert.That(changed.ActualAmount, Is.EqualTo(10));
             Assert.That(changed.GeneratedTick, Is.Zero);
-            Assert.That(changed.EffectiveTick, Is.EqualTo(1));
+            Assert.That(changed.EffectiveTick, Is.Zero);
             Tick();
             Assert.That(Snapshot().State, Is.EqualTo(expected));
             Assert.That(VitalActivity.CanAct(Snapshot().State), Is.False);
             Assert.That(Snapshot().HasPendingTransition, Is.False);
             var effect = Drain().Single();
             Assert.That(effect.Kind, Is.EqualTo(eventKind));
-            Assert.That(effect.GeneratedTick, Is.EqualTo(1));
-            Assert.That(effect.EffectiveTick, Is.EqualTo(2));
+            Assert.That(effect.GeneratedTick, Is.Zero);
+            Assert.That(effect.EffectiveTick, Is.EqualTo(1));
             Tick(); Tick();
             Assert.That(Drain(), Is.Empty);
         }
 
         [Test]
-        public void IngressSealsAtFixedTickAndCannotExecuteInThatTick()
+        public void DamageIntentSealsAtNextTickAndCommitsInThatTickBatch()
         {
             Assert.That(resolver.SubmitIntent(Request(4)), Is.EqualTo(HealthFailure.None));
             Assert.That(resolver.Tick, Is.Zero);
-            // Rendering/pumping does not advance simulation or consume pending inputs.
-            for (int i = 0; i < 20; i++) Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
-            Tick();
             Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
             Tick();
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
+            Batch();
             Assert.That(Snapshot().Health.Current, Is.EqualTo(6));
+            Assert.That(resolver.PendingRequestCount, Is.Zero);
             var value = Drain().Single();
             Assert.That(value.GeneratedTick, Is.EqualTo(1));
-            Assert.That(value.EffectiveTick, Is.EqualTo(2));
+            Assert.That(value.EffectiveTick, Is.EqualTo(1));
+            Tick(); Batch();
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(6));
+            Assert.That(Drain(), Is.Empty);
         }
 
         [Test]
-        public void PendingZeroRejectsFurtherDamageAndHealingAndTransitionPrecedesHealing()
+        public void HealingIntentStillWaitsForIngressAndFollowingTick()
         {
-            resolver.Submit(Request(10)); resolver.Submit(Request(10)); resolver.Submit(Request(10, HealthRequestKind.Heal));
+            EntityManager.SetComponentData(target, new Health { Current = 5, Maximum = 10 });
+            resolver.SubmitIntent(Request(4, HealthRequestKind.Heal));
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(5));
             Tick();
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(5));
+            Tick();
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(9));
+        }
+
+        [Test]
+        public void MainAndJobDamageShareOneStableBatch()
+        {
+            resolver.Submit(Request(10, source: 2));
+            QueueJob(Request(6, source: 1));
+            resolver.FlushInbox();
+            var values = Drain();
+            Assert.That(values.Select(e => e.ActualAmount), Is.EqualTo(new[] { 6, 4 }));
+            Assert.That(values.Select(e => e.Request.SourceStableId), Is.EqualTo(new ulong[] { 1, 2 }));
+            Assert.That(Snapshot().Health.Current, Is.Zero);
+            Assert.That(resolver.Tick, Is.Zero);
+            Assert.That(resolver.DamageBatchCount, Is.EqualTo(1));
+            Assert.That(resolver.LastDamageBatchRequestCount, Is.EqualTo(2));
+            Assert.That(resolver.LastDamageBatchTargetCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ParallelTargetsPreservePerEntityOrderLifeValidationAndOneOutcome()
+        {
+            Entity building = EntityManager.CreateEntity();
+            VitalIdentity buildingLife = resolver.InitializeTarget(building, 10, ZeroHealthOutcome.Disable);
+            Entity robot = EntityManager.CreateEntity();
+            VitalIdentity robotLife = resolver.InitializeTarget(robot, 30, ZeroHealthOutcome.Death);
+            var lastHit = Request(4, source: 2);
+            resolver.Submit(lastHit);
+            resolver.Submit(Request(6, source: 1));
+            var buildingHit = Request(12, source: 3);
+            buildingHit.Target = building; buildingHit.TargetIdentity = buildingLife;
+            resolver.Submit(buildingHit);
+            var robotHit = Request(5, source: 1);
+            robotHit.Target = robot; robotHit.TargetIdentity = robotLife;
+            QueueJob(robotHit);
+            // Same actual Entity, different claimed identity: still one writer group.
+            var stale = Request(int.MaxValue, source: 1); stale.TargetIdentity = buildingLife;
+            resolver.Submit(stale);
+            Assert.That(resolver.Submit(lastHit), Is.EqualTo(HealthFailure.Duplicate));
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
+            Assert.That(resolver.DamageBatchCount, Is.Zero);
+            Batch();
+            Assert.That(resolver.DamageBatchCount, Is.EqualTo(1));
+            Assert.That(resolver.LastDamageBatchTargetCount, Is.EqualTo(3));
+            Assert.That(resolver.LastDamageBatchRequestCount, Is.EqualTo(5));
+            Assert.That(Snapshot().Health.Current, Is.Zero);
+            Assert.That(EntityManager.GetComponentData<Health>(building).Current, Is.Zero);
+            Assert.That(EntityManager.GetComponentData<Health>(robot).Current, Is.EqualTo(25));
+            var values = Drain();
+            Assert.That(values.Count(e => e.Failure == HealthFailure.IdentityMismatch), Is.EqualTo(1));
+            Assert.That(values.Where(e => e.Request.Target == target && e.Failure == HealthFailure.None)
+                .Select(e => e.ActualAmount), Is.EqualTo(new[] { 6, 4 }));
+            Assert.That(values.Select(e => e.Request.SourceStableId), Is.Ordered.Ascending);
+            Tick();
+            var outcomes = Drain();
+            Assert.That(outcomes.Select(e => e.Kind), Is.EqualTo(new[] { HealthEventKind.Death, HealthEventKind.Disabled }));
+            Assert.That(EntityManager.GetComponentData<VitalStatus>(robot).Value, Is.EqualTo(VitalState.Active));
+            Tick();
+            Assert.That(Drain(), Is.Empty);
+        }
+
+        [Test]
+        public void MissingBatchBoundaryRejectsMainThreadDamageInsteadOfApplyingItLate()
+        {
+            resolver.Submit(Request(4));
+            Tick();
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
+            Assert.That(Drain().Single().Failure, Is.EqualTo(HealthFailure.InvalidRequest));
+            Assert.That(resolver.PendingRequestCount, Is.Zero);
+        }
+
+        [Test]
+        public void ReciprocalLethalHitsDoNotCancelTheOtherUnitsAlreadyAcceptedAttack()
+        {
+            Entity opponent = EntityManager.CreateEntity();
+            VitalIdentity opponentLife = resolver.InitializeTarget(opponent, 10, ZeroHealthOutcome.Death);
+            var incoming = Request(10, source: opponentLife.Value);
+            incoming.SourceEntity = opponent;
+            incoming.InstigatorIdentity = opponentLife.Value;
+            resolver.Submit(incoming);
+            var outgoing = Request(10, source: identity.Value);
+            outgoing.Target = opponent; outgoing.TargetIdentity = opponentLife;
+            outgoing.SourceEntity = target; outgoing.InstigatorIdentity = identity.Value;
+            QueueJob(outgoing);
+            Batch();
+            Assert.That(Snapshot().Health.Current, Is.Zero);
+            Assert.That(EntityManager.GetComponentData<Health>(opponent).Current, Is.Zero);
+            Assert.That(resolver.LastDamageBatchTargetCount, Is.EqualTo(2));
+            Assert.That(Drain().All(e => e.Failure == HealthFailure.None), Is.True);
+            Tick();
+            Assert.That(Drain().Count(e => e.Kind == HealthEventKind.Death), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void EndFixedEcbDamageIsFlushedInSameTickBeforeFollowingTickDeath()
+        {
+            var fixedGroup = GetOrCreateManagedSystem<FixedStepSimulationSystemGroup>();
+            fixedGroup.RateManager = null;
+            var combat = GetOrCreateManagedSystem<CombatTickStartGroup>();
+            combat.AddSystemToUpdateList(resolver);
+            var producer = GetOrCreateManagedSystem<HealthEcbProbeSystem>();
+            producer.Request = Request(10);
+            fixedGroup.AddSystemToUpdateList(GetOrCreateManagedSystem<HealthRequestFlushSystem>());
+            fixedGroup.AddSystemToUpdateList(GetOrCreateManagedSystem<EndFixedStepSimulationEntityCommandBufferSystem>());
+            fixedGroup.AddSystemToUpdateList(producer);
+            fixedGroup.AddSystemToUpdateList(combat);
+            fixedGroup.AddSystemToUpdateList(GetOrCreateManagedSystem<BeginFixedStepSimulationEntityCommandBufferSystem>());
+            fixedGroup.SortSystems();
+            fixedGroup.Update();
+            Assert.That(resolver.Tick, Is.EqualTo(1));
+            Assert.That(Snapshot().Health.Current, Is.Zero);
+            Assert.That(Snapshot().State, Is.EqualTo(VitalState.Active));
+            Assert.That(Drain().Single().EffectiveTick, Is.EqualTo(1));
+            fixedGroup.Update();
+            Assert.That(Snapshot().State, Is.EqualTo(VitalState.Dead));
+            Assert.That(Drain().Single().Kind, Is.EqualTo(HealthEventKind.Death));
+        }
+
+        [Test]
+        public void PendingZeroRejectsRemainingBatchDamageAndTransitionPrecedesQueuedHealing()
+        {
+            resolver.Submit(Request(10)); resolver.Submit(Request(10));
+            Batch();
             Assert.That(Drain().Select(e => e.Failure), Is.EqualTo(new[]
-                { HealthFailure.None, HealthFailure.StateNotAllowed, HealthFailure.StateNotAllowed }));
+                { HealthFailure.None, HealthFailure.StateNotAllowed }));
             resolver.Submit(Request(10, HealthRequestKind.Heal));
             Tick();
             var events = Drain();
@@ -108,14 +249,20 @@ namespace Factory.Tests
 
         [TestCase(false, 0)]
         [TestCase(true, 5)]
-        public void MixedRequestsSortBySourceBeforeRequestIdRegardlessOfAppendOrder(bool healFirst, int expected)
+        public void DamageBatchDoesNotWaitForOrReorderQueuedHealing(bool healFirst, int expected)
         {
             EntityManager.SetComponentData(target, new Health { Current = 5, Maximum = 10 });
-            var heal = Request(10, HealthRequestKind.Heal, healFirst ? 1UL : 2UL);
-            var damage = Request(5, source: healFirst ? 2UL : 1UL);
-            resolver.Submit(damage); resolver.Submit(heal);
-            Tick();
+            resolver.Submit(Request(10, HealthRequestKind.Heal));
+            if (healFirst) Tick();
+            resolver.Submit(Request(5));
+            Batch();
             Assert.That(Snapshot().Health.Current, Is.EqualTo(expected));
+            if (!healFirst)
+            {
+                Tick();
+                Assert.That(Snapshot().Health.Current, Is.Zero);
+                Assert.That(Drain().Last().Failure, Is.EqualTo(HealthFailure.StateNotAllowed));
+            }
         }
 
         [Test]
@@ -128,7 +275,7 @@ namespace Factory.Tests
             request.Target = second;
             request.TargetIdentity = resolver.InitializeTarget(second, 10, ZeroHealthOutcome.Death);
             Assert.That(resolver.Submit(request), Is.EqualTo(HealthFailure.None));
-            Tick();
+            Batch(); Tick();
             Assert.That(Snapshot().Health.Current, Is.EqualTo(8));
             Assert.That(EntityManager.GetComponentData<Health>(second).Current, Is.EqualTo(8));
             for (int i = 0; i <= (int)HealthResolveSystem.DeduplicationTicks; i++) Tick();
@@ -161,7 +308,8 @@ namespace Factory.Tests
             Tick();
             Assert.That(Snapshot().Health.Current, Is.EqualTo(int.MaxValue));
             Assert.That(Drain().Single().ActualAmount, Is.EqualTo(1));
-            resolver.Submit(Request(int.MaxValue)); Tick();
+            resolver.Submit(Request(int.MaxValue));
+            Batch();
             Assert.That(Snapshot().Health.Current, Is.Zero);
             Assert.That(Drain().Single().ActualAmount, Is.EqualTo(int.MaxValue));
         }
@@ -173,7 +321,7 @@ namespace Factory.Tests
             request.SourceEntity = EntityManager.CreateEntity();
             resolver.Submit(request);
             EntityManager.DestroyEntity(request.SourceEntity);
-            Tick();
+            Batch(); Tick();
             Assert.That(Snapshot().Health.Current, Is.EqualTo(6));
         }
 
@@ -184,64 +332,67 @@ namespace Factory.Tests
             Assert.That(resolver.SubmitDamage(Request(5), new DamageSource { Amount = -1 }), Is.EqualTo(HealthFailure.InvalidAmount));
             Assert.That(resolver.PendingRequestCount, Is.Zero);
             Assert.That(resolver.SubmitDamage(Request(0), new DamageSource { Amount = 3, InstigatorIdentity = 99 }), Is.EqualTo(HealthFailure.None));
-            Tick();
+            Batch(); Tick();
             var result = Drain().Single();
             Assert.That(result.Request.InstigatorIdentity, Is.EqualTo(99));
             Assert.That(Snapshot().Health.Current, Is.EqualTo(7));
         }
 
         [Test]
-        public void TargetDestructionAndLifeChangeReturnDiagnosticFailures()
+        public void TargetLifeChangeBeforeJobPlaybackRejectsOldRequestAndDestroyedTransition()
         {
-            resolver.Submit(Request(4));
+            QueueJob(Request(4));
             identity.LifeGeneration++;
             EntityManager.SetComponentData(target, identity);
-            Tick();
+            resolver.FlushInbox();
             Assert.That(Drain().Single().Failure, Is.EqualTo(HealthFailure.IdentityMismatch));
-            resolver.Submit(Request(10)); Tick(); Drain();
+            resolver.Submit(Request(10)); Batch(); Drain();
             EntityManager.DestroyEntity(target);
             Tick();
             Assert.That(Drain().Single().Kind, Is.EqualTo(HealthEventKind.TransitionDiscarded));
         }
 
         [Test]
-        public void DestroyedTargetRequestCannotHitReusedEntityIndex()
+        public void DestroyedTargetJobRequestCannotHitReusedEntityIndex()
         {
-            resolver.Submit(Request(4));
+            QueueJob(Request(4));
             EntityManager.DestroyEntity(target);
             target = EntityManager.CreateEntity();
             resolver.InitializeTarget(target, 10, ZeroHealthOutcome.Death);
-            Tick();
+            resolver.FlushInbox();
             Assert.That(Drain().Single().Failure, Is.EqualTo(HealthFailure.TargetMissing));
             Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
         }
 
         [Test]
-        public void FactionIsEvaluatedAtExecutionUsingSavedSourceFaction()
+        public void FactionIsEvaluatedAtBatchCommitUsingSavedSourceFaction()
         {
             var request = Request(4); request.SourceFactionSnapshot = 2;
             EntityManager.SetComponentData(target, new CombatFaction { Value = 1 });
             resolver.Submit(request);
             EntityManager.SetComponentData(target, new CombatFaction { Value = 2 });
-            Tick();
+            Batch();
             Assert.That(Drain().Single().Failure, Is.EqualTo(HealthFailure.FriendlyFire));
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
             resolver.AllowFriendlyFire = true;
             request.RequestId = sequence++;
-            resolver.Submit(request); Tick();
+            resolver.Submit(request); Batch();
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(6));
+            EntityManager.SetComponentData(target, new CombatFaction { Value = 1 });
             Assert.That(Snapshot().Health.Current, Is.EqualTo(6));
         }
 
         [Test]
         public void RespawnCommitsAtRequestBoundaryAndInvalidatesPreviousLife()
         {
-            resolver.Submit(Request(10)); Tick(); Tick(); Drain();
+            resolver.Submit(Request(10)); Batch(); Tick(); Tick(); Drain();
             resolver.Submit(Request(0, HealthRequestKind.Respawn));
-            resolver.Submit(Request(4));
             Assert.That(Snapshot().State, Is.EqualTo(VitalState.Dead));
             Tick();
             Assert.That(Snapshot().State, Is.EqualTo(VitalState.Active));
             Assert.That(Snapshot().Health.Current, Is.EqualTo(10));
             Assert.That(Snapshot().Identity.LifeGeneration, Is.EqualTo(2));
+            resolver.Submit(Request(4)); Batch();
             Assert.That(Drain().Last().Failure, Is.EqualTo(HealthFailure.IdentityMismatch));
         }
 
@@ -263,17 +414,20 @@ namespace Factory.Tests
         }
 
         [Test]
-        public void JobInboxRequiresPreviousTickStampAndNeverExecutesFutureWorkEarly()
+        public void JobDamageExecutesAtCurrentSafePointAndRejectsOldOrFutureStamps()
         {
             Tick();
-            var valid = Request(2); valid.GeneratedTick = 1; valid.ExecuteTick = 2;
-            var invalid = Request(3); invalid.GeneratedTick = 2; invalid.ExecuteTick = 2;
-            var buffer = EntityManager.GetBuffer<HealthRequestInbox>(resolver.InboxEntity);
-            buffer.Add(new HealthRequestInbox { Value = valid });
-            buffer.Add(new HealthRequestInbox { Value = invalid });
-            Tick();
+            QueueJob(Request(2));
+            var invalid = Request(3); invalid.GeneratedTick = 1; invalid.ExecuteTick = 2;
+            EntityManager.GetBuffer<HealthRequestInbox>(resolver.InboxEntity).Add(new HealthRequestInbox { Value = invalid });
+            resolver.FlushInbox();
+            Assert.That(resolver.Tick, Is.EqualTo(1));
             Assert.That(Snapshot().Health.Current, Is.EqualTo(8));
             Assert.That(Drain().Count(e => e.Failure == HealthFailure.InvalidRequest), Is.EqualTo(1));
+            QueueJob(Request(3));
+            Tick(); // Missing this tick's playback is an error, not a silent next-tick damage path.
+            Assert.That(Snapshot().Health.Current, Is.EqualTo(8));
+            Assert.That(Drain().Single().Failure, Is.EqualTo(HealthFailure.InvalidRequest));
         }
 
         [Test]
@@ -312,7 +466,7 @@ namespace Factory.Tests
             var export = GetOrCreateManagedSystem<HealthPresentationExportSystem>();
             List<HealthEvent> observed = new();
             export.EventReceived += observed.Add;
-            resolver.Submit(Request(10)); Tick(); Tick();
+            resolver.Submit(Request(10)); Batch(); Tick(); Tick();
             UpdateSystem(export); UpdateSystem(export);
             Assert.That(observed.Select(e => e.Kind), Is.EqualTo(new[]
                 { HealthEventKind.RequestResolved, HealthEventKind.Death }));
@@ -334,12 +488,39 @@ namespace Factory.Tests
             fixedGroup.AddSystemToUpdateList(probe);
             fixedGroup.AddSystemToUpdateList(combatGroup);
             fixedGroup.SortSystems();
-            resolver.Submit(Request(10));
+            resolver.Submit(Request(10)); Batch();
+            probe.Update(); // Zero health is still Active before the next boundary.
             fixedGroup.Update(); fixedGroup.Update();
             Assert.That(probe.Actions, Is.EqualTo(1));
             Assert.That(Drain().Select(e => e.Kind), Is.EqualTo(new[]
                 { HealthEventKind.RequestResolved, HealthEventKind.Death }));
         }
+    }
+
+    [DisableAutoCreation]
+    [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
+    public partial class HealthEcbProbeSystem : SystemBase
+    {
+        public HealthRequest Request;
+        protected override void OnUpdate()
+        {
+            var resolver = World.GetExistingSystemManaged<HealthResolveSystem>();
+            Request.GeneratedTick = resolver.Tick;
+            Request.ExecuteTick = resolver.Tick;
+            var ecb = World.GetExistingSystemManaged<EndFixedStepSimulationEntityCommandBufferSystem>();
+            Dependency = new HealthEcbProducerJob { Commands = ecb.CreateCommandBuffer(),
+                Inbox = resolver.InboxEntity, Request = Request }.Schedule(Dependency);
+            ecb.AddJobHandleForProducer(Dependency);
+            Enabled = false;
+        }
+    }
+
+    internal struct HealthEcbProducerJob : IJob
+    {
+        public EntityCommandBuffer Commands;
+        public Entity Inbox;
+        public HealthRequest Request;
+        public void Execute() => Commands.AppendToBuffer(Inbox, new HealthRequestInbox { Value = Request });
     }
 
     [DisableAutoCreation]

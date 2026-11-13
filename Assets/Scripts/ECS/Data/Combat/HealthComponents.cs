@@ -66,8 +66,8 @@ public struct HealthRequest
     public ulong ExecuteTick;
 }
 
-// Jobs may append stamped requests via an ECB to the world-owned inbox. Playback must
-// complete before the following CombatTickStartGroup; use EndFixedStepSimulation ECB.
+// Jobs append damage stamped K/K (other requests K/K+1). Play back using
+// EndFixedStepSimulation ECB; HealthRequestFlushSystem consumes in the same fixed tick.
 public struct HealthRequestInbox : IBufferElementData { public HealthRequest Value; }
 public struct CombatClock : IComponentData { public ulong Tick; }
 

@@ -2,11 +2,21 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 
 // A real child group, before all normal fixed simulation (including PhysicsSystemGroup).
 [UpdateInGroup(typeof(FixedStepSimulationSystemGroup), OrderFirst = true)]
 [UpdateAfter(typeof(BeginFixedStepSimulationEntityCommandBufferSystem))]
 public partial class CombatTickStartGroup : ComponentSystemGroup { }
+
+// Job damage is committed after this tick's ECB playback, rather than at next tick's start.
+[UpdateInGroup(typeof(FixedStepSimulationSystemGroup), OrderLast = true)]
+[UpdateAfter(typeof(EndFixedStepSimulationEntityCommandBufferSystem))]
+public partial class HealthRequestFlushSystem : SystemBase
+{
+    protected override void OnUpdate() =>
+        World.GetExistingSystemManaged<HealthResolveSystem>()?.FlushInbox();
+}
 
 [UpdateInGroup(typeof(CombatTickStartGroup))]
 public partial class HealthResolveSystem : SystemBase
@@ -17,7 +27,10 @@ public partial class HealthResolveSystem : SystemBase
     public const ulong DeduplicationTicks = 120;
 
     private readonly List<HealthRequest> requests = new();
+    private readonly List<HealthRequest> damageRequests = new();
     private readonly List<HealthRequest> jobRequests = new();
+    private readonly Dictionary<Entity, int> damageGroupIndices = new();
+    private readonly List<DamageTargetGroup> damageGroups = new();
     private readonly Queue<HealthRequest> intents = new();
     private readonly List<ScheduledTransition> transitions = new();
     private readonly Queue<HealthEvent> events = new();
@@ -33,7 +46,10 @@ public partial class HealthResolveSystem : SystemBase
     public Entity InboxEntity { get; private set; }
     public bool AllowFriendlyFire { get; set; }
     public ulong DroppedEventCount { get; private set; }
-    public int PendingRequestCount => requests.Count + intents.Count;
+    public int PendingRequestCount => requests.Count + damageRequests.Count + intents.Count;
+    public ulong DamageBatchCount { get; private set; }
+    public int LastDamageBatchRequestCount { get; private set; }
+    public int LastDamageBatchTargetCount { get; private set; }
 
     protected override void OnCreate()
     {
@@ -66,12 +82,12 @@ public partial class HealthResolveSystem : SystemBase
         return identity;
     }
 
-    /// <summary>Fixed simulation producers call this on the main thread. Stamps K and K+1.</summary>
+    /// <summary>Fixed simulation main thread: enqueue damage for this tick's batch, other requests for K+1.</summary>
     public HealthFailure Submit(HealthRequest request)
     {
         RequireAlive();
         request.GeneratedTick = Tick;
-        request.ExecuteTick = checked(Tick + 1);
+        request.ExecuteTick = request.Kind == HealthRequestKind.Damage ? Tick : checked(Tick + 1);
         return Accept(request);
     }
 
@@ -91,7 +107,7 @@ public partial class HealthResolveSystem : SystemBase
         return Submit(request);
     }
 
-    /// <summary>Render/input bridge: timestamp is assigned only at the next fixed ingress seal.</summary>
+    /// <summary>Render/input bridge: all intents acquire their generated tick at the next fixed ingress seal.</summary>
     public HealthFailure SubmitIntent(HealthRequest intent)
     {
         RequireAlive();
@@ -149,33 +165,20 @@ public partial class HealthResolveSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        // Completes producers/readers before writes at every fixed boundary, never at render end.
-        EntityManager.CompleteAllTrackedJobs();
         Tick = checked(Tick + 1);
         EntityManager.SetComponentData(InboxEntity, new CombatClock { Tick = Tick });
         ExpireHistory();
         InitializeAuthoredTargets();
         CommitTransitions();
-        DynamicBuffer<HealthRequestInbox> inbox = EntityManager.GetBuffer<HealthRequestInbox>(InboxEntity);
-        for (int i = 0; i < inbox.Length; i++) jobRequests.Add(inbox[i].Value);
-        inbox.Clear();
-        // Capacity arbitration must also follow stable keys, never parallel ECB append order.
-        jobRequests.Sort(CompareRequests);
-        for (int i = 0; i < jobRequests.Count; i++)
-        {
-            HealthRequest request = jobRequests[i];
-            HealthFailure failure = request.GeneratedTick != Tick - 1 || request.ExecuteTick != Tick
-                ? HealthFailure.InvalidRequest : Accept(request);
-            if (failure != HealthFailure.None) PublishResult(request, failure);
-        }
-        jobRequests.Clear();
-        // Seal bridge inputs as work generated in K, so even ingress cannot execute in K.
+        DiscardMissedDamage();
+        FlushInboxCore(true);
+        // Damage intents execute at this tick's end; other intents retain their extra boundary.
         while (intents.Count > 0)
         {
             HealthRequest intent = intents.Dequeue();
             reservedEvents -= 2;
             intent.GeneratedTick = Tick;
-            intent.ExecuteTick = checked(Tick + 1);
+            intent.ExecuteTick = intent.Kind == HealthRequestKind.Damage ? Tick : checked(Tick + 1);
             HealthFailure failure = Accept(intent);
             if (failure != HealthFailure.None) PublishResult(intent, failure);
         }
@@ -185,6 +188,35 @@ public partial class HealthResolveSystem : SystemBase
         while (consumed < requests.Count && requests[consumed].ExecuteTick <= Tick)
             Resolve(requests[consumed++]);
         if (consumed > 0) requests.RemoveRange(0, consumed);
+    }
+
+    /// <summary>Batch boundary after this tick's producer dependencies and ECB playback.</summary>
+    public void FlushInbox()
+    {
+        RequireAlive();
+        FlushInboxCore(false);
+        ResolveDamageBatch();
+    }
+
+    private void FlushInboxCore(bool allowPreviousDeferred)
+    {
+        DynamicBuffer<HealthRequestInbox> inbox = EntityManager.GetBuffer<HealthRequestInbox>(InboxEntity);
+        for (int i = 0; i < inbox.Length; i++) jobRequests.Add(inbox[i].Value);
+        inbox.Clear();
+        // Capacity arbitration must also follow stable keys, never parallel ECB append order.
+        jobRequests.Sort(CompareRequests);
+        for (int i = 0; i < jobRequests.Count; i++)
+        {
+            HealthRequest request = jobRequests[i];
+            bool current = request.GeneratedTick == Tick &&
+                request.ExecuteTick == (request.Kind == HealthRequestKind.Damage ? Tick : checked(Tick + 1));
+            bool previousDeferred = allowPreviousDeferred && Tick > 0 &&
+                request.Kind != HealthRequestKind.Damage && request.GeneratedTick == Tick - 1 &&
+                request.ExecuteTick == Tick;
+            HealthFailure failure = current || previousDeferred ? Accept(request) : HealthFailure.InvalidRequest;
+            if (failure != HealthFailure.None) PublishResult(request, failure);
+        }
+        jobRequests.Clear();
     }
 
     private void InitializeAuthoredTargets()
@@ -199,6 +231,116 @@ public partial class HealthResolveSystem : SystemBase
         }
     }
 
+    private void DiscardMissedDamage()
+    {
+        damageRequests.Sort(CompareRequests);
+        int discarded = 0;
+        while (discarded < damageRequests.Count && damageRequests[discarded].ExecuteTick < Tick)
+        {
+            reservedEvents -= 2;
+            PublishResult(damageRequests[discarded++], HealthFailure.InvalidRequest);
+        }
+        if (discarded > 0) damageRequests.RemoveRange(0, discarded);
+    }
+
+    private void ResolveDamageBatch()
+    {
+        LastDamageBatchRequestCount = damageRequests.Count;
+        LastDamageBatchTargetCount = 0;
+        if (damageRequests.Count == 0) return;
+
+        damageRequests.Sort(CompareRequests);
+        damageGroupIndices.Clear();
+        damageGroups.Clear();
+        int count = damageRequests.Count;
+        var batch = new NativeArray<HealthRequest>(count, Allocator.TempJob);
+        var indices = new NativeArray<int>(count, Allocator.TempJob);
+        var results = new NativeArray<DamageResolveResult>(count, Allocator.TempJob);
+        using (batch)
+        using (indices)
+        using (results)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                HealthRequest request = damageRequests[i];
+                batch[i] = request;
+                // Group by the actual Entity, not the claimed identity: stale or forged identities
+                // must not create concurrent writers to the same component.
+                if (!damageGroupIndices.TryGetValue(request.Target, out int groupIndex))
+                {
+                    groupIndex = damageGroups.Count;
+                    damageGroupIndices.Add(request.Target, groupIndex);
+                    damageGroups.Add(new DamageTargetGroup { Target = request.Target });
+                }
+                DamageTargetGroup group = damageGroups[groupIndex];
+                group.Count++;
+                damageGroups[groupIndex] = group;
+            }
+            var groups = new NativeArray<DamageTargetGroup>(damageGroups.Count, Allocator.TempJob);
+            var offsets = new NativeArray<int>(damageGroups.Count, Allocator.Temp);
+            using (groups)
+            using (offsets)
+            {
+                int start = 0;
+                for (int i = 0; i < damageGroups.Count; i++)
+                {
+                    DamageTargetGroup group = damageGroups[i];
+                    group.Start = start;
+                    start += group.Count;
+                    groups[i] = group;
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    int groupIndex = damageGroupIndices[batch[i].Target];
+                    indices[groups[groupIndex].Start + offsets[groupIndex]] = i;
+                    offsets[groupIndex]++;
+                }
+
+                // One batch boundary, scoped to the components actually read/written. Unrelated
+                // factory jobs are not globally completed, and Submit never synchronizes jobs.
+                EntityManager.CompleteDependencyBeforeRW<Health>();
+                EntityManager.CompleteDependencyBeforeRW<PendingVitalTransition>();
+                EntityManager.CompleteDependencyBeforeRO<VitalIdentity>();
+                EntityManager.CompleteDependencyBeforeRO<HealthPolicy>();
+                EntityManager.CompleteDependencyBeforeRO<VitalStatus>();
+                EntityManager.CompleteDependencyBeforeRO<CombatFaction>();
+                new DamageResolveJob
+                {
+                    Requests = batch, Groups = groups, RequestIndices = indices, Results = results,
+                    Healths = GetComponentLookup<Health>(),
+                    Identities = GetComponentLookup<VitalIdentity>(true),
+                    Policies = GetComponentLookup<HealthPolicy>(true),
+                    States = GetComponentLookup<VitalStatus>(true),
+                    Pending = GetComponentLookup<PendingVitalTransition>(true),
+                    Factions = GetComponentLookup<CombatFaction>(true),
+                    AllowFriendlyFire = AllowFriendlyFire
+                }.Schedule(groups.Length, 1).Complete();
+                DamageBatchCount = checked(DamageBatchCount + 1);
+                LastDamageBatchTargetCount = groups.Length;
+
+                // Parallel completion order never determines event or transition sequence numbers.
+                for (int i = 0; i < count; i++)
+                {
+                    HealthRequest request = batch[i];
+                    DamageResolveResult result = results[i];
+                    reservedEvents -= 2;
+                    PublishResult(request, result.Failure, result.PreviousHealth, result.CurrentHealth);
+                    if (!result.CausedZero) continue;
+                    var pending = new PendingVitalTransition
+                    {
+                        Identity = request.TargetIdentity, Outcome = result.Outcome,
+                        GeneratedTick = Tick, EffectiveTick = checked(Tick + 1),
+                        Sequence = TakeSequence(ref nextTransition)
+                    };
+                    EntityManager.SetComponentData(request.Target, pending);
+                    reservedEvents++;
+                    transitions.Add(new ScheduledTransition { Target = request.Target, Value = pending });
+                }
+                damageRequests.Clear();
+            }
+        }
+    }
+
     private HealthFailure Accept(HealthRequest request)
     {
         HealthFailure failure = ValidateRequest(request);
@@ -209,8 +351,9 @@ public partial class HealthResolveSystem : SystemBase
             return HealthFailure.QueueFull;
         seen.Add(key, Tick);
         history.Enqueue((key, Tick));
-        requests.Add(request);
         reservedEvents += 2; // One result, plus at most one transition/respawn event.
+        if (request.Kind == HealthRequestKind.Damage) damageRequests.Add(request);
+        else requests.Add(request);
         return HealthFailure.None;
     }
 
@@ -258,36 +401,15 @@ public partial class HealthResolveSystem : SystemBase
         }
         if (!VitalActivity.CanAct(state) || pending.Sequence != 0)
         { PublishResult(request, HealthFailure.StateNotAllowed); return; }
-        if (request.Kind == HealthRequestKind.Damage && !AllowFriendlyFire &&
-            request.SourceFactionSnapshot != 0 && EntityManager.HasComponent<CombatFaction>(target) &&
-            EntityManager.GetComponentData<CombatFaction>(target).Value == request.SourceFactionSnapshot)
-        { PublishResult(request, HealthFailure.FriendlyFire); return; }
-
         int before = health.Current;
-        health.Current = request.Kind == HealthRequestKind.Damage
-            ? (int)Math.Max((long)health.Current - request.Amount, 0L)
-            : (int)Math.Min((long)health.Current + request.Amount, health.Maximum);
+        health.Current = (int)Math.Min((long)health.Current + request.Amount, health.Maximum);
         EntityManager.SetComponentData(target, health);
         PublishResult(request, HealthFailure.None, before, health.Current);
-        if (before > 0 && health.Current == 0)
-        {
-            pending = new PendingVitalTransition
-            {
-                Identity = request.TargetIdentity,
-                Outcome = EntityManager.GetComponentData<HealthPolicy>(target).OnZero == ZeroHealthOutcome.Death
-                    ? VitalState.Dead : VitalState.Disabled,
-                GeneratedTick = Tick, EffectiveTick = checked(Tick + 1),
-                Sequence = TakeSequence(ref nextTransition)
-            };
-            EntityManager.SetComponentData(target, pending);
-            reservedEvents++; // Carry the consequence's reservation across the next tick boundary.
-            transitions.Add(new ScheduledTransition { Target = target, Value = pending });
-        }
     }
 
     private void CommitTransitions()
     {
-        // Insertion follows deterministic request order; new transitions are appended only after this pass.
+        // Insertion follows commit order and monotonically increasing ticks.
         int count = 0;
         while (count < transitions.Count && transitions[count].Value.EffectiveTick <= Tick)
         {
@@ -382,7 +504,8 @@ public partial class HealthResolveSystem : SystemBase
     protected override void OnDestroy()
     {
         alive = false;
-        requests.Clear(); jobRequests.Clear(); intents.Clear(); transitions.Clear(); events.Clear(); seen.Clear(); history.Clear();
+        requests.Clear(); damageRequests.Clear(); jobRequests.Clear(); damageGroupIndices.Clear(); damageGroups.Clear();
+        intents.Clear(); transitions.Clear(); events.Clear(); seen.Clear(); history.Clear();
     }
 
     private struct ScheduledTransition { public Entity Target; public PendingVitalTransition Value; }
